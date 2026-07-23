@@ -119,13 +119,19 @@ public class PeptidoformTests
     public async Task SitesAndModificationsAreReportedSeparately()
     {
         // They are different numbers whenever a residue carries alternatives, and conflating them
-        // once made a histone look as though 93 annotations had been silently dropped.
+        // once made a histone look as though 93 annotations had been silently dropped. Checking
+        // only that both keys exist would pass even if they were the same field twice; the mini
+        // entry has two modified residues at two positions, so both counts must equal 2 and be
+        // reported independently.
         UseXml(MiniEntryXml);
 
         JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
 
-        Assert.That(data.TryGetProperty("annotated_modification_sites", out _), Is.True);
-        Assert.That(data.TryGetProperty("annotated_modifications_loaded", out _), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("annotated_modification_sites").GetInt32(), Is.EqualTo(2));
+            Assert.That(data.GetProperty("annotated_modifications_loaded").GetInt32(), Is.EqualTo(2));
+        });
     }
 
     // ---- the workflow --------------------------------------------------------
@@ -180,16 +186,21 @@ public class PeptidoformTests
     [Test]
     public async Task TheIsoformCapIsReportedSoTruncationIsVisible()
     {
-        // A truncated Peptidoform list and a short one look identical from outside.
+        // A truncated peptidoform list and a short one look identical from outside. Asserting only
+        // that the field exists would pass even if truncation were never detected, so this forces
+        // the cap to bind - max-isoforms 1 on a peptide with two possible modifications - and
+        // requires a non-zero count, a peptide actually reported at the cap.
         UseXml(MiniEntryXml);
 
         JsonElement data = await InvokeAsync(
-            "peptidoform", "fragments", "--accession", "P00001", "--min-length", "4", "--max-isoforms", "1");
+            "peptidoform", "fragments", "--accession", "P00001", "--min-length", "4",
+            "--max-mods", "2", "--max-isoforms", "1");
 
         Assert.Multiple(() =>
         {
             Assert.That(data.GetProperty("max_modification_isoforms").GetInt32(), Is.EqualTo(1));
-            Assert.That(data.TryGetProperty("peptides_at_isoform_cap", out _), Is.True);
+            Assert.That(data.GetProperty("peptides_at_isoform_cap").GetInt32(), Is.GreaterThan(0),
+                "the cap was forced to bind but no peptide was reported at it");
         });
     }
 

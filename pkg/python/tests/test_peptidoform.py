@@ -140,7 +140,7 @@ def test_modification_positions_index_the_peptides_own_residues(recorded_digest)
     residue — and at a residue that need not exist: a peptide MAR reported position 4 for its
     arginine."""
     checked = 0
-    for peptide in proteoform_peptides(recorded_digest):
+    for peptide in peptidoform_peptides(recorded_digest):
         for mod in peptide.modifications:
             residue = mod.get("one_based_residue")
             if residue is None:
@@ -160,7 +160,7 @@ def test_modification_positions_index_the_peptides_own_residues(recorded_digest)
     assert checked >= 1, "fixture has no residue-anchored modification to check the position of"
 
 
-def proteoform_peptides(_payload):
+def peptidoform_peptides(_payload):
     """The parsed peptides from the recorded digest."""
     return [p for p in peptidoform.fragments("P02768").peptides if p.modifications]
 
@@ -248,7 +248,10 @@ def test_every_default_is_reachable(captured):
     args = captured["args"]
     assert args[args.index("--protease") + 1] == "trypsin"
     assert args[args.index("--dissociation") + 1] == "HCD"
+    assert args[args.index("--missed-cleavages") + 1] == "3"
+    assert args[args.index("--min-length") + 1] == "5"
     assert args[args.index("--max-length") + 1] == "40"
+    assert args[args.index("--max-mods") + 1] == "1"
     assert args[args.index("--max-isoforms") + 1] == "9"
     assert "--no-modifications" in args
 

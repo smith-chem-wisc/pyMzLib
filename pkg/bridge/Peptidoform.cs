@@ -318,9 +318,21 @@ internal static class Peptidoform
 
         ThrowIfUniProtRejected(response.StatusCode, response.ReasonPhrase, accession, url);
 
-        await using Stream body = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        await using var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None);
-        await body.CopyToAsync(file).ConfigureAwait(false);
+        try
+        {
+            await using Stream body = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            await using var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None);
+            await body.CopyToAsync(file).ConfigureAwait(false);
+        }
+        catch
+        {
+            // A stream that fails mid-copy would otherwise orphan a partial temp file, since the
+            // caller only learns the path on a successful return and never gets a chance to clean it.
+            if (File.Exists(temp))
+                File.Delete(temp);
+            throw;
+        }
+
         return temp;
     }
 

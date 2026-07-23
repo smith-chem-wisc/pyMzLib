@@ -203,14 +203,6 @@ class ModificationCensus:
                 f"All {self.annotated} annotated modifications were applied, across "
                 f"{self.sites} residue positions."
             )
-        parts = [
-            f"{t['count']} × {t['type']}" for t in self.by_type if not t.get("loaded")
-        ]
-        if self.unresolved:
-            parts.append(
-                f"{len(self.unresolved)} unresolved name(s): {', '.join(self.unresolved)}"
-            )
-        skipped = ", ".join(parts)
         sentences = [
             f"{self.applied} of {self.annotated} annotated modifications were applied, across "
             f"{self.sites} residue positions."
@@ -324,20 +316,27 @@ def fragments(
         14 of 38 annotated modification sites were applied. Excluded: 24 × glycosylation site …
     """
     if not isinstance(accession, str) or not accession.strip():
-        raise _bridge.UsageError("A UniProt accession is required, e.g. ''P02768''.")
-    if not _ACCESSION.match(accession.strip().upper()):
+        raise _bridge.UsageError("A UniProt accession is required, e.g. 'P02768'.")
+    canonical = accession.strip().upper()
+    if not _ACCESSION.match(canonical):
         raise _bridge.UsageError(
-            f"''{accession}'' is not a valid UniProtKB accession. They look like ''P02768'' or "
-            "''A0A0B4J2D5'' — see https://www.uniprot.org/help/accession_numbers."
+            f"'{accession}' is not a valid UniProtKB accession. They look like 'P02768' or "
+            "'A0A0B4J2D5' — see https://www.uniprot.org/help/accession_numbers."
         )
+    # UniProt's accessions are upper-case and its API is case-sensitive, so the validated
+    # canonical form is what gets sent, not the caller's original casing.
+    if max_length is not None and (isinstance(max_length, bool) or not isinstance(max_length, int)):
+        raise _bridge.UsageError(f"max_length must be a whole number or None; got {max_length!r}.")
     for name, value in (("missed_cleavages", missed_cleavages), ("min_length", min_length),
-                        ("max_modifications", max_modifications)):
+                        ("max_modifications", max_modifications), ("max_isoforms", max_isoforms)):
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise _bridge.UsageError(f"{name} must be a non-negative whole number; got {value!r}.")
+    if max_isoforms < 1:
+        raise _bridge.UsageError(f"max_isoforms must be at least 1; got {max_isoforms}.")
 
     args = [
         "peptidoform", "fragments",
-        "--accession", accession.strip(),
+        "--accession", canonical,
         "--protease", protease,
         "--dissociation", dissociation,
         "--terminus", terminus,
