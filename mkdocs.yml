@@ -78,6 +78,7 @@ nav:
   - Getting started: getting-started.md
   - Guides:
       - PRIDE Archive: guides/pride.md
+      - Peptidoforms: guides/peptidoforms.md
   - API reference: reference.md
   - How it works:
       - Architecture: design/architecture.md

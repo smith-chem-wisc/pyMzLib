@@ -290,7 +290,10 @@ def fragments(
         modifications: Apply UniProt's annotated modifications. Pass ``False`` for the bare
             sequence — useful as a control, and the difference is usually large.
         missed_cleavages: Maximum missed cleavage sites per peptide.
-        min_length / max_length: Peptide length bounds. ``max_length=None`` means unbounded.
+        min_length: Shortest peptide to keep. The default of 7 silently discards shorter
+            peptides — roughly a third of a histone digest — so pass ``min_length=1`` when you
+            mean *every* peptide.
+        max_length: Longest peptide to keep. ``None`` means unbounded.
         max_modifications: Maximum modifications considered per peptide. Modification isoforms
             are enumerated combinatorially: histone H3.1 yields 49 bare tryptic peptides, 2,563
             at two modifications and 7,040 at three.
