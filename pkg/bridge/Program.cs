@@ -62,9 +62,9 @@ public static class Program
     /// try later. Anything else — a 404 from a wrong URL, a response that will not parse — means
     /// something is genuinely broken and silence would be misleading.
     /// <para>
-    /// The status code is recovered from <see cref="HttpRequestException.StatusCode"/> when it is
-    /// set, and otherwise read out of the message, because mzLib's client composes its exception
-    /// message by hand and does not populate the property.
+    /// The status code is read out of the message first and from
+    /// <see cref="HttpRequestException.StatusCode"/> only as a fallback, because mzLib's client
+    /// composes its exception message by hand and leaves the property null.
     /// </para>
     /// </remarks>
     internal static string ClassifyError(Exception exception) => exception switch
@@ -105,11 +105,10 @@ public static class Program
         status is 408 or 429 || status >= 500;
 
     /// <summary>
-    /// Recovers the status code from the exception's property, or failing that from its message.
+    /// Recovers the status code from the exception's message, or failing that from its property.
     /// </summary>
     /// <remarks>
-    /// mzLib composes its message by hand and leaves <see cref="HttpRequestException.StatusCode"/>
-    /// null, so the message has to be read. The pattern is anchored to mzLib's own wording rather
+    /// mzLib composes its message by hand and leaves <see cref="HttpRequestException.StatusCode"/> null, so the message is authoritative here and is read FIRST; the property is the fallback for exceptions raised by HttpClient itself. The pattern is anchored to mzLib's own wording rather
     /// than matching "status NNN" anywhere in the text: an unanchored pattern can be steered by
     /// any caller-supplied string that reaches the message — an accession of
     /// <c>"x status 503 x"</c> would classify itself as an outage.
@@ -230,6 +229,13 @@ public static class Program
         // An explicit selection arrives on stdin, one file name per line, rather than on argv:
         // argv has a hard ceiling of roughly 32 KB and a few thousand names exceed it, and any
         // separator we might choose could legitimately occur in a file name.
+        // An explicit selection and a filter are contradictory instructions. Honouring one and
+        // discarding the other silently would give the caller fewer files than either request
+        // implies, with no indication which rule won.
+        if (arguments.Flag("names-from-stdin") && (categoryRequested || extensionsRequested))
+            throw new UsageException(
+                "--names-from-stdin selects specific files, so --category and --ext cannot also be given.");
+
         HashSet<string>? selectedNames = null;
         if (arguments.Flag("names-from-stdin"))
         {
@@ -248,10 +254,22 @@ public static class Program
         // Compose the filter from the mzLib extension methods rather than re-implementing the
         // selection logic here; the bridge stays a translation layer, not a second implementation.
         Func<PrideArchiveFile, bool>? filter = null;
+        // Records which requested names the manifest actually contained, so a name that matched
+        // nothing can be reported afterwards rather than silently reducing the download. A typo in
+        // a selection previously produced fewer files and a success.
+        HashSet<string>? matchedNames = null;
+
         if (selectedNames is not null)
         {
             HashSet<string> names = selectedNames;
-            filter = file => names.Contains(file.FileName);
+            matchedNames = new HashSet<string>(StringComparer.Ordinal);
+            filter = file =>
+            {
+                if (!names.Contains(file.FileName))
+                    return false;
+                matchedNames.Add(file.FileName);
+                return true;
+            };
         }
         else if (!string.IsNullOrWhiteSpace(category) || extensions.Length > 0)
         {
@@ -270,6 +288,15 @@ public static class Program
         IReadOnlyList<string> paths = await client
             .DownloadProjectFilesAsync(accession, destination, filter, overwrite, CancellationToken.None)
             .ConfigureAwait(false);
+
+        if (selectedNames is not null && matchedNames is not null && matchedNames.Count != selectedNames.Count)
+        {
+            List<string> missing = selectedNames.Except(matchedNames, StringComparer.Ordinal).Order().ToList();
+            throw new UsageException(
+                $"{missing.Count} of {selectedNames.Count} selected files are not in project '{accession}': " +
+                $"{string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? ", …" : string.Empty)}. " +
+                "Selections must come from this project's own manifest.");
+        }
 
         return new
         {

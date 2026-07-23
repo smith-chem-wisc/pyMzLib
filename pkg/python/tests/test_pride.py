@@ -187,10 +187,23 @@ def test_download_rejects_blank_accession_before_touching_the_network(accession,
 
 
 @pytest.mark.parametrize("accession", ["pxd000001", "  PXD000001  ", "Pxd000001"])
-def test_accession_case_and_whitespace_are_normalised(recorded_manifest, accession):
+def test_accession_case_and_whitespace_are_normalised(recorded_manifest, monkeypatch, accession):
     """PRIDE's API is case-sensitive on the accession while our category matching is not. A
-    lowercase accession used to return [] — indistinguishable from an empty project."""
-    assert pride.list_files(accession)
+    lowercase accession used to return [] — indistinguishable from an empty project.
+
+    Asserting only that the call succeeds would pass even if normalisation were removed, because
+    the fixture ignores its arguments. The point is what reaches the bridge, so that is what is
+    checked."""
+    seen = {}
+
+    def capturing_invoke(*args, timeout=None):
+        seen["args"] = list(args)
+        return recorded_manifest
+
+    monkeypatch.setattr(_bridge, "invoke", capturing_invoke)
+    pride.list_files(accession)
+
+    assert seen["args"][seen["args"].index("--accession") + 1] == "PXD000001"
 
 
 @pytest.mark.parametrize("accession", ["banana", "PXD", "12345", "PXD00", "PXD000001x", "-PXD1"])
@@ -297,6 +310,41 @@ def test_download_without_a_filter_may_legitimately_write_nothing(monkeypatch, t
     repository's answer rather than a mistake in the call."""
     monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"paths": []})
     assert pride.download("PXD000001", tmp_path) == []
+
+
+def test_a_path_of_empty_string_is_the_current_directory_and_cannot_be_distinguished(captured_args):
+    """`Path("")` and `Path(".")` are the *same object* — pathlib collapses the empty string at
+    construction, so by the time a guard sees it there is nothing left to detect.
+
+    This is a real limitation and it is documented rather than papered over: the common mistake,
+    `dest = config.get("outdir", "")`, passes a **string** and is caught. Someone who writes
+    `Path(cfg.get("outdir", ""))` gets the current directory, exactly as if they had written
+    `Path(".")` — which is a legitimate destination we must not refuse.
+
+    (An earlier version of this test asserted a raise and had no mock, so it ran the real bridge
+    and downloaded 480 MB of PXD000001 into the source tree — demonstrating the hazard rather
+    more vividly than intended.)
+    """
+    assert Path("") == Path(".")
+    pride.download("PXD000001", Path(""))
+    assert captured_args["args"][captured_args["args"].index("--dest") + 1] == "."
+
+
+def test_an_extension_list_that_names_nothing_is_refused(tmp_path):
+    """It would otherwise normalise to [], omit --ext entirely, and download the whole project —
+    the same fail-open the bridge was just fixed for, one layer up."""
+    with pytest.raises(pymzlib.UsageError, match="names no extensions"):
+        pride.download("PXD000001", tmp_path, extensions=["", "   "])
+
+
+def test_a_file_name_containing_a_newline_is_refused(tmp_path):
+    """The stdin framing is newline-delimited, and a POSIX file name may legally contain one.
+    Splitting it silently would select the wrong files."""
+    odd = pride.PrideFile._from_wire(
+        {"file_name": "two\nlines.raw", "https_url": "https://x/a"}, "PXD000001"
+    )
+    with pytest.raises(pymzlib.UsageError, match="line break"):
+        pride.download_files([odd], tmp_path)
 
 
 def test_download_files_refuses_an_empty_selection(tmp_path):

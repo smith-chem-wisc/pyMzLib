@@ -242,14 +242,77 @@ public class VerbHandlerTests
     }
 
     [Test]
-    public void AnAbsentFilterStillDownloadsEverything()
+    public async Task AnAbsentFilterSelectsEveryFile()
     {
         // The counterpart: omitting the options entirely is a legitimate "give me all of it".
+        // Asserting only Throws.Nothing would keep passing if a regression narrowed the selection
+        // to none, which is the exact failure this pair of tests exists to detect.
         UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")}]"));
 
-        Assert.That(async () => await InvokeAsync(
-                "pride", "download", "--accession", "PXD012345", "--dest", "out"),
-            Throws.Nothing);
+        JsonElement data = await InvokeAsync("pride", "download", "--accession", "PXD012345", "--dest", "out");
+
+        Assert.That(data.GetProperty("downloaded_count").GetInt32(), Is.EqualTo(2));
+    }
+
+    // ---- explicit selection over stdin ---------------------------------------
+    //
+    // The headline capability of this change, and previously untested on the C# side.
+
+    [Test]
+    public async Task NamesFromStdinSelectExactlyThoseFiles()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")},{FileJson("c.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\nc.raw\n"));
+
+        JsonElement data = await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin");
+
+        Assert.That(data.GetProperty("downloaded_count").GetInt32(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ARequestedNameThatIsNotInTheProjectIsReported()
+    {
+        // Silently downloading fewer files than asked for is the failure mode this whole change
+        // set exists to remove: a typo would otherwise produce a short download and a success.
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\ntypo.raw\n"));
+
+        var ex = Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin"));
+
+        Assert.That(ex!.Message, Does.Contain("typo.raw"));
+    }
+
+    [Test]
+    public void AnExplicitSelectionAndAFilterAreContradictory()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\n"));
+
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out",
+            "--names-from-stdin", "--category", "RAW"));
+    }
+
+    [Test]
+    public void AnEmptySelectionOnStdinIsRejected()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("   \n\n"));
+
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin"));
+    }
+
+    [Test]
+    public void AnHttpFailureWithNoStatusAndNoInnerCauseIsOurProblem()
+    {
+        // The other side of the inner-exception rule. mzLib composes exceptions by hand to signal
+        // conditions that are ours — the paging guard, for one — and those must not be excused as
+        // outages, or they would be skipped by every suite and never seen again.
+        Assert.That(Program.ClassifyError(new HttpRequestException("something we did wrong")),
+            Is.EqualTo(nameof(HttpRequestException)));
     }
 
     // ---- helper --------------------------------------------------------------

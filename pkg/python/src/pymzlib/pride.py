@@ -78,20 +78,19 @@ def _normalise_destination(destination: object) -> Path:
     multi-gigabyte project across the working directory. The docstring had always promised this
     raised; now it does.
     """
-    if isinstance(destination, Path):
-        resolved = destination
-    elif isinstance(destination, str):
-        if not destination.strip():
-            raise _bridge.UsageError("A destination directory is required; got an empty string.")
-        resolved = Path(destination)
-    else:
+    if not isinstance(destination, (str, Path)):
         raise _bridge.UsageError(
             f"destination must be a path or string; got {type(destination).__name__} ({destination!r})."
         )
 
-    if not str(resolved).strip():
+    # Check the ORIGINAL text, not the constructed Path. `Path("")` is `Path(".")`, whose str() is
+    # "." — non-blank and truthy — so a guard applied after construction lets `Path("")` through
+    # and writes into the working directory, which is the very thing this function exists to stop.
+    raw = str(destination)
+    if not raw.strip():
         raise _bridge.UsageError("A destination directory is required; got an empty path.")
-    return resolved
+
+    return Path(destination)
 
 
 def _normalise_extensions(extensions: object) -> list[str]:
@@ -124,7 +123,17 @@ def _normalise_extensions(extensions: object) -> list[str]:
             raise _bridge.UsageError(
                 f"An extension may not contain a comma; got {value!r}. Pass separate list items."
             )
-    return [v.strip() for v in values if v.strip()]
+
+    kept = [v.strip() for v in values if v.strip()]
+    # Fail-open again, one layer up: a caller who asked for extensions and whose list normalises to
+    # nothing would have had `--ext` omitted entirely, which the bridge reads as "no filter" and
+    # downloads the whole project. Asking for a filter and getting everything is never right.
+    if values and not kept:
+        raise _bridge.UsageError(
+            f"extensions was given but names no extensions; got {list(values)!r}. "
+            "Omit it to download every file type."
+        )
+    return kept
 
 
 def _reject_flag_like(name: str, value: str) -> str:
@@ -421,9 +430,19 @@ def download_files(
     if not overwrite:
         args.append("--no-overwrite")
 
-    # The selection travels on stdin rather than argv. A few thousand file names would blow the
-    # ~32 KB command-line ceiling, and a name may legitimately contain any separator we might
-    # otherwise pick.
+    # The selection travels on stdin rather than argv: a few thousand names would blow the ~32 KB
+    # command-line ceiling. The framing is newline-delimited, which is *almost* general — a POSIX
+    # file name may legally contain a newline, so such a name would split into two and silently
+    # select the wrong files. PRIDE has never published one, but "never seen it" is not a contract,
+    # so it is refused explicitly rather than mis-parsed quietly.
+    embedded_newline = [f.file_name for f in selected if "\n" in f.file_name or "\r" in f.file_name]
+    if embedded_newline:
+        raise _bridge.UsageError(
+            f"Cannot select {embedded_newline[0]!r}: the file name contains a line break, which the "
+            "selection format cannot represent. Please open an issue — this is a limitation worth "
+            "fixing properly if a real repository ever publishes such a name."
+        )
+
     payload = "\n".join(f.file_name for f in selected)
     data = _bridge.invoke(*args, stdin=payload, timeout=timeout)
     return [Path(p) for p in data.get("paths", [])]

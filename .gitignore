@@ -52,3 +52,10 @@ dist_untagged/
 TestResults/
 .coverage
 coverage.xml
+# Downloaded repository data must never land in the tree. A test without a mock once wrote
+# 480 MB of PXD000001 into pkg/python; this is the last line of defence, not the first.
+/pkg/python/*.raw
+/pkg/python/*.mzXML
+/pkg/python/*.gz
+/pkg/python/*.dat
+/pkg/python/*.partial

@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# Pinned: PEP 639 `license = "<SPDX>"` and `license-files = [...]` are only honoured by hatchling
+# 1.27+. An older backend accepts both silently and ships a wheel with NO licence text, which is
+# exactly the bug this project just fixed - so the fix needs a floor or it can regress invisibly.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
