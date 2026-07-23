@@ -24,8 +24,7 @@ Referencing the package would drag all of that into the wheel. A `ProjectReferen
 narrowest project that carries `PrideArchiveClient` is both smaller and pinned to an exact
 commit, which matters when the bridge and the Python package must be built from the same source.
 
-Even so, the transitive graph is heavy: `UsefulProteomicsDatabases → Proteomics/Transcriptomics
-→ Omics → TorchSharp → libtorch`. See gap G7 — this is the main open engineering question, and
+Even so, the transitive graph is heavy: `UsefulProteomicsDatabases → Proteomics → Chromatography → TorchSharp → libtorch`. See gap G7 — this is the main open engineering question, and
 the best fix is upstream in mzLib, not here.
 
 Caveat: `rebuild-mzlib-for-metamorpheus` hardcodes `E:\GitClones\mzLib`; building from this
