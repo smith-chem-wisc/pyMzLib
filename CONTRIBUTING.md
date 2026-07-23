@@ -53,17 +53,57 @@ Both halves are tested, and both are gated in CI.
 
 | | Command | Gate |
 |---|---|---|
-| Python | `pytest -m "not network"` | 90% line + branch coverage |
-| Python (live) | `pytest -m network` | hits the real PRIDE Archive |
-| C# | `dotnet test pkg/bridge.tests/` | 85% over hand-written bridge code |
+| Python, offline | `pytest -m "not network"` | 90% line + branch coverage |
+| C#, offline | `dotnet test --filter "TestCategory!=ExternalService"` | 85% over hand-written bridge code |
+| Live canaries | `pytest -m network` · `dotnet test --filter "TestCategory=ExternalService"` | run in their own CI job |
 
-**Offline tests must stay offline.** They run against recorded fixtures, so they work on a plane
-and can't be broken by an EBI outage. Anything touching the network gets `@pytest.mark.network`.
+**Offline tests must stay offline.** They run against recorded fixtures and stub HTTP handlers, so
+they work on a plane and can't be broken by an EBI outage. Anything touching the network is marked
+— `@pytest.mark.network` in Python, `[Category("ExternalService")]` in C#, matching mzLib.
 
 **Both tiers matter, for different reasons.** Offline tests cover the logic — how a call is
-assembled, how an error is classified — and they're what runs on every push. Live tests are the
+assembled, how an error is classified — and they're what runs on every push. Live canaries are the
 only thing that would notice PRIDE or mzLib changing underneath us. Neither substitutes for the
 other.
+
+### A red build must never mean "the website was down"
+
+This is the convention pyMzLib inherits from mzLib, and it's worth understanding before you write
+a test that touches a service.
+
+Two failures look identical from the outside and mean opposite things:
+
+- **The service is unavailable** — down, rate-limited, 5xx, timed out. Not our bug. The test
+  should **skip**, with a message saying which service and why.
+- **The service answered but the contract broke** — wrong URL, response no longer parses, an
+  expected field missing. A real regression that must **fail**.
+
+If those aren't separated, a red build is ambiguous; ambiguous red builds get ignored; and that's
+how a genuine contract break survives for a month.
+
+pyMzLib draws the distinction **in the bridge**, not in a test helper. Availability failures are
+labelled `ServiceUnavailable` in the error envelope, so every consumer of the wire format gets it
+— including a future binding in another language — and both test suites simply turn that label
+into a skip:
+
+```python
+from conftest import external_service
+
+def test_something_live():
+    with external_service():          # a PRIDE outage skips; a contract break fails
+        files = pymzlib.pride.list_files("PXD000001")
+    assert files
+```
+
+```csharp
+[Test]
+public Task SomethingLive() =>
+    ExternalServiceTestHelper.RunAsync("PRIDE Archive", async () => { /* ... */ });
+```
+
+One rule when extending the classifier: **never let a programming error be excused as an outage.**
+A `NullReferenceException` reported as `ServiceUnavailable` would be skipped by every suite and
+never seen again. HTTP 408, 429, and 5xx are unavailable; 404 and 400 are ours.
 
 Some notes on the coverage numbers, because they're easy to misread:
 

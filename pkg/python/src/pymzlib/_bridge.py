@@ -22,6 +22,7 @@ from typing import Any
 __all__ = [
     "PyMzLibError",
     "BridgeError",
+    "ServiceUnavailableError",
     "UsageError",
     "BridgeNotFoundError",
     "bridge_path",
@@ -35,6 +36,10 @@ PROTOCOL_VERSION = 1
 #: Environment variable pointing at a bridge executable, overriding the bundled one.
 #: Used during development, before a self-contained binary has been staged into the package.
 BRIDGE_ENV_VAR = "PYMZLIB_BRIDGE"
+
+#: The error type the bridge uses for availability failures. Must match
+#: Program.ServiceUnavailableType on the C# side — the two halves agree by this string.
+SERVICE_UNAVAILABLE_TYPE = "ServiceUnavailable"
 
 
 class PyMzLibError(Exception):
@@ -65,6 +70,27 @@ class BridgeError(PyMzLibError):
     def __init__(self, error_type: str, message: str) -> None:
         super().__init__(message)
         self.error_type = error_type
+
+
+class ServiceUnavailableError(BridgeError):
+    """An external service is unavailable — down, rate-limited, timing out, or unreachable.
+
+    This is deliberately a distinct type, because the difference between "the repository is
+    having a bad morning" and "something is broken" is the difference between retrying later and
+    filing a bug. Catch it to back off and retry::
+
+        try:
+            files = pymzlib.pride.list_files("PXD000001")
+        except pymzlib.ServiceUnavailableError:
+            ...   # EBI's problem; try again later
+        except pymzlib.BridgeError:
+            ...   # ours
+
+    The classification happens in the bridge rather than here, so every consumer of the wire
+    format gets it and not only Python. HTTP 408, 429, and 5xx count as unavailable; 404 and 400
+    do not, because a wrong URL or a malformed request is our problem and excusing it as an
+    outage would hide a real bug.
+    """
 
 
 def _platform_tag() -> str:
@@ -131,7 +157,9 @@ def invoke(*args: str, timeout: float | None = None) -> Any:
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise BridgeError("Timeout", f"mzLib bridge timed out after {timeout}s.") from exc
+        raise ServiceUnavailableError(
+            "Timeout", f"mzLib bridge timed out after {timeout}s."
+        ) from exc
 
     stdout = completed.stdout.strip()
     if not stdout:
@@ -155,6 +183,8 @@ def invoke(*args: str, timeout: float | None = None) -> Any:
     message = error.get("message", "mzLib reported a failure with no message.")
     if error_type == "usage":
         raise UsageError(message)
+    if error_type == SERVICE_UNAVAILABLE_TYPE:
+        raise ServiceUnavailableError(error_type, message)
     raise BridgeError(error_type, message)
 
 

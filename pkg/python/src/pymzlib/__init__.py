@@ -18,6 +18,7 @@ The first area covered is the PRIDE Archive::
 from . import pride
 from ._bridge import (
     BridgeError,
+    ServiceUnavailableError,
     BridgeNotFoundError,
     PyMzLibError,
     UsageError,
@@ -31,6 +32,7 @@ __all__ = [
     "pride",
     "PyMzLibError",
     "BridgeError",
+    "ServiceUnavailableError",
     "BridgeNotFoundError",
     "UsageError",
     "bridge_path",

@@ -140,8 +140,25 @@ print(f"Wrote {len(paths)} files")
 | Exception | Means |
 |---|---|
 | `UsageError` | The accession is blank, or `page_size` isn't positive. Raised before any network call. |
-| `BridgeError` with `error_type='HttpRequestException'` | PRIDE returned a failure status, or was unreachable. |
+| `ServiceUnavailableError` | PRIDE was down, rate-limiting, or timed out (HTTP 408/429/5xx). **Not your bug** — retry later. |
+| `BridgeError` with `error_type='HttpRequestException'` | PRIDE answered with a client error such as 404. Something about the request is wrong. |
 | `BridgeError` with `error_type='NotSupportedException'` | A selected file has no HTTPS location (Aspera-only). Filter on `downloadable` first. |
+
+`ServiceUnavailableError` is a subclass of `BridgeError`, so catching `BridgeError` still catches
+everything. Separating them lets you retry the failures worth retrying and report the rest:
+
+```python
+import time
+
+for attempt in range(3):
+    try:
+        files = pymzlib.pride.list_files("PXD000001")
+        break
+    except pymzlib.ServiceUnavailableError:
+        time.sleep(30)      # EBI's problem; it may well pass
+else:
+    raise SystemExit("PRIDE unavailable after three attempts")
+```
 
 ```python
 try:

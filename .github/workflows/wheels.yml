@@ -47,10 +47,13 @@ jobs:
           python-version: '3.12'
 
       # --- C# -------------------------------------------------------------------------------
+      # ExternalService tests are excluded here and run in their own job below. This job must be
+      # able to fail only for reasons that are our fault.
       - name: Bridge tests
         run: >
           dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj
           -c Release -p:Platform=x64 --nologo
+          --filter "TestCategory!=ExternalService"
           --collect:"XPlat Code Coverage"
 
       # The raw number from the line above covers all of mzLib and reads about 0.6%, which is
@@ -70,13 +73,6 @@ jobs:
           pip install -e ".[dev]"
           pytest -m "not network" --cov=pymzlib --cov-report=xml --cov-report=term-missing
 
-      # Non-blocking on purpose: an EBI outage is not a broken pull request. It still shows up
-      # as a failed step, so a real contract break is visible rather than silent.
-      - name: Python tests, live against PRIDE
-        working-directory: pkg/python
-        continue-on-error: true
-        run: pytest -m network -v
-
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         env:
@@ -84,6 +80,55 @@ jobs:
         with:
           files: pkg/python/coverage.xml,pkg/bridge.tests/TestResults/*/coverage.cobertura.xml
           fail_ci_if_error: false
+
+  # ---------------------------------------------------------------------------------------
+  # Live canaries against EBI, in their own job, following mzLib's ExternalService convention.
+  #
+  # Everything above runs against stubs and recorded fixtures, so it would keep passing even if
+  # PRIDE changed its API tomorrow. These are the tests that would notice — and they are the only
+  # ones whose result depends on a third party, which is exactly why they are quarantined here
+  # rather than mixed into the required run.
+  #
+  # There is no continue-on-error, deliberately. The bridge classifies availability failures as
+  # ServiceUnavailable, and both suites turn that into a *skip* with an explanatory message. So a
+  # failure in this job means the contract broke, not that EBI is down — which is the whole point:
+  # a red result should never leave anyone wondering whose fault it is.
+  # ---------------------------------------------------------------------------------------
+  external-services:
+    name: live canaries (PRIDE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out pinned mzLib
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
+          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Bridge canaries
+        run: >
+          dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj
+          -c Release -p:Platform=x64 --nologo
+          --filter "TestCategory=ExternalService"
+          --logger "console;verbosity=normal"
+
+      - name: Build the bridge for the Python canaries
+        shell: pwsh
+        run: ./pkg/build/publish-bridge.ps1 -Runtime linux-x64
+
+      - name: Python canaries
+        working-directory: pkg/python
+        run: |
+          pip install -e ".[dev]"
+          pytest -m network -v -rs   # -rs prints the reason for any skip, so an outage is visible
 
   # ---------------------------------------------------------------------------------------
   # One Linux runner cross-builds every platform's payload and wheel. Cheap, and it keeps the
@@ -199,11 +244,11 @@ jobs:
         working-directory: pkg/python
         run: python -m pytest -m "not network" -v
 
-      - name: Live tests against PRIDE
+      # A skip here means EBI was unavailable, not that this platform is broken; -rs prints the
+      # reason so the distinction is visible in the log.
+      - name: Live canaries
         working-directory: pkg/python
-        continue-on-error: true   # EBI outages are not our bug; see the ExternalService convention
-        run: python -m pytest -m "network" -v
-
+        run: python -m pytest -m "network" -v -rs
   # ---------------------------------------------------------------------------------------
   # The claim being made is "you do not need .NET installed." GitHub's runners have .NET on
   # them, so passing there does not prove it. A stock python:slim container does.

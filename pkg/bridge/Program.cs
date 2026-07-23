@@ -1,5 +1,8 @@
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 
@@ -36,6 +39,56 @@ public static class Program
         WriteIndented = false,
     };
 
+    /// <summary>
+    /// How a <see cref="PrideArchiveClient"/> is obtained. Tests replace this with one built over a
+    /// stub <see cref="HttpMessageHandler"/> so the verb handlers can be exercised without touching
+    /// the network — the same approach mzLib's own PrideArchiveClient tests use.
+    /// </summary>
+    internal static Func<PrideArchiveClient> PrideClientFactory { get; set; } = () => new PrideArchiveClient();
+
+    /// <summary>
+    /// The error type reported when an external service is unavailable, as opposed to something
+    /// here being wrong. Callers key off this to decide whether retrying later is sensible; the
+    /// test suites use it to skip rather than fail when EBI is down.
+    /// </summary>
+    internal const string ServiceUnavailableType = "ServiceUnavailable";
+
+    /// <summary>
+    /// Names the error type a failure should cross the boundary as.
+    /// </summary>
+    /// <remarks>
+    /// The distinction worth drawing is availability versus correctness. A timeout, a dropped
+    /// socket, or an HTTP 408/429/5xx means the service is having a bad day and the caller should
+    /// try later. Anything else — a 404 from a wrong URL, a response that will not parse — means
+    /// something is genuinely broken and silence would be misleading.
+    /// <para>
+    /// The status code is recovered from <see cref="HttpRequestException.StatusCode"/> when it is
+    /// set, and otherwise read out of the message, because mzLib's client composes its exception
+    /// message by hand and does not populate the property.
+    /// </para>
+    /// </remarks>
+    internal static string ClassifyError(Exception exception) => exception switch
+    {
+        TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
+        SocketException => ServiceUnavailableType,
+        HttpRequestException http when IsAvailabilityStatus(StatusCodeOf(http)) => ServiceUnavailableType,
+        _ => exception.GetType().Name,
+    };
+
+    /// <summary>An HTTP status that means "not now" rather than "not ever".</summary>
+    private static bool IsAvailabilityStatus(int? status) =>
+        status is 408 or 429 || status >= 500;
+
+    /// <summary>Recovers the status code from the exception's property, or failing that its message.</summary>
+    private static int? StatusCodeOf(HttpRequestException exception)
+    {
+        if (exception.StatusCode.HasValue)
+            return (int)exception.StatusCode.Value;
+
+        Match match = Regex.Match(exception.Message, @"\bstatus (\d{3})\b", RegexOptions.IgnoreCase);
+        return match.Success ? int.Parse(match.Groups[1].Value) : null;
+    }
+
     /// <summary>Runs one verb. Exit code 0 on success, 1 on a handled failure, 2 on bad usage.</summary>
     private static async Task<int> Main(string[] args)
     {
@@ -54,13 +107,20 @@ public static class Program
         {
             // Every failure crosses the boundary as structured data, never as a stack trace on
             // stdout: the caller's language has no way to interpret a .NET exception dump.
-            WriteError(ex.GetType().Name, ex.Message);
+            //
+            // Availability failures are labelled as such rather than left for the caller to
+            // guess at. The distinction that matters to anyone consuming this is "the service is
+            // down, try later" versus "something here is actually broken", and the bridge is the
+            // only layer with enough information to tell them apart. Classifying here rather than
+            // in a Python test helper means every consumer gets it — including a future binding
+            // in another language.
+            WriteError(ClassifyError(ex), ex.Message);
             return 1;
         }
     }
 
     /// <summary>Routes to the verb named by the leading positional arguments.</summary>
-    private static async Task<object> DispatchAsync(string[] args)
+    internal static async Task<object> DispatchAsync(string[] args)
     {
         var arguments = new Arguments(args);
 
@@ -91,7 +151,7 @@ public static class Program
         string accession = arguments.Required("accession");
         int pageSize = arguments.OptionalInt("page-size", 100);
 
-        using var client = new PrideArchiveClient();
+        using PrideArchiveClient client = PrideClientFactory();
         List<PrideArchiveFile> files = await client
             .GetProjectFilesAsync(accession, pageSize, CancellationToken.None)
             .ConfigureAwait(false);
@@ -134,7 +194,7 @@ public static class Program
             };
         }
 
-        using var client = new PrideArchiveClient();
+        using PrideArchiveClient client = PrideClientFactory();
         IReadOnlyList<string> paths = await client
             .DownloadProjectFilesAsync(accession, destination, filter, overwrite, CancellationToken.None)
             .ConfigureAwait(false);

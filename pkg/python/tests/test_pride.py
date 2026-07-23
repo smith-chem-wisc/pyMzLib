@@ -178,34 +178,6 @@ def test_download_rejects_blank_accession_before_touching_the_network(accession,
         pride.download(accession, tmp_path)
 
 
-# --------------------------------------------------------------------------- network
-
-
-@pytest.mark.network
-def test_bridge_protocol_matches():
-    info = pymzlib.bridge_version()
-    assert info["protocol"] == _bridge.PROTOCOL_VERSION
-
-
-@pytest.mark.network
-def test_live_manifest_matches_recording():
-    """The live manifest should still contain what we recorded — a canary on PRIDE and mzLib."""
-    live = pride.list_files("PXD000001")
-    assert len(live) >= 8
-    assert any(f.category == "RAW" for f in live)
-
-
-@pytest.mark.network
-def test_unknown_accession_returns_empty_not_error():
-    """PRIDE's own behavior for an unknown accession is an empty result; preserve it."""
-    assert pride.list_files("PXD999999999") == []
-
-
-@pytest.mark.network
-@pytest.mark.slow
-def test_download_writes_the_file(tmp_path):
-    written = pride.download("PXD000001", tmp_path, extensions=[".fasta"])
-    assert len(written) == 1
-    assert written[0].is_file()
-    assert written[0].stat().st_size > 0
-    assert not list(tmp_path.glob("*.partial")), "no partial file may survive a successful download"
+# The live canaries now live in test_pride_live.py, where each one routes through
+# external_service() so a PRIDE outage skips with an explanatory message instead of
+# failing. Keeping them here, bare, made a red build ambiguous.
