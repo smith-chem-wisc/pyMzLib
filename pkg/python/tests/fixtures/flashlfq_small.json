@@ -1,0 +1,36 @@
+{
+  "psm_file": "/abs/AllPSMs.psmtsv",
+  "identification_count": 4,
+  "parameters": {
+    "normalize": false,
+    "ppm_tolerance": 10.0,
+    "isotope_ppm_tolerance": 5.0,
+    "integrate": false,
+    "match_between_runs": true,
+    "mbr_ppm_tolerance": 10.0,
+    "mbr_q_value_threshold": 0.05,
+    "use_shared_peptides_for_protein_quant": false,
+    "bayesian_protein_quant": false,
+    "max_threads": 1
+  },
+  "spectra_files": [
+    {"file_name": "run_3", "full_path": "/abs/run_3.mzML", "condition": "", "biological_replicate": 0, "technical_replicate": 0, "fraction": 0, "peak_count": 3, "mbr_peak_count": 1},
+    {"file_name": "run_4", "full_path": "/abs/run_4.mzML", "condition": "treated", "biological_replicate": 1, "technical_replicate": 0, "fraction": 0, "peak_count": 2, "mbr_peak_count": 0}
+  ],
+  "peptide_count": 2,
+  "protein_count": 2,
+  "peptides": [
+    {"sequence": "PEPTIDEK", "base_sequence": "PEPTIDEK", "protein_groups": "P12345", "intensities": {"run_3": 1000.0, "run_4": 500.0}, "detection_types": {"run_3": "MSMS", "run_4": "MBR"}},
+    {"sequence": "AC[Carbamidomethyl]DEFR", "base_sequence": "ACDEFR", "protein_groups": "P67890;Q11111", "intensities": {"run_3": 2000.0, "run_4": null}, "detection_types": {"run_3": "MSMS", "run_4": "NotDetected"}}
+  ],
+  "proteins": [
+    {"protein_group": "P12345", "gene_name": "GENE1", "organism": "Homo sapiens", "intensities": {"run_3": 1000.0, "run_4": 500.0}},
+    {"protein_group": "P67890", "gene_name": "GENE2", "organism": "Homo sapiens", "intensities": {"run_3": null, "run_4": null}}
+  ],
+  "peaks": [
+    {"file_name": "run_3", "base_sequence": "PEPTIDEK", "sequence": "PEPTIDEK", "intensity": 1000.0, "detection_type": "MSMS", "retention_time": 30.1, "num_identifications": 1, "protein_groups": "P12345"},
+    {"file_name": "run_4", "base_sequence": "PEPTIDEK", "sequence": "PEPTIDEK", "intensity": 500.0, "detection_type": "MBR", "retention_time": 30.3, "num_identifications": 1, "protein_groups": "P12345"},
+    {"file_name": "run_3", "base_sequence": "ACDEFR", "sequence": "AC[Carbamidomethyl]DEFR", "intensity": 2000.0, "detection_type": "MSMS", "retention_time": 22.0, "num_identifications": 1, "protein_groups": "P67890;Q11111"}
+  ],
+  "output_directory": null
+}

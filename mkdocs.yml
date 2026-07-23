@@ -79,12 +79,14 @@ nav:
   - Guides:
       - PRIDE Archive: guides/pride.md
       - Peptidoforms: guides/peptidoforms.md
+      - FlashLFQ: guides/flashlfq.md
   - API reference: reference.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md
   - Contributing:
       - Building from source: contributing/building.md
+      - Conventions: contributing/conventions.md
       - Adding a capability: contributing/adding-a-capability.md
       - Releasing: contributing/releasing.md
   - FAQ: faq.md
