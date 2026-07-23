@@ -37,6 +37,11 @@
     <ProjectReference Include="..\..\code\mzLib\mzLib\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\..\code\mzLib\mzLib\Omics\Omics.csproj" />
     <ProjectReference Include="..\..\code\mzLib\mzLib\MassSpectrometry\MassSpectrometry.csproj" />
+    <!-- FlashLFQ carries the label-free quant engine AND the MakeIdentifications extension that
+         turns a Readers result file into FlashLFQ inputs; it transitively brings Readers and
+         MassSpectrometry. This is the narrowest seam that lets the bridge do quant with mzLib
+         alone (no MetaMorpheus). See design/expansion-plans/flashlfq-tranche.md. -->
+    <ProjectReference Include="..\..\code\mzLib\mzLib\FlashLFQ\FlashLFQ.csproj" />
   </ItemGroup>
 
 </Project>

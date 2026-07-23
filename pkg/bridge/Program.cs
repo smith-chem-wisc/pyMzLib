@@ -164,8 +164,9 @@ public static class Program
             "pride files" => await PrideFilesAsync(arguments).ConfigureAwait(false),
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
+            "quant flashlfq" => Quantification.FlashLfq(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq."),
         };
     }
 
@@ -419,6 +420,19 @@ public static class Program
                 return fallback;
             if (!int.TryParse(raw, out int parsed))
                 throw new UsageException($"Option --{name} must be an integer; got '{raw}'.");
+            return parsed;
+        }
+
+        public double OptionalDouble(string name, double fallback)
+        {
+            string? raw = Optional(name);
+            if (raw == null)
+                return fallback;
+            // Invariant culture, matching the executable's InvariantGlobalization: a caller passing
+            // "0.05" must not be reinterpreted as 5 by a comma-decimal locale on the host machine.
+            if (!double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double parsed))
+                throw new UsageException($"Option --{name} must be a number; got '{raw}'.");
             return parsed;
         }
     }

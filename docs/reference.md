@@ -16,6 +16,13 @@ Generated from the docstrings in the source, so it cannot fall out of step with 
       show_root_full_path: false
       heading_level: 3
 
+## `pymzlib.flashlfq`
+
+::: pymzlib.flashlfq
+    options:
+      show_root_full_path: false
+      heading_level: 3
+
 ## Errors and diagnostics
 
 Everything pyMzLib raises inherits from `PyMzLibError`, so a single `except` catches all of it.
