@@ -277,11 +277,12 @@ class FlashLfqResults:
 
     @property
     def mbr_peak_count(self) -> int:
-        """Total match-between-runs peaks across every run — the authoritative MBR count.
+        """Total match-between-runs peaks (transfers) across every run.
 
-        This is the number to report for "peptides rescued by MBR"; the peptide roll-up
-        (:attr:`Peptide.detection_types`) under-counts it, so prefer this or :meth:`mbr_peaks`.
-        Zero unless ``match_between_runs`` was on.
+        This counts transferred **peaks**, not distinct peptides: one peptide rescued in two runs is
+        two peaks here. For "how many peptides did MBR rescue," use :attr:`mbr_rescued_peptide_count`.
+        Either way, do not count MBR from the peptide roll-up (:attr:`Peptide.detection_types`) — it
+        under-counts. Zero unless ``match_between_runs`` was on.
         """
         return sum(f.mbr_peak_count for f in self.spectra_files)
 
@@ -289,6 +290,16 @@ class FlashLfqResults:
     def mbr_peaks(self) -> list[Peak]:
         """Exactly the peaks transferred by match-between-runs (``detection_type == "MBR"``)."""
         return [p for p in self.peaks if p.is_mbr]
+
+    @property
+    def mbr_rescued_peptide_count(self) -> int:
+        """Distinct peptides quantified in at least one run only by match-between-runs.
+
+        The honest answer to "how many peptides did MBR rescue" — distinct modified sequences among
+        :attr:`mbr_peaks`. This equals :attr:`mbr_peak_count` only when no peptide was rescued in
+        more than one run.
+        """
+        return len({p.sequence for p in self.mbr_peaks})
 
     @classmethod
     def _from_wire(cls, data: dict[str, Any]) -> "FlashLfqResults":

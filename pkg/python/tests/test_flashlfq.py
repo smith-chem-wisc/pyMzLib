@@ -122,6 +122,12 @@ def test_peaks_carry_mbr_the_peptide_table_drops(recorded):
     assert any(pk.is_mbr for pk in result.peaks)
 
 
+def test_mbr_rescued_peptide_count_is_distinct_sequences(recorded):
+    # One MBR peak in the fixture (PEPTIDEK in run_4) -> exactly one distinct rescued peptide.
+    result = flashlfq.quantify("AllPSMs.psmtsv", ["run_3.mzML", "run_4.mzML"])
+    assert result.mbr_rescued_peptide_count == 1
+
+
 # --------------------------------------------------------------------------- argument assembly
 
 
