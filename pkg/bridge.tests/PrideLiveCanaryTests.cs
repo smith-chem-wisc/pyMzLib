@@ -84,7 +84,7 @@ public class PrideLiveCanaryTests
 /// Live canary against the real UniProt REST API.
 /// </summary>
 /// <remarks>
-/// The proteoform tests all run against a local XML, so they would keep passing if UniProt changed
+/// The Peptidoform tests all run against a local XML, so they would keep passing if UniProt changed
 /// its schema or its URL scheme tomorrow. This is the one that would notice. Same convention as
 /// the PRIDE canary: an outage skips with an explanation, a contract break fails.
 /// </remarks>
@@ -102,7 +102,7 @@ public class UniProtLiveCanaryTests
         ExternalServiceTestHelper.RunAsync("UniProt", async () =>
         {
             JsonElement data = await InvokeAsync(
-                "proteoform", "fragments", "--accession", CanaryAccession, "--max-mods", "0");
+                "peptidoform", "fragments", "--accession", CanaryAccession, "--max-mods", "0");
 
             Assert.Multiple(() =>
             {
@@ -121,7 +121,7 @@ public class UniProtLiveCanaryTests
             // The failure this guards is silent and was live: without ptmlist.txt the entry parses
             // perfectly, resolves no modifications, and reports a confident zero.
             JsonElement data = await InvokeAsync(
-                "proteoform", "fragments", "--accession", CanaryAccession, "--max-mods", "1");
+                "peptidoform", "fragments", "--accession", CanaryAccession, "--max-mods", "1");
 
             Assert.That(data.GetProperty("annotated_modifications_loaded").GetInt32(), Is.GreaterThan(0),
                 "no annotated modification resolved — ptmlist.txt is missing or its format changed");
@@ -136,7 +136,7 @@ public class UniProtLiveCanaryTests
             // catching a regression.
             try
             {
-                await InvokeAsync("proteoform", "fragments", "--accession", "P99999999");
+                await InvokeAsync("peptidoform", "fragments", "--accession", "P99999999");
                 Assert.Fail("expected a usage error for an unknown accession");
             }
             catch (Program.UsageException)

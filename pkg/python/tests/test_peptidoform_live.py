@@ -1,4 +1,4 @@
-"""Live canaries for the proteoform workflow, against the real UniProt.
+"""Live canaries for the Peptidoform workflow, against the real UniProt.
 
 These are the tests that would notice UniProt changing its XML, mzLib changing its digestion, or
 the modification definitions failing to resolve. Each routes through ``external_service()`` so an
@@ -29,7 +29,7 @@ HYDROGEN_MASS = 1.00782503207
 
 def test_the_workflow_still_answers_end_to_end():
     with external_service("UniProt"):
-        digest = pymzlib.proteoform.fragments(ALBUMIN, max_modifications=1)
+        digest = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=1)
 
     assert digest.accession == ALBUMIN
     assert "lbumin" in digest.full_name
@@ -39,7 +39,7 @@ def test_the_workflow_still_answers_end_to_end():
 def test_etd_produces_c_and_z_ions_not_b_and_y():
     """The dissociation type must reach mzLib, or the caller silently gets the wrong chemistry."""
     with external_service("UniProt"):
-        digest = pymzlib.proteoform.fragments(ALBUMIN, max_modifications=0, min_length=20)
+        digest = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=0, min_length=20)
 
     kinds = {f.product_type for p in digest.peptides for f in p.fragments}
     assert any(k.startswith("c") for k in kinds), f"expected c ions from ETD, got {sorted(kinds)}"
@@ -54,7 +54,7 @@ def test_fragment_series_close_on_the_precursor_mass():
     fragment table with sensible spacings and monotonic series that is nonetheless wrong.
     """
     with external_service("UniProt"):
-        digest = pymzlib.proteoform.fragments(ALBUMIN, max_modifications=0, min_length=15)
+        digest = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=0, min_length=15)
 
     checked = 0
     for peptide in digest.peptides[:5]:
@@ -80,7 +80,7 @@ def test_fragment_series_close_on_the_precursor_mass():
 def test_the_annotation_census_reports_what_was_excluded():
     """Albumin's annotations are mostly glycosylation sites, which have no defined mass."""
     with external_service("UniProt"):
-        census = pymzlib.proteoform.fragments(ALBUMIN, max_modifications=0).modification_census
+        census = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=0).modification_census
 
     assert census.annotated > census.applied
     assert census.excluded > 0
@@ -90,8 +90,8 @@ def test_the_annotation_census_reports_what_was_excluded():
 def test_modifications_change_the_answer_substantially():
     """The control that shows the annotations are doing real work."""
     with external_service("UniProt"):
-        with_mods = pymzlib.proteoform.fragments(ALBUMIN, max_modifications=1)
-        without = pymzlib.proteoform.fragments(ALBUMIN, modifications=False)
+        with_mods = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=1)
+        without = pymzlib.peptidoform.fragments(ALBUMIN, modifications=False)
 
     assert len(with_mods.peptides) > len(without.peptides)
     assert with_mods.modified_peptides
@@ -102,8 +102,8 @@ def test_modifications_change_the_answer_substantially():
 def test_modification_isoforms_are_enumerated_combinatorially():
     """Histones are where this matters: alternatives at one residue multiply across residues."""
     with external_service("UniProt"):
-        one = pymzlib.proteoform.fragments(HISTONE, max_modifications=1)
-        two = pymzlib.proteoform.fragments(HISTONE, max_modifications=2)
+        one = pymzlib.peptidoform.fragments(HISTONE, max_modifications=1)
+        two = pymzlib.peptidoform.fragments(HISTONE, max_modifications=2)
 
     assert len(two.peptides) > len(one.peptides) * 2, (
         "modification isoforms should multiply, not add"
@@ -113,26 +113,26 @@ def test_modification_isoforms_are_enumerated_combinatorially():
 @pytest.mark.slow
 def test_the_isoform_cap_truncates_and_says_so():
     """mzLib's default of 1024 isoforms per peptide truncates silently. It must not be silent
-    here: a truncated proteoform list is indistinguishable from a short one."""
+    here: a truncated Peptidoform list is indistinguishable from a short one."""
     with external_service("UniProt"):
-        capped = pymzlib.proteoform.fragments(HISTONE, max_modifications=4, max_isoforms=1024)
-        raised = pymzlib.proteoform.fragments(HISTONE, max_modifications=4, max_isoforms=100_000)
+        capped = pymzlib.peptidoform.fragments(HISTONE, max_modifications=4, max_isoforms=1024)
+        raised = pymzlib.peptidoform.fragments(HISTONE, max_modifications=4, max_isoforms=100_000)
 
     assert capped.truncated, "the default cap binds on a histone at four modifications"
     assert capped.peptides_at_cap > 0
     assert not raised.truncated
     assert len(raised.peptides) > len(capped.peptides), (
-        "raising the cap must recover proteoforms the default discarded"
+        "raising the cap must recover Peptidoforms the default discarded"
     )
 
 
 def test_an_unknown_accession_is_a_usage_error_not_an_empty_result():
     with external_service("UniProt"):
         with pytest.raises(pymzlib.UsageError):
-            pymzlib.proteoform.fragments("P99999999")
+            pymzlib.peptidoform.fragments("P99999999")
 
 
 def test_an_unknown_protease_names_the_alternatives():
     with external_service("UniProt"):
         with pytest.raises(pymzlib.UsageError, match="Unknown protease"):
-            pymzlib.proteoform.fragments(ALBUMIN, protease="banana")
+            pymzlib.peptidoform.fragments(ALBUMIN, protease="banana")

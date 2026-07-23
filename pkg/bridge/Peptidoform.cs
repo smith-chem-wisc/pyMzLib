@@ -9,7 +9,7 @@ using UsefulProteomicsDatabases;
 namespace MzLibBridge;
 
 /// <summary>
-/// The proteoform workflow: fetch an annotated protein, digest it, and fragment the peptides.
+/// The Peptidoform workflow: fetch an annotated protein, digest it, and fragment the peptides.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,7 +28,7 @@ namespace MzLibBridge;
 /// the point is to open the doors, not to hide them.
 /// </para>
 /// </remarks>
-internal static class Proteoform
+internal static class Peptidoform
 {
     /// <summary>
     /// How a UniProtKB entry''s XML is obtained, given an accession, returning a local file path.
@@ -82,7 +82,7 @@ internal static class Proteoform
     }
 
     /// <summary>
-    /// <c>proteoform fragments --accession P02768 [--protease trypsin] [--dissociation ETD]
+    /// <c>Peptidoform fragments --accession P02768 [--protease trypsin] [--dissociation ETD]
     /// [--no-modifications] [--missed-cleavages 2] [--min-length 7] [--max-length 0]
     /// [--max-mods 2] [--terminus Both]</c>
     /// </summary>

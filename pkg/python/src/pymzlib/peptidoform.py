@@ -1,10 +1,10 @@
-"""Proteoform-level questions: digest an annotated protein and fragment its peptides.
+"""Peptidoform-level questions: digest an annotated protein and fragment its peptides.
 
 The question this answers is the one a mass spectrometrist actually asks — *what fragments would
 I see for this protein's peptides?* — in one call:
 
     >>> import pymzlib
-    >>> digest = pymzlib.proteoform.fragments("P02768")          # doctest: +SKIP
+    >>> digest = pymzlib.peptidoform.fragments("P02768")          # doctest: +SKIP
     >>> len(digest.peptides)                                      # doctest: +SKIP
     303
 
@@ -200,7 +200,7 @@ class Digest:
         """Whether any peptide hit the isoform cap, meaning the result is incomplete.
 
         A short answer and a truncated answer look identical from the outside. Check this before
-        treating a proteoform list as exhaustive.
+        treating a Peptidoform list as exhaustive.
         """
         return self.peptides_at_cap > 0
 
@@ -249,7 +249,7 @@ def fragments(
             at two modifications and 7,040 at three.
         max_isoforms: Maximum modification isoforms per peptide position. mzLib's default of 1024
             **truncates silently** when it binds — on H3.1 at four modifications it discards
-            about 30% of the proteoforms (13,700 down to 9,536). :attr:`Digest.peptides_at_cap`
+            about 30% of the Peptidoforms (13,700 down to 9,536). :attr:`Digest.peptides_at_cap`
             reports how many peptides hit it, so a truncated answer is visible rather than
             merely short.
         terminus: ``"Both"``, ``"N"`` or ``"C"``.
@@ -281,7 +281,7 @@ def fragments(
             raise _bridge.UsageError(f"{name} must be a non-negative whole number; got {value!r}.")
 
     args = [
-        "proteoform", "fragments",
+        "peptidoform", "fragments",
         "--accession", accession.strip(),
         "--protease", protease,
         "--dissociation", dissociation,

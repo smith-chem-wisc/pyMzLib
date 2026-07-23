@@ -163,9 +163,9 @@ public static class Program
             "version" => VersionInfo(),
             "pride files" => await PrideFilesAsync(arguments).ConfigureAwait(false),
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
-            "proteoform fragments" => await Proteoform.FragmentsAsync(arguments).ConfigureAwait(false),
+            "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, proteoform fragments."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments."),
         };
     }
 

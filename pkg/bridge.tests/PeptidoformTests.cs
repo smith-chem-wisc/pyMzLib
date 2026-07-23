@@ -5,17 +5,17 @@ using System.Text.Json;
 namespace MzLibBridge.Tests;
 
 /// <summary>
-/// Tests for the proteoform workflow, driven from a local UniProt XML rather than the network.
+/// Tests for the Peptidoform workflow, driven from a local UniProt XML rather than the network.
 /// </summary>
 /// <remarks>
 /// Everything worth checking here — the annotation census, digestion, modification combinatorics,
 /// the isoform cap — sits downstream of the download, so none of it should need EBI or UniProt to
-/// be reachable. <see cref="Proteoform.UniProtXmlSource"/> exists for that, the same way
+/// be reachable. <see cref="Peptidoform.UniProtXmlSource"/> exists for that, the same way
 /// <see cref="Program.PrideClientFactory"/> does.
 /// </remarks>
 [TestFixture]
 [ExcludeFromCodeCoverage]
-public class ProteoformTests
+public class PeptidoformTests
 {
     private string _tempDirectory = string.Empty;
     private Func<string, Task<string>> _originalSource = null!;
@@ -23,7 +23,7 @@ public class ProteoformTests
     [SetUp]
     public void CreateTempDirectory()
     {
-        _originalSource = Proteoform.UniProtXmlSource;
+        _originalSource = Peptidoform.UniProtXmlSource;
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"pymzlib-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDirectory);
     }
@@ -31,7 +31,7 @@ public class ProteoformTests
     [TearDown]
     public void Cleanup()
     {
-        Proteoform.UniProtXmlSource = _originalSource;
+        Peptidoform.UniProtXmlSource = _originalSource;
         if (Directory.Exists(_tempDirectory))
             Directory.Delete(_tempDirectory, recursive: true);
     }
@@ -57,7 +57,7 @@ public class ProteoformTests
     {
         string path = Path.Combine(_tempDirectory, "entry.xml");
         File.WriteAllText(path, xml, Encoding.UTF8);
-        Proteoform.UniProtXmlSource = _ => Task.FromResult(path);
+        Peptidoform.UniProtXmlSource = _ => Task.FromResult(path);
     }
 
     private static async Task<JsonElement> InvokeAsync(params string[] args)
@@ -76,7 +76,7 @@ public class ProteoformTests
         // mass and is not — and the caller should be able to learn that rather than infer it.
         UseXml(MiniEntryXml);
 
-        JsonElement data = await InvokeAsync("proteoform", "fragments", "--accession", "P00001");
+        JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
 
         Assert.Multiple(() =>
         {
@@ -90,7 +90,7 @@ public class ProteoformTests
     {
         UseXml(MiniEntryXml);
 
-        JsonElement data = await InvokeAsync("proteoform", "fragments", "--accession", "P00001");
+        JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
         var byType = data.GetProperty("uniprot_features_by_type").EnumerateArray()
             .ToDictionary(e => e.GetProperty("type").GetString()!, e => e.GetProperty("loaded").GetBoolean());
 
@@ -108,7 +108,7 @@ public class ProteoformTests
         // once made a histone look as though 93 annotations had been silently dropped.
         UseXml(MiniEntryXml);
 
-        JsonElement data = await InvokeAsync("proteoform", "fragments", "--accession", "P00001");
+        JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
 
         Assert.That(data.TryGetProperty("annotated_modification_sites", out _), Is.True);
         Assert.That(data.TryGetProperty("annotated_modifications_loaded", out _), Is.True);
@@ -122,7 +122,7 @@ public class ProteoformTests
         UseXml(MiniEntryXml);
 
         JsonElement data = await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001", "--min-length", "4");
+            "peptidoform", "fragments", "--accession", "P00001", "--min-length", "4");
 
         Assert.That(data.GetProperty("peptide_count").GetInt32(), Is.GreaterThan(0));
         foreach (JsonElement peptide in data.GetProperty("peptides").EnumerateArray())
@@ -136,11 +136,11 @@ public class ProteoformTests
     public async Task ModificationsChangeTheResult()
     {
         UseXml(MiniEntryXml);
-        JsonElement with = await InvokeAsync("proteoform", "fragments", "--accession", "P00001", "--min-length", "4");
+        JsonElement with = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001", "--min-length", "4");
 
         UseXml(MiniEntryXml);
         JsonElement without = await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001", "--min-length", "4", "--no-modifications");
+            "peptidoform", "fragments", "--accession", "P00001", "--min-length", "4", "--no-modifications");
 
         Assert.Multiple(() =>
         {
@@ -158,7 +158,7 @@ public class ProteoformTests
         // MaxQuant/Mascot convention. The default here must be the one a mass spectrometrist means.
         UseXml(MiniEntryXml);
 
-        JsonElement data = await InvokeAsync("proteoform", "fragments", "--accession", "P00001");
+        JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
 
         Assert.That(data.GetProperty("protease").GetString(), Is.EqualTo("trypsin|P"));
     }
@@ -166,11 +166,11 @@ public class ProteoformTests
     [Test]
     public async Task TheIsoformCapIsReportedSoTruncationIsVisible()
     {
-        // A truncated proteoform list and a short one look identical from outside.
+        // A truncated Peptidoform list and a short one look identical from outside.
         UseXml(MiniEntryXml);
 
         JsonElement data = await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001", "--min-length", "4", "--max-isoforms", "1");
+            "peptidoform", "fragments", "--accession", "P00001", "--min-length", "4", "--max-isoforms", "1");
 
         Assert.Multiple(() =>
         {
@@ -187,7 +187,7 @@ public class ProteoformTests
         UseXml(MiniEntryXml);
 
         var ex = Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001", "--protease", "banana"));
+            "peptidoform", "fragments", "--accession", "P00001", "--protease", "banana"));
 
         Assert.That(ex!.Message, Does.Contain("trypsin"));
     }
@@ -199,7 +199,7 @@ public class ProteoformTests
         UseXml(MiniEntryXml);
 
         var ex = Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001", option, value));
+            "peptidoform", "fragments", "--accession", "P00001", option, value));
 
         Assert.That(ex!.Message, Does.Contain("Known"));
     }
@@ -208,7 +208,7 @@ public class ProteoformTests
     public void AMissingAccessionIsAUsageError()
     {
         UseXml(MiniEntryXml);
-        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("proteoform", "fragments"));
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("peptidoform", "fragments"));
     }
 
     // ---- UniProt availability -------------------------------------------------
@@ -222,7 +222,7 @@ public class ProteoformTests
     public void APermanentAccessionProblemIsAUsageErrorNotAnOutage(System.Net.HttpStatusCode status)
     {
         var ex = Assert.Throws<Program.UsageException>(() =>
-            Proteoform.ThrowIfUniProtRejected(status, "whatever", "P99999999", "https://x/y"));
+            Peptidoform.ThrowIfUniProtRejected(status, "whatever", "P99999999", "https://x/y"));
 
         Assert.That(ex!.Message, Does.Contain("P99999999"));
     }
@@ -236,7 +236,7 @@ public class ProteoformTests
     {
         // Phrased so ClassifyError can read the code back out of the message — which is the
         // contract that lets both test suites skip rather than fail when UniProt is down.
-        var thrown = Assert.Throws<HttpRequestException>(() => Proteoform.ThrowIfUniProtRejected(
+        var thrown = Assert.Throws<HttpRequestException>(() => Peptidoform.ThrowIfUniProtRejected(
             (System.Net.HttpStatusCode)status, "Service Unavailable", "P02768", "https://x/y"));
 
         Assert.That(Program.ClassifyError(thrown!), Is.EqualTo(Program.ServiceUnavailableType));
@@ -247,7 +247,7 @@ public class ProteoformTests
     [TestCase(418)]
     public void AUniProtClientErrorStaysOurProblem(int status)
     {
-        var thrown = Assert.Throws<HttpRequestException>(() => Proteoform.ThrowIfUniProtRejected(
+        var thrown = Assert.Throws<HttpRequestException>(() => Peptidoform.ThrowIfUniProtRejected(
             (System.Net.HttpStatusCode)status, "Nope", "P02768", "https://x/y"));
 
         Assert.That(Program.ClassifyError(thrown!), Is.EqualTo(nameof(HttpRequestException)));
@@ -257,7 +257,7 @@ public class ProteoformTests
     [TestCase(204)]
     public void ASuccessfulResponsePassesThrough(int status)
     {
-        Assert.DoesNotThrow(() => Proteoform.ThrowIfUniProtRejected(
+        Assert.DoesNotThrow(() => Peptidoform.ThrowIfUniProtRejected(
             (System.Net.HttpStatusCode)status, "OK", "P02768", "https://x/y"));
     }
 
@@ -282,6 +282,6 @@ public class ProteoformTests
             """);
 
         Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
-            "proteoform", "fragments", "--accession", "P00001"));
+            "peptidoform", "fragments", "--accession", "P00001"));
     }
 }

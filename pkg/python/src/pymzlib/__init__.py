@@ -15,7 +15,7 @@ The first area covered is the PRIDE Archive::
     pymzlib.pride.download("PXD000001", "downloads", category="RAW")
 """
 
-from . import pride, proteoform
+from . import peptidoform, pride
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -31,7 +31,7 @@ from ._bridge import (
 __version__ = "0.1.0.dev0"
 
 __all__ = [
-    "proteoform",
+    "peptidoform",
     "pride",
     "PyMzLibError",
     "BridgeError",
