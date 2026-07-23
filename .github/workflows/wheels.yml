@@ -283,10 +283,15 @@ jobs:
           if command -v dotnet; then echo "::error::dotnet is present; this test proves nothing"; exit 1; fi
           echo "no dotnet on PATH, as intended"
 
+      # Deliberately NOT a live PRIDE call. This job gates the release, and what it exists to prove
+      # is that the bundled runtime works without .NET installed — which bridge_version() shows by
+      # executing the payload end to end. Calling PRIDE here would additionally make an EBI outage
+      # block a release, and would bypass the outage-classification convention every other live
+      # test routes through.
       - name: Install and use pyMzLib
         run: |
           pip install wheelhouse/*.whl
-          python -c "import pymzlib; f = pymzlib.pride.list_files('PXD000001'); print(f'{len(f)} files'); assert len(f) >= 8"
+          python -c "import pymzlib; info = pymzlib.bridge_version(); print(info); assert info['protocol'] == 1"
 
   # ---------------------------------------------------------------------------------------
   # The oldest Linux we claim to support. Every other runner is glibc 2.31+, so nothing else

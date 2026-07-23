@@ -328,7 +328,22 @@ def download(
         args.append("--no-overwrite")
 
     data = _bridge.invoke(*args, timeout=timeout)
-    return [Path(p) for p in data.get("paths", [])]
+    written = [Path(p) for p in data.get("paths", [])]
+
+    # Same doctrine as list_files and download_files, which this function was inconsistent with:
+    # a filter that matched nothing is nearly always a filter that does not mean what its author
+    # thought, and reporting success with an empty list lets a batch script carry on as though
+    # the work had been done.
+    if not written and (category is not None or wanted):
+        raise _bridge.UsageError(
+            f"No file in {canonical} matched "
+            f"{'category ' + repr(category) if category else ''}"
+            f"{' and ' if category and wanted else ''}"
+            f"{'extensions ' + repr(wanted) if wanted else ''}. "
+            "Use list_files() to see what the project actually contains — note that "
+            "compressed files such as 'x.mgf.gz' have the extension '.gz'."
+        )
+    return written
 
 
 def download_files(

@@ -9,7 +9,7 @@ Worked end to end below with a hypothetical `pymzlib.chemistry.formula_mass()`.
 
 **Check that it belongs here.** Two questions:
 
-1. *Is it coarse-grained?* Each call costs tens of milliseconds of process startup and must
+1. *Is it coarse-grained?* Each call costs about 120 ms of process startup — measured, and far more than it sounds — and must
    serialize its data as JSON. Fetching a project manifest: perfect. Computing an isotopic
    envelope inside a loop over 100,000 spectra: wrong — that needs a different transport, and
    forcing it through this one produces something slow enough to discredit the whole package.

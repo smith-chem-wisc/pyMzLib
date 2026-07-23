@@ -40,7 +40,7 @@ of your Python shared library" has already lost, no matter how complete its API 
 A self-contained single-file executable has none of that. It carries its own runtime, consults no
 system installation, and needs no configuration. Costs it does have:
 
-- **Startup.** Tens of milliseconds per call. Irrelevant next to an HTTP request; unacceptable in
+- **Startup.** About 120 ms per call warm, and roughly a second on the very first call of a session while the bundle extracts (measured, not estimated). Irrelevant next to an HTTP request; unacceptable in
   a per-spectrum loop.
 - **Serialization.** Everything crossing the boundary must be JSON-representable. Fine for
   manifests and file paths; wrong for a million-point spectrum.

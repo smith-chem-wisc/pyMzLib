@@ -283,6 +283,22 @@ def test_download_files_sends_the_selection_on_stdin(recorded_manifest, monkeypa
     assert not any(f.file_name in " ".join(seen["args"]) for f in chosen)
 
 
+def test_download_raises_when_a_filter_matches_nothing(monkeypatch, tmp_path):
+    """The doctrine has to hold in all three functions or it is not a doctrine. list_files and
+    download_files both refuse to report success on nothing; download used to return [] happily,
+    which in a batch script is zero files and a green exit code."""
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"paths": []})
+    with pytest.raises(pymzlib.UsageError, match="matched"):
+        pride.download("PXD000001", tmp_path, category="NOSUCHCATEGORY")
+
+
+def test_download_without_a_filter_may_legitimately_write_nothing(monkeypatch, tmp_path):
+    """The counterpart: no filter means 'everything', and only then is an empty result the
+    repository's answer rather than a mistake in the call."""
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"paths": []})
+    assert pride.download("PXD000001", tmp_path) == []
+
+
 def test_download_files_refuses_an_empty_selection(tmp_path):
     """An empty selection is nearly always a filter that did not match what the caller expected."""
     with pytest.raises(pymzlib.UsageError, match="No files selected"):
