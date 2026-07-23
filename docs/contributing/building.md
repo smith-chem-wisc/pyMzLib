@@ -23,7 +23,9 @@ matters: the bridge and the Python package must be built from the same mzLib sou
 === "If you already have an mzLib clone"
 
     ```powershell
-    git -C <your-mzLib-clone> worktree add --detach code/mzLib <PINNED_SHA>
+    # Both paths absolute: `git -C` runs as if git started in the clone, so a relative path
+    # would create the worktree inside the mzLib clone rather than here.
+    git -C <your-mzLib-clone> worktree add --detach <pyMzLib>/code/mzLib <PINNED_SHA>
     ```
 
     A worktree is cheaper than a second clone — it shares the object store.
@@ -59,7 +61,8 @@ Cross-build for another platform — no hardware required:
     point `PYMZLIB_BRIDGE` at the resulting executable — the Python package will prefer it:
 
     ```powershell
-    $env:PYMZLIB_BRIDGE = "pkg/bridge/bin/x64/Release/net8.0/win-x64/mzlib-bridge.exe"
+    # Absolute, because you will run pytest from pkg/python and a relative path breaks there.
+    $env:PYMZLIB_BRIDGE = "$PWD/pkg/bridge/bin/x64/Release/net8.0/win-x64/mzlib-bridge.exe"
     ```
 
 ## Set up Python and run the tests

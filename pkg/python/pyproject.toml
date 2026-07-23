@@ -1,10 +1,15 @@
 [build-system]
-requires = ["hatchling"]
+# Pinned: PEP 639 `license = "<SPDX>"` and `license-files = [...]` are only honoured by hatchling
+# 1.27+. An older backend accepts both silently and ships a wheel with NO licence text, which is
+# exactly the bug this project just fixed - so the fix needs a floor or it can regress invisibly.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
 name = "pymzlib"
-version = "0.1.0.dev0"
+# Single-sourced from the package itself; keeping two copies in step by hand is a mistake
+# waiting for a busy release day.
+dynamic = ["version"]
 description = "mzLib for Python — mass spectrometry and proteomics from the mzLib C# library, with no .NET installation required"
 readme = "README.md"
 # Deliberately permissive, and please leave it that way without a specific reason (decision D7).
@@ -15,12 +20,33 @@ readme = "README.md"
 # cannot change. The only real cost is that library code here must avoid post-3.9 syntax.
 requires-python = ">=3.9"
 license = "LGPL-3.0-or-later"
+# Without this, hatchling ships NO licence text at all: its project root is pkg/python, so the
+# copies at the repository root are out of reach and the default glob silently matches nothing.
+# The wheel redistributes compiled LGPL code, so shipping it unlicensed is a real violation.
+license-files = ["LICENSE", "LICENSE.GPL-3.0", "NOTICE"]
+authors = [
+    { name = "Michael R. Shortreed", email = "mshort@chem.wisc.edu" },
+    { name = "Lloyd M. Smith", email = "smith@chem.wisc.edu" },
+]
 keywords = ["proteomics", "mass spectrometry", "PRIDE", "mzLib", "bioinformatics"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    # No "License :: OSI Approved ::" classifier: PyPI rejects an upload that carries both a
+    # License-Expression and a licence classifier, and the expression above is the modern form.
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Typing :: Typed",
 ]
 
 # Deliberately empty, and it should stay that way. Every runtime dependency pyMzLib declares is
@@ -34,8 +60,15 @@ dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.5", "build", "wheel"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.25"]
 
 [project.urls]
-Homepage = "https://github.com/smith-chem-wisc/mzLib"
-Source = "https://github.com/trishorts/pyMzLib"
+Homepage = "https://github.com/smith-chem-wisc/pyMzLib"
+Documentation = "https://smith-chem-wisc.github.io/pyMzLib/"
+Source = "https://github.com/smith-chem-wisc/pyMzLib"
+Issues = "https://github.com/smith-chem-wisc/pyMzLib/issues"
+Changelog = "https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md"
+"mzLib (upstream)" = "https://github.com/smith-chem-wisc/mzLib"
+
+[tool.hatch.version]
+path = "src/pymzlib/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pymzlib"]
@@ -45,9 +78,25 @@ packages = ["src/pymzlib"]
 artifacts = ["src/pymzlib/_dotnet/**"]
 
 [tool.hatch.build.targets.sdist]
-# An sdist cannot carry a platform binary, so it is source only; installing from sdist
-# requires building the bridge. Wheels are the supported path.
+# An sdist cannot carry a platform binary, so it is source only. DO NOT PUBLISH ONE: it would
+# install "successfully" and then fail on the first call, whereas with wheels only, an
+# unsupported platform gets a clean "no matching distribution found". PyPI will not let you add
+# an sdist to an already-published version, so this is a one-way door and the answer is no.
+# It is still built locally for inspection, hence the exclusions below.
 exclude = ["src/pymzlib/_dotnet"]
+# Hatchling reads .gitignore from the project root (pkg/python), and there isn't one there — the
+# repository's sits two levels up and is never consulted. Without these, a local sdist build
+# sweeps in the 121 MB wheel sitting in dist_untagged and the coverage database.
+
+[tool.hatch.build]
+exclude = [
+    "dist_untagged",
+    ".coverage",
+    "coverage.xml",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -61,7 +110,7 @@ line-length = 100
 target-version = "py39"
 
 # --------------------------------------------------------------------------------------------
-# Coverage. Read docs/contributing/testing.md before changing a threshold — in a wrapper like
+# Coverage. Read the testing section of CONTRIBUTING.md before changing a threshold — in a wrapper like
 # this, line coverage is the easy half of the problem and the boundary is the hard half.
 # --------------------------------------------------------------------------------------------
 [tool.coverage.run]

@@ -156,9 +156,48 @@ def test_timeout_becomes_a_typed_error_not_a_subprocess_artifact(monkeypatch, fa
         raise subprocess.TimeoutExpired(cmd="mzlib-bridge", timeout=5)
 
     monkeypatch.setattr(subprocess, "run", timing_out)
-    with pytest.raises(_bridge.BridgeError) as caught:
+    with pytest.raises(_bridge.BridgeTimeoutError):
         _bridge.invoke("anything", timeout=5)
-    assert caught.value.error_type == "Timeout"
+
+
+def test_a_timeout_is_not_reported_as_a_service_outage(monkeypatch, fake_bridge):
+    """The regression this guards is subtle and was live: every subprocess timeout used to raise
+    ServiceUnavailableError, which the canary suites turn into a skip. A wedged bridge, a corrupt
+    binary, or a caller passing too small a timeout all reported "EBI is down" and the live tests
+    passed green — precisely the failure this project's testing convention exists to prevent."""
+
+    def timing_out(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="mzlib-bridge", timeout=1)
+
+    monkeypatch.setattr(subprocess, "run", timing_out)
+    with pytest.raises(_bridge.PyMzLibError) as caught:
+        _bridge.invoke("anything", timeout=1)
+    assert not isinstance(caught.value, _bridge.ServiceUnavailableError)
+
+
+@pytest.mark.parametrize("bad", [0, -1, -5.0, float("inf"), float("nan"), "5", [], True])
+def test_unusable_timeouts_are_rejected_before_spawning_anything(bad, fake_bridge, monkeypatch):
+    """subprocess accepts these and then fails somewhere unrecognisable — inf raises OverflowError
+    from the platform clock, and 0 is indistinguishable from a service that never answered."""
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("should not have run"))
+    with pytest.raises(_bridge.UsageError):
+        _bridge.invoke("anything", timeout=bad)
+
+
+def test_an_unlaunchable_bridge_is_a_pymzlib_error(monkeypatch, fake_bridge):
+    """A missing execute bit or a quarantined binary must not escape as a bare OSError."""
+
+    def not_executable(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(subprocess, "run", not_executable)
+    with pytest.raises(_bridge.PyMzLibError, match="Could not run the mzLib bridge"):
+        _bridge.invoke("anything")
+
+
+def test_null_bytes_are_rejected_rather_than_raising_from_subprocess(fake_bridge):
+    with pytest.raises(_bridge.UsageError, match="null character"):
+        _bridge.invoke("pride", "files", "--accession", "PX\x00D")
 
 
 def test_every_error_is_catchable_as_one_type():

@@ -107,11 +107,12 @@ by_size = sorted(files, key=lambda f: -f.file_size_bytes)  # sort
 ```
 
 If you use `pandas`, a manifest converts in one line — pyMzLib doesn't require pandas, but it
-doesn't get in the way either:
+doesn't get in the way either. Use `as_dict()` rather than `vars()`: `size_mb`, `extension` and
+`downloadable` are computed properties, so `vars()` silently leaves them out.
 
 ```python
 import pandas as pd
-df = pd.DataFrame([vars(f) for f in files])
+df = pd.DataFrame([f.as_dict() for f in files])
 ```
 
 ### When something goes wrong

@@ -9,6 +9,12 @@ makes it callable from Python.
 pip install pymzlib
 ```
 
+!!! warning "Not on PyPI yet"
+    pyMzLib has not had its first release. Until it does, install a wheel from the
+    [Actions artifacts](https://github.com/smith-chem-wisc/pyMzLib/actions/workflows/wheels.yml)
+    or [build from source](contributing/building.md). The command above is what release day looks
+    like, not what today looks like.
+
 That is the entire installation. No .NET to install, no runtime to configure, no version to
 reconcile — and **no third-party Python dependencies**, so pyMzLib cannot conflict with anything
 already in your environment.

@@ -145,6 +145,44 @@ public class VerbHandlerTests
     }
 
     [Test]
+    public void ATransportFailureWithNoStatusCodeCountsAsUnavailable()
+    {
+        // The regression this guards was live and inverted the whole convention. Connection
+        // refused, DNS failure and TLS failure are the commonest outage modes there are, and all
+        // three produce an HttpRequestException with no status because no response ever arrived.
+        // HttpClient wraps the SocketException, so the socket arm never sees it, and these used to
+        // be classified as correctness failures - turning every real outage into a red build.
+        // Constructed the way HttpClient actually constructs them: the real cause is the inner
+        // exception, which is also what distinguishes these from mzLib's hand-thrown ones.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Program.ClassifyError(new HttpRequestException(
+                    "Connection refused (ftp.pride.ebi.ac.uk:443)",
+                    new System.Net.Sockets.SocketException(10061))),
+                Is.EqualTo(Program.ServiceUnavailableType), "connection refused");
+            Assert.That(Program.ClassifyError(new HttpRequestException(
+                    "No such host is known.", new System.Net.Sockets.SocketException(11001))),
+                Is.EqualTo(Program.ServiceUnavailableType), "DNS failure");
+            Assert.That(Program.ClassifyError(new HttpRequestException(
+                    "The SSL connection could not be established.",
+                    new System.Security.Authentication.AuthenticationException("bad cert"))),
+                Is.EqualTo(Program.ServiceUnavailableType), "TLS failure");
+        });
+    }
+
+    [Test]
+    public void TheStatusPatternCannotBeSteeredByCallerSuppliedText()
+    {
+        // An unanchored "status NNN" match could be driven by any caller string that reaches the
+        // message - an accession of "x status 503 x" would classify itself as an outage and be
+        // skipped by every test suite.
+        var exception = new HttpRequestException(
+            "PRIDE Archive paging exceeded 3 pages for accession 'x status 503 x'.");
+
+        Assert.That(Program.ClassifyError(exception), Is.EqualTo(nameof(HttpRequestException)));
+    }
+
+    [Test]
     public void AProgrammingErrorIsNeverExcusedAsAnOutage()
     {
         // The failure mode this guards against is the worst one: a real bug quietly reported as
@@ -160,6 +198,121 @@ public class VerbHandlerTests
         var exception = new HttpRequestException("no status in this text", null, HttpStatusCode.ServiceUnavailable);
 
         Assert.That(Program.ClassifyError(exception), Is.EqualTo(Program.ServiceUnavailableType));
+    }
+
+    // ---- the filter must never fail open -------------------------------------
+    //
+    // A filter that was asked for but degenerates to nothing used to leave the selection null,
+    // which downloaded the entire project - hundreds of megabytes where an error was wanted.
+
+    [TestCase("   ", Description = "whitespace category")]
+    [TestCase("", Description = "empty category")]
+    public void ABlankCategoryIsRejectedRatherThanSelectingEverything(string category)
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+
+        Assert.That(async () => await InvokeAsync(
+                "pride", "download", "--accession", "PXD012345", "--dest", "out", "--category", category),
+            Throws.InstanceOf<Program.UsageException>());
+    }
+
+    [Test]
+    public void AnExtensionListThatNamesNothingIsRejected()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+
+        Assert.That(async () => await InvokeAsync(
+                "pride", "download", "--accession", "PXD012345", "--dest", "out", "--ext", ",,"),
+            Throws.InstanceOf<Program.UsageException>());
+    }
+
+    [Test]
+    public void AnOptionWrittenWithoutAValueStillCountsAsProvided()
+    {
+        // "--category --ext .raw" parses the category as a valueless flag. If that reads as
+        // "category was not requested", the caller's intent is discarded and the download widens
+        // to the whole project.
+        var arguments = new Program.Arguments(["pride", "download", "--category", "--dest", "out"]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(arguments.WasProvided("category"), Is.True);
+            Assert.That(arguments.Optional("category"), Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task AnAbsentFilterSelectsEveryFile()
+    {
+        // The counterpart: omitting the options entirely is a legitimate "give me all of it".
+        // Asserting only Throws.Nothing would keep passing if a regression narrowed the selection
+        // to none, which is the exact failure this pair of tests exists to detect.
+        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")}]"));
+
+        JsonElement data = await InvokeAsync("pride", "download", "--accession", "PXD012345", "--dest", "out");
+
+        Assert.That(data.GetProperty("downloaded_count").GetInt32(), Is.EqualTo(2));
+    }
+
+    // ---- explicit selection over stdin ---------------------------------------
+    //
+    // The headline capability of this change, and previously untested on the C# side.
+
+    [Test]
+    public async Task NamesFromStdinSelectExactlyThoseFiles()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")},{FileJson("c.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\nc.raw\n"));
+
+        JsonElement data = await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin");
+
+        Assert.That(data.GetProperty("downloaded_count").GetInt32(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public void ARequestedNameThatIsNotInTheProjectIsReported()
+    {
+        // Silently downloading fewer files than asked for is the failure mode this whole change
+        // set exists to remove: a typo would otherwise produce a short download and a success.
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\ntypo.raw\n"));
+
+        var ex = Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin"));
+
+        Assert.That(ex!.Message, Does.Contain("typo.raw"));
+    }
+
+    [Test]
+    public void AnExplicitSelectionAndAFilterAreContradictory()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("a.raw\n"));
+
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out",
+            "--names-from-stdin", "--category", "RAW"));
+    }
+
+    [Test]
+    public void AnEmptySelectionOnStdinIsRejected()
+    {
+        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        Console.SetIn(new StringReader("   \n\n"));
+
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin"));
+    }
+
+    [Test]
+    public void AnHttpFailureWithNoStatusAndNoInnerCauseIsOurProblem()
+    {
+        // The other side of the inner-exception rule. mzLib composes exceptions by hand to signal
+        // conditions that are ours — the paging guard, for one — and those must not be excused as
+        // outages, or they would be skipped by every suite and never seen again.
+        Assert.That(Program.ClassifyError(new HttpRequestException("something we did wrong")),
+            Is.EqualTo(nameof(HttpRequestException)));
     }
 
     // ---- helper --------------------------------------------------------------

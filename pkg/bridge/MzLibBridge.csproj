@@ -32,7 +32,7 @@
     <!-- Sourced from the pinned mzLib worktree under code/mzLib (see code/PINNED.md).
          Deliberately references the narrowest project that carries PrideArchiveClient rather
          than the whole mzLib NuGet package, which drags TorchSharp/libtorch and native
-         vendor DLLs (gap G7). -->
+         vendor DLLs — see smith-chem-wisc/mzLib#1103. -->
     <ProjectReference Include="..\..\code\mzLib\mzLib\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 

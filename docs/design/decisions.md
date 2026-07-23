@@ -100,8 +100,7 @@ mzLib *and* every dependency *and* the .NET runtime, is smaller than what a C# d
 downloads. On PyPI it is unremarkable: pyOpenMS ships 63 MB, torch ships 502 MB.
 
 **What remains true and worth saying:** most of that payload is dead weight. `torch_cpu.dll`
-(238 MB uncompressed) arrives because `UsefulProteomicsDatabases → Proteomics → Omics →
-TorchSharp`, in order to make one HTTPS request. A bridge built against only `MzLibUtil` and the
+(238 MB uncompressed) arrives because `UsefulProteomicsDatabases → Proteomics → Chromatography → TorchSharp`, in order to make one HTTPS request. A bridge built against only `MzLibUtil` and the
 three PRIDE source files is 34 MB with byte-identical behavior. That's a finding about mzLib's
 dependency structure — every C# consumer wanting one corner of mzLib pays the same tax — and it
 belongs upstream, not worked around here.

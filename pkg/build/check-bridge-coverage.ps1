@@ -28,7 +28,7 @@ param(
     [string]$ResultsPath,
     # Lower than the Python side's 90 on purpose. The three verb handlers construct a
     # PrideArchiveClient internally and talk to EBI, so they cannot be unit-tested without
-    # injecting an HttpClient — a refactor worth doing, tracked in design/PLAN.md. Until then
+    # injecting an HttpClient. That refactor has since landed (see Program.PrideClientFactory), so
     # they are covered end-to-end by the Python live tests and not by C# units, and the honest
     # number is ~88%. Raise this to 90 once the handlers are injectable; do not lower it.
     [double]$Threshold = 85

@@ -9,7 +9,7 @@ Worked end to end below with a hypothetical `pymzlib.chemistry.formula_mass()`.
 
 **Check that it belongs here.** Two questions:
 
-1. *Is it coarse-grained?* Each call costs tens of milliseconds of process startup and must
+1. *Is it coarse-grained?* Each call costs about 120 ms of process startup — measured, and far more than it sounds — and must
    serialize its data as JSON. Fetching a project manifest: perfect. Computing an isotopic
    envelope inside a loop over 100,000 spectra: wrong — that needs a different transport, and
    forcing it through this one produces something slow enough to discredit the whole package.
@@ -28,6 +28,10 @@ In `pkg/bridge/Program.cs`, route it in `DispatchAsync` and write the handler:
 "chemistry formula-mass" => ChemistryFormulaMass(arguments),
 ```
 
+The handler below needs `using Chemistry;` at the top of `Program.cs`. Before reaching for a new
+`ProjectReference`, check whether the type is already reachable — `Chemistry` arrives transitively
+through `UsefulProteomicsDatabases`, so this particular example needs no new reference at all.
+
 ```csharp
 /// <summary>
 /// <c>chemistry formula-mass --formula H2O</c> — the monoisotopic and average mass of a
@@ -43,7 +47,7 @@ private static object ChemistryFormulaMass(Arguments arguments)
         formula,
         monoisotopic_mass = chemicalFormula.MonoisotopicMass,
         average_mass = chemicalFormula.AverageMass,
-        element_count = chemicalFormula.AtomCount,
+        atom_count = chemicalFormula.AtomCount,
     };
 }
 ```
@@ -60,12 +64,23 @@ Rules that matter:
 - **Name it for the contract, not the caller.** Someone writing a Rust binding will read this —
   see [D6](../design/decisions.md#d6-the-wire-contract-stays-language-neutral).
 
-Check it directly, before any Python exists:
+Check it directly, before any Python exists. The executable is not on `PATH` — run the one
+`publish-bridge.ps1` staged into the package:
 
 ```bash
-mzlib-bridge chemistry formula-mass --formula H2O
-{"ok":true,"data":{"formula":"H2O","monoisotopic_mass":18.0105646863,…}}
+./pkg/python/src/pymzlib/_dotnet/win-x64/mzlib-bridge.exe chemistry formula-mass --formula H2O
+{"ok":true,"data":{"formula":"H2O","monoisotopic_mass":18.01056468403,"average_mass":18.015349999999998,"atom_count":3},"error":null}
 ```
+
+Note `"error": null` — the envelope always carries all three keys, so a consumer in a statically
+typed language can deserialize one fixed shape whatever the outcome.
+
+!!! warning "Re-stage the bridge, or Python keeps using the old one"
+    `bridge_path()` prefers the executable staged under `src/pymzlib/_dotnet/`, so after changing
+    C# you must either re-run `publish-bridge.ps1` or point `PYMZLIB_BRIDGE` at your
+    `dotnet build` output. Otherwise your new verb reports `Unknown command 'chemistry
+    formula-mass'` while you stare at the registration you just wrote. The build page frames
+    `PYMZLIB_BRIDGE` as a speed optimisation; here it is load-bearing for correctness.
 
 ## 2 · Add the Python surface
 
@@ -92,12 +107,15 @@ class FormulaMass:
         formula: The formula as given, e.g. ``"H2O"``.
         monoisotopic_mass: Mass using the most abundant isotope of each element, in daltons.
         average_mass: Mass weighted by natural isotopic abundance, in daltons.
+        atom_count: The number of atoms — 3 for water, not 2. Name a wire key for what mzLib
+            actually returns: the envelope is a durable, language-neutral contract, so a
+            misnamed key outlives the mistake and every copy of this example repeats it.
     """
 
     formula: str
     monoisotopic_mass: float
     average_mass: float
-    element_count: int
+    atom_count: int
 
 
 def formula_mass(formula: str, timeout: float | None = 60) -> FormulaMass:
@@ -115,7 +133,7 @@ def formula_mass(formula: str, timeout: float | None = 60) -> FormulaMass:
 
     Example:
         >>> formula_mass("H2O").monoisotopic_mass      # doctest: +SKIP
-        18.0105646863
+        18.01056468403
     """
     if not formula or not formula.strip():
         raise _bridge.UsageError("A chemical formula is required, e.g. 'H2O'.")
@@ -125,7 +143,7 @@ def formula_mass(formula: str, timeout: float | None = 60) -> FormulaMass:
         formula=data["formula"],
         monoisotopic_mass=float(data["monoisotopic_mass"]),
         average_mass=float(data["average_mass"]),
-        element_count=int(data["element_count"]),
+        atom_count=int(data["atom_count"]),
     )
 ```
 
@@ -141,10 +159,12 @@ Conventions:
 - **No new runtime dependency.** Not negotiable — see
   [D2](../design/decisions.md#d2-it-must-install-with-one-command-and-nothing-else).
 
-Export it in `__init__.py`:
+Export it in `__init__.py` — the import **and** `__all__`, or `from pymzlib import *` misses it:
 
 ```python
 from . import chemistry, pride
+
+__all__ = ["pride", "chemistry", ...]
 ```
 
 ## 3 · Test it, both ways
@@ -153,10 +173,18 @@ from . import chemistry, pride
 the tests that run constantly, so make them cover the behavior you actually care about:
 
 ```python
+from __future__ import annotations
+
+import pytest
+
+import pymzlib
+from pymzlib import _bridge, chemistry
+
+
 def test_formula_mass_parses(monkeypatch):
     monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {
-        "formula": "H2O", "monoisotopic_mass": 18.0105646863,
-        "average_mass": 18.01528, "element_count": 3,
+        "formula": "H2O", "monoisotopic_mass": 18.01056468403,
+        "average_mass": 18.015349999999998, "atom_count": 3,
     })
     assert chemistry.formula_mass("H2O").monoisotopic_mass == pytest.approx(18.01056, abs=1e-5)
 
@@ -167,10 +195,30 @@ def test_blank_formula_rejected_without_starting_a_process():
 ```
 
 **Live** (`@pytest.mark.network`, or `@pytest.mark.slow` if it moves real data) — the real bridge,
-which is what would catch mzLib changing underneath.
+which is what would catch mzLib changing underneath. Put these in a `_live.py` module and route
+each through `external_service()` so a PRIDE outage skips rather than fails.
 
 Record a fixture from the real bridge rather than hand-writing one; hand-written fixtures encode
-what you *think* the format is.
+what you *think* the format is. (The stub payload above is inline only to keep the example short.)
+
+## 3b · Test the C# half too — CI gates it separately
+
+**This is the step most likely to be skipped, and skipping it fails the build.** The bridge has its
+own suite and its own coverage gate at 85%. New C# lines with no C# test will drag the whole
+project under it, and nothing in the Python suite will warn you.
+
+Copy the shape from `pkg/bridge.tests/VerbHandlerTests.cs` — a `StubHandler` for anything that
+would otherwise reach the network, plus direct tests of whatever the verb computes:
+
+```bash
+dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory!=ExternalService"
+./pkg/build/check-bridge-coverage.ps1
+```
+
+Both must pass before you open the pull request. The raw coverage number `dotnet test` prints is
+meaningless here — it measures all of mzLib and reads about 0.6% — which is exactly why the script
+exists. See the testing section of [CONTRIBUTING.md](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CONTRIBUTING.md)
+for the full picture, including the skip-versus-fail convention for anything touching a live service.
 
 ## 4 · Document it
 
@@ -178,8 +226,8 @@ what you *think* the format is.
   [the PRIDE guide](../guides/pride.md): what it does, the common cases, the errors, one worked
   example that solves a real problem.
 - Add it to the nav in `mkdocs.yml` and to the coverage table on the [home page](../index.md).
-- The API reference picks up your docstrings automatically — no work needed, provided they're
-  written.
+- Add `::: pymzlib.<module>` to `docs/reference.md`. The reference is generated from your
+  docstrings, but only for modules it is told about — a new module is silently absent otherwise.
 
 ## Checklist
 
@@ -190,5 +238,6 @@ what you *think* the format is.
 - [ ] Verb readable as a contract by a non-Python caller
 - [ ] Python returns a dataclass, validates cheaply, hides the transport
 - [ ] **No new runtime dependency**
-- [ ] Offline tests with a recorded fixture; live test for the real path
-- [ ] Guide page, nav entry, coverage table
+- [ ] Offline Python tests with a recorded fixture; live test for the real path
+- [ ] **C# tests for the new verb, and `check-bridge-coverage.ps1` still passes** (separate gate)
+- [ ] Guide page, nav entry, coverage table, and `reference.md` entry

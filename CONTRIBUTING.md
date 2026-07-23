@@ -54,8 +54,8 @@ Both halves are tested, and both are gated in CI.
 | | Command | Gate |
 |---|---|---|
 | Python, offline | `pytest -m "not network"` | 90% line + branch coverage |
-| C#, offline | `dotnet test --filter "TestCategory!=ExternalService"` | 85% over hand-written bridge code |
-| Live canaries | `pytest -m network` · `dotnet test --filter "TestCategory=ExternalService"` | run in their own CI job |
+| C#, offline | `dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory!=ExternalService"` | 85% over hand-written bridge code |
+| Live canaries | `pytest -m network` · `dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory=ExternalService"` | run in their own CI job |
 
 **Offline tests must stay offline.** They run against recorded fixtures and stub HTTP handlers, so
 they work on a plane and can't be broken by an EBI outage. Anything touching the network is marked

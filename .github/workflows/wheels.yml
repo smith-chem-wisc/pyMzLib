@@ -6,13 +6,14 @@
 # that is what the matrix is for.
 #
 # Note on cost: macOS runner minutes are free and unmetered on public repositories, and billed at
-# 10x on private ones. See gap G4 (where this repo should live).
+# 10x on private ones — one reason this repository is public.
 
 name: wheels
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -144,12 +145,18 @@ jobs:
         include:
           - rid: win-x64
             plat_tag: win_amd64
+          # These tags are a COMPATIBILITY PROMISE, not a label. They previously claimed
+          # manylinux_2_17 (glibc 2.17 / CentOS 7) and macOS 11, both of which are below what
+          # .NET 8 actually requires — glibc 2.23 and macOS 12. A user on RHEL 7 therefore got a
+          # successful pip install and a runtime failure, and no CI runner is old enough to
+          # notice. The floors below match .NET 8's documented supported set; the manylinux_2_28
+          # job in `test` is what actually holds them honest.
           - rid: linux-x64
-            plat_tag: manylinux_2_17_x86_64.manylinux2014_x86_64
+            plat_tag: manylinux_2_28_x86_64
           - rid: osx-x64
-            plat_tag: macosx_11_0_x86_64
+            plat_tag: macosx_12_0_x86_64
           - rid: osx-arm64
-            plat_tag: macosx_11_0_arm64
+            plat_tag: macosx_12_0_arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -276,7 +283,79 @@ jobs:
           if command -v dotnet; then echo "::error::dotnet is present; this test proves nothing"; exit 1; fi
           echo "no dotnet on PATH, as intended"
 
+      # Deliberately NOT a live PRIDE call. This job gates the release, and what it exists to prove
+      # is that the bundled runtime works without .NET installed — which bridge_version() shows by
+      # executing the payload end to end. Calling PRIDE here would additionally make an EBI outage
+      # block a release, and would bypass the outage-classification convention every other live
+      # test routes through.
       - name: Install and use pyMzLib
         run: |
           pip install wheelhouse/*.whl
-          python -c "import pymzlib; f = pymzlib.pride.list_files('PXD000001'); print(f'{len(f)} files'); assert len(f) >= 8"
+          python -c "import pymzlib; info = pymzlib.bridge_version(); print(info); assert info['protocol'] == 1"
+
+  # ---------------------------------------------------------------------------------------
+  # The oldest Linux we claim to support. Every other runner is glibc 2.31+, so nothing else
+  # in this workflow can catch a wheel tagged for a glibc older than .NET actually needs — and
+  # that user (an old cluster, a Python they cannot change) is precisely who this package is for.
+  # ---------------------------------------------------------------------------------------
+  glibc-floor:
+    name: runs on the oldest glibc we claim
+    needs: build
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-linux-x64
+          path: wheelhouse
+
+      - name: Install and run on manylinux_2_28
+        run: |
+          ldd --version | head -1
+          # The PyPA images keep interpreters under /opt/python/<tag>/bin rather than on PATH.
+          PY=$(ls -d /opt/python/cp311-cp311/bin/python3 2>/dev/null || command -v python3.11 || command -v python3)
+          echo "using $PY"
+          "$PY" -m pip install --quiet wheelhouse/*.whl
+          "$PY" -c "import pymzlib; print(pymzlib.bridge_version())"
+
+  # ---------------------------------------------------------------------------------------
+  # Publish, on a tag, via Trusted Publishing. No stored API token: PyPI verifies the workflow's
+  # OIDC identity instead. Deliberately no sdist — a source-only sdist for a package whose whole
+  # value is the bundled binary installs "successfully" and then fails on first call, whereas
+  # wheels-only gives an unsupported platform a clean "no matching distribution found".
+  # ---------------------------------------------------------------------------------------
+  release:
+    name: publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    # external-services is included deliberately. Gating a release on the live canaries is safe
+    # precisely because they SKIP on an EBI outage rather than failing, so this cannot block a
+    # release when PRIDE is merely down — but it does block one when the API contract has actually
+    # broken, which is the only state in which shipping would be wrong.
+    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pymzlib
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: dist
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check the artifacts before anything is published
+        run: |
+          pip install --quiet twine
+          ls -lh dist
+          twine check --strict dist/*.whl
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: false
