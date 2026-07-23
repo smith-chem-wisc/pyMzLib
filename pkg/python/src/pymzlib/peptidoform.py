@@ -22,7 +22,7 @@ from typing import Any, Sequence
 
 from . import _bridge
 
-#: UniProtKB''s own accession grammar (https://www.uniprot.org/help/accession_numbers). Checking
+#: UniProtKB's own accession grammar (https://www.uniprot.org/help/accession_numbers). Checking
 #: it here means a typo costs nothing instead of a network round trip and a puzzling HTTP 400.
 _ACCESSION = re.compile(
     r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$"
@@ -62,6 +62,8 @@ class Peptide:
         monoisotopic_mass: The neutral monoisotopic mass, modifications included.
         one_based_start / one_based_end: Position within the parent protein.
         missed_cleavages: How many cleavage sites the peptide spans.
+        fixed_charges: Charges the peptide carries before any protonation, from modifications
+            that leave a permanently charged residue. :meth:`mz` accounts for these.
         modifications: Each applied modification. ``one_based_residue`` indexes the peptide's own
             residues and is ``None`` for a terminal modification, which carries ``terminus``
             instead. (mzLib's internal dictionary reserves slot 1 for the N-terminus, so its keys
@@ -76,6 +78,7 @@ class Peptide:
     one_based_start: int
     one_based_end: int
     missed_cleavages: int
+    fixed_charges: int = 0
     modifications: list[dict[str, Any]] = field(default_factory=list)
     fragments: list[Fragment] = field(default_factory=list)
 
@@ -85,18 +88,37 @@ class Peptide:
         return bool(self.modifications)
 
     def mz(self, charge: int) -> float:
-        """Return the m/z of the intact peptide at a given charge.
+        """Return the m/z of the intact peptide at a given total charge.
 
-        Uses the **proton** mass (1.007276), not the hydrogen atom mass (1.007825). The difference
-        is 0.55 mDa, which at 500 m/z is 1.1 ppm — on an Orbitrap, the difference between a match
-        and a miss. Libraries differ on this and rarely say which they used.
+        Two conventions are handled explicitly here, because getting either wrong is invisible in
+        the answer.
+
+        **The proton mass (1.007276), not the hydrogen atom (1.007825).** The difference is
+        0.55 mDa — 1.1 ppm at m/z 500, which on an Orbitrap is a match versus a miss. Libraries
+        differ on this and rarely say which they used.
+
+        **Fixed charges are not double-counted.** Some modifications leave the residue permanently
+        charged: trimethylation of a lysine ε-amine gives a quaternary ammonium, and UniProt
+        records the delta as 43.054227 — C₃H₇ *minus an electron* — rather than the neutral
+        43.054775. So :attr:`monoisotopic_mass` already carries that charge, and only
+        ``charge - fixed_charges`` protons are added. Adding a full complement would put a 2+
+        trimethylated peptide half a Thomson high, on the most important histone modification
+        there is.
+
+        A peptide with a fixed charge is therefore observable at that charge with no protonation
+        at all, which is why ``charge`` may not be below :attr:`fixed_charges`.
 
         Args:
-            charge: A positive integer charge state.
+            charge: The total charge state, at least :attr:`fixed_charges` and at least 1.
         """
         if not isinstance(charge, int) or isinstance(charge, bool) or charge < 1:
             raise _bridge.UsageError(f"charge must be a positive whole number; got {charge!r}.")
-        return (self.monoisotopic_mass + charge * PROTON_MASS) / charge
+        if charge < self.fixed_charges:
+            raise _bridge.UsageError(
+                f"This peptide already carries {self.fixed_charges} fixed charge(s) from its "
+                f"modifications, so it cannot be observed at charge {charge}."
+            )
+        return (self.monoisotopic_mass + (charge - self.fixed_charges) * PROTON_MASS) / charge
 
     @classmethod
     def _from_wire(cls, payload: dict[str, Any]) -> "Peptide":
@@ -108,6 +130,7 @@ class Peptide:
             one_based_start=int(payload.get("one_based_start", 0)),
             one_based_end=int(payload.get("one_based_end", 0)),
             missed_cleavages=int(payload.get("missed_cleavages", 0)),
+            fixed_charges=int(payload.get("fixed_charges", 0)),
             modifications=list(payload.get("modifications") or []),
             fragments=[
                 Fragment(

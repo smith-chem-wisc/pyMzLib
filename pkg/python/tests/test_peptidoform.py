@@ -79,6 +79,42 @@ def test_mz_uses_the_proton_mass_not_hydrogen(recorded_digest):
     assert abs(peptide.mz(2) - hydrogen_answer) > 1e-4, "must not silently use the hydrogen mass"
 
 
+def test_mz_does_not_double_count_a_fixed_charge():
+    """Trimethylation of a lysine ε-amine gives a quaternary ammonium. UniProt records the delta
+    as 43.054227 — C3H7 minus an electron — so the mass already carries one charge, and only
+    (z − fixed) protons may be added. Adding a full complement put a 2+ trimethylated peptide
+    0.504 Th high, on the most important histone modification there is."""
+    charged = peptidoform.Peptide(
+        base_sequence="SAPATGGVK", full_sequence="", monoisotopic_mass=829.477794,
+        length=9, one_based_start=1, one_based_end=9, missed_cleavages=0, fixed_charges=1,
+    )
+    assert charged.mz(2) == pytest.approx(
+        (829.477794 + 1 * peptidoform.PROTON_MASS) / 2, abs=1e-9
+    )
+    naive = (829.477794 + 2 * peptidoform.PROTON_MASS) / 2
+    assert abs(charged.mz(2) - naive) == pytest.approx(peptidoform.PROTON_MASS / 2, abs=1e-9)
+
+
+def test_a_fixed_charge_peptide_is_observable_without_protonation():
+    """It already carries the charge, so 1+ needs nothing added — an answer the old arithmetic
+    could not produce."""
+    charged = peptidoform.Peptide(
+        base_sequence="K", full_sequence="", monoisotopic_mass=829.477794,
+        length=1, one_based_start=1, one_based_end=1, missed_cleavages=0, fixed_charges=1,
+    )
+    assert charged.mz(1) == pytest.approx(829.477794, abs=1e-9)
+
+
+def test_a_charge_below_the_fixed_charge_is_refused():
+    """That species cannot exist, and silently returning a number for it would be worse."""
+    charged = peptidoform.Peptide(
+        base_sequence="K", full_sequence="", monoisotopic_mass=900.0,
+        length=1, one_based_start=1, one_based_end=1, missed_cleavages=0, fixed_charges=2,
+    )
+    with pytest.raises(pymzlib.UsageError, match="fixed charge"):
+        charged.mz(1)
+
+
 @pytest.mark.parametrize("charge", [0, -1, 1.5, "2", True, None])
 def test_mz_rejects_charges_that_are_not_positive_whole_numbers(recorded_digest, charge):
     peptide = peptidoform.fragments("P02768").peptides[0]

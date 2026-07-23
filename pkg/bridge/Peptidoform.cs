@@ -323,6 +323,38 @@ internal static class Peptidoform
         return census;
     }
 
+    /// <summary>The mass of one electron, in daltons.</summary>
+    private const double ElectronMass = 0.00054857990;
+
+    /// <summary>
+    /// The formal charge a modification carries, recovered from its own recorded mass.
+    /// </summary>
+    /// <remarks>
+    /// Some modifications produce a permanently charged residue. Trimethylation of a lysine
+    /// ε-amine gives a quaternary ammonium — <c>NH2 → N(CH3)3⁺</c> — which adds C₃H₇ and removes
+    /// an electron, and UniProt records the delta as 43.054227 rather than the neutral-formula
+    /// 43.054775. (Unimod's 42.04695 is C₃H₆, the neutral convention search engines use because
+    /// they assume every charge comes from an added proton.)
+    /// <para>
+    /// mzLib is right to follow UniProt here, but a consumer computing m/z must know: a mass that
+    /// already carries a charge needs fewer protons added, not the same number. The difference
+    /// between the chemical formula's mass and the recorded mass is exactly one electron per
+    /// formal charge, so the charge is recoverable without a second lookup table.
+    /// </para>
+    /// </remarks>
+    private static int FormalChargeOf(Modification modification)
+    {
+        if (modification.ChemicalFormula is null || modification.MonoisotopicMass is null)
+            return 0;
+
+        double deficit = modification.ChemicalFormula.MonoisotopicMass - modification.MonoisotopicMass.Value;
+        int charge = (int)Math.Round(deficit / ElectronMass);
+
+        // Only trust a clean whole number of electrons; anything else is rounding in the source
+        // data rather than a formal charge, and guessing would be worse than reporting none.
+        return Math.Abs(deficit - charge * ElectronMass) < 1e-5 ? charge : 0;
+    }
+
     /// <summary>Flattens a digested peptide and its fragments into the wire shape.</summary>
     private static object ToWirePeptide(PeptideWithSetModifications peptide, List<Product> products) => new
     {
@@ -334,6 +366,9 @@ internal static class Peptidoform
         one_based_end = peptide.OneBasedEndResidue,
         missed_cleavages = peptide.MissedCleavages,
         modification_count = peptide.AllModsOneIsNterminus.Count,
+        // Charges the peptide already carries before any protonation. A consumer computing m/z
+        // must add (z - fixed_charges) protons, not z of them.
+        fixed_charges = peptide.AllModsOneIsNterminus.Values.Sum(FormalChargeOf),
         // AllModsOneIsNterminus is keyed with slot 1 as the N-TERMINUS, so residue i lives at
         // key i+1. Exposing that key as a "one-based position" was a lie about what the number
         // is: 474 of 498 modifications pointed one residue past their own target, and a peptide
@@ -352,6 +387,7 @@ internal static class Peptidoform
                     : null,
                 id = kv.Value.IdWithMotif,
                 mass = kv.Value.MonoisotopicMass,
+                formal_charge = FormalChargeOf(kv.Value),
             })
             .ToList(),
         fragments = products.Select(p => new

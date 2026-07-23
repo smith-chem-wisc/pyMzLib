@@ -40,6 +40,7 @@
                          "one_based_end":  75,
                          "missed_cleavages":  1,
                          "modification_count":  0,
+                         "fixed_charges":  0,
                          "modifications":  [
 
                                            ],
@@ -685,12 +686,14 @@
                          "one_based_end":  543,
                          "missed_cleavages":  1,
                          "modification_count":  1,
+                         "fixed_charges":  0,
                          "modifications":  [
                                                {
                                                    "one_based_residue":  35,
                                                    "terminus":  null,
                                                    "id":  "N6-succinyllysine on K",
-                                                   "mass":  100.016044
+                                                   "mass":  100.016044,
+                                                   "formal_charge":  0
                                                }
                                            ],
                          "fragments":  [
