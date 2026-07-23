@@ -79,3 +79,75 @@ public class PrideLiveCanaryTests
         return JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(data, Program.JsonOptions));
     }
 }
+
+/// <summary>
+/// Live canary against the real UniProt REST API.
+/// </summary>
+/// <remarks>
+/// The Peptidoform tests all run against a local XML, so they would keep passing if UniProt changed
+/// its schema or its URL scheme tomorrow. This is the one that would notice. Same convention as
+/// the PRIDE canary: an outage skips with an explanation, a contract break fails.
+/// </remarks>
+[TestFixture]
+[Category("ExternalService")]
+[Category("UniProt")]
+[ExcludeFromCodeCoverage]
+public class UniProtLiveCanaryTests
+{
+    /// <summary>Serum albumin — long-standing, heavily annotated, and unlikely to move.</summary>
+    private const string CanaryAccession = "P02768";
+
+    [Test]
+    public Task TheEntryStillDownloadsAndStillCarriesItsAnnotations() =>
+        ExternalServiceTestHelper.RunAsync("UniProt", async () =>
+        {
+            JsonElement data = await InvokeAsync(
+                "peptidoform", "fragments", "--accession", CanaryAccession, "--max-mods", "0");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(data.GetProperty("sequence_length").GetInt32(), Is.GreaterThan(500),
+                    "albumin is 609 residues; a much shorter sequence means the XML shape changed");
+                Assert.That(data.GetProperty("uniprot_annotated_features").GetInt32(), Is.GreaterThan(0),
+                    "UniProt answered but annotated nothing — the feature schema has probably changed");
+                Assert.That(data.GetProperty("peptide_count").GetInt32(), Is.GreaterThan(0));
+            });
+        });
+
+    [Test]
+    public Task ModificationDefinitionsStillResolve() =>
+        ExternalServiceTestHelper.RunAsync("UniProt", async () =>
+        {
+            // The failure this guards is silent and was live: without ptmlist.txt the entry parses
+            // perfectly, resolves no modifications, and reports a confident zero.
+            JsonElement data = await InvokeAsync(
+                "peptidoform", "fragments", "--accession", CanaryAccession, "--max-mods", "1");
+
+            Assert.That(data.GetProperty("annotated_modifications_loaded").GetInt32(), Is.GreaterThan(0),
+                "no annotated modification resolved — ptmlist.txt is missing or its format changed");
+        });
+
+    [Test]
+    public Task AnUnknownAccessionIsAUsageErrorNotAnOutage() =>
+        ExternalServiceTestHelper.RunAsync("UniProt", async () =>
+        {
+            // UniProt returns 400 here, not 404. Classifying it as an outage would tell the caller
+            // to retry forever for a permanent mistake, and would make this test skip instead of
+            // catching a regression.
+            try
+            {
+                await InvokeAsync("peptidoform", "fragments", "--accession", "P99999999");
+                Assert.Fail("expected a usage error for an unknown accession");
+            }
+            catch (Program.UsageException)
+            {
+                Assert.Pass();
+            }
+        });
+
+    private static async Task<JsonElement> InvokeAsync(params string[] args)
+    {
+        object data = await Program.DispatchAsync(args);
+        return JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(data, Program.JsonOptions));
+    }
+}
