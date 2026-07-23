@@ -18,7 +18,7 @@ namespace MzLibBridge.Tests;
 public class PeptidoformTests
 {
     private string _tempDirectory = string.Empty;
-    private Func<string, Task<string>> _originalSource = null!;
+    private Func<string, Task<(string, bool)>> _originalSource = null!;
 
     [SetUp]
     public void CreateTempDirectory()
@@ -57,7 +57,8 @@ public class PeptidoformTests
     {
         string path = Path.Combine(_tempDirectory, "entry.xml");
         File.WriteAllText(path, xml, Encoding.UTF8);
-        Peptidoform.UniProtXmlSource = _ => Task.FromResult(path);
+        // CallerDeletes: false - the test owns this fixture, the workflow must not delete it.
+        Peptidoform.UniProtXmlSource = _ => Task.FromResult((path, false));
     }
 
     private static async Task<JsonElement> InvokeAsync(params string[] args)
@@ -67,6 +68,19 @@ public class PeptidoformTests
     }
 
     // ---- the census ----------------------------------------------------------
+
+    [Test]
+    public async Task AnInjectedFixtureIsNotDeletedByTheWorkflow()
+    {
+        // The workflow used to delete whatever path the source returned, destroying a fixture a
+        // test reused across two calls. Ownership is now explicit; prove the file survives.
+        UseXml(MiniEntryXml);
+        string fixture = Path.Combine(_tempDirectory, "entry.xml");
+
+        await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
+
+        Assert.That(File.Exists(fixture), Is.True, "the workflow deleted a fixture it did not own");
+    }
 
     [Test]
     public async Task TheCensusReportsAnnotatedFeaturesIncludingTheOnesNotUsed()

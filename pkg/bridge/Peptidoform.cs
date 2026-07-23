@@ -39,7 +39,14 @@ internal static class Peptidoform
     /// combinatorics, the isoform cap — are all downstream of the download, and none of them
     /// should require the network to exercise.
     /// </remarks>
-    internal static Func<string, Task<string>> UniProtXmlSource { get; set; } = DownloadUniProtXmlAsync;
+    /// <remarks>
+    /// Returns the XML path and whether the caller is responsible for deleting it. The real
+    /// downloader creates a temp file and hands ownership over (delete it); a test fixture is
+    /// owned by the test and must be left alone. Making ownership explicit is what stops the
+    /// cleanup from deleting a file it did not create.
+    /// </remarks>
+    internal static Func<string, Task<(string Path, bool CallerDeletes)>> UniProtXmlSource { get; set; }
+        = async accession => (await DownloadUniProtXmlAsync(accession).ConfigureAwait(false), true);
 
     /// <summary>Where a single UniProtKB entry's annotated XML comes from.</summary>
     private const string UniProtEntryUrlFormat = "https://rest.uniprot.org/uniprotkb/{0}.xml";
@@ -74,9 +81,21 @@ internal static class Peptidoform
                 "annotated modifications resolve to nothing and every protein looks unmodified.",
                 ptmList);
 
-        Dictionary<string, int> formalCharges = File.Exists(psiModObo)
-            ? Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModObo))
-            : new Dictionary<string, int>();
+        // PSI-MOD carries the formal charges that make a permanently charged modification's mass
+        // encode its charge - which is exactly what mz() reads back to avoid double-counting a
+        // proton (see FormalChargeOf). Substituting an empty dictionary when the file is absent
+        // was a silent hole: trimethyllysine and the like would load without their fixed charge,
+        // and every downstream m/z would be wrong by a proton with nothing to indicate it. Fail as
+        // loudly here as for a missing ptmlist, since correctness now depends on it.
+        if (!File.Exists(psiModObo))
+            throw new FileNotFoundException(
+                $"PSI-MOD is missing from the payload at '{psiModObo}'. It supplies the formal " +
+                "charges that let m/z avoid double-counting a proton on charged modifications; " +
+                "without it those masses load uncharged and every m/z is silently wrong.",
+                psiModObo);
+
+        Dictionary<string, int> formalCharges =
+            Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModObo));
 
         return Loaders.LoadUniprot(ptmList, formalCharges).ToList();
     }
@@ -148,12 +167,26 @@ internal static class Peptidoform
             maxModificationIsoforms: maxIsoforms,
             fragmentationTerminus: terminus);
 
-        // Distinct: mzLib can emit the same peptidoform more than once - notably the
-        // initiator-methionine-removed forms, which arrived twice for every peptide starting at
-        // residue 2. Reporting a list whose length overstates the answer by 5% is precisely the
-        // kind of quiet wrongness this verb exists to avoid.
-        List<PeptideWithSetModifications> peptides = subject
+        // The raw digest, BEFORE de-duplication. The isoform-cap check below must count against
+        // this, not the deduped list: mzLib truncates a locus at maxIsoforms *distinct* forms,
+        // and de-duplicating first can drop a truncated locus below the cap and report it as
+        // untruncated — the exact silent-truncation failure the cap reporting exists to prevent.
+        List<PeptideWithSetModifications> rawDigest = subject
             .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+            .ToList();
+
+        int peptidesAtCap = rawDigest
+            .GroupBy(p => (p.OneBasedStartResidue, p.OneBasedEndResidue))
+            .Count(g => g.Count() >= maxIsoforms);
+
+        // WORKAROUND for smith-chem-wisc/mzLib#1108: Digest returns the same peptidoform twice
+        // where a chain annotation's start coincides with the initiator-methionine cleavage site
+        // (the mature N-terminus). On histone H3.1 that is 19 exact duplicates - identical
+        // sequence, position, mods and mass, differing only in PeptideDescription. It is invisible
+        // in a search, where PSMs are de-duplicated downstream, but a verb that ENUMERATES
+        // peptidoforms would report a count ~3.5% high. Group to distinct peptidoforms until the
+        // duplicate emission is fixed upstream; then this collapses to a plain ToList().
+        List<PeptideWithSetModifications> peptides = rawDigest
             .GroupBy(p => (p.OneBasedStartResidue, p.OneBasedEndResidue, p.FullSequence))
             .Select(g => g.First())
             .ToList();
@@ -215,12 +248,14 @@ internal static class Peptidoform
     /// </remarks>
     private static async Task<(Protein Protein, Dictionary<string, int> AnnotationCensus, List<string> Unresolved)> FetchAnnotatedProteinAsync(string accession)
     {
-        string temp = await UniProtXmlSource(accession).ConfigureAwait(false);
+        // Ownership is explicit: only delete the file if the source handed it over. An injected
+        // fixture is owned by the test and left alone; the real downloader's temp is ours to clean.
+        (string xmlPath, bool callerDeletes) = await UniProtXmlSource(accession).ConfigureAwait(false);
 
         try
         {
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
-                temp,
+                xmlPath,
                 generateTargets: true,
                 decoyType: DecoyType.None,
                 allKnownModifications: KnownUniProtModifications.Value,
@@ -232,12 +267,12 @@ internal static class Peptidoform
                 throw new Program.UsageException(
                     $"UniProt returned an entry for '{accession}' that contained no protein sequence.");
 
-            return (proteins[0], CensusAnnotatedFeatures(temp), unresolved.Keys.OrderBy(k => k).ToList());
+            return (proteins[0], CensusAnnotatedFeatures(xmlPath), unresolved.Keys.OrderBy(k => k).ToList());
         }
         finally
         {
-            if (File.Exists(temp))
-                File.Delete(temp);
+            if (callerDeletes && File.Exists(xmlPath))
+                File.Delete(xmlPath);
         }
     }
 
@@ -366,8 +401,11 @@ internal static class Peptidoform
         one_based_end = peptide.OneBasedEndResidue,
         missed_cleavages = peptide.MissedCleavages,
         modification_count = peptide.AllModsOneIsNterminus.Count,
-        // Charges the peptide already carries before any protonation. A consumer computing m/z
-        // must add (z - fixed_charges) protons, not z of them.
+        // Charges the INTACT peptide already carries before protonation, used by Peptide.mz to add
+        // (z - fixed_charges) protons rather than z. This is a whole-peptide sum and deliberately
+        // does NOT apply to fragments: a c or z ion carries only the fixed charges of the residues
+        // within its own span, so fragment m/z would need per-fragment accounting. Fragments
+        // therefore expose neutral_mass only, and the limitation is documented on the Python side.
         fixed_charges = peptide.AllModsOneIsNterminus.Values.Sum(FormalChargeOf),
         // AllModsOneIsNterminus is keyed with slot 1 as the N-TERMINUS, so residue i lives at
         // key i+1. Exposing that key as a "one-based position" was a lie about what the number

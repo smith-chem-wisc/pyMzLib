@@ -39,8 +39,15 @@ class Fragment:
         product_type: The ion series, e.g. ``"c"`` or ``"zDot"`` for ETD, ``"b"``/``"y"`` for CID.
         fragment_number: Position in the series — ``c3`` is the third from the N-terminus.
         neutral_mass: Monoisotopic neutral mass in daltons. **Not** an m/z: no proton has been
-            added and no charge assumed. See :meth:`Peptide.mz` for that conversion, and read
-            its note before putting a number in a figure.
+            added and no charge assumed.
+
+            Fragments deliberately expose no ``mz()``. Converting one correctly requires the fixed
+            charge *within this fragment's span* — a c or z ion carries only the permanently
+            charged modifications on the residues it contains, not the whole peptide's
+            :attr:`Peptide.fixed_charges`. For an unmodified or neutrally-modified peptide,
+            ``(neutral_mass + z * PROTON_MASS) / z`` is correct; for a fragment bearing a
+            quaternary-ammonium modification (e.g. trimethyllysine) it is not, and per-fragment
+            charge accounting is not yet provided.
         neutral_loss: Neutral loss in daltons, ``0.0`` when there is none.
         residue_position: One-based residue position in the peptide.
     """

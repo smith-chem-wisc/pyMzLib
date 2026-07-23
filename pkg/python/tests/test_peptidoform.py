@@ -139,6 +139,7 @@ def test_modification_positions_index_the_peptides_own_residues(recorded_digest)
     they modify. Passing that through unchanged pointed 474 of 498 modifications at the wrong
     residue — and at a residue that need not exist: a peptide MAR reported position 4 for its
     arginine."""
+    checked = 0
     for peptide in proteoform_peptides(recorded_digest):
         for mod in peptide.modifications:
             residue = mod.get("one_based_residue")
@@ -151,6 +152,12 @@ def test_modification_positions_index_the_peptides_own_residues(recorded_digest)
                 f"{peptide.base_sequence}: {mod['id']} points at "
                 f"{peptide.base_sequence[residue - 1]} at residue {residue}"
             )
+            checked += 1
+
+    # Guard against the test passing vacuously: if the fixture ever loses its modified peptide,
+    # the loops above run zero times and assert nothing. The whole point is to check a real
+    # position, so require at least one residue-anchored modification to have been verified.
+    assert checked >= 1, "fixture has no residue-anchored modification to check the position of"
 
 
 def proteoform_peptides(_payload):
