@@ -34,8 +34,8 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-dist/
-build/
+/pkg/python/dist/
+/pkg/python/build/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -47,3 +47,8 @@ build/
 /site/
 # wheel staging
 dist_untagged/
+
+# Test output and coverage artifacts (generated, never committed)
+TestResults/
+.coverage
+coverage.xml
