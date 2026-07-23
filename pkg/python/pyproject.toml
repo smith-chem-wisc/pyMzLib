@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pymzlib"
+version = "0.1.0.dev0"
+description = "mzLib for Python — mass spectrometry and proteomics from the mzLib C# library, with no .NET installation required"
+readme = "README.md"
+# Deliberately permissive, and please leave it that way without a specific reason (decision D7).
+# The usual "3.11+" advice comes from packages that ship compiled extensions and must rebuild for
+# every Python version — real recurring cost per supported version. pyMzLib has no compiled Python
+# code, so a wheel serves every version equally and an old floor costs nothing to maintain. What it
+# buys is the person this package exists for: someone on a locked-down cluster with a Python they
+# cannot change. The only real cost is that library code here must avoid post-3.9 syntax.
+requires-python = ">=3.9"
+license = "LGPL-3.0-or-later"
+keywords = ["proteomics", "mass spectrometry", "PRIDE", "mzLib", "bioinformatics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+# Deliberately empty, and it should stay that way. Every runtime dependency pyMzLib declares is
+# a version constraint it can impose on someone else's environment — the exact friction this
+# project exists to avoid (decision D2). The .NET payload ships inside the wheel instead.
+dependencies = []
+
+[project.optional-dependencies]
+# Development only. Never promote anything here into `dependencies`.
+dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.5", "build", "wheel"]
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.25"]
+
+[project.urls]
+Homepage = "https://github.com/smith-chem-wisc/mzLib"
+Source = "https://github.com/trishorts/pyMzLib"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pymzlib"]
+# The self-contained bridge executable is staged under src/pymzlib/_dotnet/<rid>/ by
+# pkg/build/publish-bridge.ps1 before the wheel is built. It is a build artifact, never
+# committed to source control.
+artifacts = ["src/pymzlib/_dotnet/**"]
+
+[tool.hatch.build.targets.sdist]
+# An sdist cannot carry a platform binary, so it is source only; installing from sdist
+# requires building the bridge. Wheels are the supported path.
+exclude = ["src/pymzlib/_dotnet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "network: hits the live PRIDE Archive API; deselect with -m 'not network'",
+    "slow: downloads real files",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+# --------------------------------------------------------------------------------------------
+# Coverage. Read docs/contributing/testing.md before changing a threshold — in a wrapper like
+# this, line coverage is the easy half of the problem and the boundary is the hard half.
+# --------------------------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["pymzlib"]
+branch = true
+# The .NET payload is not Python and is not ours to measure here; the bridge has its own
+# C# test project (pkg/bridge.tests).
+omit = ["*/_dotnet/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# Deliberately high, and achievable, because this package is small and thin. If a future
+# capability makes this genuinely hard to hit, the right response is a targeted `# pragma:
+# no cover` with a comment saying why — not lowering the bar for the whole project.
+fail_under = 90
+exclude_also = [
+    # Defensive branches for platforms no CI runner can reach.
+    "raise BridgeNotFoundError\\(f\"Unsupported platform",
+    "if TYPE_CHECKING:",
+]

@@ -1,0 +1,96 @@
+site_name: pyMzLib
+site_description: mzLib for Python — mass spectrometry and proteomics, with no .NET to install
+site_url: https://smith-chem-wisc.github.io/pyMzLib/
+repo_url: https://github.com/smith-chem-wisc/pyMzLib
+repo_name: smith-chem-wisc/pyMzLib
+edit_uri: edit/main/docs/
+copyright: LGPL-3.0-or-later · Smith lab, UW–Madison
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  # The API reference is generated from the docstrings in the source, so it cannot drift from
+  # the code the way a hand-written reference does.
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [pkg/python/src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            docstring_style: google
+            members_order: source
+            filters: ["!^_"]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Guides:
+      - PRIDE Archive: guides/pride.md
+  - API reference: reference.md
+  - How it works:
+      - Architecture: design/architecture.md
+      - Design decisions: design/decisions.md
+  - Contributing:
+      - Building from source: contributing/building.md
+      - Adding a capability: contributing/adding-a-capability.md
+      - Releasing: contributing/releasing.md
+  - FAQ: faq.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/smith-chem-wisc/pyMzLib
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pymzlib/

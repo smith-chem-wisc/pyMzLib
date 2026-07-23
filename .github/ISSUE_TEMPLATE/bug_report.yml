@@ -1,0 +1,55 @@
+name: Bug report
+description: Something behaves differently than documented, or fails when it shouldn't.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version information
+      description: >-
+        Please paste the output of the command below. It identifies your platform, the bundled
+        .NET runtime, and which mzLib build you have — which usually narrows the problem
+        immediately.
+      render: shell
+      placeholder: |
+        $ python -c "import pymzlib, platform, sys; print(pymzlib.__version__, pymzlib.bridge_version()); print(platform.platform(), sys.version)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest snippet that shows the problem.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened
+      description: Full traceback if there is one, please — including the error type.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: install
+    attributes:
+      label: How did you install pyMzLib?
+      placeholder: pip install pymzlib · a built wheel · from source
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: Anything you already tried
+      description: Optional, and often the most useful part of a bug report.

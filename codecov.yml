@@ -1,0 +1,32 @@
+# Codecov drops coverage for files that are not in this repository, which is what makes the
+# two-language setup work: mzLib's sources live in the gitignored code/mzLib checkout, so its
+# tens of thousands of lines never reach the report even though dotnet test measures them.
+# The ignore list below is belt and braces.
+
+coverage:
+  status:
+    project:
+      default:
+        target: 88%
+        threshold: 1%
+    patch:
+      default:
+        # New code should be tested. This is the gate that actually holds the line over time -
+        # a project-wide percentage can drift down slowly without any single PR looking bad.
+        target: 90%
+
+ignore:
+  - "code/mzLib/**"        # not ours; has its own suite in its own repo
+  - "pkg/bridge.tests/**"
+  - "pkg/python/tests/**"
+  - "docs/**"
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true
+
+flags:
+  python:
+    paths: [pkg/python/src]
+  bridge:
+    paths: [pkg/bridge]

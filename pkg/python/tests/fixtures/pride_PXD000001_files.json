@@ -1,0 +1,191 @@
+{
+    "accession":  "PXD000001",
+    "file_count":  8,
+    "total_size_bytes":  514278049,
+    "files":  [
+                  {
+                      "file_name":  "PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+                      "file_size_bytes":  497985,
+                      "checksum":  "",
+                      "category":  "OTHER",
+                      "category_accession":  "PRIDE:0000410",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+                      "file_size_bytes":  16448103,
+                      "checksum":  "",
+                      "category":  "PEAK",
+                      "category_accession":  "PRIDE:0000409",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+                      "file_size_bytes":  243031280,
+                      "checksum":  "",
+                      "category":  "PEAK",
+                      "category_accession":  "PRIDE:0000409",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "erwinia_carotovora.fasta",
+                      "file_size_bytes":  1657668,
+                      "checksum":  "",
+                      "category":  "OTHER",
+                      "category_accession":  "PRIDE:0000410",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/erwinia_carotovora.fasta",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/erwinia_carotovora.fasta"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/erwinia_carotovora.fasta"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+                      "file_size_bytes":  220475548,
+                      "checksum":  "",
+                      "category":  "RAW",
+                      "category_accession":  "PRIDE:0000404",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "F063721.dat-mztab.txt",
+                      "file_size_bytes":  304798,
+                      "checksum":  "",
+                      "category":  "OTHER",
+                      "category_accession":  "PRIDE:0000410",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat-mztab.txt",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat-mztab.txt"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/F063721.dat-mztab.txt"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "PRIDE_Exp_Complete_Ac_22134.xml.gz",
+                      "file_size_bytes":  10677205,
+                      "checksum":  "",
+                      "category":  "RESULT",
+                      "category_accession":  "PRIDE:1002848",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PRIDE_Exp_Complete_Ac_22134.xml.gz",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/PRIDE_Exp_Complete_Ac_22134.xml.gz"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PRIDE_Exp_Complete_Ac_22134.xml.gz"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  },
+                  {
+                      "file_name":  "F063721.dat",
+                      "file_size_bytes":  21185462,
+                      "checksum":  "",
+                      "category":  "SEARCH",
+                      "category_accession":  "PRIDE:0000408",
+                      "https_url":  "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat",
+                      "locations":  [
+                                        {
+                                            "accession":  "PRIDE:0000469",
+                                            "name":  "FTP Protocol",
+                                            "value":  "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat"
+                                        },
+                                        {
+                                            "accession":  "PRIDE:0000468",
+                                            "name":  "Aspera Protocol",
+                                            "value":  "prd_ascp@fasp.ebi.ac.uk:pride/data/archive/2012/03/PXD000001/F063721.dat"
+                                        }
+                                    ],
+                      "submission_date":  "2012-03-13T00:00:00+00:00",
+                      "publication_date":  "2012-03-07T00:00:00+00:00",
+                      "updated_date":  "2017-06-20T14:57:06+00:00"
+                  }
+              ]
+}

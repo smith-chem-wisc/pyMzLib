@@ -1,0 +1,230 @@
+# Builds and tests a pyMzLib wheel for every supported platform, on machines we do not own.
+#
+# This is the answer to "do I need a Mac?" — no. GitHub runs the macOS, Linux, and Windows jobs
+# below on its own hardware. Building the payload for a platform never needs that platform
+# (`dotnet publish -r osx-arm64` cross-compiles fine from Linux); only *testing* it does, and
+# that is what the matrix is for.
+#
+# Note on cost: macOS runner minutes are free and unmetered on public repositories, and billed at
+# 10x on private ones. See gap G4 (where this repo should live).
+
+name: wheels
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Keep in step with code/PINNED.md. The bridge and the Python package must be built from the
+  # same mzLib source, so this is pinned rather than tracking master.
+  MZLIB_COMMIT: 525cb7c8e3875501868fb961d0bc1bd34ef5174e
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  # ---------------------------------------------------------------------------------------
+  # Both languages, both coverage gates. This runs first and fastest: a failure here should
+  # stop the expensive cross-platform matrix below.
+  # ---------------------------------------------------------------------------------------
+  tests:
+    name: tests + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out pinned mzLib
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
+          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # --- C# -------------------------------------------------------------------------------
+      - name: Bridge tests
+        run: >
+          dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj
+          -c Release -p:Platform=x64 --nologo
+          --collect:"XPlat Code Coverage"
+
+      # The raw number from the line above covers all of mzLib and reads about 0.6%, which is
+      # meaningless rather than bad. This scopes it to code we actually wrote and enforces it.
+      - name: Bridge coverage gate
+        shell: pwsh
+        run: ./pkg/build/check-bridge-coverage.ps1
+
+      # --- Python ---------------------------------------------------------------------------
+      - name: Build the bridge for the Python tests
+        shell: pwsh
+        run: ./pkg/build/publish-bridge.ps1 -Runtime linux-x64
+
+      - name: Python tests, offline
+        working-directory: pkg/python
+        run: |
+          pip install -e ".[dev]"
+          pytest -m "not network" --cov=pymzlib --cov-report=xml --cov-report=term-missing
+
+      # Non-blocking on purpose: an EBI outage is not a broken pull request. It still shows up
+      # as a failed step, so a real contract break is visible rather than silent.
+      - name: Python tests, live against PRIDE
+        working-directory: pkg/python
+        continue-on-error: true
+        run: pytest -m network -v
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: pkg/python/coverage.xml,pkg/bridge.tests/TestResults/*/coverage.cobertura.xml
+          fail_ci_if_error: false
+
+  # ---------------------------------------------------------------------------------------
+  # One Linux runner cross-builds every platform's payload and wheel. Cheap, and it keeps the
+  # macOS runners for the job only they can do: actually running the thing.
+  # ---------------------------------------------------------------------------------------
+  build:
+    needs: tests
+    name: build wheel (${{ matrix.rid }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            plat_tag: win_amd64
+          - rid: linux-x64
+            plat_tag: manylinux_2_17_x86_64.manylinux2014_x86_64
+          - rid: osx-x64
+            plat_tag: macosx_11_0_x86_64
+          - rid: osx-arm64
+            plat_tag: macosx_11_0_arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out pinned mzLib
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
+          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Publish the self-contained bridge
+        shell: pwsh
+        run: ./pkg/build/publish-bridge.ps1 -Runtime ${{ matrix.rid }}
+
+      - name: Build the wheel
+        working-directory: pkg/python
+        run: |
+          python -m pip install --upgrade build wheel
+          python -m build --wheel --outdir dist_untagged
+
+      # hatchling produces a py3-none-any wheel because there is no compiled Python code in the
+      # package. That is wrong here: the wheel carries a platform binary, so it must refuse to
+      # install on the wrong OS. Retagging is the standard fix and is why we get ONE wheel per
+      # operating system rather than one per OS x Python version (decision D7).
+      - name: Retag as a platform wheel
+        working-directory: pkg/python
+        run: |
+          python -m wheel tags \
+            --python-tag py3 --abi-tag none \
+            --platform-tag ${{ matrix.plat_tag }} \
+            --remove \
+            dist_untagged/*.whl
+          ls -lh dist_untagged
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.rid }}
+          path: pkg/python/dist_untagged/*.whl
+
+  # ---------------------------------------------------------------------------------------
+  # Install each wheel the way a stranger would, on the real operating system, and run the
+  # tests against it. Only the floor and the ceiling Python are tested: with no compiled
+  # extension, the versions in between cannot differ in a way these tests would catch.
+  # ---------------------------------------------------------------------------------------
+  test:
+    name: test ${{ matrix.os }} / py${{ matrix.python }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  rid: linux-x64, python: '3.9' }
+          - { os: ubuntu-latest,  rid: linux-x64, python: '3.14' }
+          - { os: windows-latest, rid: win-x64,   python: '3.9' }
+          - { os: windows-latest, rid: win-x64,   python: '3.14' }
+          - { os: macos-14,       rid: osx-arm64, python: '3.14' }   # Apple Silicon
+          - { os: macos-13,       rid: osx-x64,   python: '3.14' }   # Intel
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ matrix.rid }}
+          path: wheelhouse
+
+      # Deliberately NOT an editable install of the source tree — install the built artifact,
+      # so what is tested is what a user would receive.
+      - name: Install the wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install wheelhouse/*.whl
+
+      - name: The whole claim, in one line
+        shell: bash
+        run: python -c "import pymzlib; print(pymzlib.bridge_version())"
+
+      - name: Offline tests
+        working-directory: pkg/python
+        run: python -m pytest -m "not network" -v
+
+      - name: Live tests against PRIDE
+        working-directory: pkg/python
+        continue-on-error: true   # EBI outages are not our bug; see the ExternalService convention
+        run: python -m pytest -m "network" -v
+
+  # ---------------------------------------------------------------------------------------
+  # The claim being made is "you do not need .NET installed." GitHub's runners have .NET on
+  # them, so passing there does not prove it. A stock python:slim container does.
+  # ---------------------------------------------------------------------------------------
+  no-dotnet:
+    name: works with no .NET installed
+    needs: build
+    runs-on: ubuntu-latest
+    container: python:3.9-slim
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-linux-x64
+          path: wheelhouse
+
+      - name: Confirm this machine really has no .NET
+        run: |
+          if command -v dotnet; then echo "::error::dotnet is present; this test proves nothing"; exit 1; fi
+          echo "no dotnet on PATH, as intended"
+
+      - name: Install and use pyMzLib
+        run: |
+          pip install wheelhouse/*.whl
+          python -c "import pymzlib; f = pymzlib.pride.list_files('PXD000001'); print(f'{len(f)} files'); assert len(f) >= 8"

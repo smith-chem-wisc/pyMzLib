@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>mzlib-bridge</AssemblyName>
+    <RootNamespace>MzLibBridge</RootNamespace>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Self-contained single-file publish is what gets staged into the Python wheel;
+         the user must never install a .NET runtime (decision D2). -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The argument parser and the wire-shaping helpers are internal, not public API: they are
+         implementation details of a command-line tool. The test project needs to see them. -->
+    <InternalsVisibleTo Include="MzLibBridge.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sourced from the pinned mzLib worktree under code/mzLib (see code/PINNED.md).
+         Deliberately references the narrowest project that carries PrideArchiveClient rather
+         than the whole mzLib NuGet package, which drags TorchSharp/libtorch and native
+         vendor DLLs (gap G7). -->
+    <ProjectReference Include="..\..\code\mzLib\mzLib\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+  </ItemGroup>
+
+</Project>

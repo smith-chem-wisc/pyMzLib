@@ -1,0 +1,23 @@
+###############################################################################
+# Normalize line endings. Adapted from mzLib.
+###############################################################################
+* text=auto
+
+*.cs      text diff=csharp
+*.py      text
+*.md      text
+*.yml     text
+*.yaml    text
+*.ps1     text
+*.csproj  text
+*.json    text
+*.cff     text
+
+###############################################################################
+# Binary
+###############################################################################
+*.png  binary
+*.jpg  binary
+*.whl  binary
+*.exe  binary
+*.dll  binary

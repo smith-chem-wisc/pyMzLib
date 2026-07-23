@@ -1,0 +1,16 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question about how to use pyMzLib
+    url: https://github.com/smith-chem-wisc/pyMzLib/discussions
+    about: Ask here rather than opening an issue — and check the docs first, they may already cover it.
+  - name: Documentation
+    url: https://smith-chem-wisc.github.io/pyMzLib/
+    about: Guides, API reference, and the reasoning behind the design.
+  - name: A bug in mzLib itself
+    url: https://github.com/smith-chem-wisc/mzLib/issues
+    about: >-
+      For wrong science or wrong values rather than a wrapper problem. If you are not sure which
+      side it sits on, open it here and we will route it.
+  - name: Security vulnerability
+    url: https://github.com/smith-chem-wisc/pyMzLib/security/advisories/new
+    about: Please report privately, not as a public issue.

@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+title: "pyMzLib: mzLib for Python"
+message: >-
+  If you use pyMzLib in work you publish, please cite it as below, and please also cite mzLib and
+  MetaMorpheus for the underlying science — pyMzLib is an interface to their functionality, not a
+  reimplementation of it.
+type: software
+# ORCIDs sourced from the lab's submission defaults, not guessed. Confirm the full author list
+# before the first release — contributors who land significant work belong here.
+# Byline convention: Lloyd M. Smith is always last author.
+authors:
+  - given-names: Michael
+    family-names: Shortreed
+    name-particle: R.
+    email: mshort@chem.wisc.edu
+    affiliation: "Department of Chemistry, University of Wisconsin–Madison"
+    orcid: "https://orcid.org/0000-0003-4626-0863"
+  - given-names: Lloyd
+    family-names: Smith
+    name-particle: M.
+    email: smith@chem.wisc.edu
+    affiliation: "Department of Chemistry, University of Wisconsin–Madison"
+    orcid: "https://orcid.org/0000-0002-6652-8639"
+repository-code: "https://github.com/smith-chem-wisc/pyMzLib"
+url: "https://smith-chem-wisc.github.io/pyMzLib/"
+abstract: >-
+  pyMzLib makes the mzLib mass-spectrometry and proteomics library callable from Python. mzLib is
+  written in C#; pyMzLib ships a self-contained .NET payload inside its wheel so that installation
+  requires nothing beyond pip, and declares no third-party Python dependencies so that it cannot
+  conflict with a user's existing environment.
+keywords:
+  - proteomics
+  - mass spectrometry
+  - PRIDE Archive
+  - mzLib
+  - MetaMorpheus
+  - bioinformatics
+license: LGPL-3.0-or-later
+references:
+  - type: software
+    title: mzLib
+    repository-code: "https://github.com/smith-chem-wisc/mzLib"
+    authors:
+      - name: "Smith Chemistry Group, University of Wisconsin–Madison"
+    license: LGPL-3.0-or-later

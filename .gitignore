@@ -1,0 +1,49 @@
+# /project — tracked vs ignored. Code worktrees + large data own their own remotes / are recorded.
+
+# Source worktrees (push to their own forks; recorded in code/PINNED.md)
+/code/*/
+!/code/PINNED.md
+!/code/reviews/
+!/code/reviews/**
+
+# Raw data & databases (recorded in data/PROVENANCE.md, not committed)
+*.raw
+*.mzML
+*.mzml
+*.d/
+*.fasta
+*.msl
+*.db
+/data/raw/
+/data/**/*.raw
+/data/**/*.mzML
+
+# Quarantine
+/.project/attic/
+
+# Office lock files & build outputs
+~$*
+*.tmp
+bin/
+obj/
+__pycache__/
+.ipynb_checkpoints/
+
+# Python-specific (this project ships a Python package)
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+# built wheels are release artifacts, not source
+*.whl
+# self-contained .NET payload staged into the package (rebuilt, never committed)
+**/_dotnet/
+# built docs site (published by CI, never committed)
+/site/
+# wheel staging
+dist_untagged/

@@ -1,0 +1,74 @@
+name: Capability request — expose something from mzLib
+description: Ask for a piece of mzLib to be made available from Python. No C# knowledge needed.
+title: "[capability] "
+labels: ["capability request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This is the most useful issue you can open.** pyMzLib's coverage grows by demand rather
+        than by guessing, so a request with a real use case genuinely sets priorities.
+
+        You don't need to know what the mzLib class is called, or any C#. Describe what you want
+        to do and we'll find it.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: The scientific task, not the API. "Read scans out of a Thermo .raw file" is perfect.
+      placeholder: I want to …
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What would the Python look like, if it existed?
+      description: >-
+        Rough pseudocode is fine and genuinely helps — it tells us the shape you want, which is
+        often more useful than the underlying method name.
+      render: python
+      placeholder: |
+        import pymzlib
+        scans = pymzlib.spectra.read("run1.raw")
+    validations:
+      required: false
+
+  - type: input
+    id: mzlib-api
+    attributes:
+      label: The mzLib class or method, if you know it
+      placeholder: e.g. MassSpectrometry.MsDataFile
+
+  - type: dropdown
+    id: granularity
+    attributes:
+      label: How would you call it?
+      description: >-
+        This matters more than it sounds. pyMzLib crosses a process boundary per call, which is
+        free for coarse operations and too slow inside a tight loop — a fine-grained request may
+        need a different approach underneath, so it's useful to know up front.
+      options:
+        - Once, or a handful of times (open a file, fetch a dataset, run an analysis)
+        - Many times over a large collection (per spectrum, per peptide, in a loop)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      description: Another tool, a manual step, a script you'd rather not maintain — all useful to know.
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help?
+      description: >-
+        Entirely optional. The recipe for adding a capability is documented end to end, and we're
+        happy to walk anyone through it.
+      options:
+        - label: I'd be willing to try implementing this with guidance
+        - label: I could test a pre-release build

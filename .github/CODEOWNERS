@@ -1,0 +1,10 @@
+# Every pull request gets a review from the maintainers.
+*                       @trishorts
+
+# The three invariants live in these files. Changes here deserve extra attention:
+# a new runtime dependency, a leaked transport detail, or a Python-shaped wire format
+# are all easy to add and hard to remove later.
+/pkg/python/pyproject.toml          @trishorts
+/pkg/python/src/pymzlib/_bridge.py  @trishorts
+/pkg/bridge/Program.cs              @trishorts
+/docs/design/                       @trishorts

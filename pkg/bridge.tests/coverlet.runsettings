@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Scope coverage to the bridge, and nothing else.
+
+  Without this filter, coverlet measures every assembly the test project can see - which here
+  means the whole of mzLib, tens of thousands of lines we neither wrote nor test. The reported
+  number came out at 0.6%, which is not a low score so much as a meaningless one: it is dominated
+  by code that has its own test suite in its own repository.
+
+  A coverage number is only worth having if it answers a question someone would act on. The
+  question here is "is the bridge tested", so the bridge is what gets measured.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!-- Assembly name, not project name: the project is MzLibBridge but it builds
+               mzlib-bridge.dll, and the filter matches the assembly. Getting this wrong reports
+               0% rather than failing, which is why the number is asserted in CI. -->
+          <Include>[mzlib-bridge]*</Include>
+          <!-- Generated async state machines and lambda display classes are compiler artifacts,
+               not code anyone can write a test for. -->
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+          <SkipAutoProps>true</SkipAutoProps>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

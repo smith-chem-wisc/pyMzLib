@@ -1,0 +1,62 @@
+# Builds the documentation site and publishes it to GitHub Pages.
+#
+# The docs live in the same repository as the code, in docs/, rather than in GitHub's wiki. A
+# wiki is a separate repository: it cannot be changed in the same pull request as the code it
+# describes, it cannot be reviewed, and it silently goes stale. Docs-as-code means a change that
+# breaks a documented behavior and the documentation fix land together, and --strict below turns
+# a broken cross-reference into a failed build rather than a dead link a user finds first.
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the docs toolchain
+        run: pip install "mkdocs-material>=9.5" "mkdocstrings[python]>=0.25"
+
+      # mkdocstrings imports pymzlib to read its docstrings. It must import without the .NET
+      # payload present — nothing at import time may touch the bridge. If this step fails, the
+      # package has acquired an import-time side effect, which is a bug worth catching here.
+      - name: Make the package importable
+        run: pip install -e ./pkg/python
+
+      - name: Build (strict — warnings are failures)
+        run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    # Pull requests build the docs but do not publish them.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
