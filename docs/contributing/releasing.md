@@ -8,9 +8,46 @@
    ```bash
    git tag v0.1.0 && git push origin v0.1.0
    ```
-4. CI builds all four platform wheels, tests each on its real operating system, and publishes to
-   PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — OIDC, so there are
-   no API tokens stored anywhere.
+4. CI builds all four platform wheels, tests each on its real operating system, and — **if the
+   `PYPI_PUBLISH` repository variable is `true`** — publishes to PyPI via
+   [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — OIDC, so there are no API
+   tokens stored anywhere.
+
+!!! warning "PyPI publishing is off until you switch it on"
+    The `publish to PyPI` job is gated on a repository variable `PYPI_PUBLISH=true` (Settings →
+    Secrets and variables → Actions → Variables). It ships **disabled** on purpose, because PyPI
+    cannot accept an upload until the two one-time steps below are done — a Trusted Publisher is
+    registered and the file-size limit is granted. Until then, tagging safely builds and tests
+    wheels on every platform without publishing, and a broken first version can't be shipped and
+    locked. Turn it on only once both prerequisites are in place.
+
+    **One-time PyPI setup, in order:**
+
+    1. Register the Trusted Publisher: on PyPI, create/claim the `pymzlib` project, then add a
+       GitHub Actions trusted publisher — owner `smith-chem-wisc`, repo `pyMzLib`, workflow
+       `wheels.yml`, environment `pypi`. (See the file-size note below — do this together.)
+    2. Request the file-size-limit increase (below); wait for it to be granted.
+    3. Set the repository variable `PYPI_PUBLISH=true`.
+    4. Bump to a real version and tag.
+
+## Giving someone a build before the first PyPI release
+
+You don't need PyPI to hand a colleague a working install. Every push to `main` builds all four
+platform wheels; attach them to a GitHub Release and they install with one command:
+
+```bash
+# grab the wheels CI already built for a commit, then publish a release with them attached
+gh run download <run-id> --pattern 'wheel-*' --dir wheels
+gh release create v0.1.0.dev0 --prerelease --title "pyMzLib 0.1.0.dev0 (preview)" wheels/**/*.whl
+```
+
+The recipient installs the wheel for their platform straight from the release — no PyPI, no .NET:
+
+```bash
+pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev0/<wheel-for-their-os>
+```
+
+Because `PYPI_PUBLISH` is off, this `v*` tag builds and tests wheels without attempting to publish.
 
 ## Version numbers
 
