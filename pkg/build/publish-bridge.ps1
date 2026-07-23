@@ -58,11 +58,16 @@ Write-Host "Publishing mzlib-bridge for $Runtime -> $stageDir"
 if (Test-Path $stageDir) { Remove-Item -Recurse -Force $stageDir }
 New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 
+# The solution platform stays x64 to match the mzLib projects, but the codegen target must follow
+# the runtime identifier: publishing osx-arm64 while PlatformTarget is x64 fails with NETSDK1032.
+$platformTarget = if ($Runtime -match 'arm64$') { 'arm64' } else { 'x64' }
+
 dotnet publish $project `
     -c $Configuration `
     -r $Runtime `
     --self-contained true `
     -p:Platform=x64 `
+    -p:PlatformTarget=$platformTarget `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:EnableCompressionInSingleFile=true `

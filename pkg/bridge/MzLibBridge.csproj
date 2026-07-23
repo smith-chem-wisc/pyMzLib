@@ -7,8 +7,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>mzlib-bridge</AssemblyName>
     <RootNamespace>MzLibBridge</RootNamespace>
+    <!-- `Platforms` names the solution configuration, which must stay x64 to match the mzLib
+         projects this references. PlatformTarget is deliberately NOT pinned here: it has to
+         follow the RuntimeIdentifier, or an arm64 publish fails with NETSDK1032 because the
+         inherited x64 target contradicts the RID. publish-bridge.ps1 sets it per runtime. -->
     <Platforms>x64</Platforms>
-    <PlatformTarget>x64</PlatformTarget>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- Self-contained single-file publish is what gets staged into the Python wheel;
          the user must never install a .NET runtime (decision D2). -->
