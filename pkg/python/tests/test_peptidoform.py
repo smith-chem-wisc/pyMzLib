@@ -15,7 +15,7 @@ import pytest
 import pymzlib
 from pymzlib import _bridge, peptidoform
 
-FIXTURE = Path(__file__).parent / "fixtures" / "Peptidoform_P02768_small.json"
+FIXTURE = Path(__file__).parent / "fixtures" / "peptidoform_P02768_small.json"
 
 
 @pytest.fixture()
