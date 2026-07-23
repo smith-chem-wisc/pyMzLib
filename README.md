@@ -14,11 +14,22 @@ files = pymzlib.pride.list_files("PXD000001")
 print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
 
 pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+
+# Digest an annotated UniProt protein and fragment its peptides
+digest = pymzlib.peptidoform.fragments("P02768")
+print(digest.modification_census.explain())
 ```
 
-> **Not on PyPI yet.** pyMzLib has not had its first release. Until then, grab a wheel from the
-> [Actions artifacts](https://github.com/smith-chem-wisc/pyMzLib/actions/workflows/wheels.yml) or
-> build from source. The command above is what release day looks like.
+> **Preview release available — not on PyPI yet.** Install the wheel for your OS from the
+> [latest release](https://github.com/smith-chem-wisc/pyMzLib/releases/latest). For example, on
+> Windows:
+>
+> ```bash
+> pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev0/pymzlib-0.1.0.dev0-py3-none-win_amd64.whl
+> ```
+>
+> The release page lists the Linux and macOS (Intel / Apple Silicon) wheels too. `pip install
+> pymzlib` is what release day will look like.
 
 That's the whole installation. No .NET runtime, no configuration, and **no third-party Python
 dependencies** — so pyMzLib cannot conflict with anything already in your environment.
@@ -35,6 +46,7 @@ Coverage is deliberately partial and grows by demand, the way
 | Area | Status |
 |---|---|
 | [PRIDE Archive](https://smith-chem-wisc.github.io/pyMzLib/guides/pride/) — list a project's files, filtered download | ✅ |
+| [Peptidoforms](https://smith-chem-wisc.github.io/pyMzLib/guides/peptidoforms/) — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | Everything else in mzLib | not yet — [request it](https://github.com/smith-chem-wisc/pyMzLib/issues/new/choose) |
 
 If there's something in mzLib you want from Python, opening an issue is genuinely the fastest
