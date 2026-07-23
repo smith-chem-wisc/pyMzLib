@@ -98,6 +98,54 @@ def test_census_separates_sites_from_modifications(recorded_digest):
     assert census.excluded == 24
 
 
+def test_modification_positions_index_the_peptides_own_residues(recorded_digest):
+    """mzLib's dictionary reserves slot 1 for the N-terminus, so its keys are one past the residue
+    they modify. Passing that through unchanged pointed 474 of 498 modifications at the wrong
+    residue — and at a residue that need not exist: a peptide MAR reported position 4 for its
+    arginine."""
+    for peptide in proteoform_peptides(recorded_digest):
+        for mod in peptide.modifications:
+            residue = mod.get("one_based_residue")
+            if residue is None:
+                assert mod.get("terminus") in {"N", "C"}, "a non-residue position must name a terminus"
+                continue
+            assert 1 <= residue <= len(peptide.base_sequence)
+            target = mod["id"].rsplit(" on ", 1)[-1]
+            assert peptide.base_sequence[residue - 1] == target, (
+                f"{peptide.base_sequence}: {mod['id']} points at "
+                f"{peptide.base_sequence[residue - 1]} at residue {residue}"
+            )
+
+
+def proteoform_peptides(_payload):
+    """The parsed peptides from the recorded digest."""
+    return [p for p in peptidoform.fragments("P02768").peptides if p.modifications]
+
+
+def test_unresolved_modification_names_are_reported(recorded_digest):
+    """A name UniProt annotates but cannot define vanishes silently otherwise — seven
+    N6-lactoyllysine sites disappeared from histone H3.1 while the type summary still said
+    'modified residue … loaded'."""
+    census = peptidoform.ModificationCensus(
+        sites=28, applied=114, annotated=124, by_type=[], unresolved=["N6-lactoyllysine"]
+    )
+    assert "N6-lactoyllysine" in census.explain()
+    assert "resolved" in census.explain()
+
+
+def test_the_two_exclusion_reasons_are_not_conflated():
+    """Being excluded by type and failing to resolve are different failures with different fixes,
+    and an explanation that merges them tells the reader the wrong thing about both."""
+    census = peptidoform.ModificationCensus(
+        sites=3, applied=5, annotated=9,
+        by_type=[{"type": "cross-link", "count": 3, "loaded": False}],
+        unresolved=["N6-lactoyllysine"],
+    )
+    text = census.explain()
+    assert "Excluded by type" in text
+    assert "Could not be resolved" in text
+
+
 def test_census_explains_what_was_excluded_and_why(recorded_digest):
     text = peptidoform.fragments("P02768").modification_census.explain()
     assert "24" in text and "glycosylation site" in text

@@ -62,7 +62,10 @@ class Peptide:
         monoisotopic_mass: The neutral monoisotopic mass, modifications included.
         one_based_start / one_based_end: Position within the parent protein.
         missed_cleavages: How many cleavage sites the peptide spans.
-        modifications: Each applied modification, with its one-based position and mass.
+        modifications: Each applied modification. ``one_based_residue`` indexes the peptide's own
+            residues and is ``None`` for a terminal modification, which carries ``terminus``
+            instead. (mzLib's internal dictionary reserves slot 1 for the N-terminus, so its keys
+            are one past the residue they modify; that is corrected here rather than passed on.)
         fragments: The fragment ions for the requested dissociation type.
     """
 
@@ -146,11 +149,16 @@ class ModificationCensus:
         applied: Modifications actually placed on the protein.
         annotated: Modification-like features UniProt lists.
         by_type: One entry per feature type, with ``count`` and whether it was ``loaded``.
+        unresolved: Modification names UniProt annotated that could not be resolved to a mass —
+            usually because the name is absent from UniProt's own ptmlist. These vanish silently
+            otherwise: on histone H3.1, seven N6-lactoyllysine sites were dropped while the type
+            summary still reported "modified residue … loaded".
     """
 
     sites: int
     applied: int
     annotated: int
+    unresolved: list[str] = field(default_factory=list)
     by_type: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -165,15 +173,32 @@ class ModificationCensus:
                 f"All {self.annotated} annotated modifications were applied, across "
                 f"{self.sites} residue positions."
             )
-        skipped = ", ".join(
+        parts = [
             f"{t['count']} × {t['type']}" for t in self.by_type if not t.get("loaded")
-        )
-        return (
+        ]
+        if self.unresolved:
+            parts.append(
+                f"{len(self.unresolved)} unresolved name(s): {', '.join(self.unresolved)}"
+            )
+        skipped = ", ".join(parts)
+        sentences = [
             f"{self.applied} of {self.annotated} annotated modifications were applied, across "
-            f"{self.sites} residue positions. "
-            f"Excluded: {skipped} — these have no defined chemical composition, so no mass can "
-            "be assigned and a peptide carrying one is not identifiable by mass spectrometry."
-        )
+            f"{self.sites} residue positions."
+        ]
+        excluded_types = [t for t in self.by_type if not t.get("loaded")]
+        if excluded_types:
+            named = ", ".join(f"{t['count']} × {t['type']}" for t in excluded_types)
+            sentences.append(
+                f"Excluded by type: {named} — these have no defined chemical composition, so no "
+                "mass can be assigned and a peptide carrying one is not identifiable by mass "
+                "spectrometry."
+            )
+        if self.unresolved:
+            sentences.append(
+                f"Could not be resolved to a mass: {', '.join(self.unresolved)} — annotated by "
+                "UniProt but absent from its own modification list, so they were dropped."
+            )
+        return " ".join(sentences)
 
 
 @dataclass(frozen=True)
@@ -302,6 +327,7 @@ def fragments(
         applied=int(data.get("annotated_modifications_loaded", 0)),
         annotated=int(data.get("uniprot_annotated_features", 0)),
         by_type=list(data.get("uniprot_features_by_type") or []),
+        unresolved=list(data.get("unresolved_modifications") or []),
     )
 
     return Digest(

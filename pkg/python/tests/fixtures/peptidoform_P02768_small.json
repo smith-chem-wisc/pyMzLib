@@ -8,6 +8,9 @@
     "annotated_modification_sites":  14,
     "annotated_modifications_loaded":  14,
     "uniprot_annotated_features":  38,
+    "unresolved_modifications":  [
+
+                                 ],
     "uniprot_features_by_type":  [
                                      {
                                          "type":  "glycosylation site",
@@ -684,7 +687,8 @@
                          "modification_count":  1,
                          "modifications":  [
                                                {
-                                                   "one_based_position":  36,
+                                                   "one_based_residue":  35,
+                                                   "terminus":  null,
                                                    "id":  "N6-succinyllysine on K",
                                                    "mass":  100.016044
                                                }

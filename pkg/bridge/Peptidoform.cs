@@ -9,7 +9,7 @@ using UsefulProteomicsDatabases;
 namespace MzLibBridge;
 
 /// <summary>
-/// The Peptidoform workflow: fetch an annotated protein, digest it, and fragment the peptides.
+/// The peptidoform workflow: fetch an annotated protein, digest it, and fragment the peptides.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,7 +31,7 @@ namespace MzLibBridge;
 internal static class Peptidoform
 {
     /// <summary>
-    /// How a UniProtKB entry''s XML is obtained, given an accession, returning a local file path.
+    /// How a UniProtKB entry's XML is obtained, given an accession, returning a local file path.
     /// </summary>
     /// <remarks>
     /// Injectable for the same reason <see cref="Program.PrideClientFactory"/> is: the parts of
@@ -41,7 +41,7 @@ internal static class Peptidoform
     /// </remarks>
     internal static Func<string, Task<string>> UniProtXmlSource { get; set; } = DownloadUniProtXmlAsync;
 
-    /// <summary>Where a single UniProtKB entry''s annotated XML comes from.</summary>
+    /// <summary>Where a single UniProtKB entry's annotated XML comes from.</summary>
     private const string UniProtEntryUrlFormat = "https://rest.uniprot.org/uniprotkb/{0}.xml";
 
     /// <summary>
@@ -82,7 +82,7 @@ internal static class Peptidoform
     }
 
     /// <summary>
-    /// <c>Peptidoform fragments --accession P02768 [--protease trypsin] [--dissociation ETD]
+    /// <c>peptidoform fragments --accession P02768 [--protease trypsin] [--dissociation ETD]
     /// [--no-modifications] [--missed-cleavages 2] [--min-length 7] [--max-length 0]
     /// [--max-mods 2] [--terminus Both]</c>
     /// </summary>
@@ -129,7 +129,7 @@ internal static class Peptidoform
                 $"Unknown terminus '{terminusName}'. Known values: " +
                 string.Join(", ", Enum.GetNames<FragmentationTerminus>()) + ".");
 
-        (Protein annotated, Dictionary<string, int> annotationCensus) =
+        (Protein annotated, Dictionary<string, int> annotationCensus, List<string> unresolved) =
             await FetchAnnotatedProteinAsync(accession).ConfigureAwait(false);
 
         // "Without modifications" is the same sequence with the annotations discarded, not a
@@ -148,8 +148,14 @@ internal static class Peptidoform
             maxModificationIsoforms: maxIsoforms,
             fragmentationTerminus: terminus);
 
+        // Distinct: mzLib can emit the same peptidoform more than once - notably the
+        // initiator-methionine-removed forms, which arrived twice for every peptide starting at
+        // residue 2. Reporting a list whose length overstates the answer by 5% is precisely the
+        // kind of quiet wrongness this verb exists to avoid.
         List<PeptideWithSetModifications> peptides = subject
             .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+            .GroupBy(p => (p.OneBasedStartResidue, p.OneBasedEndResidue, p.FullSequence))
+            .Select(g => g.First())
             .ToList();
 
         var products = new List<Product>();
@@ -179,6 +185,11 @@ internal static class Peptidoform
             annotated_modifications_loaded = annotated.OneBasedPossibleLocalizedModifications
                 .SelectMany(kv => kv.Value).Count(),
             uniprot_annotated_features = annotationCensus.Sum(kv => kv.Value),
+            // The exclusions LoadProteinXML could not resolve individually - a name absent from
+            // UniProt's ptmlist, for instance. Reporting only the excluded *types* accounted for
+            // 3 of 10 exclusions on histone H3.1 and said nothing about the other 7, which is
+            // worse than saying nothing at all: it creates the feeling of having been told.
+            unresolved_modifications = unresolved,
             uniprot_features_by_type = annotationCensus.OrderBy(kv => kv.Key)
                 .Select(kv => new { type = kv.Key, count = kv.Value, loaded = kv.Key is "modified residue" or "lipid moiety-binding region" })
                 .ToList(),
@@ -202,7 +213,7 @@ internal static class Peptidoform
     /// The XML carries its own PTM list, which <see cref="ProteinDbLoader"/> reads, so no external
     /// modification database is needed for annotations UniProt already states.
     /// </remarks>
-    private static async Task<(Protein Protein, Dictionary<string, int> AnnotationCensus)> FetchAnnotatedProteinAsync(string accession)
+    private static async Task<(Protein Protein, Dictionary<string, int> AnnotationCensus, List<string> Unresolved)> FetchAnnotatedProteinAsync(string accession)
     {
         string temp = await UniProtXmlSource(accession).ConfigureAwait(false);
 
@@ -215,13 +226,13 @@ internal static class Peptidoform
                 allKnownModifications: KnownUniProtModifications.Value,
                 isContaminant: false,
                 modTypesToExclude: new List<string>(),
-                unknownModifications: out _);
+                unknownModifications: out Dictionary<string, Modification> unresolved);
 
             if (proteins.Count == 0)
                 throw new Program.UsageException(
                     $"UniProt returned an entry for '{accession}' that contained no protein sequence.");
 
-            return (proteins[0], CensusAnnotatedFeatures(temp));
+            return (proteins[0], CensusAnnotatedFeatures(temp), unresolved.Keys.OrderBy(k => k).ToList());
         }
         finally
         {
@@ -323,8 +334,25 @@ internal static class Peptidoform
         one_based_end = peptide.OneBasedEndResidue,
         missed_cleavages = peptide.MissedCleavages,
         modification_count = peptide.AllModsOneIsNterminus.Count,
+        // AllModsOneIsNterminus is keyed with slot 1 as the N-TERMINUS, so residue i lives at
+        // key i+1. Exposing that key as a "one-based position" was a lie about what the number
+        // is: 474 of 498 modifications pointed one residue past their own target, and a peptide
+        // MAR reported position 4 for its arginine — position 4 of a 3-mer.
+        //
+        // Terminal modifications are reported as such rather than squeezed into a residue index
+        // they do not have.
         modifications = peptide.AllModsOneIsNterminus
-            .Select(kv => new { one_based_position = kv.Key, id = kv.Value.IdWithMotif, mass = kv.Value.MonoisotopicMass })
+            .Select(kv => new
+            {
+                one_based_residue = kv.Key is 1 ? (int?)null
+                    : kv.Key >= peptide.Length + 2 ? (int?)null
+                    : kv.Key - 1,
+                terminus = kv.Key is 1 ? "N"
+                    : kv.Key >= peptide.Length + 2 ? "C"
+                    : null,
+                id = kv.Value.IdWithMotif,
+                mass = kv.Value.MonoisotopicMass,
+            })
             .ToList(),
         fragments = products.Select(p => new
         {
