@@ -214,7 +214,14 @@ jobs:
           - { os: windows-latest, rid: win-x64,   python: '3.9' }
           - { os: windows-latest, rid: win-x64,   python: '3.14' }
           - { os: macos-14,       rid: osx-arm64, python: '3.14' }   # Apple Silicon
-          - { os: macos-13,       rid: osx-x64,   python: '3.14' }   # Intel
+          - { os: macos-15-intel, rid: osx-x64,   python: '3.14' }   # Intel
+          #
+          # macos-13 was retired on 4 December 2025, and a job naming a retired image queues
+          # forever rather than failing — a miserable way to find out. macos-15-intel is the
+          # designated replacement and the last Intel image; GitHub retires x86-64 macOS runners
+          # in Fall 2027. When that lands, drop this row but KEEP building the osx-x64 wheel:
+          # Intel Macs will still be doing real work in labs long after GitHub stops offering
+          # them, and an untested wheel beats no wheel.
 
     steps:
       - uses: actions/checkout@v4
