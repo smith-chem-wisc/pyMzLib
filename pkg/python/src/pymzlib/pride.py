@@ -16,14 +16,128 @@ using the same paging, URL-resolution, and safe-download logic that mzLib uses i
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from . import _bridge
 
-__all__ = ["PrideFile", "list_files", "download", "total_size_bytes"]
+__all__ = [
+    "PrideFile",
+    "ProjectNotFoundError",
+    "list_files",
+    "download",
+    "download_files",
+    "total_size_bytes",
+]
+
+#: A PRIDE-style repository accession: a short letter prefix and a run of digits, e.g. PXD000001.
+_ACCESSION_PATTERN = re.compile(r"^[A-Z]{2,4}[0-9]{4,}$")
+
+
+class ProjectNotFoundError(_bridge.PyMzLibError):
+    """No project with that accession exists, or it has no files.
+
+    PRIDE answers an unknown accession with an empty result rather than a 404, so earlier versions
+    of pyMzLib returned an empty list. That was a mistake: an empty list is indistinguishable from
+    "this project genuinely has nothing matching", so a typo'd accession produced a script that
+    reported "0 files, done" and moved on. A wrong answer that looks like a right answer is worse
+    than an error.
+    """
+
+
+def _normalise_accession(accession: object) -> str:
+    """Validate and canonicalise an accession, failing loudly rather than returning nothing.
+
+    Accessions are upper-cased, because PRIDE's API is case-sensitive on the accession while
+    pyMzLib's own category matching is case-insensitive — two rules pointing opposite ways is a
+    trap, and this is the one that can be fixed without surprising anybody.
+    """
+    if not isinstance(accession, str):
+        raise _bridge.UsageError(
+            f"accession must be a string like 'PXD000001'; got {type(accession).__name__} ({accession!r})."
+        )
+
+    candidate = accession.strip().upper()
+    if not candidate:
+        raise _bridge.UsageError("A PRIDE project accession is required, e.g. 'PXD000001'.")
+    if not _ACCESSION_PATTERN.match(candidate):
+        raise _bridge.UsageError(
+            f"'{accession}' is not a valid repository accession. Expected a short letter prefix "
+            "followed by digits, e.g. 'PXD000001'."
+        )
+    return candidate
+
+
+def _normalise_destination(destination: object) -> Path:
+    """Reject a blank destination instead of quietly writing into the current directory.
+
+    ``Path("")`` is ``Path(".")``, so ``dest = config.get("outdir", "")`` used to spray a
+    multi-gigabyte project across the working directory. The docstring had always promised this
+    raised; now it does.
+    """
+    if isinstance(destination, Path):
+        resolved = destination
+    elif isinstance(destination, str):
+        if not destination.strip():
+            raise _bridge.UsageError("A destination directory is required; got an empty string.")
+        resolved = Path(destination)
+    else:
+        raise _bridge.UsageError(
+            f"destination must be a path or string; got {type(destination).__name__} ({destination!r})."
+        )
+
+    if not str(resolved).strip():
+        raise _bridge.UsageError("A destination directory is required; got an empty path.")
+    return resolved
+
+
+def _normalise_extensions(extensions: object) -> list[str]:
+    """Accept a sequence of extensions, and refuse a bare string.
+
+    ``extensions=".raw"`` satisfies the ``Sequence[str]`` annotation and iterates as four
+    characters, so it used to match nothing, download nothing, and exit successfully. In a batch
+    script that is zero files and a green exit code.
+    """
+    if extensions is None:
+        return []
+    if isinstance(extensions, str):
+        raise _bridge.UsageError(
+            f"extensions must be a list of extensions, not a single string. "
+            f"Did you mean [{extensions!r}]?"
+        )
+    try:
+        values = list(extensions)
+    except TypeError as exc:
+        raise _bridge.UsageError(
+            f"extensions must be a list of extensions; got {type(extensions).__name__}."
+        ) from exc
+
+    for value in values:
+        if not isinstance(value, str):
+            raise _bridge.UsageError(
+                f"Each extension must be a string; got {type(value).__name__} ({value!r})."
+            )
+        if "," in value:
+            raise _bridge.UsageError(
+                f"An extension may not contain a comma; got {value!r}. Pass separate list items."
+            )
+    return [v.strip() for v in values if v.strip()]
+
+
+def _reject_flag_like(name: str, value: str) -> str:
+    """Refuse a value that would be parsed as another option by the bridge.
+
+    The bridge's parser treats ``--a --b`` as two flags, so a value beginning with ``--`` silently
+    discards the option it belonged to — and can smuggle in a flag the caller never intended.
+    """
+    if value.startswith("-"):
+        raise _bridge.UsageError(
+            f"{name} may not begin with '-'; got {value!r}. That would be read as another option."
+        )
+    return value
 
 
 def _parse_timestamp(value: str | None) -> datetime | None:
@@ -62,6 +176,7 @@ class PrideFile:
     submission_date: datetime | None = None
     publication_date: datetime | None = None
     updated_date: datetime | None = None
+    project_accession: str = ""
 
     @property
     def size_mb(self) -> float:
@@ -78,8 +193,27 @@ class PrideFile:
         """Whether this file can be fetched by :func:`download` (i.e. has an HTTPS location)."""
         return self.https_url is not None
 
+    def as_dict(self) -> dict[str, Any]:
+        """Return every attribute, **including the computed ones**, as a plain dict.
+
+        Use this rather than ``vars(f)`` when building a table. ``size_mb``, ``extension`` and
+        ``downloadable`` are properties, so ``vars()`` and ``dataclasses.asdict()`` both skip
+        them — which silently produced a DataFrame missing the three attributes the
+        documentation pushes hardest, including the ``downloadable`` flag used to filter out
+        files that cannot be fetched.
+
+        Example:
+            >>> import pandas as pd                                    # doctest: +SKIP
+            >>> df = pd.DataFrame([f.as_dict() for f in files])        # doctest: +SKIP
+        """
+        record = asdict(self)
+        record["size_mb"] = self.size_mb
+        record["extension"] = self.extension
+        record["downloadable"] = self.downloadable
+        return record
+
     @classmethod
-    def _from_wire(cls, payload: dict[str, Any]) -> "PrideFile":
+    def _from_wire(cls, payload: dict[str, Any], project_accession: str = "") -> "PrideFile":
         return cls(
             file_name=payload.get("file_name", ""),
             file_size_bytes=int(payload.get("file_size_bytes", 0)),
@@ -91,6 +225,7 @@ class PrideFile:
             submission_date=_parse_timestamp(payload.get("submission_date")),
             publication_date=_parse_timestamp(payload.get("publication_date")),
             updated_date=_parse_timestamp(payload.get("updated_date")),
+            project_accession=project_accession,
         )
 
 
@@ -113,18 +248,31 @@ def list_files(accession: str, page_size: int = 100, timeout: float | None = 300
         UsageError: the accession is blank or the page size is not positive.
         BridgeError: PRIDE returned an error status or was unreachable.
     """
-    if not accession or not accession.strip():
-        raise _bridge.UsageError("A PRIDE project accession is required, e.g. 'PXD000001'.")
+    canonical = _normalise_accession(accession)
+    if isinstance(page_size, bool) or not isinstance(page_size, int):
+        raise _bridge.UsageError(
+            f"page_size must be a whole number; got {type(page_size).__name__} ({page_size!r})."
+        )
     if page_size <= 0:
         raise _bridge.UsageError(f"page_size must be positive; got {page_size}.")
+    if page_size > 2_147_483_647:
+        raise _bridge.UsageError(f"page_size is larger than the API allows; got {page_size}.")
 
     data = _bridge.invoke(
         "pride", "files",
-        "--accession", accession.strip(),
+        "--accession", canonical,
         "--page-size", str(page_size),
         timeout=timeout,
     )
-    return [PrideFile._from_wire(item) for item in data.get("files", [])]
+    files = [PrideFile._from_wire(item, canonical) for item in data.get("files", [])]
+
+    if not files:
+        raise ProjectNotFoundError(
+            f"PRIDE returned no files for '{canonical}'. Either the accession does not exist "
+            "(check for a typo) or the project is private. PRIDE does not distinguish the two, "
+            "so neither can pyMzLib."
+        )
+    return files
 
 
 def download(
@@ -158,19 +306,111 @@ def download(
         UsageError: the accession or destination is blank.
         BridgeError: a request failed, or a selected file has no HTTPS location.
     """
-    if not accession or not accession.strip():
-        raise _bridge.UsageError("A PRIDE project accession is required, e.g. 'PXD000001'.")
-    destination = Path(destination)
+    canonical = _normalise_accession(accession)
+    target = _normalise_destination(destination)
+    wanted = _normalise_extensions(extensions)
 
-    args = ["pride", "download", "--accession", accession.strip(), "--dest", str(destination)]
-    if category:
-        args += ["--category", category]
-    if extensions:
-        args += ["--ext", ",".join(extensions)]
+    args = ["pride", "download", "--accession", canonical, "--dest", str(target)]
+    if category is not None:
+        if not isinstance(category, str):
+            raise _bridge.UsageError(
+                f"category must be a string like 'RAW'; got {type(category).__name__} ({category!r})."
+            )
+        if not category.strip():
+            raise _bridge.UsageError(
+                "category is empty. Omit it to download every category, rather than passing a "
+                "blank value — a filter that selects nothing must not silently select everything."
+            )
+        args += ["--category", _reject_flag_like("category", category.strip())]
+    if wanted:
+        args += ["--ext", _reject_flag_like("extensions", ",".join(wanted))]
     if not overwrite:
         args.append("--no-overwrite")
 
     data = _bridge.invoke(*args, timeout=timeout)
+    return [Path(p) for p in data.get("paths", [])]
+
+
+def download_files(
+    files: Iterable[PrideFile],
+    destination: str | Path,
+    overwrite: bool = True,
+    timeout: float | None = None,
+) -> list[Path]:
+    """Download exactly the files you selected, and nothing else.
+
+    This is the counterpart to :func:`list_files`, and usually the one you want. Filter the
+    manifest however you like — in Python, with the full expressiveness of Python — and hand the
+    result straight back:
+
+        >>> files = list_files("PXD000001")                             # doctest: +SKIP
+        >>> small = [f for f in files if f.size_mb < 5 and f.downloadable]
+        >>> download_files(small, "downloads")                          # doctest: +SKIP
+
+    :func:`download`'s ``category`` and ``extensions`` filters can only express what they were
+    built to express; "under 5 MB", "the three newest", or "everything except the MGF" cannot be
+    said in that vocabulary at all. They can all be said in a list comprehension.
+
+    Args:
+        files: The :class:`PrideFile` objects to fetch, from one project.
+        destination: Directory to write into. Created if it does not exist.
+        overwrite: When ``False``, files already present are left alone and not re-fetched.
+        timeout: Seconds to allow. ``None`` waits as long as it takes.
+
+    Returns:
+        The paths written, in the order the repository lists them.
+
+    Raises:
+        UsageError: the selection is empty, spans several projects, or includes a file with no
+            HTTPS location.
+    """
+    target = _normalise_destination(destination)
+    selected = list(files)
+
+    if not selected:
+        raise _bridge.UsageError(
+            "No files selected. An empty selection is almost always a filter that did not match "
+            "what you expected, so pyMzLib refuses it rather than reporting success."
+        )
+    for item in selected:
+        if not isinstance(item, PrideFile):
+            raise _bridge.UsageError(
+                f"download_files expects PrideFile objects from list_files(); got "
+                f"{type(item).__name__} ({item!r})."
+            )
+
+    unreachable = [f.file_name for f in selected if not f.downloadable]
+    if unreachable:
+        raise _bridge.UsageError(
+            f"{len(unreachable)} of {len(selected)} selected files have no HTTPS location and "
+            f"cannot be downloaded (e.g. {unreachable[0]!r}). Filter on `.downloadable` first."
+        )
+
+    accessions = {f.project_accession for f in selected if f.project_accession}
+    if len(accessions) > 1:
+        raise _bridge.UsageError(
+            f"All files must come from one project; got {sorted(accessions)}."
+        )
+    if not accessions:
+        raise _bridge.UsageError(
+            "These PrideFile objects carry no project accession, so pyMzLib cannot tell which "
+            "project to fetch from. Obtain them from list_files()."
+        )
+
+    args = [
+        "pride", "download",
+        "--accession", accessions.pop(),
+        "--dest", str(target),
+        "--names-from-stdin",
+    ]
+    if not overwrite:
+        args.append("--no-overwrite")
+
+    # The selection travels on stdin rather than argv. A few thousand file names would blow the
+    # ~32 KB command-line ceiling, and a name may legitimately contain any separator we might
+    # otherwise pick.
+    payload = "\n".join(f.file_name for f in selected)
+    data = _bridge.invoke(*args, stdin=payload, timeout=timeout)
     return [Path(p) for p in data.get("paths", [])]
 
 

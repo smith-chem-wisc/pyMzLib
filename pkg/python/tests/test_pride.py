@@ -178,6 +178,137 @@ def test_download_rejects_blank_accession_before_touching_the_network(accession,
         pride.download(accession, tmp_path)
 
 
+# --------------------------------------------------------------------------- input that used to
+# be accepted silently
+#
+# Every test below corresponds to a way the library previously reported success while doing
+# something other than what was asked. Silent wrong answers are the worst class of bug in a
+# library like this, because the caller has no reason to look.
+
+
+@pytest.mark.parametrize("accession", ["pxd000001", "  PXD000001  ", "Pxd000001"])
+def test_accession_case_and_whitespace_are_normalised(recorded_manifest, accession):
+    """PRIDE's API is case-sensitive on the accession while our category matching is not. A
+    lowercase accession used to return [] — indistinguishable from an empty project."""
+    assert pride.list_files(accession)
+
+
+@pytest.mark.parametrize("accession", ["banana", "PXD", "12345", "PXD00", "PXD000001x", "-PXD1"])
+def test_malformed_accessions_are_rejected_not_silently_empty(accession):
+    with pytest.raises(pymzlib.UsageError):
+        pride.list_files(accession)
+
+
+@pytest.mark.parametrize("accession", [123, None, ["PXD000001"], b"PXD000001"])
+def test_non_string_accession_gives_a_usage_error_not_an_attribute_error(accession):
+    with pytest.raises(pymzlib.UsageError):
+        pride.list_files(accession)
+
+
+def test_a_valid_but_unknown_accession_raises_rather_than_returning_empty(monkeypatch):
+    """PRIDE answers an unknown accession with an empty result. Passing that through as [] meant
+    a typo produced '0 files, done' and a script that carried on."""
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"files": []})
+    with pytest.raises(pride.ProjectNotFoundError, match="PXD999999999"):
+        pride.list_files("PXD999999999")
+
+
+@pytest.mark.parametrize("destination", ["", "   ", None, 123])
+def test_blank_destination_is_refused_instead_of_writing_to_the_cwd(destination):
+    """Path("") is Path("."), so dest = cfg.get("outdir", "") sprayed a project into os.getcwd()."""
+    with pytest.raises(pymzlib.UsageError):
+        pride.download("PXD000001", destination)
+
+
+def test_a_bare_string_of_extensions_is_refused(tmp_path):
+    """`.raw` iterates as four characters, matched nothing, and exited successfully."""
+    with pytest.raises(pymzlib.UsageError, match=r"\[\'\.raw\'\]"):
+        pride.download("PXD000001", tmp_path, extensions=".raw")
+
+
+def test_a_blank_category_is_refused_rather_than_selecting_everything(tmp_path):
+    """A degenerate filter used to leave the bridge filter null and download the whole project."""
+    with pytest.raises(pymzlib.UsageError):
+        pride.download("PXD000001", tmp_path, category="   ")
+
+
+@pytest.mark.parametrize("value", ["--no-overwrite", "-x"])
+def test_flag_like_filter_values_are_refused(tmp_path, value):
+    """The bridge parser reads `--category --no-overwrite` as two flags, dropping the category and
+    silently enabling a flag the caller never asked for."""
+    with pytest.raises(pymzlib.UsageError, match="another option"):
+        pride.download("PXD000001", tmp_path, category=value)
+
+
+@pytest.mark.parametrize("page_size", ["100", None, 2.5, 2_147_483_648])
+def test_bad_page_sizes_are_usage_errors(page_size):
+    with pytest.raises(pymzlib.UsageError):
+        pride.list_files("PXD000001", page_size=page_size)
+
+
+# --------------------------------------------------------------------------- download_files
+#
+# The workflow now closes: what list_files() returns can be handed straight to download_files().
+
+
+def test_as_dict_includes_the_computed_properties(recorded_manifest):
+    """`vars(f)` silently omits size_mb / extension / downloadable — the three attributes the
+    documentation pushes hardest, including the one the FAQ tells you to filter on."""
+    record = pride.list_files("PXD000001")[0].as_dict()
+    for key in ("size_mb", "extension", "downloadable", "file_name"):
+        assert key in record
+
+
+def test_files_know_which_project_they_came_from(recorded_manifest):
+    assert all(f.project_accession == "PXD000001" for f in pride.list_files("PXD000001"))
+
+
+def test_download_files_sends_the_selection_on_stdin(recorded_manifest, monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_invoke(*args, stdin=None, timeout=None):
+        seen["args"] = list(args)
+        seen["stdin"] = stdin
+        return {"paths": ["out/a"]}
+
+    files = pride.list_files("PXD000001")
+    chosen = [f for f in files if f.size_mb < 5 and f.downloadable]
+    monkeypatch.setattr(_bridge, "invoke", fake_invoke)
+
+    pride.download_files(chosen, tmp_path)
+
+    assert "--names-from-stdin" in seen["args"]
+    assert seen["stdin"].splitlines() == [f.file_name for f in chosen]
+    # The names must not be on argv: a few thousand of them would exceed the ~32 KB ceiling.
+    assert not any(f.file_name in " ".join(seen["args"]) for f in chosen)
+
+
+def test_download_files_refuses_an_empty_selection(tmp_path):
+    """An empty selection is nearly always a filter that did not match what the caller expected."""
+    with pytest.raises(pymzlib.UsageError, match="No files selected"):
+        pride.download_files([], tmp_path)
+
+
+def test_download_files_refuses_files_that_cannot_be_fetched(recorded_manifest, tmp_path):
+    aspera_only = pride.PrideFile._from_wire(
+        {"file_name": "x.raw", "file_size_bytes": 1, "https_url": None}, "PXD000001"
+    )
+    with pytest.raises(pymzlib.UsageError, match="no HTTPS location"):
+        pride.download_files([aspera_only], tmp_path)
+
+
+def test_download_files_refuses_a_mixed_project_selection(tmp_path):
+    a = pride.PrideFile._from_wire({"file_name": "a", "https_url": "https://x/a"}, "PXD000001")
+    b = pride.PrideFile._from_wire({"file_name": "b", "https_url": "https://x/b"}, "PXD000002")
+    with pytest.raises(pymzlib.UsageError, match="one project"):
+        pride.download_files([a, b], tmp_path)
+
+
+def test_download_files_rejects_things_that_are_not_pride_files(tmp_path):
+    with pytest.raises(pymzlib.UsageError, match="PrideFile"):
+        pride.download_files(["a.raw"], tmp_path)
+
+
 # The live canaries now live in test_pride_live.py, where each one routes through
 # external_service() so a PRIDE outage skips with an explanatory message instead of
 # failing. Keeping them here, bare, made a red build ambiguous.

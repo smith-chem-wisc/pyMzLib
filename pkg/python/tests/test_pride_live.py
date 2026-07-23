@@ -65,10 +65,25 @@ def test_at_least_one_file_is_still_reachable_over_https():
     )
 
 
-def test_an_unknown_accession_still_returns_empty_rather_than_erroring():
-    """PRIDE's own behavior, which the Python layer deliberately preserves."""
+def test_an_unknown_accession_raises_rather_than_reporting_an_empty_project():
+    """PRIDE answers an unknown accession with an empty result rather than a 404. pyMzLib no
+    longer passes that through: an empty list is indistinguishable from a project that genuinely
+    has no matching files, so a typo used to produce '0 files, done' and a script that carried on."""
     with external_service():
-        assert pymzlib.pride.list_files("PXD999999999") == []
+        with pytest.raises(pymzlib.pride.ProjectNotFoundError):
+            pymzlib.pride.list_files("PXD999999999")
+
+
+def test_a_real_selection_can_be_downloaded_directly(tmp_path):
+    """The end-to-end shape the API is for: list, filter in Python, download exactly that."""
+    with external_service():
+        files = pymzlib.pride.list_files(CANARY_ACCESSION)
+        chosen = [f for f in files if f.downloadable and f.size_mb < 2]
+        assert chosen, "expected at least one small file in the canary project"
+        written = pymzlib.pride.download_files(chosen[:1], tmp_path)
+
+    assert len(written) == 1
+    assert written[0].is_file() and written[0].stat().st_size > 0
 
 
 @pytest.mark.slow

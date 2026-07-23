@@ -23,6 +23,7 @@ __all__ = [
     "PyMzLibError",
     "BridgeError",
     "ServiceUnavailableError",
+    "BridgeTimeoutError",
     "UsageError",
     "BridgeNotFoundError",
     "bridge_path",
@@ -70,6 +71,21 @@ class BridgeError(PyMzLibError):
     def __init__(self, error_type: str, message: str) -> None:
         super().__init__(message)
         self.error_type = error_type
+
+
+class BridgeTimeoutError(PyMzLibError):
+    """The bridge process did not finish within the timeout.
+
+    Deliberately **not** a :class:`ServiceUnavailableError`, and the distinction is the whole
+    point. A subprocess timeout has several possible causes and only one of them is a slow
+    service: the bridge may be wedged, the executable may be corrupt, antivirus may be holding
+    it, or the caller may simply have passed a timeout that was too short. Reporting all of that
+    as "the repository is down" is how a real bug gets skipped by every test suite and never
+    seen again.
+
+    If the caller wants a slow network to be treated as an outage, they can catch this
+    explicitly — but the library will not guess on their behalf.
+    """
 
 
 class ServiceUnavailableError(BridgeError):
@@ -130,11 +146,33 @@ def bridge_path() -> Path:
     return candidate
 
 
-def invoke(*args: str, timeout: float | None = None) -> Any:
+def _validate_timeout(timeout: float | None) -> None:
+    """Reject timeouts that cannot mean anything, before spawning a process.
+
+    ``subprocess`` accepts ``0``, negatives, ``inf`` and ``nan`` and then fails in ways that
+    point nowhere near the caller's mistake — ``inf`` raises ``OverflowError`` from deep inside
+    the platform's clock, and ``0`` looks exactly like a service that never answered.
+    """
+    if timeout is None:
+        return
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+        raise UsageError(f"timeout must be a number of seconds or None; got {timeout!r}.")
+    if timeout != timeout:  # NaN
+        raise UsageError("timeout must be a number of seconds or None; got nan.")
+    if timeout <= 0:
+        raise UsageError(f"timeout must be greater than zero; got {timeout!r}.")
+    if timeout == float("inf"):
+        raise UsageError("timeout must be finite; pass None to wait indefinitely.")
+
+
+def invoke(*args: str, stdin: str | None = None, timeout: float | None = None) -> Any:
     """Run one bridge command and return the decoded ``data`` payload.
 
     Args:
         *args: The command and its options, e.g. ``"pride", "files", "--accession", "PXD000001"``.
+        stdin: Text to write to the process's standard input. Used when a payload would not fit
+            on the command line — argv has a hard ceiling of roughly 32 KB, and a few thousand
+            file names exceed it.
         timeout: Seconds to wait before giving up. ``None`` waits indefinitely, which is the
             right default for a large download.
 
@@ -146,10 +184,20 @@ def invoke(*args: str, timeout: float | None = None) -> Any:
         BridgeError: mzLib itself failed (network, bad accession, disk).
         PyMzLibError: the bridge produced output this version cannot interpret.
     """
+    _validate_timeout(timeout)
+    for arg in args:
+        if not isinstance(arg, str):
+            raise UsageError(
+                f"Internal error: bridge arguments must be strings, got {type(arg).__name__} "
+                f"({arg!r}). This is a bug in pyMzLib, not in your call."
+            )
+        if "\x00" in arg:
+            raise UsageError("Arguments may not contain a null character.")
     command = [str(bridge_path()), *args]
     try:
         completed = subprocess.run(
             command,
+            input=stdin,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -157,8 +205,17 @@ def invoke(*args: str, timeout: float | None = None) -> Any:
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise ServiceUnavailableError(
-            "Timeout", f"mzLib bridge timed out after {timeout}s."
+        raise BridgeTimeoutError(
+            f"mzLib bridge did not finish within {timeout}s. This may mean the service is slow, "
+            "but it can equally mean the bridge is wedged or the timeout was too short — "
+            "pyMzLib will not guess which."
+        ) from exc
+    except OSError as exc:
+        # A missing execute bit, a quarantined binary, or a file that is not an executable at
+        # all. Without this the caller sees a bare OSError, contradicting the promise that
+        # PyMzLibError is the base class of everything this package raises.
+        raise PyMzLibError(
+            f"Could not run the mzLib bridge at '{command[0]}': {exc}"
         ) from exc
 
     stdout = completed.stdout.strip()
