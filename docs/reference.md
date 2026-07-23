@@ -21,6 +21,8 @@ Everything pyMzLib raises inherits from `PyMzLibError`, so a single `except` cat
         - PyMzLibError
         - UsageError
         - BridgeError
+        - ServiceUnavailableError
+        - BridgeTimeoutError
         - BridgeNotFoundError
         - bridge_path
         - bridge_version

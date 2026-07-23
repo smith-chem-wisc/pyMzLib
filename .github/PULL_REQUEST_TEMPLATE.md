@@ -10,7 +10,10 @@
 
 ### Checklist
 
-- [ ] Tests added or updated, and the suite passes (`pytest -m "not network"`, `dotnet test`)
+- [ ] Tests added or updated, and both suites pass:
+      `pytest -m "not network"` and
+      `dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory!=ExternalService"`
+- [ ] `./pkg/build/check-bridge-coverage.ps1` passes (C# coverage is gated separately from Python)
 - [ ] Coverage gates still met (Python 90%, bridge 85% — see CONTRIBUTING.md)
 - [ ] Documentation updated if behavior or an API changed
 - [ ] `mkdocs build --strict` passes if docs were touched

@@ -19,12 +19,19 @@ print(len(files))          # 8
 You get the **complete** manifest. PRIDE serves file lists in pages; that is handled for you, so
 a project with 4,000 files returns 4,000 entries in one list, not the first 100.
 
-An unknown accession returns an empty list rather than raising. That is PRIDE's own behavior and
-pyMzLib preserves it rather than inventing an error PRIDE didn't report:
+Accessions are case-insensitive and whitespace is trimmed — `"pxd000001"` works — but an accession
+that doesn't exist **raises** rather than returning nothing:
 
 ```python
-pymzlib.pride.list_files("PXD999999999")   # []
+pymzlib.pride.list_files("PXD999999999")   # ProjectNotFoundError
+pymzlib.pride.list_files("banana")         # UsageError — not a valid accession at all
 ```
+
+PRIDE itself answers an unknown accession with an empty result rather than a 404, and early
+versions of pyMzLib passed that straight through. That was a mistake: an empty list is
+indistinguishable from "this project genuinely has no matching files", so a typo produced a script
+that reported *0 files, done* and carried on. A wrong answer that looks like a right answer is
+worse than an error.
 
 ## What a file tells you
 
@@ -63,7 +70,27 @@ gb = pymzlib.pride.total_size_bytes(raw) / 1e9
 print(f"{len(raw)} raw files, {gb:.1f} GB")
 ```
 
-## Downloading
+## Downloading what you selected
+
+This is usually the one you want. Filter the manifest with the full expressiveness of Python, then
+hand the result straight back:
+
+```python
+files = pymzlib.pride.list_files("PXD000001")
+small = [f for f in files if f.size_mb < 5 and f.downloadable]
+
+pymzlib.pride.download_files(small, "downloads")
+```
+
+`download()`'s `category` and `extensions` filters can only say what they were built to say.
+*"Under 5 MB"*, *"the three most recent"*, or *"everything except the MGF"* cannot be expressed in
+that vocabulary at all — and they are all one list comprehension away.
+
+This matters more than it sounds on real projects: PXD000001 publishes `.mztab.gz`, `.mgf.gz` and
+`.xml.gz`, which all have `extension == ".gz"`. There is no extension filter that selects the
+mzTab without also taking the 16 MB MGF. There is an obvious list comprehension that does.
+
+## Downloading a whole project
 
 ```python
 paths = pymzlib.pride.download("PXD000001", "downloads")

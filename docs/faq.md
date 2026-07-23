@@ -25,7 +25,8 @@ dependencies, it can't disturb conda's own resolution. A native bioconda package
 
 ## Why is the wheel so large?
 
-It contains a .NET runtime plus mzLib and its dependencies. For context: mzLib's own NuGet package
+It contains a .NET runtime plus mzLib and its dependencies. The wheel is about 115 MB and
+unpacks to roughly 133 MB on disk. For context: mzLib's own NuGet package
 is 31 MB, but a C# developer separately downloads TorchSharp and about a gigabyte of libtorch
 components — so this single file is *smaller* than what using mzLib from C# costs. On PyPI it's
 ordinary: pyOpenMS is 63 MB, torch is 502 MB.

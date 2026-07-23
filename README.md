@@ -16,6 +16,10 @@ print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB
 pymzlib.pride.download("PXD000001", "downloads", category="RAW")
 ```
 
+> **Not on PyPI yet.** pyMzLib has not had its first release. Until then, grab a wheel from the
+> [Actions artifacts](https://github.com/smith-chem-wisc/pyMzLib/actions/workflows/wheels.yml) or
+> build from source. The command above is what release day looks like.
+
 That's the whole installation. No .NET runtime, no configuration, and **no third-party Python
 dependencies** — so pyMzLib cannot conflict with anything already in your environment.
 

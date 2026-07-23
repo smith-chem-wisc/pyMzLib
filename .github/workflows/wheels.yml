@@ -6,13 +6,14 @@
 # that is what the matrix is for.
 #
 # Note on cost: macOS runner minutes are free and unmetered on public repositories, and billed at
-# 10x on private ones. See gap G4 (where this repo should live).
+# 10x on private ones — one reason this repository is public.
 
 name: wheels
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -144,12 +145,18 @@ jobs:
         include:
           - rid: win-x64
             plat_tag: win_amd64
+          # These tags are a COMPATIBILITY PROMISE, not a label. They previously claimed
+          # manylinux_2_17 (glibc 2.17 / CentOS 7) and macOS 11, both of which are below what
+          # .NET 8 actually requires — glibc 2.23 and macOS 12. A user on RHEL 7 therefore got a
+          # successful pip install and a runtime failure, and no CI runner is old enough to
+          # notice. The floors below match .NET 8's documented supported set; the manylinux_2_28
+          # job in `test` is what actually holds them honest.
           - rid: linux-x64
-            plat_tag: manylinux_2_17_x86_64.manylinux2014_x86_64
+            plat_tag: manylinux_2_28_x86_64
           - rid: osx-x64
-            plat_tag: macosx_11_0_x86_64
+            plat_tag: macosx_12_0_x86_64
           - rid: osx-arm64
-            plat_tag: macosx_11_0_arm64
+            plat_tag: macosx_12_0_arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -280,3 +287,63 @@ jobs:
         run: |
           pip install wheelhouse/*.whl
           python -c "import pymzlib; f = pymzlib.pride.list_files('PXD000001'); print(f'{len(f)} files'); assert len(f) >= 8"
+
+  # ---------------------------------------------------------------------------------------
+  # The oldest Linux we claim to support. Every other runner is glibc 2.31+, so nothing else
+  # in this workflow can catch a wheel tagged for a glibc older than .NET actually needs — and
+  # that user (an old cluster, a Python they cannot change) is precisely who this package is for.
+  # ---------------------------------------------------------------------------------------
+  glibc-floor:
+    name: runs on the oldest glibc we claim
+    needs: build
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-linux-x64
+          path: wheelhouse
+
+      - name: Install and run on manylinux_2_28
+        run: |
+          ldd --version | head -1
+          python3.11 -m pip install --quiet wheelhouse/*.whl
+          python3.11 -c "import pymzlib; print(pymzlib.bridge_version())"
+
+  # ---------------------------------------------------------------------------------------
+  # Publish, on a tag, via Trusted Publishing. No stored API token: PyPI verifies the workflow's
+  # OIDC identity instead. Deliberately no sdist — a source-only sdist for a package whose whole
+  # value is the bundled binary installs "successfully" and then fails on first call, whereas
+  # wheels-only gives an unsupported platform a clean "no matching distribution found".
+  # ---------------------------------------------------------------------------------------
+  release:
+    name: publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [tests, build, test, no-dotnet, glibc-floor]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pymzlib
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: dist
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check the artifacts before anything is published
+        run: |
+          pip install --quiet twine
+          ls -lh dist
+          twine check --strict dist/*.whl
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: false
