@@ -262,6 +262,35 @@ def test_blank_accession_is_refused_before_any_work(accession):
         peptidoform.fragments(accession)
 
 
+@pytest.mark.parametrize("accession", ["banana", "P0", "12345", "notanaccession"])
+def test_malformed_accession_is_refused_without_touching_the_network(accession):
+    """A well-formed string that is not a UniProt accession must fail on the grammar check, before
+    any request — the validation added so a typo costs nothing instead of a puzzling HTTP 400."""
+    with pytest.raises(pymzlib.UsageError, match="valid UniProtKB accession"):
+        peptidoform.fragments(accession)
+
+
+def test_non_integer_max_length_is_refused():
+    with pytest.raises(pymzlib.UsageError, match="max_length"):
+        peptidoform.fragments("P02768", max_length=2.5)
+
+
+def test_max_isoforms_below_one_is_refused():
+    """Zero isoforms per position is not a filter, it is an empty result; refuse it explicitly."""
+    with pytest.raises(pymzlib.UsageError, match="max_isoforms must be at least 1"):
+        peptidoform.fragments("P02768", max_isoforms=0)
+
+
+def test_is_modified_and_modified_peptides_reflect_the_modifications(recorded_digest):
+    """The fixture carries one bare and one modified peptide, so both the per-peptide flag and the
+    digest-level filter must distinguish them."""
+    digest = peptidoform.fragments("P02768")
+    flagged = [p for p in digest.peptides if p.is_modified]
+    assert flagged, "expected at least one modified peptide in the fixture"
+    assert all(p.modifications for p in flagged)
+    assert digest.modified_peptides == flagged
+
+
 @pytest.mark.parametrize("bad", [-1, 1.5, "2", True])
 def test_negative_or_non_integer_counts_are_refused(bad):
     with pytest.raises(pymzlib.UsageError):
