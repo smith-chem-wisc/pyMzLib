@@ -34,6 +34,9 @@
          than the whole mzLib NuGet package, which drags TorchSharp/libtorch and native
          vendor DLLs — see smith-chem-wisc/mzLib#1103. -->
     <ProjectReference Include="..\..\code\mzLib\mzLib\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+    <ProjectReference Include="..\..\code\mzLib\mzLib\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\..\code\mzLib\mzLib\Omics\Omics.csproj" />
+    <ProjectReference Include="..\..\code\mzLib\mzLib\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
 
 </Project>
