@@ -59,7 +59,17 @@ $assembly = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse 
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
-if ($assembly -and $report.LastWriteTime -lt $assembly.LastWriteTime) {
+if (-not $assembly) {
+    # No assembly means the freshness check cannot run at all. Silently skipping it would restore
+    # exactly the hole this guard closes -- a green gate measured against an unknown-age report --
+    # so say so rather than pass quietly.
+    throw @"
+Cannot verify coverage freshness: no MzLibBridge.Tests.dll found under pkg/bridge.tests/bin.
+Build the test project first, then re-run with collection enabled.
+"@
+}
+
+if ($report.LastWriteTime -lt $assembly.LastWriteTime) {
     throw @"
 Coverage report is STALE: it predates the test assembly, so it cannot describe the current code.
   report:   $($report.FullName)

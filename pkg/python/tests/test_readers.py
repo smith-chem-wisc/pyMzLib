@@ -11,6 +11,7 @@ reflects what mzLib actually dispatches.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -102,8 +103,22 @@ def test_missing_wire_fields_do_not_crash_the_parser(monkeypatch):
     assert info.extension is None
 
 
+@pytest.fixture()
+def bridge_must_not_run(monkeypatch):
+    """Fail loudly if the bridge is invoked at all.
+
+    Without this, a test named "rejected without starting a process" proves nothing: delete the
+    Python-side validation and the real bridge raises its own UsageError, so the test still passes
+    while the fast path it exists to protect is gone.
+    """
+    def forbidden(*args, **kwargs):
+        raise AssertionError(f"the bridge was invoked; validation should have rejected this: {args}")
+
+    monkeypatch.setattr(_bridge, "invoke", forbidden)
+
+
 @pytest.mark.parametrize("bad", ["", "   ", None, 42])
-def test_a_blank_or_non_string_path_is_rejected_without_starting_a_process(bad):
+def test_a_blank_or_non_string_path_is_rejected_without_starting_a_process(bad, bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.identify(bad)
 
@@ -184,8 +199,14 @@ READ_PAYLOAD = {
 
 @pytest.fixture()
 def recorded_read(monkeypatch):
-    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: READ_PAYLOAD)
-    return READ_PAYLOAD
+    """Serve a fresh copy of the recorded payload.
+
+    A copy, not the module-level dict itself: handing every test the same mutable object lets one
+    test's mutation leak into another and makes failures depend on execution order.
+    """
+    payload = copy.deepcopy(READ_PAYLOAD)
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: payload)
+    return payload
 
 
 def test_read_results_parses_the_columnar_payload(recorded_read):
@@ -265,24 +286,24 @@ def test_zero_limit_is_sent_rather_than_treated_as_absent(monkeypatch):
 
 
 @pytest.mark.parametrize("bad", [-1, 1.5, True, "5"])
-def test_a_bad_limit_is_rejected_without_starting_a_process(bad):
+def test_a_bad_limit_is_rejected_without_starting_a_process(bad, bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.read_results("AllPSMs.psmtsv", limit=bad)
 
 
 @pytest.mark.parametrize("bad", [-1, 2.5, True, "3"])
-def test_a_bad_offset_is_rejected_without_starting_a_process(bad):
+def test_a_bad_offset_is_rejected_without_starting_a_process(bad, bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.read_results("AllPSMs.psmtsv", offset=bad)
 
 
 @pytest.mark.parametrize("bad", ["", "   ", 7])
-def test_a_bad_out_path_is_rejected_without_starting_a_process(bad):
+def test_a_bad_out_path_is_rejected_without_starting_a_process(bad, bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.read_results("AllPSMs.psmtsv", out=bad)
 
 
-def test_a_blank_read_path_is_rejected():
+def test_a_blank_read_path_is_rejected(bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.read_results("  ")
 
@@ -349,5 +370,68 @@ def test_docstrings_are_ascii_so_help_is_readable_on_a_windows_console():
     targets = [module, module.identify, module.read_results, module.formats,
                module.ResultRecords, module.FileInfo, module.Format, module.WrittenTable]
     for target in targets:
-        text = target.__doc__ or ""
-        assert text.isascii(), f"{getattr(target, '__name__', target)} docstring has non-ASCII"
+        name = getattr(target, "__name__", target)
+        text = target.__doc__
+        # A missing docstring must fail too: `or ""` made an undocumented public symbol pass, which
+        # is the opposite of what a documentation test should do.
+        assert text, f"{name} has no docstring"
+        assert text.isascii(), f"{name} docstring has non-ASCII"
+
+
+def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
+    """The recording must not drift from what the bridge actually emits.
+
+    Without this the Python 3-of-29 tests are pinned to a frozen JSON file, so mzLib could add a
+    fourth quantifiable type - or the wire shape could change - and they would keep passing against
+    a stale recording while claiming to guard the contract. The C# side pins the live value; this
+    is what makes the Python side a real second pin rather than an echo of a file on disk.
+    """
+    recorded = json.loads(FORMATS_FIXTURE.read_text(encoding="utf-8"))
+    live = _bridge.invoke("readers", "formats", timeout=120)
+
+    assert live["format_count"] == recorded["format_count"], (
+        "mzLib changed how many formats it recognises; re-record "
+        f"{FORMATS_FIXTURE.name} and update the docs table"
+    )
+
+    def signature(payload):
+        return sorted(
+            (f["file_type"], f.get("extension"), tuple(sorted(f.get("views") or [])))
+            for f in payload["formats"]
+        )
+
+    assert signature(live) == signature(recorded), (
+        "the live readers formats payload no longer matches the recorded fixture; re-record it "
+        "and check whether the guide's supported-format table needs regenerating"
+    )
+
+
+def test_retention_time_in_minutes_refuses_when_records_went_to_disk(monkeypatch):
+    # The absence of data must not look like "no retention times". Before this, out= produced an
+    # empty list for minutes and seconds but an error for unknown - the same absence, three
+    # different outcomes, two of them silent.
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {
+        "path": "C:/x/AllPSMs.psmtsv", "file_type": "psmtsv", "record_count": 8,
+        "returned_count": 0, "offset": 0, "truncated": False, "retention_time_unit": "minutes",
+        "columns": None,
+        "output": {"path": "C:/out/records.tsv", "format": "tsv", "row_count": 8},
+    })
+
+    result = readers.read_results("AllPSMs.psmtsv", out="records.tsv")
+
+    with pytest.raises(pymzlib.UsageError) as excinfo:
+        result.retention_time_in_minutes
+    assert "records.tsv" in str(excinfo.value), "the error must name where the records went"
+
+
+def test_retention_time_in_minutes_refuses_when_the_column_is_absent(monkeypatch):
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(
+        copy.deepcopy(READ_PAYLOAD),
+        retention_time_unit="minutes",
+        column_names=["base_sequence"],
+        columns={"base_sequence": ["PEPTIDE"]},
+        returned_count=1,
+    ))
+
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("AllPSMs.psmtsv").retention_time_in_minutes

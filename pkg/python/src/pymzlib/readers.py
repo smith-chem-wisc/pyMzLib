@@ -29,7 +29,7 @@ and several belong to no family at all:
 Call :func:`formats` for the whole table. It is enumerated from mzLib rather than transcribed, so it
 cannot drift from what mzLib actually dispatches.
 
-**Two things this module deliberately does not tell you**, in the "surface it, don't hide it" spirit
+**Three things this module deliberately does not tell you**, in the "surface it, don't hide it" spirit
 of the rest of pyMzLib:
 
 - **Which tool wrote the file.** mzLib has a ``Software`` property that looks like the answer and is
@@ -70,6 +70,7 @@ from typing import Any
 from . import _bridge
 
 __all__ = [
+    "QUANTIFIABLE",
     "Format",
     "FileInfo",
     "WrittenTable",
@@ -245,7 +246,20 @@ class ResultRecords:
         :attr:`retention_time_unit`. Raises if the unit is ``"unknown"`` rather than guessing -
         a silently unconverted axis is the specific mistake this module exists to prevent.
         """
-        values = (self.columns or {}).get("retention_time") or []
+        if self.columns is None:
+            where = getattr(self.output, "path", None)
+            raise _bridge.UsageError(
+                "The records were written to "
+                + (f"'{where}'" if where else "disk")
+                + " rather than returned, so there is nothing here to convert. Read that file, or "
+                "call read_results() without out=."
+            )
+        if "retention_time" not in self.columns:
+            raise _bridge.UsageError(
+                "This result has no retention_time column, so it cannot be converted."
+            )
+
+        values = self.columns["retention_time"]
         if self.retention_time_unit == "minutes":
             return list(values)
         if self.retention_time_unit == "seconds":
@@ -264,11 +278,12 @@ class ResultRecords:
         """
         if not self.columns:
             return []
-        names = self.column_names or list(self.columns)
-        return [
-            {name: self.columns[name][i] for name in names}
-            for i in range(self.returned_count)
-        ]
+        names = [n for n in (self.column_names or list(self.columns)) if n in self.columns]
+        # Row count from the columns themselves, not from returned_count: the two come from
+        # different wire fields, and trusting the count would raise IndexError - or silently drop
+        # rows - if they ever disagreed.
+        length = min((len(self.columns[n]) for n in names), default=0)
+        return [{name: self.columns[name][i] for name in names} for i in range(length)]
 
     @classmethod
     def _from_wire(cls, data: dict[str, Any]) -> "ResultRecords":

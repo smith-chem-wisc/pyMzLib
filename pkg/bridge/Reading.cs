@@ -161,6 +161,17 @@ internal static class Reading
     public static object ReadResults(Program.Arguments arguments)
     {
         string path = arguments.Required("path");
+
+        // An option written without a value lands in the flag set, not the named set, so Optional()
+        // returns null and the option is silently discarded: '--out' with no path would skip the
+        // write and serialise the whole table inline — the exact large-payload case --out exists to
+        // avoid — and '--limit' would degenerate to no limit while the caller believes they asked
+        // for a subset. This is the rule the PRIDE download verb already states: an option that was
+        // ASKED FOR but degenerates to nothing must fail, never silently widen.
+        RequireValueIfProvided(arguments, "out");
+        RequireValueIfProvided(arguments, "limit");
+        RequireValueIfProvided(arguments, "offset");
+
         string? outputPath = arguments.Optional("out");
 
         int offset = arguments.OptionalInt("offset", 0);
@@ -184,7 +195,12 @@ internal static class Reading
         // is never the right thing to do.
         List<IQuantifiableRecord> all = resultFile.GetQuantifiableResults().ToList();
 
-        List<IQuantifiableRecord> selected = all.Skip(offset).Take(limit).ToList();
+        // GetRange over Skip().Take().ToList(): the records are already a materialised List, so the
+        // LINQ form allocates a second full copy of what can be a million-row table purely to take
+        // a window of it. GetRange copies only the window.
+        int start = Math.Min(offset, all.Count);
+        int count = (int)Math.Min((long)limit, all.Count - start);
+        List<IQuantifiableRecord> selected = all.GetRange(start, count);
 
         // "Were any records left behind", by either the limit or the offset. Deliberately not
         // `offset + selected.Count < all.Count`, which reads plausibly and is wrong: an offset past
@@ -226,6 +242,16 @@ internal static class Reading
     }
 
     /// <summary>
+    /// Rejects an option that was supplied with no value, rather than treating it as absent.
+    /// </summary>
+    private static void RequireValueIfProvided(Program.Arguments arguments, string name)
+    {
+        if (arguments.WasProvided(name) && string.IsNullOrWhiteSpace(arguments.Optional(name)))
+            throw new Program.UsageException(
+                $"Option --{name} was given but has no value; omit it to use the default.");
+    }
+
+    /// <summary>
     /// Opens a file for the quantifiable view, or explains precisely why it cannot be.
     /// </summary>
     /// <remarks>
@@ -260,7 +286,14 @@ internal static class Reading
                       "them into a format-specific shape only."
                     : $"'{any.FileType}' files offer the {string.Join(", ", views)} view, not quantifiable.";
             }
-            catch (Exception)
+            catch (MzLibUtil.MzLibException)
+            {
+                // Only an mzLib dispatch failure means "unrecognised". Catching everything here
+                // would report an I/O error, or a bug in the view projection, as a bad file type
+                // and send the caller looking in the wrong place.
+                detail = "mzLib does not recognise this file type.";
+            }
+            catch (FileNotFoundException)
             {
                 detail = "mzLib does not recognise this file type.";
             }
@@ -322,7 +355,11 @@ internal static class Reading
         /// group by a column that is fabricated for one format and real for another.
         /// </remarks>
         private static bool DecoysAreKnown(IQuantifiableRecord record) =>
-            record is not MsFraggerPsm;
+            // An ALLOWLIST, not a denylist. Naming the formats that cannot report decoys would make
+            // "decoys are known" the default for any type mzLib adds later — so a new reader that
+            // also hardcodes false would start emitting fabricated booleans without anyone editing
+            // this file. Defaulting to "unknown" is wrong in the harmless direction.
+            record is SpectrumMatchFromTsv or LightWeightSpectralMatch;
 
         private static string Join(
             IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)

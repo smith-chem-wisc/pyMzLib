@@ -52,15 +52,9 @@ public class ReadingTests
     /// <summary>Runs a verb and returns its data as JSON, the shape a caller actually receives.</summary>
     private static JsonElement Run(params string[] args)
     {
-        var arguments = new Program.Arguments(args);
-        object data = arguments.Verb switch
-        {
-            "readers identify" => Reading.Identify(arguments),
-            "readers formats" => Reading.Formats(arguments),
-            "readers read-results" => Reading.ReadResults(arguments),
-            _ => throw new ArgumentException($"Not a readers verb: {arguments.Verb}"),
-        };
-
+        // Through Program.DispatchAsync, not a switch of our own: a local copy of the routing
+        // table would let a verb that was never registered in Program.cs pass its tests.
+        object data = Program.DispatchAsync(args).GetAwaiter().GetResult();
         return JsonSerializer.SerializeToElement(data, Program.JsonOptions);
     }
 
@@ -198,9 +192,9 @@ public class ReadingTests
         foreach (JsonElement format in formats.EnumerateArray())
         {
             Assert.That(format.GetProperty("file_type").GetString(), Is.Not.Empty);
-            Assert.That(format.GetProperty("extension").ValueKind, Is.Not.EqualTo(JsonValueKind.Null),
+            Assert.That(format.GetProperty("extension").GetString(), Is.Not.Null.And.Not.Empty,
                 $"every supported type should map to an extension: {format.GetProperty("file_type")}");
-            Assert.That(format.GetProperty("reader").ValueKind, Is.Not.EqualTo(JsonValueKind.Null),
+            Assert.That(format.GetProperty("reader").GetString(), Is.Not.Null.And.Not.Empty,
                 $"every supported type should map to a reader: {format.GetProperty("file_type")}");
         }
     }
@@ -226,8 +220,11 @@ public class ReadingTests
         int viewless = Run("readers", "formats").GetProperty("formats").EnumerateArray()
             .Count(f => ViewsOf(f).Length == 0);
 
-        Assert.That(viewless, Is.GreaterThan(10),
-            "an empty view list is the common case, not an edge case");
+        // The exact count, not "more than ten": a loose bound cannot detect mzLib narrowing or
+        // widening the viewless set, which is the only thing this test is for.
+        Assert.That(viewless, Is.EqualTo(13),
+            "an empty view list is the common case; if this changed, mzLib changed which formats " +
+            "implement a shared interface and the docs table needs regenerating");
     }
 
     // ---- read-results ------------------------------------------------------------------------
@@ -249,6 +246,16 @@ public class ReadingTests
         if (!File.Exists(path))
             Assert.Ignore($"mzLib reader fixture not present in the worktree: {path}");
         return path;
+    }
+
+    [Test]
+    public void FixtureRoot_Exists_SoTheReadResultsSuiteCannotSilentlyVanish()
+    {
+        // Every read-results test calls Assert.Ignore when its fixture is missing, so a wrong
+        // fixture root would skip the entire suite and still report a green run. This one fails.
+        Assert.That(Directory.Exists(FixtureDirectory()), Is.True,
+            $"mzLib fixture root not found at {FixtureDirectory()} - the read-results tests would " +
+            "all skip and the run would look clean. Check the pinned mzLib worktree.");
     }
 
     private static string Psmtsv() => Fixture("SearchResults", "BottomUpExample.psmtsv");
@@ -367,6 +374,9 @@ public class ReadingTests
     {
         string toppic = Fixture("ExternalFileTypes", "ToppicPrsm_TopPICv1.6.2_prsm.tsv");
 
+        // Fixture resolved BEFORE the assertion: Assert.Ignore raises an exception, which
+        // Assert.Throws would catch and report as the wrong exception type - turning an honest
+        // skip into a red test on any machine without the mzLib worktree.
         var exception = Assert.Throws<Program.UsageException>(
             () => Run("readers", "read-results", "--path", toppic));
 
@@ -393,14 +403,35 @@ public class ReadingTests
             "readers", "read-results", "--path", Path.Combine(_tempDirectory, "absent.psmtsv")));
 
     [Test]
-    public void ReadResults_NegativeLimit_IsAUsageError() =>
+    public void ReadResults_NegativeLimit_IsAUsageError()
+    {
+        string path = Psmtsv();   // outside Assert.Throws: see the note on the TopPIC test above
         Assert.Throws<Program.UsageException>(() => Run(
-            "readers", "read-results", "--path", Psmtsv(), "--limit", "-1"));
+            "readers", "read-results", "--path", path, "--limit", "-1"));
+    }
 
     [Test]
-    public void ReadResults_NegativeOffset_IsAUsageError() =>
+    public void ReadResults_NegativeOffset_IsAUsageError()
+    {
+        string path = Psmtsv();
         Assert.Throws<Program.UsageException>(() => Run(
-            "readers", "read-results", "--path", Psmtsv(), "--offset", "-5"));
+            "readers", "read-results", "--path", path, "--offset", "-5"));
+    }
+
+    [Test]
+    public void ReadResults_OptionGivenWithoutAValue_IsAUsageErrorNotSilentlyIgnored()
+    {
+        // An option with no value lands in the flag set, so it used to read as absent: --out would
+        // silently serialise the whole table inline instead of writing it, and --limit would mean
+        // no limit. An option that was asked for must never degenerate to nothing.
+        string path = Psmtsv();
+        foreach (string option in new[] { "out", "limit", "offset" })
+        {
+            Assert.Throws<Program.UsageException>(
+                () => Run("readers", "read-results", "--path", path, "--" + option),
+                $"--{option} with no value must fail rather than be ignored");
+        }
+    }
 
     [Test]
     public void ReadResults_ReportsRetentionTimeUnitPerFormat()
@@ -428,6 +459,11 @@ public class ReadingTests
         Assert.That(caveats.Any(c => c.Contains("psmtsv formats report the observed mass")), Is.False,
             "both formats report the THEORETICAL mass; claiming otherwise invents a discrepancy");
 
+        string[] psmtsvCaveats = Run("readers", "read-results", "--path", Psmtsv())
+            .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
+        Assert.That(psmtsvCaveats.Any(c => c.Contains("observed mass") && !c.Contains("not the observed")),
+            Is.False, "the psmtsv caveats must not claim an observed mass either");
+
         double firstMass = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "1")
             .GetProperty("columns").GetProperty("monoisotopic_mass")[0].GetDouble();
         Assert.That(firstMass, Is.EqualTo(1959.90366).Within(1e-5),
@@ -454,12 +490,22 @@ public class ReadingTests
         // silently means "unknown" for one format and "target" for another is the worst thing this
         // view could hand back, and both bake-off rounds named it as such.
         JsonElement fragger = Run("readers", "read-results", "--path", MsFragger());
-        foreach (JsonElement value in fragger.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+        JsonElement[] fraggerDecoys = fragger.GetProperty("columns").GetProperty("is_decoy")
+            .EnumerateArray().ToArray();
+        // Length asserted first: the assertions below live in a loop, so an empty array would
+        // otherwise pass vacuously and leave the fix this test exists for unprotected.
+        Assert.That(fraggerDecoys, Is.Not.Empty);
+        Assert.That(fraggerDecoys, Has.Length.EqualTo(fragger.GetProperty("returned_count").GetInt32()));
+        foreach (JsonElement value in fraggerDecoys)
             Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Null));
 
         // The psmtsv family genuinely reads decoys, so it must still report real booleans.
         JsonElement psmtsv = Run("readers", "read-results", "--path", Psmtsv());
-        foreach (JsonElement value in psmtsv.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+        JsonElement[] psmtsvDecoys = psmtsv.GetProperty("columns").GetProperty("is_decoy")
+            .EnumerateArray().ToArray();
+        Assert.That(psmtsvDecoys, Is.Not.Empty);
+        Assert.That(psmtsvDecoys, Has.Length.EqualTo(psmtsv.GetProperty("returned_count").GetInt32()));
+        foreach (JsonElement value in psmtsvDecoys)
             Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.False).Or.EqualTo(JsonValueKind.True));
     }
 
@@ -470,12 +516,47 @@ public class ReadingTests
         // an em-dash into a replacement character and makes every caveat look corrupted.
         foreach (string path in new[] { Psmtsv(), MsFragger() })
         {
-            foreach (JsonElement caveat in Run("readers", "read-results", "--path", path)
-                         .GetProperty("caveats").EnumerateArray())
+            JsonElement[] caveats = Run("readers", "read-results", "--path", path)
+                .GetProperty("caveats").EnumerateArray().ToArray();
+
+            // Both of these formats carry caveats; an empty array means the channel broke, and
+            // without this the ASCII assertions below would pass by never running.
+            Assert.That(caveats, Is.Not.Empty, $"expected caveats for {Path.GetFileName(path)}");
+            foreach (JsonElement caveat in caveats)
             {
                 string text = caveat.GetString()!;
                 Assert.That(text.All(c => c < 128), Is.True, $"non-ASCII in caveat: {text}");
             }
+        }
+    }
+
+    [Test]
+    public void ReadResults_MissingRetentionTime_IsNullNotTheMinusOneSentinel()
+    {
+        // mzLib types RetentionTime as a non-nullable double and uses -1 for "absent". Passing that
+        // through would put a real-looking -1 minute into someone's arithmetic, inside exactly the
+        // retention-time story this tranche exists to tell. Built by blanking the column in a real
+        // fixture, so the sentinel is produced by mzLib's own parser rather than simulated.
+        string[] lines = File.ReadAllLines(Psmtsv());
+        int rtColumn = Array.IndexOf(lines[0].Split('	'), "Scan Retention Time");
+        Assert.That(rtColumn, Is.GreaterThanOrEqualTo(0), "fixture header changed");
+
+        string[] fields = lines[1].Split('	');
+        fields[rtColumn] = string.Empty;
+        lines[1] = string.Join('	', fields);
+
+        string blanked = Path.Combine(_tempDirectory, "BlankedRt.psmtsv");
+        File.WriteAllLines(blanked, lines);
+
+        JsonElement retentionTimes = Run("readers", "read-results", "--path", blanked)
+            .GetProperty("columns").GetProperty("retention_time");
+
+        Assert.That(retentionTimes[0].ValueKind, Is.EqualTo(JsonValueKind.Null),
+            "a missing retention time must cross as null, never as -1");
+        foreach (JsonElement value in retentionTimes.EnumerateArray())
+        {
+            if (value.ValueKind != JsonValueKind.Null)
+                Assert.That(value.GetDouble(), Is.Not.EqualTo(-1.0));
         }
     }
 
