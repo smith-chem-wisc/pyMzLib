@@ -239,7 +239,14 @@ class PrideFile:
 
 
 def list_files(accession: str, page_size: int = 100, timeout: float | None = 300) -> list[PrideFile]:
-    """Return the complete file manifest of a PRIDE Archive project.
+    """Return the file manifest of a PRIDE Archive project.
+
+    **This is what PRIDE's REST API publishes, which is not always everything in the
+    project.** For PXD000001 the API returns **8** files while the FTP tree holds **13**, and
+    the five it omits include the two largest: ``...60min_01-20141210.mzML`` (450 MB) and the
+    matching ``.mzXML`` (472 MB), exactly the modern open-format conversions most people want.
+    The omission is PRIDE's, not mzLib's. If completeness matters, cross-check the FTP
+    directory at ``https://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/``.
 
     Paging is handled for you: however many pages the project spans, you get one list.
 
@@ -449,7 +456,17 @@ def download_files(
 
 
 def total_size_bytes(files: Iterable[PrideFile]) -> int:
-    """Sum the sizes of some files — e.g. to see what a download will cost before starting it.
+    """Sum the sizes of some files.
+
+    **This is the size PRIDE reports, which is not the number of bytes you will transfer.**
+    For compressed files PRIDE frequently reports the *decompressed* size: in PXD000001 the
+    reported size of ``PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz`` is 16,448,103 bytes, exactly
+    what ``gzip -l`` gives as its uncompressed length, while the actual download is 5,984,662
+    bytes, 2.75x smaller.
+
+    **It is also a sum over an incomplete manifest.** For PXD000001 this returns 0.51 GB; the
+    project on disk is 1.44 GB, because PRIDE's API omits five files including the two largest
+    (see :func:`list_files`). The two errors run in opposite directions and do **not** cancel.
 
     >>> files = list_files("PXD000001")           # doctest: +SKIP
     >>> total_size_bytes(f for f in files if f.category == "RAW") / 1e9   # doctest: +SKIP

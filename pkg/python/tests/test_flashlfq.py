@@ -69,6 +69,29 @@ def test_peptide_intensity_and_detection_lookup(recorded):
     assert peptide.intensity("never_seen") == 0.0
 
 
+def test_a_null_peptide_intensity_reads_as_zero_not_as_none(recorded):
+    """A ``null`` on the wire must not become ``None`` for a peptide.
+
+    The shipped fixture carries ``"run_4": null`` for ACDEFR, and `_from_wire` used to store the
+    wire value verbatim -- so `intensity("run_4")` returned ``None``, contradicting the documented
+    "missing is 0.0, never None" invariant that this module states in three places. Only the
+    missing-KEY case was covered before, never the null-VALUE case the fixture itself provides.
+
+    This matters because ``None`` is the signal callers are told to branch on to find proteins
+    FlashLFQ could not resolve. A peptide that also returns ``None`` erodes exactly that signal,
+    and arithmetic on it raises TypeError on a value the type hints promise is a float. See #7.
+    """
+    result = flashlfq.quantify("AllPSMs.psmtsv", ["run_3.mzML", "run_4.mzML"])
+    acdefr = next(p for p in result.peptides if p.base_sequence == "ACDEFR")
+
+    assert acdefr.intensities["run_4"] == 0.0
+    assert acdefr.intensity("run_4") == 0.0
+    assert acdefr.intensity("run_4") is not None
+    assert acdefr.detection_type("run_4") == "NotDetected"
+    # The real measurement in the other run is untouched.
+    assert acdefr.intensity("run_3") == 2000.0
+
+
 def test_nan_protein_intensity_arrives_as_none(recorded):
     result = flashlfq.quantify("AllPSMs.psmtsv", ["run_3.mzML", "run_4.mzML"])
     unquantified = next(g for g in result.proteins if g.protein_group == "P67890")
