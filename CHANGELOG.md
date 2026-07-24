@@ -7,6 +7,10 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- Readers: `pymzlib.readers.identify()`, `read_results()`, and `formats()` — identify any of the 29
+  result-file types mzLib recognises (returning the projections each supports), and read the three
+  quantifiable formats into a uniform record view, each with per-format caveats about what its
+  numbers do and do not mean.
 - PRIDE Archive support: `pymzlib.pride.list_files()`, `download()`, `total_size_bytes()`,
   and the `PrideFile` type.
 - Peptidoforms: `pymzlib.peptidoform.fragments()` — digest an annotated UniProt protein, apply its
@@ -17,5 +21,13 @@ envelope is not a breaking change unless Python callers can see it.
   `ProteinGroup` / `Peak`. Match-between-runs transfers are exposed via `result.peaks`.
 - A self-contained .NET payload bundled in the wheel, so no .NET installation is required.
 - Documentation site, including the reasoning behind each design decision.
+
+### Fixed
+- `Peptide.intensity()` now returns `0.0` (never `None`) when the wire value is `null`, matching the
+  documented "0.0 when missing, never None" invariant (#7).
+- Documentation corrections back-ported from the mzLibRust bake-off: the glycation-exclusion
+  rationale, ETD's spurious y-ion over-count, `max_threads` as a correctness (not only performance)
+  knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
+  peptide-count figure.
 
 [Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/commits/main
