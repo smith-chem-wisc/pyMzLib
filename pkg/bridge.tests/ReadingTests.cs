@@ -448,6 +448,38 @@ public class ReadingTests
     }
 
     [Test]
+    public void ReadResults_IsDecoyIsNullWhereTheFormatCannotReportDecoys()
+    {
+        // MSFragger psm.tsv has no target/decoy column; mzLib hardcodes false. A boolean that
+        // silently means "unknown" for one format and "target" for another is the worst thing this
+        // view could hand back, and both bake-off rounds named it as such.
+        JsonElement fragger = Run("readers", "read-results", "--path", MsFragger());
+        foreach (JsonElement value in fragger.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+            Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.Null));
+
+        // The psmtsv family genuinely reads decoys, so it must still report real booleans.
+        JsonElement psmtsv = Run("readers", "read-results", "--path", Psmtsv());
+        foreach (JsonElement value in psmtsv.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+            Assert.That(value.ValueKind, Is.EqualTo(JsonValueKind.False).Or.EqualTo(JsonValueKind.True));
+    }
+
+    [Test]
+    public void Caveats_AreAsciiSoTheyReadCorrectlyInAConsole()
+    {
+        // These strings are printed by humans on Windows lab machines, where a cp1252 console turns
+        // an em-dash into a replacement character and makes every caveat look corrupted.
+        foreach (string path in new[] { Psmtsv(), MsFragger() })
+        {
+            foreach (JsonElement caveat in Run("readers", "read-results", "--path", path)
+                         .GetProperty("caveats").EnumerateArray())
+            {
+                string text = caveat.GetString()!;
+                Assert.That(text.All(c => c < 128), Is.True, $"non-ASCII in caveat: {text}");
+            }
+        }
+    }
+
+    [Test]
     public void ReadResults_ZeroLimit_ReturnsNoRecordsButStillReportsTheTotal()
     {
         JsonElement result = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "0");

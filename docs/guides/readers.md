@@ -15,6 +15,13 @@ results = pymzlib.readers.read_results("AllPSMs.psmtsv")
 print(results.record_count)            # 8
 ```
 
+!!! info "pyMzLib can **identify** all 29 formats but **read** only 3 of them"
+    `identify()` and `formats()` work on everything mzLib recognises. `read_results()` reads only
+    the three types offering the `quantifiable` view - MetaMorpheus `.psmtsv`/`.osmtsv` and
+    MSFragger `psm.tsv`. The `ms1_features` and `spectral_match` views are capabilities **of mzLib**
+    that pyMzLib does not yet expose: there is no `read_features()`. If your file reports one of
+    those, `identify()` is telling you what mzLib could do, not what you can call today.
+
 ## Start with `views`, not with the file type
 
 It would be convenient if mzLib read all 29 formats into one uniform table. **It does not**, and
@@ -210,6 +217,11 @@ sometimes by reading the first line. Renaming a file changes how it parses.
 
 ## What is not covered yet
 
+- **The `ms1_features` and `spectral_match` views.** `identify()` names them because mzLib has
+  them, but no function reads them yet. This is the most-requested gap from usability testing.
+- **Confidence.** No q-value, PEP or score is exposed, so nothing here is FDR-filtered - see above.
+- **Decoy counts for most formats.** Only the psmtsv family reports decoys; `is_decoy` is `None`
+  for MSFragger and the other formats cannot be read at all.
 - **Per-format rich records.** The uniform view is the common denominator; the format-specific
   columns each reader parses (matched ions, scores, q-values) are not exposed.
 - **Format conversion.** mzLib can write most formats, but the psmtsv family throws

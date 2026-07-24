@@ -210,7 +210,7 @@ internal static class Reading
             // ResultFile wrapper discards that list — so a half-corrupt file reads "successfully"
             // with silently fewer rows. mzLib exposes no way to ask, so the rows are counted here
             // and the difference reported. Null when the count is not meaningful for this input.
-            rows_not_read = UnreadRowCount(path, all.Count),
+            rows_not_read = UnreadRowCount(path, all.Count, resultFile.FileType),
             // What the uniform view cannot be trusted to mean for THIS format. See CaveatsFor.
             caveats = CaveatsFor(resultFile.FileType),
             // The unit of retention_time, as a value rather than as prose. The caveats say the same
@@ -299,7 +299,12 @@ internal static class Reading
             new Column("retention_time", r => NullIfSentinel(r.RetentionTime)),
             new Column("charge_state", r => r.ChargeState),
             new Column("monoisotopic_mass", r => NullIfSentinel(r.MonoisotopicMass)),
-            new Column("is_decoy", r => r.IsDecoy),
+            // Null, not false, where the format cannot report decoys. mzLib hardcodes false for
+            // MSFragger because psm.tsv carries no target/decoy column at all - so the value means
+            // "unknown", and a boolean column that silently means "unknown" for part of a table is
+            // the single most dangerous thing this view could hand back. Both bake-off rounds named
+            // it. Reported upstream; until the contract can express it, the wire refuses to.
+            new Column("is_decoy", r => DecoysAreKnown(r) ? r.IsDecoy : (bool?)null),
             // Named exactly as mzLib names the tuple fields —
             // List<(string proteinAccessions, string geneName, string organism)> — including the
             // singulars, even though each carries a ';'-joined list here. A caller reading the
@@ -308,6 +313,16 @@ internal static class Reading
             new Column("gene_name", r => Join(r, p => p.geneName)),
             new Column("organism", r => Join(r, p => p.organism)),
         };
+
+        /// <summary>Whether this record's format can report decoy status at all.</summary>
+        /// <remarks>
+        /// <c>MsFraggerPsm.IsDecoy</c> is <c>=> false</c> with a comment saying decoy reading is
+        /// unsupported, and the file genuinely has no target/decoy column - FragPipe strips decoys
+        /// before writing it. So false is not an answer, and passing it through would let a caller
+        /// group by a column that is fabricated for one format and real for another.
+        /// </remarks>
+        private static bool DecoysAreKnown(IQuantifiableRecord record) =>
+            record is not MsFraggerPsm;
 
         private static string Join(
             IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
@@ -406,8 +421,20 @@ internal static class Reading
     /// format emits more records than lines, as an expand-per-charge reader would).
     /// </para>
     /// </remarks>
-    private static int? UnreadRowCount(string path, int recordCount)
+    private static int? UnreadRowCount(string path, int recordCount, SupportedFileType fileType)
     {
+        // Only where "one non-blank line after the header is one record" actually holds. It does
+        // for the psmtsv family and MSFragger, and it is worth stating rather than relying on: a
+        // TopPIC prsm file has a 29-line uncommented preamble AND continuation rows that repeat a
+        // match's protein fields with every other column blank, so eight lines are four records.
+        // If mzLib ever gives such a format the quantifiable view, a line count would silently
+        // report half the file as unread. Null means "no basis to say", not "nothing missing".
+        bool oneLinePerRecord = fileType is SupportedFileType.psmtsv
+            or SupportedFileType.osmtsv
+            or SupportedFileType.MsFraggerPsm;
+        if (!oneLinePerRecord)
+            return null;
+
         if (!File.Exists(path))
             return null;
 
@@ -475,14 +502,14 @@ internal static class Reading
             "is_decoy is always false: mzLib does not read MSFragger decoys (MsFraggerPsm.cs:217). " +
             "False means 'unknown', not 'target'.",
             // Corrected after the readers bake-off: an earlier version of this caveat claimed the
-            // psmtsv formats report the OBSERVED mass, which is false — they report the file's
+            // psmtsv formats report the OBSERVED mass, which is false - they report the file's
             // "Peptide Monoisotopic Mass" column, which is theoretical, exactly as MSFragger does.
             // The caveat manufactured a cross-format discrepancy that does not exist and sent a
             // reader chasing it. Both formats agree; what is worth saying is only that neither is
             // the observed precursor mass.
             "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:220, " +
             "CalculatedPeptideMass), not the observed precursor mass. The psmtsv formats report " +
-            "the theoretical mass here too, so the two are consistent — but neither is what the " +
+            "the theoretical mass here too, so the two are consistent - but neither is what the " +
             "instrument measured.",
             "file_name is the full 'Spectrum File' path including its .pep.xml extension, whereas " +
             "the psmtsv formats report a bare base name. The field is not a join key across formats.",
@@ -492,7 +519,7 @@ internal static class Reading
             "full_sequence and monoisotopic_mass keep only the FIRST candidate of an ambiguous " +
             "identification; mzLib splits the '|'-separated list and discards the rest " +
             "(SpectrumMatchFromTsv.cs:89).",
-            "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' — the THEORETICAL mass of " +
+            "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of " +
             "the identified peptide, not the observed precursor mass, which the file carries " +
             "separately as 'Precursor Mass'.",
             "There is no q-value, PEP or score in this view, so nothing here is FDR-filtered. " +
@@ -509,7 +536,7 @@ internal static class Reading
     /// The common interfaces a reader implements, named as capabilities rather than as .NET types.
     /// </summary>
     /// <remarks>
-    /// An empty list is a real and common answer — TopPIC, MsPathFinderT, Crux and Casanovo readers
+    /// An empty list is a real and common answer - TopPIC, MsPathFinderT, Crux and Casanovo readers
     /// each parse into their own record type and share no cross-format interface. Saying so is the
     /// point of the verb.
     /// </remarks>
@@ -525,7 +552,7 @@ internal static class Reading
             views.Add("spectra");
 
         // ISpectralMatch is implemented by the RECORD, not the file, so it cannot be found on the
-        // reader itself — it is the type argument of the ResultFile<T> the reader derives from.
+        // reader itself - it is the type argument of the ResultFile<T> the reader derives from.
         Type? recordType = RecordTypeOf(readerType);
         if (recordType is not null && typeof(ISpectralMatch).IsAssignableFrom(recordType))
             views.Add("spectral_match");

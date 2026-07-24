@@ -43,7 +43,8 @@ of the rest of pyMzLib:
   and TopPIC's are in **seconds**, and TopFD changed from seconds to minutes between v1.6.2 and
   v1.7.0 *within the same file type*. Likewise ``is_decoy`` is hardcoded ``False`` for MSFragger,
   which means "mzLib cannot tell" rather than "target" - MSFragger's ``psm.tsv`` carries no
-  target/decoy column at all. ``monoisotopic_mass`` is the *theoretical* peptide mass in **both**
+  target/decoy column at all - so ``is_decoy`` arrives as **``None``** for that format rather than
+  a fabricated ``False``. ``monoisotopic_mass`` is the *theoretical* peptide mass in **both**
   formats, never the observed precursor mass. Identifying a file is safe; comparing raw fields
   across formats is not.
 
