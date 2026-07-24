@@ -125,7 +125,12 @@ class Peptide:
             quantifies. Two different modification states of one base sequence are two peptides.
         base_sequence: The bare amino-acid sequence.
         protein_groups: The protein group(s) this peptide belongs to, ``;``-joined.
-        intensities: Run base name → intensity in that run. Missing is ``0.0``, **never ``None``**
+        intensities: Run base name → intensity in that run. Missing is ``0.0``, **never ``None``** — a ``null``
+            on the wire is resolved to ``0.0`` when parsed, so the invariant holds by
+            construction rather than by hope (issue #7). Note too that where a peptide has
+            several peaks in one run this roll-up reports **one** of them rather than their
+            sum, so pivoting :attr:`FlashLfqResults.peaks` yourself will not reproduce these
+            intensities exactly. Counting presence is unaffected; summing intensity is not.
             (unlike proteins). This roll-up mirrors FlashLFQ's ``QuantifiedPeptides.tsv`` and does
             **not** fully reflect match-between-runs — many transferred peptides read ``0.0`` /
             ``"NotDetected"`` here. For MBR-inclusive quantities use :attr:`FlashLfqResults.peaks`.
@@ -163,7 +168,16 @@ class Peptide:
             sequence=payload.get("sequence", ""),
             base_sequence=payload.get("base_sequence", ""),
             protein_groups=payload.get("protein_groups", ""),
-            intensities=dict(payload.get("intensities") or {}),
+            # A null crossing the wire becomes 0.0 here, so the documented invariant --
+            # "missing is 0.0, never None" -- is true by construction rather than by hope.
+            # The bridge routes every double through a finite check, so a NaN peptide
+            # intensity arrives as null; leaving it None would make intensity() return None
+            # for a peptide, which is supposed to be a protein-only condition and is exactly
+            # what callers branch on to find unresolvable proteins. See issue #7.
+            intensities={
+                run: (0.0 if value is None else value)
+                for run, value in (payload.get("intensities") or {}).items()
+            },
             detection_types=dict(payload.get("detection_types") or {}),
         )
 
@@ -313,7 +327,17 @@ class FlashLfqResults:
     def mbr_rescued_peptide_count(self) -> int:
         """Distinct peptides quantified in at least one run only by match-between-runs.
 
-        The honest answer to "how many peptides did MBR rescue" — distinct modified sequences among
+        Exactly: **the number of distinct ``sequence`` values among peaks whose
+        ``detection_type`` is ``"MBR"``.** Stated in code terms because the prose version,
+        "peptides quantified in at least one run *only* by match-between-runs", is subtly
+        different and on real data the two diverge: peptides having **both** an MBR peak and
+        a zero-intensity ``MSMS`` peak in the same run were identified there, so they are not
+        rescues under the strict reading. On the K562 pair this returns 140 where the strict
+        count is 135. Do not read ``mbr_rescued_peptide_count == mbr_peak_count`` as
+        reassurance that nothing was double-counted; on that data both are 140, and they
+        coincide only because every MBR peak happened to carry a distinct sequence.
+
+        Distinct modified sequences among
         :attr:`mbr_peaks`. This equals :attr:`mbr_peak_count` only when no peptide was rescued in
         more than one run.
         """
@@ -434,6 +458,15 @@ def quantify(
         bayesian_protein_quant: Run FlashLFQ's Bayesian protein-fold-change engine.
         use_pep_q_value: Filter identifications on PEP q-value rather than q-value.
         max_threads: Worker threads; ``-1`` lets FlashLFQ choose.
+
+            **This is not only a performance knob - it changes results.** With ``-1``,
+            FlashLFQ's peptide roll-up nondeterministically drops some MBR intensities, so
+            peptide and protein numbers vary between runs on byte-identical inputs. On the
+            K562 pair, 6 peptides flip between ``0.0`` and a real intensity, which flips a
+            borderline protein group between ``None`` and a number: unquantifiable in 5 of 6
+            runs, quantified in the 6th. The peaks are stable throughout - only the roll-up
+            wobbles. **Set ``max_threads=1`` for anything you intend to publish or
+            reproduce.** See smith-chem-wisc/mzLib#1111.
         output_directory: If given, FlashLFQ also writes ``QuantifiedPeaks.tsv``,
             ``QuantifiedPeptides.tsv`` and ``QuantifiedProteins.tsv`` there.
         timeout: Seconds to allow. Large experiments legitimately take a while; ``None`` waits

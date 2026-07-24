@@ -211,9 +211,18 @@ class ModificationCensus:
         if excluded_types:
             named = ", ".join(f"{t['count']} × {t['type']}" for t in excluded_types)
             sentences.append(
-                f"Excluded by type: {named} — these have no defined chemical composition, so no "
-                "mass can be assigned and a peptide carrying one is not identifiable by mass "
-                "spectrometry."
+                f"Excluded by type: {named} — mzLib loads only 'modified residue' "
+                "and 'lipid moiety-binding region' annotations, so these were dropped on "
+                "feature type alone. The exclusion is usually right: a glycation or "
+                "glycosylation annotation describes a labile, heterogeneous adduct, so "
+                "assigning it one exact mass and a clean fragment ladder would invent a "
+                "species you cannot observe. But the reason is not reported, and the "
+                "qualifier is not read: on albumin, 14 of the 24 excluded here are marked "
+                "'in vitro' and 2 exist only in disease variants, which are different "
+                "grounds for exclusion needing different judgements from you. Read the "
+                "annotations on the UniProt entry before concluding anything about a "
+                "specific site; this census can only tell you the count "
+                "(smith-chem-wisc/mzLib#1112)."
             )
         if self.unresolved:
             sentences.append(
@@ -284,10 +293,31 @@ def fragments(
             default here because it is what a mass spectrometrist usually means. mzLib's plain
             ``"trypsin"`` cleaves before proline too. That is the **reverse** of the MaxQuant and
             Mascot convention, where ``Trypsin/P`` denotes ignoring the proline rule. On serum
-            albumin the two differ by 37 peptides out of about 200.
-        dissociation: ``"ETD"`` (c and z• ions), ``"HCD"``/``"CID"`` (b and y), and the rest of
-            mzLib's dissociation types.
-        modifications: Apply UniProt's annotated modifications. Pass ``False`` for the bare
+            albumin the two differ by 7 peptides out of about 200 (195 vs 202; tryptic, 2
+            missed cleavages, min length 7) - a small count hiding a large semantic
+            difference, since which peptides you get changes wherever a K/R precedes a
+            proline.
+        dissociation: ``"HCD"``/``"CID"`` (b and y ions), ``"ETD"``, and the rest of mzLib's
+            dissociation types.
+
+            **``"ETD"`` returns three series, c, zDot **and y**, not two.** The y ions are
+            spurious: ETD cleaves the N-Ca bond and yields c/z*, while b/y come from amide
+            cleavage under vibrational activation, and mzLib's ``EThcD`` row correctly pairs y
+            *with* b. ETD's does not. They are about **a third** of every ETD fragment list,
+            so :attr:`Digest.fragment_count` over-counts real ETD ions by that much. Tracked
+            as smith-chem-wisc/mzLib#1109. Separately, z* ions are suppressed N-terminal to
+            proline while the complementary c ions are not, leaving about 4% of the c series
+            unobservable (smith-chem-wisc/mzLib#1110).
+        modifications: Apply UniProt's annotated modifications.
+
+            **``False`` is not a clean control.** It discards UniProt's whole feature table,
+            which also carries the signal-peptide and propeptide boundaries mzLib digests at,
+            so the *peptide list* changes too, not only the modifications on it. On albumin,
+            ``False`` loses ``MKWVTFISLLFLFSSAYS`` (1-18) and ``WVTFISLLFLFSSAYS`` (3-18),
+            both unmodified, both ending exactly at the signal-peptide cleavage site. See
+            issue #8.
+
+            Still true of the modifications themselves: pass ``False`` for the bare
             sequence — useful as a control, and the difference is usually large.
         missed_cleavages: Maximum missed cleavage sites per peptide.
         min_length: Shortest peptide to keep. The default of 7 silently discards shorter

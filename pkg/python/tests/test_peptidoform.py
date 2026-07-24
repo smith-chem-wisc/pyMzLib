@@ -192,7 +192,15 @@ def test_the_two_exclusion_reasons_are_not_conflated():
 def test_census_explains_what_was_excluded_and_why(recorded_digest):
     text = peptidoform.fragments("P02768").modification_census.explain()
     assert "24" in text and "glycosylation site" in text
-    assert "no defined chemical composition" in text
+    # The reason must not overclaim in either direction. These are dropped on FEATURE TYPE,
+    # not for want of a mass: 22 of albumin's 24 are `N-linked (Glc) (glycation) lysine`,
+    # which UniProt's own ptmlist defines with CF C6H10O5 and MM 162.052823. Excluding them
+    # is still right, because glycation is a labile heterogeneous adduct and 14 of the 22 are
+    # annotated "in vitro" -- but the old wording gave a reason that was simply false, which
+    # made the trap-disclosure itself the misinformation. See smith-chem-wisc/mzLib#1112.
+    assert "feature type" in text
+    assert "mzLib#1112" in text
+    assert "no defined chemical composition" not in text
 
 
 def test_census_says_so_when_nothing_was_excluded():
