@@ -1,4 +1,4 @@
-"""Identify proteomics result files: what a file *is*, and what you can do with it.
+"""Read proteomics result files: what a file *is*, what you can do with it, and its records.
 
 mzLib recognises 29 file types written by a dozen different search and deconvolution tools —
 MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux, Casanovo, FlashDeconv, Dinosaur,
@@ -65,8 +65,11 @@ from . import _bridge
 __all__ = [
     "Format",
     "FileInfo",
+    "WrittenTable",
+    "ResultRecords",
     "formats",
     "identify",
+    "read_results",
 ]
 
 #: The view name for the cross-format record shape :func:`pymzlib.flashlfq.quantify` consumes.
@@ -147,6 +150,104 @@ class FileInfo:
         )
 
 
+@dataclass(frozen=True)
+class WrittenTable:
+    """Where :func:`read_results` wrote a table, when asked to write one instead of returning it.
+
+    Attributes:
+        path: The absolute path written.
+        format: Always ``"tsv"``. **Tab-separated, not comma-separated**, because these fields
+            contain commas — MSFragger's mapped proteins are a comma-separated list inside a single
+            field, and joined accessions look the same. It is also what every mzLib reader and
+            writer uses. Read it with ``csv.reader(f, delimiter="\\t")`` or
+            ``pandas.read_csv(path, sep="\\t")``.
+        row_count: Rows written, excluding the header.
+    """
+
+    path: str
+    format: str
+    row_count: int
+
+    @classmethod
+    def _from_wire(cls, payload: dict[str, Any]) -> "WrittenTable":
+        return cls(
+            path=payload.get("path", ""),
+            format=payload.get("format", ""),
+            row_count=int(payload.get("row_count", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class ResultRecords:
+    """The uniform record view of a result file.
+
+    Attributes:
+        path: The absolute path that was read.
+        file_type: mzLib's ``SupportedFileType`` name.
+        record_count: Records in the **whole file**, regardless of ``limit`` or ``offset``.
+        returned_count: Records actually carried back in :attr:`columns`. Zero when ``out`` was
+            given, since the table went to disk instead.
+        offset: The offset that was applied.
+        truncated: **Whether records were left behind**, by either ``limit`` or ``offset``. A short
+            answer and a complete one must never look alike, so check this rather than assuming.
+        rows_not_read: Data rows in the file that did not become records — mzLib drops a malformed
+            row silently, so a non-zero value here means the file is partly unreadable and the
+            table is incomplete. ``None`` when the count could not be established meaningfully.
+        caveats: **What the uniform view cannot be trusted to mean for this format.** Empty for
+            some formats, not for others; each entry cites the mzLib source it came from. Worth
+            printing before comparing anything across formats — this is where you learn that
+            MSFragger retention times are seconds while MetaMorpheus's are minutes.
+        column_names: The field names, in order.
+        columns: Field name → list of values, one entry per record — the shape ``pandas.DataFrame``
+            and ``polars.DataFrame`` both accept directly. ``None`` when ``out`` was given.
+        output: Where the table was written, or ``None`` if it was returned inline.
+    """
+
+    path: str
+    file_type: str
+    record_count: int
+    returned_count: int
+    offset: int
+    truncated: bool
+    rows_not_read: Any
+    caveats: list[str] = field(default_factory=list)
+    column_names: list[str] = field(default_factory=list)
+    columns: Any = None
+    output: Any = None
+
+    @property
+    def records(self) -> list[dict[str, Any]]:
+        """The same data row-wise: one dict per record.
+
+        A convenience for looping. If you are building a table, prefer :attr:`columns` — it is
+        already the shape a DataFrame wants, and this rebuilds it. Empty when ``out`` was given.
+        """
+        if not self.columns:
+            return []
+        names = self.column_names or list(self.columns)
+        return [
+            {name: self.columns[name][i] for name in names}
+            for i in range(self.returned_count)
+        ]
+
+    @classmethod
+    def _from_wire(cls, data: dict[str, Any]) -> "ResultRecords":
+        written = data.get("output")
+        return cls(
+            path=data.get("path", ""),
+            file_type=data.get("file_type", ""),
+            record_count=int(data.get("record_count", 0)),
+            returned_count=int(data.get("returned_count", 0)),
+            offset=int(data.get("offset", 0)),
+            truncated=bool(data.get("truncated", False)),
+            rows_not_read=data.get("rows_not_read"),
+            caveats=list(data.get("caveats") or []),
+            column_names=list(data.get("column_names") or []),
+            columns=data.get("columns"),
+            output=WrittenTable._from_wire(written) if written else None,
+        )
+
+
 def formats(timeout: float | None = 60) -> list[Format]:
     """Every file type mzLib can recognise.
 
@@ -198,3 +299,73 @@ def identify(path: str, timeout: float | None = 60) -> FileInfo:
 
     data = _bridge.invoke("readers", "identify", "--path", path.strip(), timeout=timeout)
     return FileInfo._from_wire(data)
+
+
+def read_results(
+    path: str,
+    *,
+    limit: int | None = None,
+    offset: int = 0,
+    out: str | None = None,
+    timeout: float | None = None,
+) -> ResultRecords:
+    """Read a result file into the uniform record view.
+
+    Only the three file types offering the ``"quantifiable"`` view can be read this way — check
+    :func:`identify` first, or catch the error. A file without the view is rejected with a message
+    naming the views it does have.
+
+    **There is no default row limit.** A result file can carry a million rows, and truncating by
+    default would mean the ordinary call returns a table that looks complete and is not. For a large
+    file use ``out`` rather than paging: see the note on ``offset`` below.
+
+    Args:
+        path: Path to a MetaMorpheus ``.psmtsv`` / ``.osmtsv`` or an MSFragger ``psm.tsv``.
+        limit: Maximum records to return. ``None`` (the default) returns all of them.
+            :attr:`ResultRecords.truncated` reports whether anything was left behind.
+        offset: Records to skip. **This is a window, not a cursor.** mzLib materializes the whole
+            file on every call — its readers look lazy and are not — so paging re-reads and
+            re-parses the file once per page. For a large file, one call with ``out`` is right and
+            a paging loop is quadratic.
+        out: Write the records to this path as a **tab-separated** table and return only a summary,
+            instead of carrying them back in the envelope. The intended path for large files, not
+            an escape hatch. Tab-separated because these fields contain commas.
+        timeout: Seconds to allow. A large file legitimately takes a while; ``None`` waits
+            indefinitely.
+
+    Returns:
+        A :class:`ResultRecords`. Read :attr:`ResultRecords.caveats` before trusting a field across
+        formats.
+
+    Raises:
+        UsageError: the path is blank, missing, not a recognised format, or has no quantifiable view.
+
+    Example:
+        >>> r = read_results("AllPSMs.psmtsv")                       # doctest: +SKIP
+        >>> r.record_count, r.truncated                              # doctest: +SKIP
+        (8, False)
+        >>> import pandas as pd                                      # doctest: +SKIP
+        >>> pd.DataFrame(r.columns)                                  # doctest: +SKIP
+    """
+    if not isinstance(path, str) or not path.strip():
+        raise _bridge.UsageError("A file path is required, e.g. 'AllPSMs.psmtsv'.")
+
+    args: list[str] = ["readers", "read-results", "--path", path.strip()]
+
+    if limit is not None:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            raise _bridge.UsageError(f"limit must be a non-negative whole number or None; got {limit!r}.")
+        args += ["--limit", str(limit)]
+
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+        raise _bridge.UsageError(f"offset must be a non-negative whole number; got {offset!r}.")
+    if offset:
+        args += ["--offset", str(offset)]
+
+    if out is not None:
+        if not isinstance(out, str) or not out.strip():
+            raise _bridge.UsageError("out must be a non-empty path or None.")
+        args += ["--out", out.strip()]
+
+    data = _bridge.invoke(*args, timeout=timeout)
+    return ResultRecords._from_wire(data)

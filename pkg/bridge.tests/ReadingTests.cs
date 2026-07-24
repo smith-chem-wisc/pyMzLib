@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace MzLibBridge.Tests;
@@ -56,6 +57,7 @@ public class ReadingTests
         {
             "readers identify" => Reading.Identify(arguments),
             "readers formats" => Reading.Formats(arguments),
+            "readers read-results" => Reading.ReadResults(arguments),
             _ => throw new ArgumentException($"Not a readers verb: {arguments.Verb}"),
         };
 
@@ -222,5 +224,186 @@ public class ReadingTests
 
         Assert.That(viewless, Is.GreaterThan(10),
             "an empty view list is the common case, not an edge case");
+    }
+
+    // ---- read-results ------------------------------------------------------------------------
+
+    /// <summary>
+    /// The reader fixtures in the pinned mzLib worktree, located relative to this source file so
+    /// they resolve both locally and in CI.
+    /// </summary>
+    private static string FixtureDirectory([CallerFilePath] string thisFile = "")
+    {
+        string root = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(thisFile)!, "..", ".."));
+        return Path.Combine(root, "code", "mzLib", "mzLib", "Test", "FileReadingTests");
+    }
+
+    /// <summary>A named mzLib fixture, or an ignored test when the worktree is absent.</summary>
+    private static string Fixture(params string[] parts)
+    {
+        string path = Path.Combine(new[] { FixtureDirectory() }.Concat(parts).ToArray());
+        if (!File.Exists(path))
+            Assert.Ignore($"mzLib reader fixture not present in the worktree: {path}");
+        return path;
+    }
+
+    private static string Psmtsv() => Fixture("SearchResults", "BottomUpExample.psmtsv");
+
+    private static string MsFragger() =>
+        Fixture("ExternalFileTypes", "FraggerPsm_FragPipev21.1_psm.tsv");
+
+    [Test]
+    public void ReadResults_ReturnsEveryRecordColumnarByDefault()
+    {
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv());
+
+        int count = result.GetProperty("record_count").GetInt32();
+        Assert.That(count, Is.GreaterThan(0));
+        Assert.That(result.GetProperty("returned_count").GetInt32(), Is.EqualTo(count),
+            "there is no default row cap — the ordinary call returns the whole file");
+        Assert.That(result.GetProperty("truncated").GetBoolean(), Is.False);
+
+        // Columnar: one array per field, each as long as the record count.
+        JsonElement columns = result.GetProperty("columns");
+        foreach (JsonElement name in result.GetProperty("column_names").EnumerateArray())
+            Assert.That(columns.GetProperty(name.GetString()!).GetArrayLength(), Is.EqualTo(count));
+    }
+
+    [Test]
+    public void ReadResults_Limit_TruncatesAndDisclosesIt()
+    {
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "2");
+
+        Assert.That(result.GetProperty("returned_count").GetInt32(), Is.EqualTo(2));
+        Assert.That(result.GetProperty("record_count").GetInt32(), Is.GreaterThan(2));
+        Assert.That(result.GetProperty("truncated").GetBoolean(), Is.True,
+            "a short answer and a complete one must not look alike");
+    }
+
+    [Test]
+    public void ReadResults_OffsetPastTheEnd_ReturnsNothingAndStillReportsTheTotal()
+    {
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv(), "--offset", "10000");
+
+        Assert.That(result.GetProperty("returned_count").GetInt32(), Is.Zero);
+        Assert.That(result.GetProperty("record_count").GetInt32(), Is.GreaterThan(0));
+        Assert.That(result.GetProperty("truncated").GetBoolean(), Is.True,
+            "records were skipped, so the answer is incomplete even though the limit never bit");
+    }
+
+    [Test]
+    public void ReadResults_MsFragger_DisclosesThatRetentionTimeIsSeconds()
+    {
+        // The single most consequential caveat: these values are seconds while MetaMorpheus's are
+        // minutes, and nothing in mzLib converts them. A caller comparing the two silently gets a
+        // 60x error, so the wire must say so.
+        string[] caveats = Run("readers", "read-results", "--path", MsFragger())
+            .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
+
+        Assert.That(caveats.Any(c => c.Contains("SECONDS")), Is.True);
+        Assert.That(caveats.Any(c => c.Contains("is_decoy")), Is.True);
+        Assert.That(caveats.Any(c => c.Contains("THEORETICAL")), Is.True);
+    }
+
+    [Test]
+    public void ReadResults_Psmtsv_DisclosesAmbiguityAndSilentRowLoss()
+    {
+        string[] caveats = Run("readers", "read-results", "--path", Psmtsv())
+            .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
+
+        Assert.That(caveats, Is.Not.Empty);
+        Assert.That(caveats.Any(c => c.Contains("FIRST candidate")), Is.True);
+    }
+
+    [Test]
+    public void ReadResults_ReportsThatEveryRowWasRead()
+    {
+        // mzLib drops a malformed row silently; this counts the difference so a partial read is
+        // visible rather than passing for a complete one.
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv());
+
+        Assert.That(result.GetProperty("rows_not_read").GetInt32(), Is.Zero);
+    }
+
+    [Test]
+    public void ReadResults_Out_WritesATabSeparatedTableAndOmitsTheInlineRecords()
+    {
+        string destination = Path.Combine(_tempDirectory, "records.tsv");
+
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv(), "--out", destination);
+
+        Assert.That(result.GetProperty("columns").ValueKind, Is.EqualTo(JsonValueKind.Null),
+            "writing to disk exists to keep the table OUT of the envelope");
+        Assert.That(result.GetProperty("returned_count").GetInt32(), Is.Zero);
+
+        JsonElement output = result.GetProperty("output");
+        Assert.That(output.GetProperty("format").GetString(), Is.EqualTo("tsv"));
+        Assert.That(File.Exists(destination), Is.True);
+
+        string[] lines = File.ReadAllLines(destination);
+        int columnCount = result.GetProperty("column_names").GetArrayLength();
+        Assert.That(lines[0].Split('\t'), Has.Length.EqualTo(columnCount));
+        Assert.That(lines[0], Does.Not.Contain(","),
+            "tab-separated, not comma-separated: these fields contain commas");
+        Assert.That(lines, Has.Length.EqualTo(output.GetProperty("row_count").GetInt32() + 1));
+    }
+
+    [Test]
+    public void ReadResults_Out_CreatesMissingDirectories()
+    {
+        string destination = Path.Combine(_tempDirectory, "nested", "deeper", "records.tsv");
+
+        Run("readers", "read-results", "--path", Psmtsv(), "--out", destination);
+
+        Assert.That(File.Exists(destination), Is.True);
+    }
+
+    [Test]
+    public void ReadResults_FormatWithoutTheView_IsAUsageErrorNamingWhatItDoesHave()
+    {
+        string toppic = Fixture("ExternalFileTypes", "ToppicPrsm_TopPICv1.6.2_prsm.tsv");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "read-results", "--path", toppic));
+
+        // mzLib throws the same exception for "unknown extension" and "wrong interface"; the
+        // caller deserves to know which, and what the file can do instead.
+        Assert.That(exception!.Message, Does.Contain("ToppicPrsm"));
+        Assert.That(exception.Message, Does.Contain("no cross-format record view"));
+        Assert.That(exception.Message, Does.Contain("readers identify"));
+    }
+
+    [Test]
+    public void ReadResults_SpectraFile_IsAUsageErrorNamingTheSpectraView()
+    {
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "read-results", "--path", Touch("run.mzML")));
+
+        Assert.That(exception!.Message, Does.Contain("spectra"));
+    }
+
+    [Test]
+    public void ReadResults_MissingFile_IsAUsageError() =>
+        Assert.Throws<Program.UsageException>(() => Run(
+            "readers", "read-results", "--path", Path.Combine(_tempDirectory, "absent.psmtsv")));
+
+    [Test]
+    public void ReadResults_NegativeLimit_IsAUsageError() =>
+        Assert.Throws<Program.UsageException>(() => Run(
+            "readers", "read-results", "--path", Psmtsv(), "--limit", "-1"));
+
+    [Test]
+    public void ReadResults_NegativeOffset_IsAUsageError() =>
+        Assert.Throws<Program.UsageException>(() => Run(
+            "readers", "read-results", "--path", Psmtsv(), "--offset", "-5"));
+
+    [Test]
+    public void ReadResults_ZeroLimit_ReturnsNoRecordsButStillReportsTheTotal()
+    {
+        JsonElement result = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "0");
+
+        Assert.That(result.GetProperty("returned_count").GetInt32(), Is.Zero);
+        Assert.That(result.GetProperty("record_count").GetInt32(), Is.GreaterThan(0));
+        Assert.That(result.GetProperty("truncated").GetBoolean(), Is.True);
     }
 }

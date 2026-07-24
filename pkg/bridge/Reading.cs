@@ -1,3 +1,4 @@
+using System.Globalization;
 using MassSpectrometry;
 using Readers;
 
@@ -131,6 +132,331 @@ internal static class Reading
             views = ViewsOf(readerType),
         };
     }
+
+    /// <summary>
+    /// <c>readers read-results --path FILE [--limit N] [--offset N] [--out FILE]</c> — the
+    /// cross-format record view of a result file.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only the three file types offering the <c>quantifiable</c> view can be read this way; a file
+    /// without it is rejected with a message naming the views it does have, rather than a cast
+    /// failure. Use <c>readers identify</c> first to find out.
+    /// </para>
+    /// <para>
+    /// Records come back <b>columnar</b> — one array per field rather than one object per record.
+    /// That is three to five times smaller, but the reason is ergonomic: pyMzLib takes no
+    /// third-party dependency, so it can never hand back a DataFrame, and a map of arrays is the
+    /// one shape both pandas and polars ingest in a single call. The same shape is equally natural
+    /// in any other language, so it costs the language-neutral contract nothing.
+    /// </para>
+    /// <para>
+    /// <b>There is no default row cap.</b> A result file can carry a million rows, and truncating
+    /// by default would mean the common call returns a table that looks complete and is not — the
+    /// failure mode that quietly produces a wrong answer. <c>--limit</c> is available and reports
+    /// <c>truncated</c> when it bites; for genuinely large files <c>--out</c> writes the table to
+    /// disk and returns only a summary, which is the intended path rather than an escape hatch.
+    /// </para>
+    /// </remarks>
+    public static object ReadResults(Program.Arguments arguments)
+    {
+        string path = arguments.Required("path");
+        string? outputPath = arguments.Optional("out");
+
+        int offset = arguments.OptionalInt("offset", 0);
+        if (offset < 0)
+            throw new Program.UsageException($"Option --offset must be zero or greater; got {offset}.");
+
+        bool limited = arguments.WasProvided("limit");
+        int limit = arguments.OptionalInt("limit", int.MaxValue);
+        if (limited && limit < 0)
+            throw new Program.UsageException($"Option --limit must be zero or greater; got {limit}.");
+
+        if (!File.Exists(path) && !Directory.Exists(path))
+            throw new Program.UsageException($"File not found: '{path}'.");
+
+        IQuantifiableResultFile resultFile = OpenQuantifiable(path);
+
+        // Touching the results materialises the whole file: every reader's LoadResults ends in
+        // ToList(), and GetQuantifiableResults() is `=> Results` on all of them. It LOOKS lazy and
+        // is not, so --offset is a window over an already-parsed list, never a cursor that saves
+        // work. Paging a large file re-reads and re-parses it once per page; --out exists so that
+        // is never the right thing to do.
+        List<IQuantifiableRecord> all = resultFile.GetQuantifiableResults().ToList();
+
+        List<IQuantifiableRecord> selected = all.Skip(offset).Take(limit).ToList();
+
+        // "Were any records left behind", by either the limit or the offset. Deliberately not
+        // `offset + selected.Count < all.Count`, which reads plausibly and is wrong: an offset past
+        // the end makes the sum exceed the total and reports a complete answer for an empty one.
+        bool truncated = selected.Count < all.Count;
+
+        var columns = Column.QuantifiableView;
+        object? written = null;
+        if (!string.IsNullOrWhiteSpace(outputPath))
+            written = WriteTable(outputPath, columns, selected);
+
+        return new
+        {
+            path = Path.GetFullPath(path),
+            file_type = resultFile.FileType.ToString(),
+            record_count = all.Count,
+            returned_count = written is null ? selected.Count : 0,
+            offset,
+            // True whenever records were left behind, whether by --limit or by --offset. A short
+            // answer and a complete one must never look alike.
+            truncated,
+            // mzLib's psmtsv reader catches a malformed line, adds it to a warnings list, and the
+            // ResultFile wrapper discards that list — so a half-corrupt file reads "successfully"
+            // with silently fewer rows. mzLib exposes no way to ask, so the rows are counted here
+            // and the difference reported. Null when the count is not meaningful for this input.
+            rows_not_read = UnreadRowCount(path, all.Count),
+            // What the uniform view cannot be trusted to mean for THIS format. See CaveatsFor.
+            caveats = CaveatsFor(resultFile.FileType),
+            column_names = columns.Select(c => c.Name).ToList(),
+            // Omitted entirely when writing to disk: materialising both would defeat the point.
+            columns = written is null ? BuildColumns(columns, selected) : null,
+            output = written,
+        };
+    }
+
+    /// <summary>
+    /// Opens a file for the quantifiable view, or explains precisely why it cannot be.
+    /// </summary>
+    /// <remarks>
+    /// mzLib throws the same <c>MzLibException</c> for "this extension is unknown" and for "this
+    /// type exists but implements the wrong interface", distinguishable only by the message text.
+    /// The second case is the interesting one and deserves a real answer, so it is re-derived
+    /// through <see cref="FileReader.ReadResultFile"/> and reported with the views the file
+    /// actually has.
+    /// </remarks>
+    private static IQuantifiableResultFile OpenQuantifiable(string path)
+    {
+        try
+        {
+            return FileReader.ReadQuantifiableResultFile(path);
+        }
+        catch (FileNotFoundException)
+        {
+            // ReadQuantifiableResultFile checks File.Exists only, so a Bruker .d directory lands
+            // here despite existing. Either way the caller gets a path they can act on.
+            throw new Program.UsageException(
+                $"File not found, or not a readable result file: '{path}'.");
+        }
+        catch (MzLibUtil.MzLibException)
+        {
+            string detail;
+            try
+            {
+                IResultFile any = FileReader.ReadResultFile(path);
+                List<string> views = ViewsOf(any.GetType());
+                detail = views.Count == 0
+                    ? $"'{any.FileType}' files have no cross-format record view at all — mzLib parses " +
+                      "them into a format-specific shape only."
+                    : $"'{any.FileType}' files offer the {string.Join(", ", views)} view, not quantifiable.";
+            }
+            catch (Exception)
+            {
+                detail = "mzLib does not recognise this file type.";
+            }
+
+            throw new Program.UsageException(
+                $"Cannot read '{path}' into the uniform record view. {detail} " +
+                "Run 'readers identify' to see what a file supports, or 'readers formats' for the " +
+                "three types that offer this view.");
+        }
+    }
+
+    /// <summary>
+    /// One field of the uniform view: its wire name and how to read it off a record.
+    /// </summary>
+    /// <remarks>
+    /// Declared once so the JSON columns and the written table cannot disagree about which fields
+    /// exist, what they are called, or what order they are in.
+    /// </remarks>
+    private sealed record Column(string Name, Func<IQuantifiableRecord, object?> Read)
+    {
+        /// <summary>
+        /// The <see cref="IQuantifiableRecord"/> fields, under mzLib's own names.
+        /// </summary>
+        /// <remarks>
+        /// <c>retention_time</c> and <c>monoisotopic_mass</c> use <c>-1</c> as a "not present"
+        /// sentinel in mzLib because the interface types them as non-nullable doubles. Passing that
+        /// through would put a real-looking -1 into someone's arithmetic, so it crosses as null.
+        /// The protein tuple list is flattened into three parallel <c>;</c>-joined fields, matching
+        /// how the FlashLFQ tranche already renders protein groups.
+        /// </remarks>
+        public static IReadOnlyList<Column> QuantifiableView { get; } = new[]
+        {
+            new Column("file_name", r => r.FileName),
+            new Column("base_sequence", r => r.BaseSequence),
+            new Column("full_sequence", r => r.FullSequence),
+            new Column("retention_time", r => NullIfSentinel(r.RetentionTime)),
+            new Column("charge_state", r => r.ChargeState),
+            new Column("monoisotopic_mass", r => NullIfSentinel(r.MonoisotopicMass)),
+            new Column("is_decoy", r => r.IsDecoy),
+            new Column("protein_accessions", r => Join(r, p => p.proteinAccessions)),
+            new Column("gene_names", r => Join(r, p => p.geneName)),
+            new Column("organisms", r => Join(r, p => p.organism)),
+        };
+
+        private static string Join(
+            IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
+            => string.Join(";", (record.ProteinGroupInfos ?? []).Select(part));
+
+        /// <summary>mzLib's -1 "absent" sentinel, and any non-finite value, as null.</summary>
+        private static double? NullIfSentinel(double value) =>
+            double.IsFinite(value) && value != -1 ? value : null;
+    }
+
+    /// <summary>Builds the columnar payload: one array per field.</summary>
+    private static Dictionary<string, List<object?>> BuildColumns(
+        IReadOnlyList<Column> columns, List<IQuantifiableRecord> records)
+    {
+        var built = new Dictionary<string, List<object?>>(columns.Count);
+        foreach (Column column in columns)
+        {
+            var values = new List<object?>(records.Count);
+            foreach (IQuantifiableRecord record in records)
+                values.Add(column.Read(record));
+            built[column.Name] = values;
+        }
+
+        return built;
+    }
+
+    /// <summary>
+    /// Writes the selected records as a tab-separated table and reports where they went.
+    /// </summary>
+    /// <remarks>
+    /// Tab-separated, not comma-separated, because these fields contain commas: MSFragger's mapped
+    /// proteins are a comma-separated list inside a single field, and joined accessions look the
+    /// same. Tabs do not occur in them — if one did, mzLib's own tab-splitting readers would
+    /// already be broken — so the delimiter is safe by inheritance rather than by hope. It is also
+    /// what mzLib writes everywhere (every Delimiter in Readers is a tab bar one visualization
+    /// format) and what the FlashLFQ verb already emits. Fields are still quoted when they would
+    /// otherwise contain a delimiter or newline, so the file is lossless rather than lucky.
+    /// </remarks>
+    private static object WriteTable(
+        string outputPath, IReadOnlyList<Column> columns, List<IQuantifiableRecord> records)
+    {
+        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
+        var configuration = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            Delimiter = "\t",
+        };
+
+        using (var writer = new StreamWriter(File.Create(outputPath)))
+        using (var csv = new CsvHelper.CsvWriter(writer, configuration))
+        {
+            foreach (Column column in columns)
+                csv.WriteField(column.Name);
+            csv.NextRecord();
+
+            foreach (IQuantifiableRecord record in records)
+            {
+                foreach (Column column in columns)
+                    csv.WriteField(Render(column.Read(record)));
+                csv.NextRecord();
+            }
+        }
+
+        return new
+        {
+            path = Path.GetFullPath(outputPath),
+            format = "tsv",
+            row_count = records.Count,
+        };
+    }
+
+    /// <summary>A value as written text: invariant, and empty for absent.</summary>
+    private static string Render(object? value) => value switch
+    {
+        null => string.Empty,
+        double number => number.ToString(CultureInfo.InvariantCulture),
+        int number => number.ToString(CultureInfo.InvariantCulture),
+        bool flag => flag ? "true" : "false",
+        _ => value.ToString() ?? string.Empty,
+    };
+
+    /// <summary>
+    /// How many data rows the file appears to hold that did not become records.
+    /// </summary>
+    /// <remarks>
+    /// mzLib's psmtsv reader collects per-line parse failures into a warnings list that the
+    /// <c>ResultFile</c> wrapper then discards, and the CsvHelper-backed readers configured with
+    /// <c>BadDataFound = null</c> drop malformed rows without a sound. Either way the caller sees a
+    /// successful read with fewer rows than the file contains, which is the kind of silent loss
+    /// this library exists to refuse. Since mzLib offers no way to ask, the lines are counted.
+    /// <para>
+    /// Deliberately conservative: null rather than a guess whenever the count could mislead — for a
+    /// directory-shaped input, an unreadable file, or a negative difference (which would mean the
+    /// format emits more records than lines, as an expand-per-charge reader would).
+    /// </para>
+    /// </remarks>
+    private static int? UnreadRowCount(string path, int recordCount)
+    {
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            int dataLines = File.ReadLines(path).Count(line => !string.IsNullOrWhiteSpace(line)) - 1;
+            int difference = dataLines - recordCount;
+            return difference > 0 ? difference : difference == 0 ? 0 : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// What the uniform view cannot be trusted to mean for a given format.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is a deliberate and narrow exception to the rule that the bridge holds no domain
+    /// knowledge. mzLib's readers pass each tool's columns through without normalising them, so the
+    /// same field means different things per format — and mzLib exposes no programmatic way to ask
+    /// which. The alternatives were to say nothing (leaving callers to compare seconds against
+    /// minutes) or to convert (inventing numbers mzLib never produced). Reporting the discrepancy
+    /// is the only option that neither hides nor fabricates.
+    /// </para>
+    /// <para>
+    /// Every entry is verified against mzLib at the pinned commit and pinned by a test, so a fix
+    /// upstream shows up as a failure here rather than as a caveat that quietly became a lie.
+    /// </para>
+    /// </remarks>
+    private static List<string> CaveatsFor(SupportedFileType fileType) => fileType switch
+    {
+        SupportedFileType.MsFraggerPsm =>
+        [
+            "retention_time is in SECONDS for this format, not minutes: MSFragger's Retention " +
+            "column is passed through unconverted (MsFraggerPsm.cs:48). Do not compare it with a " +
+            "MetaMorpheus file's retention_time, and do not quantify this file with FlashLFQ, " +
+            "which reads the value as minutes.",
+            "is_decoy is always false: mzLib does not read MSFragger decoys (MsFraggerPsm.cs:217). " +
+            "False means 'unknown', not 'target'.",
+            "monoisotopic_mass is the THEORETICAL peptide mass (CalculatedPeptideMass), not the " +
+            "observed one (MsFraggerPsm.cs:220). The psmtsv formats report the observed mass.",
+            "file_name is the full 'Spectrum File' path including its .pep.xml extension, whereas " +
+            "the psmtsv formats report a bare base name. The field is not a join key across formats.",
+        ],
+        SupportedFileType.psmtsv or SupportedFileType.osmtsv =>
+        [
+            "full_sequence and monoisotopic_mass keep only the FIRST candidate of an ambiguous " +
+            "identification; mzLib splits the '|'-separated list and discards the rest " +
+            "(SpectrumMatchFromTsv.cs:89).",
+            "A malformed row is dropped silently: mzLib collects a warning per unreadable line and " +
+            "the reader discards the list (SpectrumMatchTsvReader.cs:71, PsmFromTsvFile.cs:17). " +
+            "Check rows_not_read.",
+        ],
+        _ => [],
+    };
 
     /// <summary>
     /// The common interfaces a reader implements, named as capabilities rather than as .NET types.

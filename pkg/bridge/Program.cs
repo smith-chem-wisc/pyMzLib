@@ -167,8 +167,9 @@ public static class Program
             "quant flashlfq" => Quantification.FlashLfq(arguments),
             "readers formats" => Reading.Formats(arguments),
             "readers identify" => Reading.Identify(arguments),
+            "readers read-results" => Reading.ReadResults(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq, readers formats, readers identify."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq, readers formats, readers identify, readers read-results."),
         };
     }
 

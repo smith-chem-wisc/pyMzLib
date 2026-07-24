@@ -158,3 +158,130 @@ def test_readers_is_exported_from_the_package():
     # A module missing from __all__ is invisible to `from pymzlib import *` and to the docs build.
     assert "readers" in pymzlib.__all__
     assert pymzlib.readers is readers
+
+
+# ---- read_results --------------------------------------------------------------------------
+
+
+READ_PAYLOAD = {
+    "path": "C:/x/AllPSMs.psmtsv",
+    "file_type": "psmtsv",
+    "record_count": 3,
+    "returned_count": 2,
+    "offset": 0,
+    "truncated": True,
+    "rows_not_read": 0,
+    "caveats": ["only the FIRST candidate of an ambiguous identification is kept"],
+    "column_names": ["base_sequence", "retention_time", "is_decoy"],
+    "columns": {
+        "base_sequence": ["PEPTIDE", "SEQUENCE"],
+        "retention_time": [12.5, None],
+        "is_decoy": [False, True],
+    },
+    "output": None,
+}
+
+
+@pytest.fixture()
+def recorded_read(monkeypatch):
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: READ_PAYLOAD)
+    return READ_PAYLOAD
+
+
+def test_read_results_parses_the_columnar_payload(recorded_read):
+    result = readers.read_results("AllPSMs.psmtsv")
+
+    assert result.record_count == 3
+    assert result.returned_count == 2
+    assert result.columns["base_sequence"] == ["PEPTIDE", "SEQUENCE"]
+    assert result.column_names == ["base_sequence", "retention_time", "is_decoy"]
+
+
+def test_truncation_is_visible(recorded_read):
+    # A short answer and a complete one must not look alike.
+    assert readers.read_results("AllPSMs.psmtsv").truncated is True
+
+
+def test_caveats_are_carried_through(recorded_read):
+    assert readers.read_results("AllPSMs.psmtsv").caveats
+
+
+def test_records_gives_the_same_data_row_wise(recorded_read):
+    rows = readers.read_results("AllPSMs.psmtsv").records
+
+    assert len(rows) == 2, "one dict per RETURNED record, not per record in the file"
+    assert rows[0] == {"base_sequence": "PEPTIDE", "retention_time": 12.5, "is_decoy": False}
+    assert rows[1]["retention_time"] is None, "mzLib's -1 sentinel must arrive as None, not -1.0"
+
+
+def test_records_is_empty_when_the_table_was_written_to_disk(monkeypatch):
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {
+        "path": "C:/x/AllPSMs.psmtsv", "file_type": "psmtsv", "record_count": 8,
+        "returned_count": 0, "offset": 0, "truncated": False, "columns": None,
+        "output": {"path": "C:/out/records.tsv", "format": "tsv", "row_count": 8},
+    })
+
+    result = readers.read_results("AllPSMs.psmtsv", out="records.tsv")
+
+    assert result.columns is None
+    assert result.records == []
+    assert isinstance(result.output, readers.WrittenTable)
+    assert result.output.format == "tsv", "tab-separated: these fields contain commas"
+    assert result.output.row_count == 8
+
+
+def test_limit_and_offset_and_out_are_sent(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(_bridge, "invoke",
+                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+
+    readers.read_results("AllPSMs.psmtsv", limit=5, offset=10, out=" records.tsv ")
+
+    assert seen["args"] == (
+        "readers", "read-results", "--path", "AllPSMs.psmtsv",
+        "--limit", "5", "--offset", "10", "--out", "records.tsv",
+    )
+
+
+def test_defaults_send_no_limit_or_offset(monkeypatch):
+    # There is no default row cap: the ordinary call must ask for the whole file.
+    seen = {}
+    monkeypatch.setattr(_bridge, "invoke",
+                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+
+    readers.read_results("AllPSMs.psmtsv")
+
+    assert seen["args"] == ("readers", "read-results", "--path", "AllPSMs.psmtsv")
+
+
+def test_zero_limit_is_sent_rather_than_treated_as_absent(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(_bridge, "invoke",
+                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+
+    readers.read_results("AllPSMs.psmtsv", limit=0)
+
+    assert "--limit" in seen["args"], "limit=0 is a request for no rows, not a missing argument"
+
+
+@pytest.mark.parametrize("bad", [-1, 1.5, True, "5"])
+def test_a_bad_limit_is_rejected_without_starting_a_process(bad):
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("AllPSMs.psmtsv", limit=bad)
+
+
+@pytest.mark.parametrize("bad", [-1, 2.5, True, "3"])
+def test_a_bad_offset_is_rejected_without_starting_a_process(bad):
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("AllPSMs.psmtsv", offset=bad)
+
+
+@pytest.mark.parametrize("bad", ["", "   ", 7])
+def test_a_bad_out_path_is_rejected_without_starting_a_process(bad):
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("AllPSMs.psmtsv", out=bad)
+
+
+def test_a_blank_read_path_is_rejected():
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("  ")
