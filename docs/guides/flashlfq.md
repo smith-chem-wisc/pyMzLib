@@ -26,6 +26,20 @@ Every name here is FlashLFQ's or mzLib's, unchanged: `match_between_runs`, `ppm_
 [FlashLFQ paper](https://pubs.acs.org/doi/10.1021/acs.jproteome.7b00608) or the MetaMorpheus output
 columns means the same thing here.
 
+!!! danger "Quantify MetaMorpheus output only — an MSFragger `psm.tsv` gives wrong numbers"
+    mzLib will accept an MSFragger `psm.tsv` as `psms`, and `pymzlib.readers.identify()` will call
+    it `quantifiable`, because it genuinely implements the interface FlashLFQ consumes. The
+    **numbers that come back are wrong, and wrong silently.**
+
+    MSFragger records retention time in **seconds**; MetaMorpheus records **minutes**. mzLib's
+    result-file readers pass the column straight through without converting it, and FlashLFQ then
+    treats the value as minutes and searches a ±2-minute window around it. A peptide eluting at 60
+    minutes is looked for at 1 minute and is simply not found — so quantification collapses toward
+    zero instead of failing, which is the worst way for a number to be wrong.
+
+    This is a defect in mzLib affecting every caller, not something pyMzLib introduces, and it is
+    reported upstream. Until it is fixed, use `.psmtsv` / `.osmtsv`.
+
 ## What you get back
 
 `quantify()` returns a [`FlashLfqResults`](../reference.md):

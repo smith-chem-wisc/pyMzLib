@@ -165,8 +165,11 @@ public static class Program
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
             "quant flashlfq" => Quantification.FlashLfq(arguments),
+            "readers formats" => Reading.Formats(arguments),
+            "readers identify" => Reading.Identify(arguments),
+            "readers read-results" => Reading.ReadResults(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq, readers formats, readers identify, readers read-results."),
         };
     }
 

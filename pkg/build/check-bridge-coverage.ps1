@@ -49,6 +49,38 @@ if (-not $report) {
     throw "No coverage.cobertura.xml under '$ResultsPath'. Run dotnet test with --collect:`"XPlat Code Coverage`" first."
 }
 
+# Refuse a report that predates the code it claims to measure.
+#
+# `dotnet test` without --collect leaves whatever report was there last time, and this script would
+# happily gate on it: "newest file on disk" is not the same as "from this run". That failure is
+# silent and convincing — it prints a healthy percentage with a brand-new class missing from the
+# listing entirely, which is exactly how untested code gets through a gate that appears to be green.
+$assembly = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+
+if (-not $assembly) {
+    # No assembly means the freshness check cannot run at all. Silently skipping it would restore
+    # exactly the hole this guard closes -- a green gate measured against an unknown-age report --
+    # so say so rather than pass quietly.
+    throw @"
+Cannot verify coverage freshness: no MzLibBridge.Tests.dll found under pkg/bridge.tests/bin.
+Build the test project first, then re-run with collection enabled.
+"@
+}
+
+if ($report.LastWriteTime -lt $assembly.LastWriteTime) {
+    throw @"
+Coverage report is STALE: it predates the test assembly, so it cannot describe the current code.
+  report:   $($report.FullName)
+            written $($report.LastWriteTime)
+  assembly: written $($assembly.LastWriteTime)
+Re-run with collection enabled:
+  dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory!=ExternalService" ``
+      --collect:"XPlat Code Coverage" --settings pkg/bridge.tests/coverlet.runsettings
+"@
+}
+
 [xml]$coverage = Get-Content $report.FullName
 
 # Only the bridge's own classes, and only ones a person wrote. The compiler emits a nested class

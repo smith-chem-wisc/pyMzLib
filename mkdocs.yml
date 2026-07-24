@@ -80,6 +80,7 @@ nav:
       - PRIDE Archive: guides/pride.md
       - Peptidoforms: guides/peptidoforms.md
       - FlashLFQ: guides/flashlfq.md
+      - Readers: guides/readers.md
   - API reference: reference.md
   - How it works:
       - Architecture: design/architecture.md
