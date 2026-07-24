@@ -15,7 +15,9 @@ and several belong to no family at all:
 
 - ``"quantifiable"`` — a cross-format record view (sequence, retention time, charge, mass, protein
   groups), and the input :func:`pymzlib.flashlfq.quantify` accepts. **Exactly three file types have
-  it**: MetaMorpheus ``.psmtsv`` and ``.osmtsv``, and MSFragger ``psm.tsv``.
+  it**: MetaMorpheus ``.psmtsv`` and ``.osmtsv``, and MSFragger ``psm.tsv``. This view reports what
+  mzLib's *interface* offers, not that the numbers are comparable — see the warning below, and do
+  not quantify the MSFragger one.
 - ``"ms1_features"`` — deconvolved MS1 features (TopFD ``_ms1.feature``, Dinosaur).
 - ``"spectra"`` — the file is spectra, not results (``.raw``, ``.mzML``, ``.mgf``, ``.d``, msalign).
 - ``"spectral_match"`` — records are identifications but share no file-level interface
@@ -43,6 +45,14 @@ of the rest of pyMzLib:
   (mzLib does not read its decoys), and MSFragger's "monoisotopic mass" is the *theoretical* peptide
   mass while MetaMorpheus's is the observed one. Identifying a file is safe; comparing raw fields
   across formats is not.
+
+.. warning::
+
+   That units mismatch is not hypothetical. Passing an MSFragger ``psm.tsv`` to
+   :func:`pymzlib.flashlfq.quantify` returns near-zero intensities, because FlashLFQ reads the
+   seconds as minutes and searches for each peptide roughly sixty times too early in the gradient.
+   ``identify()`` will still call the file ``quantifiable`` — that is mzLib's interface, honestly
+   reported — but quantify MetaMorpheus output only until the upstream fix lands.
 """
 
 from __future__ import annotations
