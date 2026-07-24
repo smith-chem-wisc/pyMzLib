@@ -1,0 +1,211 @@
+{
+  "format_count": 29,
+  "formats": [
+    {
+      "file_type": "Ms1Feature",
+      "extension": "_ms1.feature",
+      "reader": "Ms1FeatureFile",
+      "views": [
+        "ms1_features"
+      ]
+    },
+    {
+      "file_type": "Ms2Feature",
+      "extension": "_ms2.feature",
+      "reader": "Ms2FeatureFile",
+      "views": []
+    },
+    {
+      "file_type": "TopFDMzrt",
+      "extension": ".mzrt.csv",
+      "reader": "TopFDMzrtFile",
+      "views": []
+    },
+    {
+      "file_type": "Ms1Tsv_FlashDeconv",
+      "extension": "_ms1.tsv",
+      "reader": "FlashDeconvMs1TsvFile",
+      "views": []
+    },
+    {
+      "file_type": "Tsv_FlashDeconv",
+      "extension": ".tsv",
+      "reader": "FlashDeconvTsvFile",
+      "views": []
+    },
+    {
+      "file_type": "Tsv_Dinosaur",
+      "extension": ".feature.tsv",
+      "reader": "DinosaurTsvFile",
+      "views": [
+        "ms1_features"
+      ]
+    },
+    {
+      "file_type": "ThermoRaw",
+      "extension": ".raw",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "MzML",
+      "extension": ".mzML",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "Mgf",
+      "extension": ".mgf",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "Ms1Align",
+      "extension": "_ms1.msalign",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "Ms2Align",
+      "extension": "_ms2.msalign",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "psmtsv",
+      "extension": ".psmtsv",
+      "reader": "PsmFromTsvFile",
+      "views": [
+        "quantifiable"
+      ]
+    },
+    {
+      "file_type": "osmtsv",
+      "extension": ".osmtsv",
+      "reader": "OsmFromTsvFile",
+      "views": [
+        "quantifiable"
+      ]
+    },
+    {
+      "file_type": "ToppicPrsm",
+      "extension": "_prsm.tsv",
+      "reader": "ToppicSearchResultFile",
+      "views": []
+    },
+    {
+      "file_type": "ToppicPrsmSingle",
+      "extension": "_prsm_single.tsv",
+      "reader": "ToppicSearchResultFile",
+      "views": []
+    },
+    {
+      "file_type": "ToppicProteoform",
+      "extension": "_proteoform.tsv",
+      "reader": "ToppicSearchResultFile",
+      "views": []
+    },
+    {
+      "file_type": "ToppicProteoformSingle",
+      "extension": "_proteoform_single.tsv",
+      "reader": "ToppicSearchResultFile",
+      "views": []
+    },
+    {
+      "file_type": "MsFraggerPsm",
+      "extension": "psm.tsv",
+      "reader": "MsFraggerPsmFile",
+      "views": [
+        "quantifiable"
+      ]
+    },
+    {
+      "file_type": "MsFraggerPeptide",
+      "extension": "peptide.tsv",
+      "reader": "MsFraggerPeptideFile",
+      "views": []
+    },
+    {
+      "file_type": "MsFraggerProtein",
+      "extension": "protein.tsv",
+      "reader": "MsFraggerProteinFile",
+      "views": []
+    },
+    {
+      "file_type": "FlashLFQQuantifiedPeak",
+      "extension": "Peaks.tsv",
+      "reader": "QuantifiedPeakFile",
+      "views": []
+    },
+    {
+      "file_type": "MsPathFinderTTargets",
+      "extension": "_IcTarget.tsv",
+      "reader": "MsPathFinderTResultFile",
+      "views": [
+        "spectral_match"
+      ]
+    },
+    {
+      "file_type": "MsPathFinderTDecoys",
+      "extension": "_IcDecoy.tsv",
+      "reader": "MsPathFinderTResultFile",
+      "views": [
+        "spectral_match"
+      ]
+    },
+    {
+      "file_type": "MsPathFinderTAllResults",
+      "extension": "_IcTDA.tsv",
+      "reader": "MsPathFinderTResultFile",
+      "views": [
+        "spectral_match"
+      ]
+    },
+    {
+      "file_type": "CruxResult",
+      "extension": ".txt",
+      "reader": "CruxResultFile",
+      "views": []
+    },
+    {
+      "file_type": "ExperimentAnnotation",
+      "extension": "experiment_annotation.tsv",
+      "reader": "ExperimentAnnotationFile",
+      "views": []
+    },
+    {
+      "file_type": "BrukerD",
+      "extension": ".d",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "BrukerTimsTof",
+      "extension": ".d",
+      "reader": "MsDataFileToResultFileAdapter",
+      "views": [
+        "spectra"
+      ]
+    },
+    {
+      "file_type": "CasanovoMzTab",
+      "extension": ".mztab",
+      "reader": "CasanovoMzTabFile",
+      "views": [
+        "spectral_match"
+      ]
+    }
+  ]
+}

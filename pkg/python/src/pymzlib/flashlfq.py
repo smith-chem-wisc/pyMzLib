@@ -21,8 +21,26 @@ FlashLFQ source, the MetaMorpheus output columns, and the FlashLFQ paper: ``matc
 ``ppm_tolerance``, ``mbr_ppm_tolerance``, ``sequence``, ``base_sequence``, ``protein_groups``,
 ``detection_types``, ``ProteinGroup``, ``FlashLfqResults``.
 
-**Two limits worth knowing before you trust a number**, in the "surface it, don't hide it" spirit
-of the rest of pyMzLib:
+.. warning::
+
+   **Do not quantify an MSFragger ``psm.tsv`` with this.** mzLib accepts one — it is one of only
+   three formats implementing the record view FlashLFQ consumes — but the numbers that come back
+   are wrong, and wrong silently.
+
+   MSFragger writes retention time in **seconds**; MetaMorpheus writes **minutes**. mzLib's
+   result-file readers pass the column through without converting it, and FlashLFQ then treats the
+   value as minutes and searches a ±2-minute window around it. A peptide truly eluting at 60
+   minutes is written as ``3600`` and then looked for at 3600 minutes - far past the end of any
+   real gradient - so it is simply not found: quantification collapses toward zero rather than
+   failing. This is an mzLib defect, not a pyMzLib one, and it affects any mzLib
+   caller — it is reported upstream. Until it is fixed, quantify MetaMorpheus output only.
+
+   ``pymzlib.readers.identify()`` will still report an MSFragger file as ``quantifiable``: that
+   reports mzLib's interface, which the file genuinely implements. It is not an endorsement of the
+   numbers.
+
+**Three more limits worth knowing before you trust a number**, in the "surface it, don't hide it"
+spirit of the rest of pyMzLib:
 
 - **mzML only, for now.** Convert ``.raw``/``.d`` to mzML first; a non-mzML path is rejected up front.
 - **A protein intensity can be ``None``.** FlashLFQ's median-polish protein quant marks a protein
@@ -391,10 +409,10 @@ def quantify(
     """Quantify a search's peptides across mzML runs with FlashLFQ.
 
     Args:
-        psms: Path to a PSM result file. A MetaMorpheus ``.psmtsv`` gives the full field set
-            (q-values, scores); an MSFragger result file also works. Every run named in it must
-            have a matching mzML in ``spectra`` — FlashLFQ matches identifications to runs by base
-            file name.
+        psms: Path to a PSM result file. **Use a MetaMorpheus ``.psmtsv`` or ``.osmtsv``.** mzLib
+            also accepts an MSFragger ``psm.tsv`` here, but the result is wrong — see the warning
+            in the module documentation above. Every run named in the file must have a matching
+            mzML in ``spectra``; FlashLFQ matches identifications to runs by base file name.
         spectra: The mzML runs. Each entry is either a path (``"run_1.mzML"``) or a mapping
             carrying the experimental design (``{"path": "run_1.mzML", "condition": "treated",
             "biological_replicate": 1}``). Base file names must be unique.
