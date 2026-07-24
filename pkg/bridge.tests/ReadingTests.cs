@@ -398,6 +398,72 @@ public class ReadingTests
     }
 
     [Test]
+    public void ReadResults_UnrecognisedExtension_SaysMzLibDoesNotRecogniseIt()
+    {
+        // The inner fallback in OpenQuantifiable: ReadQuantifiableResultFile throws for the unknown
+        // extension, and the re-derivation to name the file's views throws again, so the caller is
+        // told the type is unrecognised rather than shown an opaque cast failure.
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "read-results", "--path", Touch("notes.docx")));
+
+        Assert.That(exception!.Message, Does.Contain("does not recognise"));
+    }
+
+    [Test]
+    public void ReadResults_ADirectory_IsAUsageErrorNotAnUnhandledException()
+    {
+        // A directory passes the File-or-Directory existence guard but ReadQuantifiableResultFile
+        // checks File.Exists only, so it throws FileNotFoundException deep inside. That must reach
+        // the caller as a clean usage error, not a bare stack trace.
+        string directory = Path.Combine(_tempDirectory, "a_folder");
+        Directory.CreateDirectory(directory);
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "read-results", "--path", directory));
+
+        Assert.That(exception!.Message, Does.Contain(directory).Or.Contain("not a readable result file"));
+    }
+
+    [Test]
+    public void ReadResults_ReportsRowsThatMzLibDroppedSilently()
+    {
+        // The point of rows_not_read: mzLib's psmtsv reader swallows a malformed line into a
+        // warning list the wrapper discards, so the file reads "successfully" with fewer records.
+        // A row truncated to a couple of columns fails to parse and is dropped; the count exposes it.
+        string[] lines = File.ReadAllLines(Psmtsv());
+        var corrupted = lines.ToList();
+        corrupted.Insert(2, "not	a	valid	row");   // one extra line that cannot parse
+        string path = Path.Combine(_tempDirectory, "Corrupted.psmtsv");
+        File.WriteAllLines(path, corrupted);
+
+        JsonElement result = Run("readers", "read-results", "--path", path);
+
+        // The file now has one more data line than the reader could turn into a record.
+        Assert.That(result.GetProperty("rows_not_read").GetInt32(), Is.GreaterThan(0),
+            "a line mzLib could not parse must be counted, not silently absent");
+    }
+
+    [Test]
+    public void ReadResults_Out_WritesNullForAnAbsentValue()
+    {
+        // MSFragger is_decoy crosses as null (mzLib cannot report its decoys), so writing that
+        // format to disk exercises Render's null arm - an absent value becomes an empty field
+        // rather than the text "null" or a crash.
+        string destination = Path.Combine(_tempDirectory, "fragger.tsv");
+        Run("readers", "read-results", "--path", MsFragger(), "--out", destination);
+
+        string[] written = File.ReadAllLines(destination);
+        int decoyColumn = Array.IndexOf(written[0].Split('	'), "is_decoy");
+        Assert.That(decoyColumn, Is.GreaterThanOrEqualTo(0));
+
+        foreach (string row in written.Skip(1))
+        {
+            string cell = row.Split('	')[decoyColumn];
+            Assert.That(cell, Is.Empty, "an absent (null) value is written as an empty field");
+        }
+    }
+
+    [Test]
     public void ReadResults_MissingFile_IsAUsageError() =>
         Assert.Throws<Program.UsageException>(() => Run(
             "readers", "read-results", "--path", Path.Combine(_tempDirectory, "absent.psmtsv")));
