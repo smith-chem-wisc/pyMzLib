@@ -118,7 +118,7 @@ internal static class Reading
             // fault, so it surfaces as a usage error pointing at the verb that lists what IS
             // supported — not as a BridgeError, which would read as "pyMzLib is broken".
             throw new Program.UsageException(
-                $"{exception.Message}: '{path}'. Run 'readers formats' for the file types mzLib recognises.");
+                $"{exception.Message}: '{path}'. The formats listing enumerates every file type mzLib recognises.");
         }
 
         Type readerType = resultFile.GetType();
@@ -213,6 +213,11 @@ internal static class Reading
             rows_not_read = UnreadRowCount(path, all.Count),
             // What the uniform view cannot be trusted to mean for THIS format. See CaveatsFor.
             caveats = CaveatsFor(resultFile.FileType),
+            // The unit of retention_time, as a value rather than as prose. The caveats say the same
+            // thing in English, but a caller converting between formats should not have to grep a
+            // sentence for the word "SECONDS" - which is exactly what a reader did before this
+            // existed. "unknown" when mzLib gives no basis to claim one, never a guess.
+            retention_time_unit = RetentionTimeUnitOf(resultFile.FileType),
             column_names = columns.Select(c => c.Name).ToList(),
             // Omitted entirely when writing to disk: materialising both would defeat the point.
             columns = written is null ? BuildColumns(columns, selected) : null,
@@ -262,8 +267,8 @@ internal static class Reading
 
             throw new Program.UsageException(
                 $"Cannot read '{path}' into the uniform record view. {detail} " +
-                "Run 'readers identify' to see what a file supports, or 'readers formats' for the " +
-                "three types that offer this view.");
+                "Identifying a file reports the views it supports; the formats listing names the " +
+                "three types that offer this one.");
         }
     }
 
@@ -295,9 +300,13 @@ internal static class Reading
             new Column("charge_state", r => r.ChargeState),
             new Column("monoisotopic_mass", r => NullIfSentinel(r.MonoisotopicMass)),
             new Column("is_decoy", r => r.IsDecoy),
+            // Named exactly as mzLib names the tuple fields —
+            // List<(string proteinAccessions, string geneName, string organism)> — including the
+            // singulars, even though each carries a ';'-joined list here. A caller reading the
+            // mzLib source must not have to hold a translation table.
             new Column("protein_accessions", r => Join(r, p => p.proteinAccessions)),
-            new Column("gene_names", r => Join(r, p => p.geneName)),
-            new Column("organisms", r => Join(r, p => p.organism)),
+            new Column("gene_name", r => Join(r, p => p.geneName)),
+            new Column("organism", r => Join(r, p => p.organism)),
         };
 
         private static string Join(
@@ -415,6 +424,30 @@ internal static class Reading
     }
 
     /// <summary>
+    /// The unit mzLib's <c>RetentionTime</c> carries for a given format.
+    /// </summary>
+    /// <remarks>
+    /// mzLib's result-file readers do not normalise retention time, so the unit is whatever the
+    /// tool wrote and differs per format. Reported as a value so a caller can convert
+    /// programmatically; the alternative is every consumer hard-coding this table, which is what
+    /// happened when only the prose caveat existed.
+    /// <para>
+    /// Verified per format against the committed fixtures, and pinned by a test. If mzLib starts
+    /// normalising (see the upstream retention-time issue), these values change with it - which is
+    /// the point of deriving them from the pinned mzLib rather than documenting them once.
+    /// </para>
+    /// </remarks>
+    private static string RetentionTimeUnitOf(SupportedFileType fileType) => fileType switch
+    {
+        // MetaMorpheus writes minutes; verified against BottomUpExample.psmtsv, where scan 13955
+        // reads 97.42 and scan 27567 reads 174.96 - 0.0057 per scan, a normal Orbitrap duty cycle.
+        SupportedFileType.psmtsv or SupportedFileType.osmtsv => "minutes",
+        // MSFragger writes seconds; the fixture advances ~1.1 per scan on an LTQ Orbitrap Velos.
+        SupportedFileType.MsFraggerPsm => "seconds",
+        _ => "unknown",
+    };
+
+    /// <summary>
     /// What the uniform view cannot be trusted to mean for a given format.
     /// </summary>
     /// <remarks>
@@ -441,8 +474,16 @@ internal static class Reading
             "which reads the value as minutes.",
             "is_decoy is always false: mzLib does not read MSFragger decoys (MsFraggerPsm.cs:217). " +
             "False means 'unknown', not 'target'.",
-            "monoisotopic_mass is the THEORETICAL peptide mass (CalculatedPeptideMass), not the " +
-            "observed one (MsFraggerPsm.cs:220). The psmtsv formats report the observed mass.",
+            // Corrected after the readers bake-off: an earlier version of this caveat claimed the
+            // psmtsv formats report the OBSERVED mass, which is false — they report the file's
+            // "Peptide Monoisotopic Mass" column, which is theoretical, exactly as MSFragger does.
+            // The caveat manufactured a cross-format discrepancy that does not exist and sent a
+            // reader chasing it. Both formats agree; what is worth saying is only that neither is
+            // the observed precursor mass.
+            "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:220, " +
+            "CalculatedPeptideMass), not the observed precursor mass. The psmtsv formats report " +
+            "the theoretical mass here too, so the two are consistent — but neither is what the " +
+            "instrument measured.",
             "file_name is the full 'Spectrum File' path including its .pep.xml extension, whereas " +
             "the psmtsv formats report a bare base name. The field is not a join key across formats.",
         ],
@@ -451,6 +492,12 @@ internal static class Reading
             "full_sequence and monoisotopic_mass keep only the FIRST candidate of an ambiguous " +
             "identification; mzLib splits the '|'-separated list and discards the rest " +
             "(SpectrumMatchFromTsv.cs:89).",
+            "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' — the THEORETICAL mass of " +
+            "the identified peptide, not the observed precursor mass, which the file carries " +
+            "separately as 'Precursor Mass'.",
+            "There is no q-value, PEP or score in this view, so nothing here is FDR-filtered. " +
+            "IQuantifiableRecord carries only the fields FlashLFQ needs; confidence columns present " +
+            "in the file are not exposed. Filter before you report.",
             "A malformed row is dropped silently: mzLib collects a warning per unreadable line and " +
             "the reader discards the list (SpectrumMatchTsvReader.cs:71, PsmFromTsvFile.cs:17). " +
             "Check rows_not_read.",

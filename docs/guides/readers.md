@@ -108,17 +108,36 @@ for c in pymzlib.readers.read_results("psm.tsv").caveats:
   passed through unconverted (MsFraggerPsm.cs:48). ...
 - is_decoy is always false: mzLib does not read MSFragger decoys (MsFraggerPsm.cs:217). False
   means 'unknown', not 'target'.
-- monoisotopic_mass is the THEORETICAL peptide mass (CalculatedPeptideMass), not the observed one ...
+- monoisotopic_mass is the THEORETICAL peptide mass (CalculatedPeptideMass), not the observed
+  precursor mass. The psmtsv formats report the theoretical mass here too, so the two are
+  consistent - but neither is what the instrument measured.
 - file_name is the full 'Spectrum File' path including its .pep.xml extension ...
 ```
 
-The reason is that mzLib's result-file readers pass each tool's columns through **without
-normalising them**. Retention time is minutes for MetaMorpheus, seconds for MSFragger and TopPIC —
+`retention_time_unit` gives you the same fact as a **value**, so you can convert programmatically
+instead of hard-coding a table:
+
+```python
+r = pymzlib.readers.read_results("psm.tsv")
+r.retention_time_unit            # 'seconds'
+r.retention_time_in_minutes      # converted; raises rather than guess if the unit is 'unknown'
+```
+
+The reason it differs at all is that mzLib's result-file readers pass each tool's columns through
+**without normalising them**. Retention time is minutes for MetaMorpheus, seconds for MSFragger and TopPIC —
 and TopFD changed from seconds to minutes between v1.6.2 and v1.7.0, *within the same file type*.
 (mzLib's spectra readers do convert; its result readers do not.)
 
 **So: identifying a file is safe. Comparing a raw field across formats is not.** Read the caveats
 before you join two tables or plot them together.
+
+Two more things the uniform view does not carry, both worth knowing before you report anything:
+
+- **No q-value, PEP or score.** `IQuantifiableRecord` holds only what FlashLFQ needs, so **nothing
+  you get back is FDR-filtered**, even though every one of these files records confidence somewhere.
+  Filter before you report.
+- **`monoisotopic_mass` is the theoretical peptide mass in both formats** - never the observed
+  precursor mass, which the psmtsv carries separately as `Precursor Mass`.
 
 !!! danger "Do not quantify an MSFragger `psm.tsv`"
     Because of the retention-time mismatch above, passing an MSFragger file to

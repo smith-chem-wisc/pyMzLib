@@ -166,13 +166,17 @@ public class ReadingTests
     }
 
     [Test]
-    public void Identify_UnsupportedExtension_IsAUsageErrorPointingAtTheFormatsVerb()
+    public void Identify_UnsupportedExtension_IsAUsageErrorPointingAtTheFormatsListing()
     {
         var exception = Assert.Throws<Program.UsageException>(
             () => Run("readers", "identify", "--path", Touch("notes.docx")));
 
-        Assert.That(exception!.Message, Does.Contain("readers formats"),
+        // Points at the capability, not at a command: the wire contract is language-neutral, and
+        // telling a Python caller to "run readers formats" names a CLI they do not have.
+        Assert.That(exception!.Message, Does.Contain("formats listing"),
             "an unsupported file is a bad argument, and the caller needs to know what IS supported");
+        Assert.That(exception.Message, Does.Not.Contain("Run '"),
+            "the bridge must not prescribe a command; its callers are not all shells");
     }
 
     [Test]
@@ -370,7 +374,8 @@ public class ReadingTests
         // caller deserves to know which, and what the file can do instead.
         Assert.That(exception!.Message, Does.Contain("ToppicPrsm"));
         Assert.That(exception.Message, Does.Contain("no cross-format record view"));
-        Assert.That(exception.Message, Does.Contain("readers identify"));
+        Assert.That(exception.Message, Does.Not.Contain("Run '"),
+            "the bridge must not prescribe a command; its callers are not all shells");
     }
 
     [Test]
@@ -396,6 +401,51 @@ public class ReadingTests
     public void ReadResults_NegativeOffset_IsAUsageError() =>
         Assert.Throws<Program.UsageException>(() => Run(
             "readers", "read-results", "--path", Psmtsv(), "--offset", "-5"));
+
+    [Test]
+    public void ReadResults_ReportsRetentionTimeUnitPerFormat()
+    {
+        // The units differ by format and mzLib normalises nothing, so the unit must cross as a
+        // VALUE. Reported in prose only, a caller has to grep a sentence for "SECONDS" - which is
+        // what one did before this field existed.
+        Assert.That(Run("readers", "read-results", "--path", Psmtsv())
+            .GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"));
+
+        Assert.That(Run("readers", "read-results", "--path", MsFragger())
+            .GetProperty("retention_time_unit").GetString(), Is.EqualTo("seconds"));
+    }
+
+    [Test]
+    public void ReadResults_MassCaveat_DoesNotClaimPsmtsvReportsObservedMass()
+    {
+        // Regression for a caveat that was WRONG and actively misled a reader: it said the psmtsv
+        // formats report the observed mass. They do not - they report "Peptide Monoisotopic Mass",
+        // the theoretical value, exactly as MSFragger does. Verified on BottomUpExample.psmtsv,
+        // where record 1 is 1959.90366 (theoretical) and NOT 1959.9122 (the precursor mass).
+        string[] caveats = Run("readers", "read-results", "--path", MsFragger())
+            .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
+
+        Assert.That(caveats.Any(c => c.Contains("psmtsv formats report the observed mass")), Is.False,
+            "both formats report the THEORETICAL mass; claiming otherwise invents a discrepancy");
+
+        double firstMass = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "1")
+            .GetProperty("columns").GetProperty("monoisotopic_mass")[0].GetDouble();
+        Assert.That(firstMass, Is.EqualTo(1959.90366).Within(1e-5),
+            "psmtsv monoisotopic_mass is the theoretical Peptide Monoisotopic Mass column");
+    }
+
+    [Test]
+    public void ReadResults_ProteinColumnsUseMzLibsOwnTupleNames()
+    {
+        // mzLib's tuple is (proteinAccessions, geneName, organism). Pluralising the last two here
+        // would force every reader to hold a translation table against the mzLib source.
+        string[] names = Run("readers", "read-results", "--path", Psmtsv())
+            .GetProperty("column_names").EnumerateArray().Select(n => n.GetString()!).ToArray();
+
+        Assert.That(names, Does.Contain("protein_accessions"));
+        Assert.That(names, Does.Contain("gene_name"));
+        Assert.That(names, Does.Contain("organism"));
+    }
 
     [Test]
     public void ReadResults_ZeroLimit_ReturnsNoRecordsButStillReportsTheTotal()

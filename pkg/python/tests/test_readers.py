@@ -285,3 +285,69 @@ def test_a_bad_out_path_is_rejected_without_starting_a_process(bad):
 def test_a_blank_read_path_is_rejected():
     with pytest.raises(pymzlib.UsageError):
         readers.read_results("  ")
+
+
+# ---- bake-off round 1 fixes ------------------------------------------------------------------
+
+
+def test_retention_time_unit_is_a_value_not_prose(monkeypatch):
+    # Round-1 finding: with the unit stated only in a prose caveat, a reader had to grep a sentence
+    # for the word "SECONDS" and hard-code a units table by hand.
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+        "file_type": "MsFraggerPsm", "retention_time_unit": "seconds",
+        "columns": {"retention_time": [60.0, 120.0, None]},
+        "column_names": ["retention_time"], "returned_count": 3,
+    }))
+
+    result = readers.read_results("psm.tsv")
+
+    assert result.retention_time_unit == "seconds"
+    assert result.retention_time_in_minutes == [1.0, 2.0, None]
+
+
+def test_retention_time_in_minutes_passes_minutes_through(monkeypatch):
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+        "retention_time_unit": "minutes",
+        "columns": {"retention_time": [12.5]}, "column_names": ["retention_time"],
+        "returned_count": 1,
+    }))
+
+    assert readers.read_results("AllPSMs.psmtsv").retention_time_in_minutes == [12.5]
+
+
+def test_retention_time_in_minutes_refuses_to_guess_an_unknown_unit(monkeypatch):
+    # Guessing is the exact failure this module exists to prevent: a silently unconverted axis.
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+        "retention_time_unit": "unknown",
+        "columns": {"retention_time": [1.0]}, "column_names": ["retention_time"],
+        "returned_count": 1,
+    }))
+
+    with pytest.raises(pymzlib.UsageError):
+        readers.read_results("x.psmtsv").retention_time_in_minutes
+
+
+def test_missing_unit_on_the_wire_defaults_to_unknown_not_minutes(recorded_read):
+    assert readers.read_results("AllPSMs.psmtsv").retention_time_unit == "unknown"
+
+
+def test_dir_shows_the_api_and_not_the_modules_imports():
+    # Round-1 finding: dir() listed Any, annotations, dataclass and field beside the functions -
+    # four false leads out of eleven names, on a package whose discovery story is dir()/help().
+    names = dir(readers)
+
+    assert "identify" in names and "read_results" in names and "formats" in names
+    for leaked in ("Any", "annotations", "dataclass", "field", "_bridge"):
+        assert leaked not in names
+
+
+def test_docstrings_are_ascii_so_help_is_readable_on_a_windows_console():
+    # Round-1 finding: every em-dash and arrow rendered as "?" in a cp1252 console, making the
+    # primary discovery surface look broken on exactly the machines this audience uses.
+    import pymzlib.readers as module
+
+    targets = [module, module.identify, module.read_results, module.formats,
+               module.ResultRecords, module.FileInfo, module.Format, module.WrittenTable]
+    for target in targets:
+        text = target.__doc__ or ""
+        assert text.isascii(), f"{getattr(target, '__name__', target)} docstring has non-ASCII"
