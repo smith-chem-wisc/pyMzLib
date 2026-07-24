@@ -306,7 +306,7 @@ def fragments(
             *with* b. ETD's does not. They are about **a third** of every ETD fragment list,
             so :attr:`Digest.fragment_count` over-counts real ETD ions by that much. Tracked
             as smith-chem-wisc/mzLib#1109. Separately, z* ions are suppressed N-terminal to
-            proline while the complementary c ions are not, leaving about 4%% of the c series
+            proline while the complementary c ions are not, leaving about 4% of the c series
             unobservable (smith-chem-wisc/mzLib#1110).
         modifications: Apply UniProt's annotated modifications.
 
