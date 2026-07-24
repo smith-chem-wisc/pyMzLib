@@ -57,7 +57,8 @@ of the rest of pyMzLib:
 
    That units mismatch is not hypothetical. Passing an MSFragger ``psm.tsv`` to
    :func:`pymzlib.flashlfq.quantify` returns near-zero intensities, because FlashLFQ reads the
-   seconds as minutes and searches for each peptide roughly sixty times too early in the gradient.
+   seconds as minutes and searches for each peptide roughly sixty times too late in the gradient -
+   typically past the end of the run, so the peptide is never found.
    ``identify()`` will still call the file ``quantifiable`` - that is mzLib's interface, honestly
    reported - but quantify MetaMorpheus output only until the upstream fix lands.
 """

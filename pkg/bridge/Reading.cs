@@ -186,6 +186,17 @@ internal static class Reading
         if (!File.Exists(path) && !Directory.Exists(path))
             throw new Program.UsageException($"File not found: '{path}'.");
 
+        // --out must not name the input. WriteTable truncates its destination unconditionally, so
+        // --out equal to --path would overwrite the caller's result file with the 10-column uniform
+        // projection and still report ok:true - losing every column the view drops (q-value, PEP,
+        // score, precursor mass). Refuse it up front, in the spirit of the "a selection that cannot
+        // be honoured is a usage error" rule the PRIDE verb already states.
+        if (outputPath is not null &&
+            string.Equals(
+                Path.GetFullPath(outputPath), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase))
+            throw new Program.UsageException(
+                $"Option --out must differ from --path: writing to '{path}' would overwrite the input file.");
+
         IQuantifiableResultFile resultFile = OpenQuantifiable(path);
 
         // Touching the results materialises the whole file: every reader's LoadResults ends in
@@ -365,9 +376,15 @@ internal static class Reading
             IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
             => string.Join(";", (record.ProteinGroupInfos ?? []).Select(part));
 
+        /// <summary>mzLib's "absent" sentinel for retention_time and monoisotopic_mass.</summary>
+        private const double AbsentSentinel = -1;
+
         /// <summary>mzLib's -1 "absent" sentinel, and any non-finite value, as null.</summary>
         private static double? NullIfSentinel(double value) =>
-            double.IsFinite(value) && value != -1 ? value : null;
+            // Never compare doubles with exact ==: the sentinel happens to be assigned as the literal
+            // -1 today, but a value derived rather than assigned (a subtraction, a reparse) would slip
+            // a real-looking -1 past an exact check and into the caller's arithmetic.
+            double.IsFinite(value) && Math.Abs(value - AbsentSentinel) > 1e-9 ? value : null;
     }
 
     /// <summary>Builds the columnar payload: one array per field.</summary>
@@ -536,8 +553,9 @@ internal static class Reading
             "column is passed through unconverted (MsFraggerPsm.cs:48). Do not compare it with a " +
             "MetaMorpheus file's retention_time, and do not quantify this file with FlashLFQ, " +
             "which reads the value as minutes.",
-            "is_decoy is always false: mzLib does not read MSFragger decoys (MsFraggerPsm.cs:217). " +
-            "False means 'unknown', not 'target'.",
+            "is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, " +
+            "so mzLib cannot report decoy status (MsFraggerPsm.cs:217) and the field crosses as null. " +
+            "Null means 'unknown', not 'target' - do not filter this format on is_decoy == false.",
             // Corrected after the readers bake-off: an earlier version of this caveat claimed the
             // psmtsv formats report the OBSERVED mass, which is false - they report the file's
             // "Peptide Monoisotopic Mass" column, which is theoretical, exactly as MSFragger does.

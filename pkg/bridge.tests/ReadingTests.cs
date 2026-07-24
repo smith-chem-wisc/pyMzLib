@@ -456,11 +456,32 @@ public class ReadingTests
         int decoyColumn = Array.IndexOf(written[0].Split('	'), "is_decoy");
         Assert.That(decoyColumn, Is.GreaterThanOrEqualTo(0));
 
+        // A header-only file makes the loop below iterate zero times and pass vacuously, leaving the
+        // null-rendering behaviour this test exists for unverified. Sibling tests guard the same way.
+        Assert.That(written, Has.Length.GreaterThan(1),
+            "expected at least one data row, not a header-only file");
+
         foreach (string row in written.Skip(1))
         {
             string cell = row.Split('	')[decoyColumn];
             Assert.That(cell, Is.Empty, "an absent (null) value is written as an empty field");
         }
+    }
+
+    [Test]
+    public void ReadResults_OutEqualToPath_IsAUsageErrorAndLeavesTheInputUntouched()
+    {
+        // --out equal to --path would truncate and overwrite the caller's own result file with the
+        // 10-column projection while still reporting ok:true. It must be refused before any write. A
+        // temp copy is used so a regression here cannot corrupt the shared fixture.
+        string path = Path.Combine(_tempDirectory, "in_place.psmtsv");
+        File.Copy(Psmtsv(), path);
+        byte[] before = File.ReadAllBytes(path);
+
+        Assert.Throws<Program.UsageException>(() =>
+            Run("readers", "read-results", "--path", path, "--out", path));
+
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(before), "the input file must be left untouched");
     }
 
     [Test]

@@ -30,15 +30,16 @@ FlashLFQ source, the MetaMorpheus output columns, and the FlashLFQ paper: ``matc
    MSFragger writes retention time in **seconds**; MetaMorpheus writes **minutes**. mzLib's
    result-file readers pass the column through without converting it, and FlashLFQ then treats the
    value as minutes and searches a ±2-minute window around it. A peptide truly eluting at 60
-   minutes is looked for at 1 minute, so it is simply not found: quantification collapses toward
-   zero rather than failing. This is an mzLib defect, not a pyMzLib one, and it affects any mzLib
+   minutes is written as ``3600`` and then looked for at 3600 minutes - far past the end of any
+   real gradient - so it is simply not found: quantification collapses toward zero rather than
+   failing. This is an mzLib defect, not a pyMzLib one, and it affects any mzLib
    caller — it is reported upstream. Until it is fixed, quantify MetaMorpheus output only.
 
    ``pymzlib.readers.identify()`` will still report an MSFragger file as ``quantifiable``: that
    reports mzLib's interface, which the file genuinely implements. It is not an endorsement of the
    numbers.
 
-**Two more limits worth knowing before you trust a number**, in the "surface it, don't hide it"
+**Three more limits worth knowing before you trust a number**, in the "surface it, don't hide it"
 spirit of the rest of pyMzLib:
 
 - **mzML only, for now.** Convert ``.raw``/``.d`` to mzML first; a non-mzML path is rejected up front.
