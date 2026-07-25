@@ -154,9 +154,14 @@ internal static class Peptidoform
         // "Without modifications" is the same sequence with the annotations discarded, not a
         // different protein. Keeping the accession and sequence identical is what makes the two
         // runs comparable — the only variable is whether UniProt's annotations were applied.
+        // The proteolysis products (signal-peptide and propeptide boundaries) are carried across
+        // too: mzLib digests at those boundaries as well as at protease sites, so dropping them
+        // would change the PEPTIDE LIST, not just its modifications, and the "control" would then
+        // differ by more than the single variable it exists to isolate (pyMzLib#8).
         Protein subject = applyModifications
             ? annotated
-            : new Protein(annotated.BaseSequence, annotated.Accession, annotated.Organism);
+            : new Protein(annotated.BaseSequence, annotated.Accession, annotated.Organism,
+                          proteolysisProducts: annotated.TruncationProducts.ToList());
 
         var digestionParams = new DigestionParams(
             protease: protease,
