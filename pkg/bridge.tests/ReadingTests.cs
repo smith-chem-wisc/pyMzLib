@@ -52,6 +52,40 @@ public class ReadingTests
         return path;
     }
 
+    /// <summary>Creates a Bruker <c>.d</c> directory holding the given analysis file, and returns it.</summary>
+    private string BrukerDirectory(string name, string analysisFile)
+    {
+        string dir = Path.Combine(_tempDirectory, name);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, analysisFile), string.Empty);
+        return dir;
+    }
+
+    /// <summary>
+    /// A minimal fixture that mzLib will dispatch to <paramref name="fileType"/>, built from its
+    /// <paramref name="extension"/>.
+    /// </summary>
+    /// <remarks>
+    /// Most types dispatch on the filename, so a right-named empty file suffices. The exceptions are
+    /// the two content-sniffed families and the two Bruker directory types, which need the bytes or
+    /// directory entries mzLib reads to disambiguate them (SupportedFileTypes.cs <c>ParseFileType</c>).
+    /// </remarks>
+    private string FixtureForType(string fileType, string extension) => fileType switch
+    {
+        // Bare .tsv, disambiguated by its first line.
+        "Tsv_FlashDeconv" => Touch("flashdeconv.tsv", "FeatureIndex\tMonoisotopicMass\n"),
+        // .mztab, disambiguated by "casanovo" in its first five lines.
+        "CasanovoMzTab" => Touch("denovo.mztab",
+            "MTD\tsoftware[1]\t[MS, MS:1003281, casanovo, 5.0.0]\n"),
+        // Both Bruker types share the .d extension and are told apart by which analysis file the
+        // directory holds: analysis.baf is a classic Bruker, analysis.tdf a timsTOF.
+        "BrukerD" => BrukerDirectory("bruker.d", "analysis.baf"),
+        "BrukerTimsTof" => BrukerDirectory("timstof.d", "analysis.tdf"),
+        // Everything else dispatches on the name: "sample" + the type's dispatch extension lands on
+        // exactly this type (e.g. sample.psmtsv, sample_prsm.tsv, samplepsm.tsv, sample_ms1.feature).
+        _ => Touch("sample" + extension),
+    };
+
     /// <summary>Runs a verb and returns its data as JSON, the shape a caller actually receives.</summary>
     private static JsonElement Run(params string[] args)
     {
@@ -277,6 +311,35 @@ public class ReadingTests
         Assert.That(viewless, Is.EqualTo(13),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
+    }
+
+    [Test]
+    public void Identify_EveryFormatsEntryIsIdentifiable()
+    {
+        // #13 (deferred Major BRIDGE-2): identify and formats must agree — a type the formats listing
+        // enumerates must also be identifiable, since an empty views list is a real answer identify is
+        // meant to report, not an error. The concrete symptom the issue described (identify rejecting
+        // spectra types like .mzML) does NOT reproduce today: every current SupportedFileType maps to a
+        // reader, so FileReader.ReadResultFile succeeds for each. But that agreement is only guaranteed
+        // while it holds — Formats tolerates a reader-less type via Try(GetResultFileType), emitting
+        // reader=null/views=[], whereas identify's ReadResultFile would THROW for the same type and be
+        // reported as unsupported. This test pins the parity across the whole listing so that latent
+        // divergence fails loudly the day mzLib introduces such a type, rather than silently telling a
+        // caller that a file the listing advertises is "not supported".
+        foreach (JsonElement format in Run("readers", "formats").GetProperty("formats").EnumerateArray())
+        {
+            string fileType = format.GetProperty("file_type").GetString()!;
+            string extension = format.GetProperty("extension").GetString()!;
+
+            // A throw here (identify rejecting a listed type) fails the test with the UsageException,
+            // which is exactly the loud signal the parity guard exists to produce.
+            JsonElement info = Run("readers", "identify", "--path", FixtureForType(fileType, extension));
+
+            Assert.That(info.GetProperty("file_type").GetString(), Is.EqualTo(fileType),
+                $"identify disagreed with formats on the type of a {fileType} fixture");
+            Assert.That(ViewsOf(info), Is.EqualTo(ViewsOf(format)),
+                $"identify and formats must report the same views for {fileType}");
+        }
     }
 
     // ---- read-results ------------------------------------------------------------------------
