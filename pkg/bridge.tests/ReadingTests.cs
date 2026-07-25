@@ -17,8 +17,10 @@ namespace MzLibBridge.Tests;
 /// suite stays fast and offline.
 /// </para>
 /// <para>
-/// The exception is <c>.mztab</c>, which mzLib disambiguates by reading the first five lines. That
-/// is used deliberately below to cover the content-sniffing branch.
+/// The exceptions are the three families mzLib disambiguates by reading rather than by name: a bare
+/// <c>.tsv</c> by its first line, a <c>.mztab</c> by its first five, and a <c>.d</c> by which
+/// analysis file the directory holds. Each is exercised deliberately below to cover its
+/// content-sniffing branch.
 /// </para>
 /// </remarks>
 [TestFixture]
@@ -70,7 +72,9 @@ public class ReadingTests
 
         Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo("psmtsv"));
         Assert.That(result.GetProperty("reader").GetString(), Is.EqualTo("PsmFromTsvFile"));
-        Assert.That(ViewsOf(result), Does.Contain("quantifiable"));
+        // The exact list, not Does.Contain: a spurious extra view is invisible to a containment check,
+        // and this file offers exactly one.
+        Assert.That(ViewsOf(result), Is.EqualTo(new[] { "quantifiable" }));
     }
 
     [Test]
@@ -79,7 +83,7 @@ public class ReadingTests
         JsonElement result = Run("readers", "identify", "--path", Touch("psm.tsv"));
 
         Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo("MsFraggerPsm"));
-        Assert.That(ViewsOf(result), Does.Contain("quantifiable"));
+        Assert.That(ViewsOf(result), Is.EqualTo(new[] { "quantifiable" }));
     }
 
     [Test]
@@ -124,6 +128,38 @@ public class ReadingTests
 
         Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo("CasanovoMzTab"));
         Assert.That(ViewsOf(result), Is.EqualTo(new[] { "spectral_match" }));
+    }
+
+    [Test]
+    public void Identify_BareTsv_DispatchedOnItsFirstLine_ReportsFlashDeconv()
+    {
+        // The second content-sniffing branch. A plain .tsv matches none of the specialised
+        // *_suffix.tsv names, so mzLib opens it and dispatches on the first line: "FeatureIndex" in
+        // the header identifies a FlashDeconv feature table (SupportedFileTypes.cs). Only the .mztab
+        // branch was covered before; this and the .d test below close the other two.
+        JsonElement result = Run("readers", "identify", "--path",
+            Touch("deconv.tsv", "FeatureIndex\tMonoisotopicMass\tRetentionTime\n"));
+
+        Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo("Tsv_FlashDeconv"));
+        Assert.That(result.GetProperty("reader").GetString(), Is.EqualTo("FlashDeconvTsvFile"));
+        Assert.That(ViewsOf(result), Is.Empty, "a FlashDeconv .tsv implements no cross-format view");
+    }
+
+    [Test]
+    public void Identify_BrukerDotD_DispatchedOnDirectoryContents_ReportsSpectraView()
+    {
+        // The third content-sniffing branch: a Bruker ".d" is a DIRECTORY, and mzLib chooses the
+        // type by which analysis file it contains — analysis.baf is a classic Bruker (BrukerD). No
+        // acquisition data is needed because identify is lazy and never calls LoadResults.
+        string dotD = Path.Combine(_tempDirectory, "run.d");
+        Directory.CreateDirectory(dotD);
+        File.WriteAllText(Path.Combine(dotD, "analysis.baf"), string.Empty);
+
+        JsonElement result = Run("readers", "identify", "--path", dotD);
+
+        Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo("BrukerD"));
+        Assert.That(ViewsOf(result), Is.EqualTo(new[] { "spectra" }),
+            "a Bruker .d is a spectra file, read through the MsDataFile adapter");
     }
 
     // ---- identify: the wire shape and its deliberate omission -------------------------------
@@ -186,16 +222,31 @@ public class ReadingTests
         JsonElement formats = result.GetProperty("formats");
 
         Assert.That(result.GetProperty("format_count").GetInt32(), Is.EqualTo(formats.GetArrayLength()));
+
+        // A literal count, not only the comparison against the enum the listing is built from: that
+        // comparison is tautological — it checks the output against its own source — so mzLib adding
+        // a 30th type would pass it green while the guide's supported-format table silently went
+        // stale. The literal is the tripwire that forces the docs to be regenerated.
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(29),
+            "mzLib recognises 29 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
-            "the table is enumerated from mzLib, so it cannot drift from what mzLib dispatches");
+            "every enum member must appear in the listing");
 
         foreach (JsonElement format in formats.EnumerateArray())
         {
-            Assert.That(format.GetProperty("file_type").GetString(), Is.Not.Empty);
+            // Is.Not.Null.And.Not.Empty, not a bare Is.Not.Empty: the latter THROWS on a null string
+            // rather than failing the assertion, so a null file_type would surface as an error, not a
+            // readable test failure naming the offending entry.
+            Assert.That(format.GetProperty("file_type").GetString(), Is.Not.Null.And.Not.Empty,
+                $"every supported type must name itself: {format}");
             Assert.That(format.GetProperty("extension").GetString(), Is.Not.Null.And.Not.Empty,
                 $"every supported type should map to an extension: {format.GetProperty("file_type")}");
             Assert.That(format.GetProperty("reader").GetString(), Is.Not.Null.And.Not.Empty,
                 $"every supported type should map to a reader: {format.GetProperty("file_type")}");
+            Assert.That(format.TryGetProperty("views", out JsonElement views), Is.True,
+                $"every supported type must carry a views array: {format.GetProperty("file_type")}");
+            Assert.That(views.ValueKind, Is.EqualTo(JsonValueKind.Array),
+                $"views must be an array, possibly empty: {format.GetProperty("file_type")}");
         }
     }
 
@@ -276,8 +327,18 @@ public class ReadingTests
 
         // Columnar: one array per field, each as long as the record count.
         JsonElement columns = result.GetProperty("columns");
-        foreach (JsonElement name in result.GetProperty("column_names").EnumerateArray())
-            Assert.That(columns.GetProperty(name.GetString()!).GetArrayLength(), Is.EqualTo(count));
+        string[] columnNames = result.GetProperty("column_names").EnumerateArray()
+            .Select(n => n.GetString()!).ToArray();
+
+        // Non-empty first: an empty column_names would make the loop below iterate zero times and
+        // pass while proving nothing about the columnar shape this test exists to pin. And columns
+        // must describe exactly the same fields — a stray or missing array is a real disagreement.
+        Assert.That(columnNames, Is.Not.Empty, "the columnar view must name its columns");
+        Assert.That(columns.EnumerateObject().Select(p => p.Name), Is.EquivalentTo(columnNames),
+            "columns and column_names must describe the same set of fields");
+
+        foreach (string name in columnNames)
+            Assert.That(columns.GetProperty(name).GetArrayLength(), Is.EqualTo(count));
     }
 
     [Test]
@@ -421,7 +482,12 @@ public class ReadingTests
         var exception = Assert.Throws<Program.UsageException>(
             () => Run("readers", "read-results", "--path", directory));
 
-        Assert.That(exception!.Message, Does.Contain(directory).Or.Contain("not a readable result file"));
+        // The one message this path contracts, pinned exactly: ReadQuantifiableResultFile checks
+        // File.Exists only, so any directory throws FileNotFoundException before dispatch and the
+        // wrapper reports this. The old Does.Contain(dir).Or.Contain(...) accepted either half, so a
+        // message that named the path but dropped the reason (or vice versa) still passed.
+        Assert.That(exception!.Message,
+            Is.EqualTo($"File not found, or not a readable result file: '{directory}'."));
     }
 
     [Test]
@@ -430,6 +496,9 @@ public class ReadingTests
         // The point of rows_not_read: mzLib's psmtsv reader swallows a malformed line into a
         // warning list the wrapper discards, so the file reads "successfully" with fewer records.
         // A row truncated to a couple of columns fails to parse and is dropped; the count exposes it.
+        int pristineCount = Run("readers", "read-results", "--path", Psmtsv())
+            .GetProperty("record_count").GetInt32();
+
         string[] lines = File.ReadAllLines(Psmtsv());
         var corrupted = lines.ToList();
         corrupted.Insert(2, "not	a	valid	row");   // one extra line that cannot parse
@@ -438,9 +507,15 @@ public class ReadingTests
 
         JsonElement result = Run("readers", "read-results", "--path", path);
 
-        // The file now has one more data line than the reader could turn into a record.
-        Assert.That(result.GetProperty("rows_not_read").GetInt32(), Is.GreaterThan(0),
-            "a line mzLib could not parse must be counted, not silently absent");
+        // Exactly one, not merely positive: precisely one unparseable line was inserted, so a reader
+        // that aborted and dropped every row after it would report a large count and pass a > 0 check
+        // while silently losing the rest of the file.
+        Assert.That(result.GetProperty("rows_not_read").GetInt32(), Is.EqualTo(1),
+            "the one inserted line must be counted as unread — no more, no fewer");
+        // And the real records are all still there: the corrupted file parses to the same record
+        // count as the pristine fixture, so nothing valid was dropped alongside the bad line.
+        Assert.That(result.GetProperty("record_count").GetInt32(), Is.EqualTo(pristineCount),
+            "only the malformed line is lost; every genuine record from the pristine fixture remains");
     }
 
     [Test]
@@ -546,10 +621,18 @@ public class ReadingTests
         Assert.That(caveats.Any(c => c.Contains("psmtsv formats report the observed mass")), Is.False,
             "both formats report the THEORETICAL mass; claiming otherwise invents a discrepancy");
 
+        // The load-bearing check is positive: the negative substring above passes for any reworded
+        // reintroduction of the false claim, so on its own it guards nothing. Pin that the caveat
+        // actually STATES the mass is theoretical — that is the assertion a regression must fail.
+        Assert.That(caveats.Any(c => c.Contains("THEORETICAL")), Is.True,
+            "the MSFragger mass caveat must positively state the value is theoretical");
+
         string[] psmtsvCaveats = Run("readers", "read-results", "--path", Psmtsv())
             .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
         Assert.That(psmtsvCaveats.Any(c => c.Contains("observed mass") && !c.Contains("not the observed")),
             Is.False, "the psmtsv caveats must not claim an observed mass either");
+        Assert.That(psmtsvCaveats.Any(c => c.Contains("THEORETICAL")), Is.True,
+            "the psmtsv mass caveat must positively state the value is theoretical");
 
         double firstMass = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "1")
             .GetProperty("columns").GetProperty("monoisotopic_mass")[0].GetDouble();

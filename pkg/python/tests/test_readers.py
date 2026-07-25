@@ -1,9 +1,13 @@
 """Tests for result-file identification.
 
-Offline throughout. The Python layer's job here is small and worth pinning exactly: assemble the
-argument list, parse the wire payload into typed objects, and answer "can this file be quantified"
-without the caller having to know that the answer is a string in a list. The dispatch itself is
-mzLib's and is covered by the bridge's C# suite.
+Offline except for one test. The Python layer's job here is small and worth pinning exactly:
+assemble the argument list, parse the wire payload into typed objects, and answer "can this file be
+quantified" without the caller having to know that the answer is a string in a list. The dispatch
+itself is mzLib's and is covered by the bridge's C# suite.
+
+The single exception is ``test_the_recorded_formats_fixture_still_matches_the_live_bridge``, which
+deliberately spawns the real bridge to prove the recorded ``readers formats`` fixture has not
+drifted from it; it skips when the bridge binary has not been built.
 
 The ``readers formats`` fixture is recorded from the real bridge rather than hand-written, so it
 reflects what mzLib actually dispatches.
@@ -129,6 +133,9 @@ def test_a_blank_or_non_string_path_is_rejected_without_starting_a_process(bad, 
 def test_formats_parses_every_entry(recorded_formats):
     formats = readers.formats()
 
+    # An explicit, non-vacuous count first: the all(...) checks below are trivially true over an
+    # empty sequence, so without this a parser that returned nothing would pass this test outright.
+    assert len(formats) == 29
     assert len(formats) == recorded_formats["format_count"]
     assert all(isinstance(f, readers.Format) for f in formats)
     assert all(f.file_type for f in formats)
@@ -146,7 +153,11 @@ def test_exactly_three_formats_offer_the_quantifiable_view(recorded_formats):
 def test_most_formats_have_no_uniform_view(recorded_formats):
     viewless = [f for f in readers.formats() if not f.views]
 
-    assert len(viewless) > 10, "an empty view list is the common case, not an edge case"
+    # The exact count, not "more than ten": a loose bound cannot detect mzLib narrowing or widening
+    # the viewless set, which is the only thing this test is for. The C# sibling
+    # Formats_MostTypesHaveNoUniformViewAtAll pins 13 and documents why a loose bound is inadequate.
+    assert len(viewless) == 13, "an empty view list is the common case; a change here means mzLib " \
+        "changed which formats implement a shared interface and the docs table needs regenerating"
 
 
 def test_extensions_are_not_unique_across_formats(recorded_formats):
@@ -154,6 +165,11 @@ def test_extensions_are_not_unique_across_formats(recorded_formats):
     # not a key. Anyone tempted to build a dict keyed on it should find this test instead of a bug.
     extensions = [f.extension for f in readers.formats()]
 
+    # Name the actual collision rather than only that some collision exists: it is ".d" (both Bruker
+    # types), and every format must carry a real extension — a None or "" would slip past a bare
+    # len-vs-set check while being exactly the kind of missing mapping this test should catch.
+    assert extensions.count(".d") > 1, "the .d collision is the documented reason extension is not a key"
+    assert all(e for e in extensions), "every format must map to a non-empty extension"
     assert len(extensions) != len(set(extensions))
 
 
@@ -224,7 +240,10 @@ def test_truncation_is_visible(recorded_read):
 
 
 def test_caveats_are_carried_through(recorded_read):
-    assert readers.read_results("AllPSMs.psmtsv").caveats
+    # Equality, not truthiness: a parser that mangled the caveat text while leaving the list
+    # non-empty would pass a bare `assert ...caveats`. The caveats are the whole safety story of
+    # this view, so they must arrive verbatim.
+    assert readers.read_results("AllPSMs.psmtsv").caveats == recorded_read["caveats"]
 
 
 def test_records_gives_the_same_data_row_wise(recorded_read):
@@ -254,7 +273,7 @@ def test_records_is_empty_when_the_table_was_written_to_disk(monkeypatch):
 def test_limit_and_offset_and_out_are_sent(monkeypatch):
     seen = {}
     monkeypatch.setattr(_bridge, "invoke",
-                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+                        lambda *a, **k: seen.update(args=a) or copy.deepcopy(READ_PAYLOAD))
 
     readers.read_results("AllPSMs.psmtsv", limit=5, offset=10, out=" records.tsv ")
 
@@ -268,7 +287,7 @@ def test_defaults_send_no_limit_or_offset(monkeypatch):
     # There is no default row cap: the ordinary call must ask for the whole file.
     seen = {}
     monkeypatch.setattr(_bridge, "invoke",
-                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+                        lambda *a, **k: seen.update(args=a) or copy.deepcopy(READ_PAYLOAD))
 
     readers.read_results("AllPSMs.psmtsv")
 
@@ -278,7 +297,7 @@ def test_defaults_send_no_limit_or_offset(monkeypatch):
 def test_zero_limit_is_sent_rather_than_treated_as_absent(monkeypatch):
     seen = {}
     monkeypatch.setattr(_bridge, "invoke",
-                        lambda *a, **k: seen.update(args=a) or dict(READ_PAYLOAD))
+                        lambda *a, **k: seen.update(args=a) or copy.deepcopy(READ_PAYLOAD))
 
     readers.read_results("AllPSMs.psmtsv", limit=0)
 
@@ -314,7 +333,7 @@ def test_a_blank_read_path_is_rejected(bridge_must_not_run):
 def test_retention_time_unit_is_a_value_not_prose(monkeypatch):
     # Round-1 finding: with the unit stated only in a prose caveat, a reader had to grep a sentence
     # for the word "SECONDS" and hard-code a units table by hand.
-    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(copy.deepcopy(READ_PAYLOAD), **{
         "file_type": "MsFraggerPsm", "retention_time_unit": "seconds",
         "columns": {"retention_time": [60.0, 120.0, None]},
         "column_names": ["retention_time"], "returned_count": 3,
@@ -327,7 +346,7 @@ def test_retention_time_unit_is_a_value_not_prose(monkeypatch):
 
 
 def test_retention_time_in_minutes_passes_minutes_through(monkeypatch):
-    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(copy.deepcopy(READ_PAYLOAD), **{
         "retention_time_unit": "minutes",
         "columns": {"retention_time": [12.5]}, "column_names": ["retention_time"],
         "returned_count": 1,
@@ -338,7 +357,7 @@ def test_retention_time_in_minutes_passes_minutes_through(monkeypatch):
 
 def test_retention_time_in_minutes_refuses_to_guess_an_unknown_unit(monkeypatch):
     # Guessing is the exact failure this module exists to prevent: a silently unconverted axis.
-    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(READ_PAYLOAD, **{
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(copy.deepcopy(READ_PAYLOAD), **{
         "retention_time_unit": "unknown",
         "columns": {"retention_time": [1.0]}, "column_names": ["retention_time"],
         "returned_count": 1,
@@ -386,6 +405,14 @@ def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
     a stale recording while claiming to guard the contract. The C# side pins the live value; this
     is what makes the Python side a real second pin rather than an echo of a file on disk.
     """
+    # This is the one test in the module that needs the real bridge. In a source checkout where the
+    # self-contained binary has not been built, skip rather than fail: a red run here would be about
+    # a missing build artifact, not about the recording drifting.
+    try:
+        _bridge.bridge_path()
+    except _bridge.BridgeNotFoundError as exc:
+        pytest.skip(f"bridge binary not built, so the live recording cannot be checked: {exc}")
+
     recorded = json.loads(FORMATS_FIXTURE.read_text(encoding="utf-8"))
     live = _bridge.invoke("readers", "formats", timeout=120)
 
