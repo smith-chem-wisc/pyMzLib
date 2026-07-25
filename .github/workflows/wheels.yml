@@ -61,7 +61,10 @@ jobs:
       # meaningless rather than bad. This scopes it to code we actually wrote and enforces it.
       - name: Bridge coverage gate
         shell: pwsh
-        run: ./pkg/build/check-bridge-coverage.ps1
+        # -Configuration Release: the tests above build -c Release -p:Platform=x64, so the report and
+        # its assembly live under bin/x64/Release; the gate must judge freshness against that build,
+        # not the Debug default (which would find no assembly here).
+        run: ./pkg/build/check-bridge-coverage.ps1 -Configuration Release
 
       # --- Python ---------------------------------------------------------------------------
       - name: Build the bridge for the Python tests
