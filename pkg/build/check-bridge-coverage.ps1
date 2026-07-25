@@ -17,6 +17,13 @@
 .PARAMETER ResultsPath
     Directory to search for coverage.cobertura.xml. Defaults to the test project's TestResults.
 
+.PARAMETER Configuration
+    The build configuration the coverage report came from. `dotnet test` builds Debug unless told
+    otherwise, so this defaults to Debug and the freshness check is judged against the Debug test
+    assembly. Pass -Configuration Release if the report came from a Release test run. Scoping the
+    freshness check to one configuration is what stops a stray build of the OTHER configuration —
+    newer on disk than a perfectly valid report — from being misread as staleness.
+
 .PARAMETER Threshold
     Minimum line rate, as a percentage. Matches the Python side's fail_under.
 
@@ -26,6 +33,7 @@
 [CmdletBinding()]
 param(
     [string]$ResultsPath,
+    [string]$Configuration = 'Debug',
     # Lower than the Python side's 90 on purpose. The three verb handlers construct a
     # PrideArchiveClient internally and talk to EBI, so they cannot be unit-tested without
     # injecting an HttpClient. That refactor has since landed (see Program.PrideClientFactory), so
@@ -55,7 +63,14 @@ if (-not $report) {
 # happily gate on it: "newest file on disk" is not the same as "from this run". That failure is
 # silent and convincing — it prints a healthy percentage with a brand-new class missing from the
 # listing entirely, which is exactly how untested code gets through a gate that appears to be green.
-$assembly = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
+#
+# Scoped to bin/<Configuration>, NOT all of bin: the folder holds every configuration and TFM, so a
+# Release build performed after a Debug test run leaves a Release assembly newer than a perfectly
+# valid Debug report, and comparing against that globally-newest DLL reports STALE for a report that
+# describes the current code exactly. The freshness question is only meaningful against the assembly
+# of the SAME configuration the report came from.
+$assemblyRoot = Join-Path $repoRoot "pkg/bridge.tests/bin/$Configuration"
+$assembly = Get-ChildItem $assemblyRoot -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -64,20 +79,24 @@ if (-not $assembly) {
     # exactly the hole this guard closes -- a green gate measured against an unknown-age report --
     # so say so rather than pass quietly.
     throw @"
-Cannot verify coverage freshness: no MzLibBridge.Tests.dll found under pkg/bridge.tests/bin.
-Build the test project first, then re-run with collection enabled.
+Cannot verify coverage freshness: no MzLibBridge.Tests.dll found under pkg/bridge.tests/bin/$Configuration.
+Build the test project (configuration '$Configuration') first, then re-run with collection enabled.
+If the report came from a different configuration, pass -Configuration <name> to match it.
 "@
 }
 
 if ($report.LastWriteTime -lt $assembly.LastWriteTime) {
     throw @"
-Coverage report is STALE: it predates the test assembly, so it cannot describe the current code.
+Coverage report is STALE: it predates the '$Configuration' test assembly, so it cannot describe the current code.
   report:   $($report.FullName)
             written $($report.LastWriteTime)
-  assembly: written $($assembly.LastWriteTime)
+  assembly: $($assembly.FullName)
+            written $($assembly.LastWriteTime)
 Re-run with collection enabled:
   dotnet test pkg/bridge.tests/MzLibBridge.Tests.csproj --filter "TestCategory!=ExternalService" ``
       --collect:"XPlat Code Coverage" --settings pkg/bridge.tests/coverlet.runsettings
+If a stray build of another configuration is newer than a valid report, pass -Configuration to match
+the report's, or remove the stray output.
 "@
 }
 
