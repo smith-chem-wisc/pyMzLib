@@ -365,17 +365,21 @@ public class ReadingTests
     }
 
     [Test]
-    public void ReadResults_MsFragger_DisclosesThatRetentionTimeIsSeconds()
+    public void ReadResults_MsFragger_DisclosesIsDecoyAndTheoreticalMass()
     {
-        // The single most consequential caveat: these values are seconds while MetaMorpheus's are
-        // minutes, and nothing in mzLib converts them. A caller comparing the two silently gets a
-        // 60x error, so the wire must say so.
+        // mzLib PR #1116 now converts MSFragger retention time to minutes at the reader, so the
+        // former seconds-vs-minutes caveat is gone and the unit is reported as minutes (below). The
+        // remaining MSFragger caveats are the is_decoy-is-null and theoretical-mass disclosures.
         string[] caveats = Run("readers", "read-results", "--path", MsFragger())
             .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
 
-        Assert.That(caveats.Any(c => c.Contains("SECONDS")), Is.True);
+        Assert.That(caveats.Any(c => c.Contains("SECONDS")), Is.False,
+            "retention time is converted upstream now (PR #1116); the seconds caveat must be gone");
         Assert.That(caveats.Any(c => c.Contains("is_decoy")), Is.True);
         Assert.That(caveats.Any(c => c.Contains("THEORETICAL")), Is.True);
+
+        Assert.That(Run("readers", "read-results", "--path", MsFragger())
+            .GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"));
     }
 
     [Test]
@@ -599,14 +603,14 @@ public class ReadingTests
     [Test]
     public void ReadResults_ReportsRetentionTimeUnitPerFormat()
     {
-        // The units differ by format and mzLib normalises nothing, so the unit must cross as a
-        // VALUE. Reported in prose only, a caller has to grep a sentence for "SECONDS" - which is
-        // what one did before this field existed.
+        // The unit must cross as a VALUE, not prose (a caller once had to grep a sentence for
+        // "SECONDS"). Since mzLib PR #1116 both MetaMorpheus and MSFragger read out in minutes;
+        // formats mzLib does not normalise (e.g. TopPIC) still cross as seconds.
         Assert.That(Run("readers", "read-results", "--path", Psmtsv())
             .GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"));
 
         Assert.That(Run("readers", "read-results", "--path", MsFragger())
-            .GetProperty("retention_time_unit").GetString(), Is.EqualTo("seconds"));
+            .GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"));
     }
 
     [Test]

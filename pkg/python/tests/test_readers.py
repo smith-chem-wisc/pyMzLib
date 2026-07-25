@@ -338,8 +338,10 @@ def test_a_blank_read_path_is_rejected(bridge_must_not_run):
 def test_retention_time_unit_is_a_value_not_prose(monkeypatch):
     # Round-1 finding: with the unit stated only in a prose caveat, a reader had to grep a sentence
     # for the word "SECONDS" and hard-code a units table by hand.
+    # A format still in seconds (TopPIC) — MSFragger is minutes since mzLib PR #1116, so the
+    # seconds-conversion path is exercised with a format for which it is actually true.
     monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: dict(copy.deepcopy(READ_PAYLOAD), **{
-        "file_type": "MsFraggerPsm", "retention_time_unit": "seconds",
+        "file_type": "ToppicPrsm", "retention_time_unit": "seconds",
         "columns": {"retention_time": [60.0, 120.0, None]},
         "column_names": ["retention_time"], "returned_count": 3,
     }))
