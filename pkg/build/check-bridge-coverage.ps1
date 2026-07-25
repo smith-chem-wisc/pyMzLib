@@ -33,6 +33,10 @@
 [CmdletBinding()]
 param(
     [string]$ResultsPath,
+    # Non-empty, so a caller that forwards an unset variable (-Configuration '' / $null) fails fast
+    # rather than collapsing "bin/$Configuration" back to "bin/" and silently reinstating the
+    # unscoped, globally-newest search this fix removes.
+    [ValidateNotNullOrEmpty()]
     [string]$Configuration = 'Debug',
     # Lower than the Python side's 90 on purpose. The three verb handlers construct a
     # PrideArchiveClient internally and talk to EBI, so they cannot be unit-tested without
@@ -97,6 +101,29 @@ Re-run with collection enabled:
       --collect:"XPlat Code Coverage" --settings pkg/bridge.tests/coverlet.runsettings
 If a stray build of another configuration is newer than a valid report, pass -Configuration to match
 the report's, or remove the stray output.
+"@
+}
+
+# The freshness check trusts -Configuration to name the report's origin, but the report itself is
+# chosen configuration-blind: `dotnet test` writes every run into the same TestResults regardless of
+# configuration. So a report produced by a DIFFERENT configuration's run is being judged fresh against
+# THIS configuration's (possibly much older) assembly, and the OK could be describing code the report
+# never measured. Timestamps alone cannot tell a stray build apart from the report's true origin, so
+# rather than pass silently, warn when another configuration's assembly is newer than the report — the
+# one observable sign that the pairing may have drifted. Non-fatal (it is the developer's call and CI
+# builds only Debug, so this never fires there); failing would reinstate the false STALE this fixes.
+$otherNewer = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -ne $assembly.FullName -and $_.LastWriteTime -gt $report.LastWriteTime } |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+if ($otherNewer) {
+    Write-Warning @"
+Coverage freshness was judged against the '$Configuration' assembly, but a newer test assembly exists
+in another build output:
+  $($otherNewer.FullName)
+  written $($otherNewer.LastWriteTime)
+If the report actually came from that build, this result does not describe it. Re-run this check with
+-Configuration matching the report's, or re-run the tests with collection so the pairing is fresh.
 "@
 }
 
