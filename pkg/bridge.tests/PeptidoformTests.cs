@@ -53,6 +53,35 @@ public class PeptidoformTests
         </uniprot>
         """;
 
+    /// <summary>
+    /// An entry carrying a signal-peptide proteolysis product (residues 1-18). The only tryptic
+    /// site is K26, so the peptide ending at the signal boundary (1-18) exists ONLY because mzLib
+    /// digests at the proteolysis-product boundary — a protease-only digest of the bare sequence
+    /// would run 1-26 straight through. That makes it the perfect probe for pyMzLib#8.
+    /// </summary>
+    private const string SignalPeptideEntryXml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <uniprot xmlns="http://uniprot.org/uniprot">
+          <entry dataset="Swiss-Prot">
+            <accession>P00002</accession>
+            <name>SIGNAL_HUMAN</name>
+            <protein><recommendedName><fullName>Signal test protein</fullName></recommendedName></protein>
+            <organism><name type="scientific">Homo sapiens</name></organism>
+            <feature type="signal peptide"><location><begin position="1"/><end position="18"/></location></feature>
+            <feature type="modified residue" description="Phosphoserine"><location><position position="3"/></location></feature>
+            <sequence length="30" mass="3000">MASAENLTLQIQTGDISALGDIVATKTQVW</sequence>
+          </entry>
+        </uniprot>
+        """;
+
+    /// <summary>
+    /// Residues 1-18 of <see cref="SignalPeptideEntryXml"/> — the exact span of its signal-peptide
+    /// feature, so this is DERIVED from the fixture, not a golden value copied from output. If a
+    /// digest ever stops producing it, the correct response is to check the fix or the fixture's
+    /// single-tryptic-site premise, never to re-copy whatever the code now emits.
+    /// </summary>
+    private const string BoundaryPeptide = "MASAENLTLQIQTGDISA";
+
     private void UseXml(string xml)
     {
         string path = Path.Combine(_tempDirectory, "entry.xml");
@@ -60,6 +89,25 @@ public class PeptidoformTests
         // CallerDeletes: false - the test owns this fixture, the workflow must not delete it.
         Peptidoform.UniProtXmlSource = _ => Task.FromResult((path, false));
     }
+
+    /// <summary>
+    /// The distinct digestion triples — (start residue, end residue, base sequence) — a fragments
+    /// result reports. Position, not just letters: truncation products control peptide BOUNDARIES,
+    /// so a dropped boundary peptide whose sequence coincided with another's would slip past a
+    /// sequence-only comparison but not this one.
+    /// </summary>
+    private static HashSet<(int start, int end, string bare)> DigestionTriples(JsonElement result) =>
+        result.GetProperty("peptides").EnumerateArray()
+            .Select(p => (p.GetProperty("one_based_start").GetInt32(),
+                          p.GetProperty("one_based_end").GetInt32(),
+                          p.GetProperty("base_sequence").GetString()!))
+            .ToHashSet();
+
+    /// <summary>Each reported peptide's (base sequence, full sequence) pair.</summary>
+    private static IEnumerable<(string bare, string full)> BareAndFullSequences(JsonElement result) =>
+        result.GetProperty("peptides").EnumerateArray()
+            .Select(p => (p.GetProperty("base_sequence").GetString()!,
+                          p.GetProperty("full_sequence").GetString()!));
 
     private static async Task<JsonElement> InvokeAsync(params string[] args)
     {
@@ -168,6 +216,60 @@ public class PeptidoformTests
             Assert.That(without.GetProperty("modifications_applied").GetBoolean(), Is.False);
             Assert.That(with.GetProperty("peptide_count").GetInt32(),
                 Is.GreaterThanOrEqualTo(without.GetProperty("peptide_count").GetInt32()));
+        });
+    }
+
+    [Test]
+    public async Task NoModificationsPreservesProteolysisProductsSoTheControlDiffersOnlyByMods()
+    {
+        // pyMzLib#8: the --no-modifications control rebuilt the protein through a Protein constructor
+        // that dropped ProteolysisProducts, so mzLib stopped digesting at the signal-peptide boundary
+        // and the peptide LIST changed, not just its modifications. A control is only a control if a
+        // single variable moves. With the products carried across, the two runs must digest to the
+        // same BOUNDARIES and differ only in modifications.
+        //
+        // The fixture's single-tryptic-site property (K26 is the ONLY K/R) is load-bearing: it is why
+        // the 1-18 boundary peptide can arise solely from the truncation-product boundary. A K/R added
+        // inside residues 1-18 would let ordinary cleavage produce it and silently defang this test —
+        // which is why the boundary peptide is asserted explicitly below, so such a fixture edit
+        // breaks a visible assertion rather than quietly weakening coverage. --max-mods is pinned so
+        // the fixture's Phosphoserine is placeable regardless of future default changes.
+        UseXml(SignalPeptideEntryXml);
+        JsonElement with = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00002", "--min-length", "7", "--max-mods", "2");
+
+        UseXml(SignalPeptideEntryXml);
+        JsonElement without = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00002", "--min-length", "7", "--max-mods", "2",
+            "--no-modifications");
+
+        HashSet<(int start, int end, string bare)> withTriples = DigestionTriples(with);
+        HashSet<(int start, int end, string bare)> withoutTriples = DigestionTriples(without);
+
+        Assert.Multiple(() =>
+        {
+            // Non-vacuous, and pinned by position: the 1-18 span is digested only at the truncation
+            // boundary (verified — the pre-fix control's set is missing precisely this triple).
+            Assert.That(withTriples, Is.Not.Empty, "the fixture must yield peptides for this test to mean anything");
+            Assert.That(withTriples, Does.Contain((1, 18, BoundaryPeptide)),
+                "the annotated run must contain the 1-18 signal-peptide boundary peptide");
+
+            // The fix: the control keeps those boundary peptides — same (start, end, base sequence)
+            // set — instead of silently dropping them.
+            Assert.That(withoutTriples, Does.Contain((1, 18, BoundaryPeptide)),
+                "the --no-modifications control must keep the 1-18 boundary peptide, not drop it");
+            Assert.That(withoutTriples, Is.EquivalentTo(withTriples),
+                "annotated and control must digest to the same (start, end, base sequence) boundaries");
+
+            // The OTHER half of the invariant: the control must actually be STRIPPED of modifications,
+            // not merely equal by base sequence. Without this, a regression that made --no-modifications
+            // return the annotated protein unchanged would collapse both runs together and pass every
+            // assertion above. The annotated run must place at least one mod (Phosphoserine at S3, which
+            // sits inside the 1-18 peptide); the control must carry none.
+            Assert.That(BareAndFullSequences(with).Any(p => p.full != p.bare), Is.True,
+                "the annotated run must apply at least one modification (full_sequence != base_sequence)");
+            Assert.That(BareAndFullSequences(without).All(p => p.full == p.bare), Is.True,
+                "the --no-modifications control must carry no modifications (full_sequence == base_sequence)");
         });
     }
 
