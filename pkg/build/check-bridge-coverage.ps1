@@ -68,13 +68,19 @@ if (-not $report) {
 # silent and convincing — it prints a healthy percentage with a brand-new class missing from the
 # listing entirely, which is exactly how untested code gets through a gate that appears to be green.
 #
-# Scoped to bin/<Configuration>, NOT all of bin: the folder holds every configuration and TFM, so a
-# Release build performed after a Debug test run leaves a Release assembly newer than a perfectly
-# valid Debug report, and comparing against that globally-newest DLL reports STALE for a report that
-# describes the current code exactly. The freshness question is only meaningful against the assembly
-# of the SAME configuration the report came from.
-$assemblyRoot = Join-Path $repoRoot "pkg/bridge.tests/bin/$Configuration"
-$assembly = Get-ChildItem $assemblyRoot -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
+# Filtered to the report's configuration, NOT the globally-newest DLL under bin: the folder holds
+# every configuration, TFM and platform, so a Release build performed after a Debug test run leaves a
+# Release assembly newer than a perfectly valid Debug report, and comparing against that globally
+# newest DLL reports STALE for a report that describes the current code exactly. The freshness
+# question is only meaningful against the assembly of the SAME configuration the report came from.
+#
+# Matched by a path SEGMENT equal to $Configuration rather than a bin/<Configuration> subtree, because
+# a platform-qualified build nests it one level deeper: CI runs `-c Release -p:Platform=x64`, which
+# emits bin/x64/Release/net8.0/, and a plain build emits bin/Release/net8.0/. Both carry a `Release`
+# segment; `bin/Debug/...` does not, so the other configuration is still excluded.
+$configSegment = "[\\/]$([regex]::Escape($Configuration))[\\/]"
+$assembly = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match $configSegment } |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -83,7 +89,7 @@ if (-not $assembly) {
     # exactly the hole this guard closes -- a green gate measured against an unknown-age report --
     # so say so rather than pass quietly.
     throw @"
-Cannot verify coverage freshness: no MzLibBridge.Tests.dll found under pkg/bridge.tests/bin/$Configuration.
+Cannot verify coverage freshness: no '$Configuration' MzLibBridge.Tests.dll found under pkg/bridge.tests/bin.
 Build the test project (configuration '$Configuration') first, then re-run with collection enabled.
 If the report came from a different configuration, pass -Configuration <name> to match it.
 "@
@@ -109,11 +115,12 @@ the report's, or remove the stray output.
 # configuration. So a report produced by a DIFFERENT configuration's run is being judged fresh against
 # THIS configuration's (possibly much older) assembly, and the OK could be describing code the report
 # never measured. Timestamps alone cannot tell a stray build apart from the report's true origin, so
-# rather than pass silently, warn when another configuration's assembly is newer than the report — the
-# one observable sign that the pairing may have drifted. Non-fatal (it is the developer's call and CI
-# builds only Debug, so this never fires there); failing would reinstate the false STALE this fixes.
+# rather than pass silently, warn when ANOTHER configuration's assembly (one whose path carries no
+# `$Configuration` segment) is newer than the report — the one observable sign the pairing may have
+# drifted. Non-fatal: CI passes -Configuration matching its build so this never fires there, and a
+# local developer's cross-configuration builds are their call; failing would reinstate the false STALE.
 $otherNewer = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -ne $assembly.FullName -and $_.LastWriteTime -gt $report.LastWriteTime } |
+    Where-Object { $_.FullName -notmatch $configSegment -and $_.LastWriteTime -gt $report.LastWriteTime } |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 if ($otherNewer) {
