@@ -53,6 +53,27 @@ public class PeptidoformTests
         </uniprot>
         """;
 
+    /// <summary>
+    /// An entry carrying a signal-peptide proteolysis product (residues 1-18). The only tryptic
+    /// site is K26, so the peptide ending at the signal boundary (1-18) exists ONLY because mzLib
+    /// digests at the proteolysis-product boundary — a protease-only digest of the bare sequence
+    /// would run 1-26 straight through. That makes it the perfect probe for pyMzLib#8.
+    /// </summary>
+    private const string SignalPeptideEntryXml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <uniprot xmlns="http://uniprot.org/uniprot">
+          <entry dataset="Swiss-Prot">
+            <accession>P00002</accession>
+            <name>SIGNAL_HUMAN</name>
+            <protein><recommendedName><fullName>Signal test protein</fullName></recommendedName></protein>
+            <organism><name type="scientific">Homo sapiens</name></organism>
+            <feature type="signal peptide"><location><begin position="1"/><end position="18"/></location></feature>
+            <feature type="modified residue" description="Phosphoserine"><location><position position="3"/></location></feature>
+            <sequence length="30" mass="3000">MASAENLTLQIQTGDISALGDIVATKTQVW</sequence>
+          </entry>
+        </uniprot>
+        """;
+
     private void UseXml(string xml)
     {
         string path = Path.Combine(_tempDirectory, "entry.xml");
@@ -60,6 +81,12 @@ public class PeptidoformTests
         // CallerDeletes: false - the test owns this fixture, the workflow must not delete it.
         Peptidoform.UniProtXmlSource = _ => Task.FromResult((path, false));
     }
+
+    /// <summary>The distinct base (unmodified) sequences a fragments result reports.</summary>
+    private static HashSet<string> BaseSequences(JsonElement result) =>
+        result.GetProperty("peptides").EnumerateArray()
+            .Select(p => p.GetProperty("base_sequence").GetString()!)
+            .ToHashSet();
 
     private static async Task<JsonElement> InvokeAsync(params string[] args)
     {
@@ -170,6 +197,44 @@ public class PeptidoformTests
                 Is.GreaterThanOrEqualTo(without.GetProperty("peptide_count").GetInt32()));
         });
     }
+
+    [Test]
+    public async Task NoModificationsPreservesProteolysisProductsSoTheControlDiffersOnlyByMods()
+    {
+        // pyMzLib#8: the --no-modifications control rebuilt the protein through a Protein constructor
+        // that dropped ProteolysisProducts, so mzLib stopped digesting at the signal-peptide boundary
+        // and the peptide LIST changed, not just its modifications. A control is only a control if a
+        // single variable moves. With the products carried across, the two runs must report the SAME
+        // distinct base sequences — modifications change FullSequence, never BaseSequence.
+        UseXml(SignalPeptideEntryXml);
+        JsonElement with = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00002", "--min-length", "7");
+
+        UseXml(SignalPeptideEntryXml);
+        JsonElement without = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00002", "--min-length", "7", "--no-modifications");
+
+        HashSet<string> withSeqs = BaseSequences(with);
+        HashSet<string> withoutSeqs = BaseSequences(without);
+
+        Assert.Multiple(() =>
+        {
+            // Non-vacuous: prove the proteolysis product actually contributes a boundary peptide, so
+            // the equality below is testing something. The signal region 1-18 is digested as its own
+            // peptide; without the product mzLib runs 1-26 straight through to the only tryptic site
+            // (K26), so this exact sequence is the one the bug drops from the control (verified: the
+            // pre-fix run's set is missing precisely MASAENLTLQIQTGDISA).
+            Assert.That(withSeqs, Does.Contain(BoundaryPeptide),
+                "the signal-peptide region should be digested at its 1-18 boundary");
+            // The fix: the control keeps those boundary peptides rather than silently dropping them.
+            Assert.That(withoutSeqs, Is.EquivalentTo(withSeqs),
+                "--no-modifications must differ from the annotated run only in modifications, not in " +
+                "which peptides the proteolysis products produce");
+        });
+    }
+
+    /// <summary>The signal-peptide boundary peptide of <see cref="SignalPeptideEntryXml"/> (set after observation).</summary>
+    private const string BoundaryPeptide = "MASAENLTLQIQTGDISA";
 
     [Test]
     public async Task TheDefaultProteaseAppliesTheProlineRule()
