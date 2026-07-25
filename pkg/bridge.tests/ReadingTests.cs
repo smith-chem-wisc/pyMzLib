@@ -12,9 +12,10 @@ namespace MzLibBridge.Tests;
 /// <para>
 /// The parsing is mzLib's and mzLib tests it. What lives only in the bridge is the projection:
 /// which views a reader is reported to support, and the translation of mzLib's two exception types
-/// into a usage error a caller can act on. Those need no real data — mzLib dispatches on the
-/// filename for every type exercised here, so empty files with the right names suffice, and the
-/// suite stays fast and offline.
+/// into a usage error a caller can act on. Most need no real data — mzLib dispatches on the
+/// filename for the majority of types exercised here, so empty files with the right names suffice,
+/// and the suite stays fast and offline. The exceptions are the three content-sniffed families in
+/// the next paragraph, whose fixtures must carry the bytes mzLib reads to dispatch them.
 /// </para>
 /// <para>
 /// The exceptions are the three families mzLib disambiguates by reading rather than by name: a bare
@@ -622,17 +623,19 @@ public class ReadingTests
             "both formats report the THEORETICAL mass; claiming otherwise invents a discrepancy");
 
         // The load-bearing check is positive: the negative substring above passes for any reworded
-        // reintroduction of the false claim, so on its own it guards nothing. Pin that the caveat
-        // actually STATES the mass is theoretical — that is the assertion a regression must fail.
-        Assert.That(caveats.Any(c => c.Contains("THEORETICAL")), Is.True,
-            "the MSFragger mass caveat must positively state the value is theoretical");
+        // reintroduction of the false claim, so on its own it guards nothing. Pin that the MASS
+        // caveat itself states the value is theoretical — anchored to monoisotopic_mass, not just to
+        // the word THEORETICAL anywhere in the list (a retention-time caveat also carries it, so a
+        // bare .Contains would pass even if the mass caveat were reworded or deleted).
+        Assert.That(caveats.Any(c => c.Contains("monoisotopic_mass") && c.Contains("THEORETICAL")), Is.True,
+            "the MSFragger monoisotopic_mass caveat must positively state the value is theoretical");
 
         string[] psmtsvCaveats = Run("readers", "read-results", "--path", Psmtsv())
             .GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToArray();
         Assert.That(psmtsvCaveats.Any(c => c.Contains("observed mass") && !c.Contains("not the observed")),
             Is.False, "the psmtsv caveats must not claim an observed mass either");
-        Assert.That(psmtsvCaveats.Any(c => c.Contains("THEORETICAL")), Is.True,
-            "the psmtsv mass caveat must positively state the value is theoretical");
+        Assert.That(psmtsvCaveats.Any(c => c.Contains("monoisotopic_mass") && c.Contains("THEORETICAL")), Is.True,
+            "the psmtsv monoisotopic_mass caveat must positively state the value is theoretical");
 
         double firstMass = Run("readers", "read-results", "--path", Psmtsv(), "--limit", "1")
             .GetProperty("columns").GetProperty("monoisotopic_mass")[0].GetDouble();

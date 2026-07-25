@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -241,9 +242,13 @@ def test_truncation_is_visible(recorded_read):
 
 def test_caveats_are_carried_through(recorded_read):
     # Equality, not truthiness: a parser that mangled the caveat text while leaving the list
-    # non-empty would pass a bare `assert ...caveats`. The caveats are the whole safety story of
-    # this view, so they must arrive verbatim.
-    assert readers.read_results("AllPSMs.psmtsv").caveats == recorded_read["caveats"]
+    # non-empty would pass a bare `assert ...caveats`. Compared against the module-level
+    # READ_PAYLOAD constant, NOT recorded_read["caveats"]: recorded_read is the very object handed
+    # to the parser, so if read_results returns that list by reference the check would compare it to
+    # itself and any in-place mutation would pass. READ_PAYLOAD is the pristine original the parser
+    # never received, so it catches a caveat edited in place. The caveats are the whole safety story
+    # of this view, so they must arrive verbatim.
+    assert readers.read_results("AllPSMs.psmtsv").caveats == READ_PAYLOAD["caveats"]
 
 
 def test_records_gives_the_same_data_row_wise(recorded_read):
@@ -408,9 +413,21 @@ def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
     # This is the one test in the module that needs the real bridge. In a source checkout where the
     # self-contained binary has not been built, skip rather than fail: a red run here would be about
     # a missing build artifact, not about the recording drifting.
+    #
+    # But a bare skip would let a misconfigured CI report green while the module's ONLY live pin
+    # never ran — every 29 / 13 / three-quantifiable assertion would then be pinned solely to the
+    # frozen readers_formats.json, and mzLib could drift past it unnoticed. CI always builds the
+    # bridge before pytest (wheels.yml runs publish-bridge.ps1 first), so an absent binary UNDER CI
+    # is a real fault, not an expected local gap. Fail there, mirroring the C# FixtureRoot_Exists
+    # tripwire that fails rather than skips. bridge_path() raises only BridgeNotFoundError.
     try:
         _bridge.bridge_path()
     except _bridge.BridgeNotFoundError as exc:
+        if os.environ.get("CI"):
+            pytest.fail(
+                f"the mzLib bridge is not built under CI, so the live drift check could not run; "
+                f"a green Python suite would then never have checked the recording: {exc}"
+            )
         pytest.skip(f"bridge binary not built, so the live recording cannot be checked: {exc}")
 
     recorded = json.loads(FORMATS_FIXTURE.read_text(encoding="utf-8"))
