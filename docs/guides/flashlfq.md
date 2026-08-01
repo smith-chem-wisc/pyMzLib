@@ -179,6 +179,59 @@ result = pymzlib.flashlfq.quantify(
 # flashlfq_out/QuantifiedPeaks.tsv, QuantifiedPeptides.tsv, QuantifiedProteins.tsv
 ```
 
+## Re-quantifying proteins from a peptide table: median polish
+
+Protein quantification is the *second half* of `quantify()`: once peptides are measured, FlashLFQ
+rolls them up to proteins with a **median-polish** algorithm. `median_polish()` runs that half on
+its own, starting from a `QuantifiedPeptides.tsv` FlashLFQ already wrote — no mzML, no peak-finding:
+
+```python
+proteins = pymzlib.flashlfq.median_polish("flashlfq_out/QuantifiedPeptides.tsv")
+
+for g in proteins:                       # a list of ProteinGroup, ordered by name
+    print(g.protein_group, g.intensity("run_3"))
+```
+
+The roll-up is mzLib's own `CalculateProteinResultsMedianPolish` — the identical method the full
+`quantify()` runs — so the numbers match what `quantify()` would have written to
+`QuantifiedProteins.tsv`. Reach for it when you want to **re-roll proteins without re-quantifying
+peptides**: try a different experimental design, or toggle shared peptides, in seconds rather than
+re-reading every run.
+
+### The design is how you group replicates
+
+Median polish compares each peptide across the samples grouped by **condition and biological
+replicate**, so the design is the whole point — it tells the algorithm which columns are replicates
+of which sample. Pass one mapping per run, keyed by the run's `Intensity_<name>` column:
+
+```python
+proteins = pymzlib.flashlfq.median_polish(
+    "flashlfq_out/QuantifiedPeptides.tsv",
+    design=[
+        {"file_name": "control_1", "condition": "control", "biological_replicate": 0},
+        {"file_name": "control_2", "condition": "control", "biological_replicate": 1},
+        {"file_name": "treated_1", "condition": "treated", "biological_replicate": 0},
+        {"file_name": "treated_2", "condition": "treated", "biological_replicate": 1},
+    ],
+    use_shared_peptides=True,             # let shared peptides contribute
+)
+
+proteins[0].intensity("control_1")       # keyed by "condition_biorep"
+```
+
+With **no** `design`, each `Intensity_` column becomes its own biological replicate with a blank
+condition — exactly what FlashLFQ assumes when it writes the file with no design — and the intensities
+are keyed by run base name (`"run_3"`) instead. When a design *is* given it must name every run in
+the table and only runs in the table; a name matching no column, or a column with no design line, is
+rejected rather than quietly guessed.
+
+The returned objects are ordinary `ProteinGroup`s, so an intensity is **`None`** where median polish
+could not resolve a number (the degenerate-matrix case below) and **`0.0`** where the protein simply
+was not measured in that sample — including a group whose only peptides are shared, when
+`use_shared_peptides` is off. Pass `output_directory=...` to also write a `QuantifiedProteins.tsv`
+(its column headers follow FlashLFQ's own naming, which is not always identical to the returned
+objects' keys — the list is the primary result).
+
 ## Two limits worth knowing
 
 Both are surfaced rather than hidden — a wrong number that looks right is worse than an error.
