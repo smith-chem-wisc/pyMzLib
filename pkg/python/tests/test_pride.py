@@ -12,6 +12,7 @@ Run the fast set with ``pytest -m "not network"``.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -91,14 +92,19 @@ FTP_LISTING = {
 
 @pytest.fixture()
 def recorded_ftp_listing(monkeypatch):
-    """Serve a recorded PXD000001 FTP listing instead of calling the bridge."""
-    monkeypatch.setattr(_bridge, "invoke", lambda *args, timeout=None: FTP_LISTING)
+    """Serve a recorded PXD000001 FTP listing instead of calling the bridge.
+
+    Hands each test a deep copy, the way ``recorded_manifest`` re-parses its JSON per use, so no
+    test can leak a mutation into another through the shared module-level dict.
+    """
+    monkeypatch.setattr(_bridge, "invoke", lambda *args, timeout=None: copy.deepcopy(FTP_LISTING))
     return FTP_LISTING
 
 
 def test_list_ftp_files_parses_every_file(recorded_ftp_listing):
     files = pride.list_ftp_files("PXD000001")
-    assert len(files) == 4
+    # Pin len(files) to the payload's declared file_count, so a bridge/fixture drift in either is caught.
+    assert len(files) == recorded_ftp_listing["file_count"] == 4
     assert all(isinstance(f, pride.PrideFtpFile) for f in files)
 
 
@@ -145,13 +151,23 @@ def test_list_ftp_files_invokes_the_ftp_files_verb(monkeypatch):
     monkeypatch.setattr(_bridge, "invoke", capturing_invoke)
     pride.list_ftp_files("pxd000001", timeout=42)
 
-    assert seen["args"][:2] == ("pride", "ftp-files")
-    assert "--accession" in seen["args"] and "PXD000001" in seen["args"]  # normalised, upper-cased
+    args = seen["args"]
+    assert args[:2] == ("pride", "ftp-files")
+    # Positional (flag/value adjacency), not mere membership: an accession under the wrong flag,
+    # or a valueless --accession, must fail. Matches test_download_passes_accession_and_destination.
+    assert args[args.index("--accession") + 1] == "PXD000001"  # normalised, upper-cased
     assert seen["timeout"] == 42
 
 
 @pytest.mark.parametrize("accession", ["", "   ", "not-an-accession", 12345])
-def test_list_ftp_files_rejects_a_bad_accession_before_any_work(accession):
+def test_list_ftp_files_rejects_a_bad_accession_before_any_work(accession, monkeypatch):
+    # Install a raising sentinel so a validation regression fails loudly here instead of falling
+    # through to the real bridge subprocess — an earlier mock-less test downloaded 480 MB of
+    # PXD000001 into the source tree. This test's whole point is "we never reach the bridge".
+    def must_not_run(*a, **k):
+        raise AssertionError("validation was bypassed — list_ftp_files reached the bridge")
+
+    monkeypatch.setattr(_bridge, "invoke", must_not_run)
     with pytest.raises(_bridge.UsageError):
         pride.list_ftp_files(accession)
 

@@ -197,6 +197,44 @@ public class VerbHandlerTests
         });
     }
 
+    // ---- ftp-files failure classification ------------------------------------
+    //
+    // The bridge half of the contract the Python layer's ProjectNotFoundError re-map depends on.
+    // The FTP walk resolves the project over the REST API first, so an unknown accession is a 404
+    // there (not on the autoindex): mzLib turns that into an MzLibException, which must cross as the
+    // type string "MzLibException" that list_ftp_files() keys on. Previously covered only in Python.
+
+    [Test]
+    public void PrideFtpFiles_UnknownProject_SurfacesMzLibExceptionTheBindingsRemap()
+    {
+        // Every request 404s, so the REST project lookup returns not-found and mzLib throws
+        // MzLibException before any FTP walk begins.
+        UseStub(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "ftp-files", "--accession", "PXD999999"));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo("MzLibException"),
+            "an unknown accession must cross as MzLibException — the type list_ftp_files re-maps to ProjectNotFoundError");
+    }
+
+    [Test]
+    public void PrideFtpFiles_ProjectLookupUnavailable_ClassifiesAsServiceUnavailableNotNotFound()
+    {
+        // A 503 on the project lookup is an outage, not an absent project. mzLib throws
+        // HttpRequestException (not MzLibException), so the not-found re-map must NOT swallow it.
+        UseStub(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "ftp-files", "--accession", "PXD999999"));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo(Program.ServiceUnavailableType));
+    }
+
+    [Test]
+    public void PrideFtpFiles_NoAccession_IsAUsageError() =>
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("pride", "ftp-files"));
+
     // ---- failure classification ---------------------------------------------
     //
     // This is the behavior the whole external-service convention rests on: a caller must be able to

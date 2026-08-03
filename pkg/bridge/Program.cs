@@ -183,8 +183,10 @@ public static class Program
     };
 
     /// <summary>
-    /// <c>pride files --accession PXD000001 [--page-size 100]</c> — the full file manifest of a
-    /// PRIDE Archive project, with paging already resolved by mzLib.
+    /// <c>pride files --accession PXD000001 [--page-size 100]</c> — PRIDE's REST file manifest for a
+    /// project, with paging already resolved by mzLib. This is what the REST API publishes, which is
+    /// knowingly incomplete for some projects (see <see cref="PrideFtpFilesAsync"/>, which walks the
+    /// FTP tree for the complete list).
     /// </summary>
     private static async Task<object> PrideFilesAsync(Arguments arguments)
     {

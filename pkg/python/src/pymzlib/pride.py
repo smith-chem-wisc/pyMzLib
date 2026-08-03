@@ -359,6 +359,11 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     checksum, controlled-vocabulary locations) that the REST manifest carries and the directory
     index does not.
 
+    This is a **listing** surface only. :func:`download` and :func:`download_files` operate on the
+    REST manifest, so a file that appears *only* here — the whole point of this function — is not
+    accepted by them; fetch it directly from its :attr:`PrideFtpFile.url` with an ordinary HTTPS
+    client (e.g. ``urllib.request.urlretrieve(f.url, f.file_name)``).
+
     The sizes are approximate: PRIDE's directory index rounds them (see
     :attr:`PrideFtpFile.approximate_size_bytes`), so :func:`approximate_total_size_bytes` is an
     estimate — but an estimate over the *whole* project, unlike :func:`total_size_bytes`.
