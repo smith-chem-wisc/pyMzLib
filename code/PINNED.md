@@ -4,15 +4,20 @@ Worktrees under `code/` are gitignored; this file is their record.
 
 | repo | worktree path | branch | base commit | purpose |
 |---|---|---|---|---|
-| mzLib | `code/mzLib` | *(detached)* | `525cb7c8e3875501868fb961d0bc1bd34ef5174e` | source of `PrideArchiveClient`; referenced by `pkg/bridge/MzLibBridge.csproj` |
+| mzLib | `code/mzLib` | *(detached)* | `f6b0f0d17f32383918ef895006aaecb71cdb9a7e` | source of `PrideArchiveClient`; referenced by `pkg/bridge/MzLibBridge.csproj` |
 
-Pinned at `origin/master` on 2026-07-23 — *"fix(variants): read UniProt-native deletions (empty
-`<variation>`) (#1095)"*.
+Pinned at `origin/master` on 2026-08-03 — *"Remove y ions from the ETD and ECD product sets
+(#1109) (#1114)"*. Re-pinned from `525cb7c8` to pick up two merged mzLib changes the bindings
+depend on: **#1116** (MSFragger retention time converted from seconds to minutes at the reader —
+`MsFraggerPsm.RetentionTime = RetentionTimeInSeconds / 60`, which lets this branch retire the
+MSFragger seconds caveat honestly) and **#1121** (`PrideArchiveClient.GetProjectFilesFromFtpAsync`
+— the complete PRIDE FTP file list the REST manifest omits, so the bridge can project the true
+file list rather than the incomplete one).
 
 Recreate it on another machine (or after deleting it) with:
 
 ```powershell
-git -C E:\GitClones\mzLib worktree add --detach E:\CodeReview\pyMzLib\code\mzLib 525cb7c8
+git -C E:\GitClones\mzLib worktree add --detach E:\CodeReview\pyMzLib\code\mzLib f6b0f0d1
 ```
 
 ## Why a worktree and not the mzLib NuGet package

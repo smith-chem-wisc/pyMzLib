@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
@@ -484,6 +485,28 @@ public class ReadingTests
 
         Assert.That(Run("readers", "read-results", "--path", MsFragger())
             .GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"));
+    }
+
+    [Test]
+    public void ReadResults_MsFragger_RetentionTimeCrossesInMinutesNotSeconds()
+    {
+        // retention_time_unit is a static label; on its own it cannot catch a pin that predates
+        // mzLib #1116, where MsFraggerPsm.RetentionTime passed the raw "Retention" column (seconds)
+        // straight through. This reads the fixture's own raw seconds and asserts the value that
+        // crosses the wire is that / 60 - so an un-bumped mzLib pin fails here instead of shipping a
+        // 60x-wrong "minutes" label. Derived from the fixture, not hard-coded, so re-curation is safe.
+        string[] lines = File.ReadAllLines(MsFragger());
+        int retentionColumn = Array.IndexOf(lines[0].Split('	'), "Retention");
+        Assert.That(retentionColumn, Is.GreaterThanOrEqualTo(0), "fixture header changed");
+        double rawSeconds = double.Parse(
+            lines[1].Split('	')[retentionColumn], CultureInfo.InvariantCulture);
+
+        JsonElement firstRetentionTime = Run("readers", "read-results", "--path", MsFragger())
+            .GetProperty("columns").GetProperty("retention_time")[0];
+
+        Assert.That(firstRetentionTime.GetDouble(),
+            Is.EqualTo(rawSeconds / 60.0).Within(1e-6),
+            "MSFragger retention time must cross in minutes (raw seconds / 60), per mzLib #1116");
     }
 
     [Test]
