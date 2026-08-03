@@ -203,6 +203,21 @@ def test_census_explains_what_was_excluded_and_why(recorded_digest):
     assert "no defined chemical composition" not in text
 
 
+def test_census_explain_stays_at_feature_type_granularity(recorded_digest):
+    # The census sees feature *types*, not modification *names*: by_type carries
+    # "glycosylation site", never "N-linked (Glc) (glycation) lysine". So explain() must attribute
+    # the exclusion to feature type and never present a name-level count — e.g. "22 of 24 are
+    # glycation" — or a protein-specific qualifier tally as a census fact. Pins
+    # smith-chem-wisc/pyMzLib#11: a documented number at the wrong granularity.
+    text = peptidoform.fragments("P02768").modification_census.explain()
+    assert "24 × glycosylation site" in text
+    assert "feature type" in text
+    # Facts the census cannot produce must not appear as its output.
+    assert "N-linked" not in text, f"name-level modification detail leaked: {text}"
+    assert "22 of" not in text, f"name-level '22 of 24' count leaked: {text}"
+    assert "14 of the 24" not in text, f"protein-specific qualifier tally baked in: {text}"
+
+
 def test_census_says_so_when_nothing_was_excluded():
     census = peptidoform.ModificationCensus(sites=5, applied=9, annotated=9, by_type=[])
     assert census.excluded == 0

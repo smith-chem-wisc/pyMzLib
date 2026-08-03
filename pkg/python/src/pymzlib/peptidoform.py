@@ -161,15 +161,20 @@ PROTON_MASS = 1.00727646677
 class ModificationCensus:
     """What UniProt annotates, and what could actually be used.
 
-    A modification is only usable for mass spectrometry if it has a defined target **and** a
-    defined mass. A glycosylation site annotated as "N-linked (GlcNAc...) asparagine" has neither
-    a fixed composition nor a fixed mass, so there is nothing to add to a peptide, and a peptide
-    carrying an ambiguous-mass PTM is not identifiable by mass anyway. Such annotations are
-    therefore excluded.
+    mzLib loads only ``modified residue`` and ``lipid moiety-binding region`` annotations; every
+    other feature type is dropped **on feature type alone**, before any mass lookup. So the census
+    sees the world at feature-*type* granularity — one entry per type in :attr:`by_type`, never per
+    modification *name*. On serum albumin the 24 excluded features all sit under the single type
+    ``glycosylation site``; at UniProt's finer name level 22 of those 24 are specifically
+    ``N-linked (Glc) (glycation) lysine``, which *does* have a defined mass — but the census never
+    surfaces that name, so "22" is a fact you confirm by reading the UniProt entry, not a number
+    this class reports. Read the exclusion as "wrong feature type", **not** "no defined mass".
 
-    That exclusion is correct. What this class exists for is that you should not have to *guess*
-    it happened: for serum albumin, 14 sites are applied out of 38 annotated, and without this
-    the 14 arrives with no indication that a rule was ever applied.
+    The exclusion is still correct: glycation and glycosylation are labile, heterogeneous adducts,
+    so assigning one an exact mass and a clean fragment ladder would describe a species you cannot
+    observe. What this class exists for is that you should not have to *guess* it happened: for
+    serum albumin, 14 sites are applied out of 38 annotated, and without this the 14 arrives with
+    no indication that a rule was ever applied. See smith-chem-wisc/mzLib#1112.
 
     Attributes:
         sites: Distinct residue positions carrying at least one modification. A histone lists
@@ -193,11 +198,17 @@ class ModificationCensus:
 
     @property
     def excluded(self) -> int:
-        """Annotated features that could not be used because they have no defined mass."""
+        """Annotated features mzLib did not apply, dropped on feature type (not for want of mass)."""
         return max(0, self.annotated - self.applied)
 
     def explain(self) -> str:
-        """A one-paragraph, human-readable account of what was used and what was not."""
+        """A one-paragraph, human-readable account of what was used and what was not.
+
+        It names the excluded feature *types* and their counts — the only granularity the census
+        has. It never reports a modification-*name*-level breakdown (e.g. "22 of 24 are glycation"),
+        because :attr:`by_type` does not carry names; such a figure comes from reading the UniProt
+        entry, not from this census.
+        """
         if not self.excluded:
             return (
                 f"All {self.annotated} annotated modifications were applied, across "
@@ -217,8 +228,8 @@ class ModificationCensus:
                 "glycosylation annotation describes a labile, heterogeneous adduct, so "
                 "assigning it one exact mass and a clean fragment ladder would invent a "
                 "species you cannot observe. But the reason is not reported, and the "
-                "qualifier is not read: on albumin, 14 of the 24 excluded here are marked "
-                "'in vitro' and 2 exist only in disease variants, which are different "
+                "qualifier is not read: some annotations are marked 'in vitro' and some "
+                "exist only in disease variants, which are different "
                 "grounds for exclusion needing different judgements from you. Read the "
                 "annotations on the UniProt entry before concluding anything about a "
                 "specific site; this census can only tell you the count "

@@ -20,7 +20,7 @@ on:
 env:
   # Keep in step with code/PINNED.md. The bridge and the Python package must be built from the
   # same mzLib source, so this is pinned rather than tracking master.
-  MZLIB_COMMIT: 525cb7c8e3875501868fb961d0bc1bd34ef5174e
+  MZLIB_COMMIT: f6b0f0d17f32383918ef895006aaecb71cdb9a7e
   DOTNET_VERSION: '8.0.x'
 
 jobs:
