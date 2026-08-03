@@ -39,9 +39,9 @@ of the rest of pyMzLib:
   field. :attr:`FileInfo.file_type` already names the tool.
 - **Whether the numbers inside mean the same thing across formats.** They do not, and this is the
   trap most likely to produce a wrong result. mzLib's result-file readers pass through whatever the
-  tool wrote, with no unit conversion: MetaMorpheus retention times are in **minutes**, MSFragger's
-  and TopPIC's are in **seconds**, and TopFD changed from seconds to minutes between v1.6.2 and
-  v1.7.0 *within the same file type*. Likewise ``is_decoy`` is hardcoded ``False`` for MSFragger,
+  tool wrote: MetaMorpheus retention times are in **minutes** and MSFragger's are too (mzLib PR
+  #1116 converts them at the reader), but TopPIC's are still in **seconds**, and TopFD changed from
+  seconds to minutes between v1.6.2 and v1.7.0 *within the same file type*. Likewise ``is_decoy`` is hardcoded ``False`` for MSFragger,
   which means "mzLib cannot tell" rather than "target" - MSFragger's ``psm.tsv`` carries no
   target/decoy column at all - so ``is_decoy`` arrives as **``None``** for that format rather than
   a fabricated ``False``. ``monoisotopic_mass`` is the *theoretical* peptide mass in **both**
@@ -218,8 +218,8 @@ class ResultRecords:
             table is incomplete. ``None`` when the count could not be established meaningfully.
         caveats: **What the uniform view cannot be trusted to mean for this format.** Empty for
             some formats, not for others; each entry cites the mzLib source it came from. Worth
-            printing before comparing anything across formats - this is where you learn that
-            MSFragger retention times are seconds while MetaMorpheus's are minutes.
+            printing before comparing anything across formats - this is where you learn that, e.g.,
+            TopPIC retention times are seconds while MetaMorpheus's and MSFragger's are minutes.
         column_names: The field names, in order.
         columns: Field name -> list of values, one entry per record - the shape ``pandas.DataFrame``
             and ``polars.DataFrame`` both accept directly. ``None`` when ``out`` was given.

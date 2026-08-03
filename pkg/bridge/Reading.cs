@@ -523,8 +523,9 @@ internal static class Reading
         // MetaMorpheus writes minutes; verified against BottomUpExample.psmtsv, where scan 13955
         // reads 97.42 and scan 27567 reads 174.96 - 0.0057 per scan, a normal Orbitrap duty cycle.
         SupportedFileType.psmtsv or SupportedFileType.osmtsv => "minutes",
-        // MSFragger writes seconds; the fixture advances ~1.1 per scan on an LTQ Orbitrap Velos.
-        SupportedFileType.MsFraggerPsm => "seconds",
+        // MSFragger writes seconds, but mzLib now converts to minutes at the reader (PR #1116,
+        // MsFraggerPsm.RetentionTime = RetentionTimeInSeconds / 60), so the value that crosses is minutes.
+        SupportedFileType.MsFraggerPsm => "minutes",
         _ => "unknown",
     };
 
@@ -549,10 +550,6 @@ internal static class Reading
     {
         SupportedFileType.MsFraggerPsm =>
         [
-            "retention_time is in SECONDS for this format, not minutes: MSFragger's Retention " +
-            "column is passed through unconverted (MsFraggerPsm.cs:48). Do not compare it with a " +
-            "MetaMorpheus file's retention_time, and do not quantify this file with FlashLFQ, " +
-            "which reads the value as minutes.",
             "is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, " +
             "so mzLib cannot report decoy status (MsFraggerPsm.cs:217) and the field crosses as null. " +
             "Null means 'unknown', not 'target' - do not filter this format on is_decoy == false.",
