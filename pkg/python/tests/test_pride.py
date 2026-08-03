@@ -64,6 +64,109 @@ def test_total_size_matches_sum(recorded_manifest):
     assert pride.total_size_bytes(files) == sum(f.file_size_bytes for f in files)
 
 
+# --------------------------------------------------------------- offline: ftp-files
+
+# The complete FTP listing the bridge returns for `pride ftp-files` (mzLib #1121): three top-level
+# files — one of which the REST manifest omits — plus a file nested in a subdirectory.
+FTP_LISTING = {
+    "accession": "PXD000001",
+    "file_count": 4,
+    "approximate_total_size_bytes": 1638 + 210 * 1024 * 1024 + 429 * 1024 * 1024 + 864256,
+    "files": [
+        {"relative_path": "README.txt", "file_name": "README.txt",
+         "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/README.txt",
+         "approximate_size_bytes": 1638},
+        {"relative_path": "run1.raw", "file_name": "run1.raw",
+         "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/run1.raw",
+         "approximate_size_bytes": 210 * 1024 * 1024},
+        {"relative_path": "hidden_from_rest.mzML", "file_name": "hidden_from_rest.mzML",
+         "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/hidden_from_rest.mzML",
+         "approximate_size_bytes": 429 * 1024 * 1024},
+        {"relative_path": "generated/summary.mztab", "file_name": "summary.mztab",
+         "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/summary.mztab",
+         "approximate_size_bytes": 864256},
+    ],
+}
+
+
+@pytest.fixture()
+def recorded_ftp_listing(monkeypatch):
+    """Serve a recorded PXD000001 FTP listing instead of calling the bridge."""
+    monkeypatch.setattr(_bridge, "invoke", lambda *args, timeout=None: FTP_LISTING)
+    return FTP_LISTING
+
+
+def test_list_ftp_files_parses_every_file(recorded_ftp_listing):
+    files = pride.list_ftp_files("PXD000001")
+    assert len(files) == 4
+    assert all(isinstance(f, pride.PrideFtpFile) for f in files)
+
+
+def test_ftp_file_fields_are_typed(recorded_ftp_listing):
+    first = pride.list_ftp_files("PXD000001")[0]
+    assert first.relative_path == "README.txt"
+    assert isinstance(first.approximate_size_bytes, int)
+    assert first.url.startswith("https://")
+    assert first.project_accession == "PXD000001"
+
+
+def test_ftp_nested_file_keeps_subdirectory_path_but_bare_leaf_name(recorded_ftp_listing):
+    nested = next(f for f in pride.list_ftp_files("PXD000001") if "/" in f.relative_path)
+    assert nested.relative_path == "generated/summary.mztab"
+    assert nested.file_name == "summary.mztab"
+    assert nested.extension == ".mztab"
+
+
+def test_ftp_derived_properties_and_as_dict(recorded_ftp_listing):
+    run = next(f for f in pride.list_ftp_files("PXD000001") if f.file_name == "run1.raw")
+    assert run.extension == ".raw"
+    assert run.approximate_size_mb == pytest.approx(run.approximate_size_bytes / 1_000_000)
+    # as_dict must carry the computed properties, which asdict()/vars() skip.
+    record = run.as_dict()
+    assert record["approximate_size_mb"] == run.approximate_size_mb
+    assert record["extension"] == ".raw"
+
+
+def test_approximate_total_size_sums_over_the_complete_listing(recorded_ftp_listing):
+    files = pride.list_ftp_files("PXD000001")
+    assert pride.approximate_total_size_bytes(files) == sum(f.approximate_size_bytes for f in files)
+
+
+def test_list_ftp_files_invokes_the_ftp_files_verb(monkeypatch):
+    # The verb name is the contract with the bridge; a typo would only surface against the live
+    # service, so pin it offline.
+    seen: dict = {}
+
+    def capturing_invoke(*args, timeout=None):
+        seen["args"] = args
+        seen["timeout"] = timeout
+        return FTP_LISTING
+
+    monkeypatch.setattr(_bridge, "invoke", capturing_invoke)
+    pride.list_ftp_files("pxd000001", timeout=42)
+
+    assert seen["args"][:2] == ("pride", "ftp-files")
+    assert "--accession" in seen["args"] and "PXD000001" in seen["args"]  # normalised, upper-cased
+    assert seen["timeout"] == 42
+
+
+@pytest.mark.parametrize("accession", ["", "   ", "not-an-accession", 12345])
+def test_list_ftp_files_rejects_a_bad_accession_before_any_work(accession):
+    with pytest.raises(_bridge.UsageError):
+        pride.list_ftp_files(accession)
+
+
+def test_list_ftp_files_surfaces_a_bridge_failure(monkeypatch):
+    # An unknown accession is an error from mzLib's side (it resolves the project before walking),
+    # so it must reach the caller as a BridgeError, not a quietly empty list.
+    def failing_invoke(*args, timeout=None):
+        raise _bridge.BridgeError("MzLibException", "No PRIDE project 'PXDBOGUS'.")
+
+    monkeypatch.setattr(_bridge, "invoke", failing_invoke)
+    with pytest.raises(_bridge.BridgeError):
+        pride.list_ftp_files("PXD999999")  # valid form, so it reaches the bridge, then fails there
+
+
 def test_aspera_only_file_is_not_downloadable():
     """A file with no HTTPS location must report itself as not downloadable, not crash."""
     aspera_only = pride.PrideFile._from_wire(

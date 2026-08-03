@@ -26,11 +26,14 @@ from . import _bridge
 
 __all__ = [
     "PrideFile",
+    "PrideFtpFile",
     "ProjectNotFoundError",
     "list_files",
+    "list_ftp_files",
     "download",
     "download_files",
     "total_size_bytes",
+    "approximate_total_size_bytes",
 ]
 
 #: A PRIDE-style repository accession: a short letter prefix and a run of digits, e.g. PXD000001.
@@ -238,6 +241,60 @@ class PrideFile:
         )
 
 
+@dataclass(frozen=True)
+class PrideFtpFile:
+    """One file found by walking a PRIDE project's **FTP directory tree** — the complete listing.
+
+    This is what :func:`list_ftp_files` returns, and the difference from :class:`PrideFile` is the
+    whole point: the FTP walk sees everything the project holds, including the files PRIDE's REST
+    manifest omits and files nested in subdirectories. The trade-off is the size: PRIDE's directory
+    index rounds it to about three significant figures, so it is ``approximate_size_bytes`` — a good
+    project-size estimate, not the exact number of bytes you will transfer.
+
+    Attributes:
+        relative_path: Path relative to the project's FTP root, e.g. ``"run1.raw"`` or, for a file
+            in a subdirectory, ``"generated/summary.mztab"``.
+        file_name: The bare file name — the last segment of ``relative_path``.
+        url: The HTTPS URL the file can be downloaded from.
+        approximate_size_bytes: PRIDE's rounded index size in bytes. For the exact transfer size of
+            one file, issue an HTTP HEAD against ``url`` and read its ``Content-Length``.
+        project_accession: The accession this file was listed under.
+    """
+
+    relative_path: str
+    file_name: str
+    url: str
+    approximate_size_bytes: int
+    project_accession: str = ""
+
+    @property
+    def approximate_size_mb(self) -> float:
+        """The approximate size in megabytes, for eyeballing a project's footprint."""
+        return self.approximate_size_bytes / 1_000_000
+
+    @property
+    def extension(self) -> str:
+        """The file's lowercase extension including the dot, e.g. ``".raw"``. Empty if none."""
+        return Path(self.file_name).suffix.lower()
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return every attribute, **including the computed ones**, as a plain dict for a DataFrame."""
+        record = asdict(self)
+        record["approximate_size_mb"] = self.approximate_size_mb
+        record["extension"] = self.extension
+        return record
+
+    @classmethod
+    def _from_wire(cls, payload: dict[str, Any], project_accession: str = "") -> "PrideFtpFile":
+        return cls(
+            relative_path=payload.get("relative_path", ""),
+            file_name=payload.get("file_name", ""),
+            url=payload.get("url", ""),
+            approximate_size_bytes=int(payload.get("approximate_size_bytes", 0)),
+            project_accession=project_accession,
+        )
+
+
 def list_files(accession: str, page_size: int = 100, timeout: float | None = 300) -> list[PrideFile]:
     """Return the file manifest of a PRIDE Archive project.
 
@@ -245,8 +302,8 @@ def list_files(accession: str, page_size: int = 100, timeout: float | None = 300
     project.** For PXD000001 the API returns **8** files while the FTP tree holds **13**, and
     the five it omits include the two largest: ``...60min_01-20141210.mzML`` (450 MB) and the
     matching ``.mzXML`` (472 MB), exactly the modern open-format conversions most people want.
-    The omission is PRIDE's, not mzLib's. If completeness matters, cross-check the FTP
-    directory at ``https://ftp.pride.ebi.ac.uk/pride/data/archive/<year>/<month>/<accession>/``.
+    The omission is PRIDE's, not mzLib's. **If completeness matters, use :func:`list_ftp_files`,**
+    which walks the project's FTP directory and returns everything it actually holds.
 
     Paging is handled for you: however many pages the project spans, you get one list.
 
@@ -289,6 +346,49 @@ def list_files(accession: str, page_size: int = 100, timeout: float | None = 300
             "so neither can pyMzLib."
         )
     return files
+
+
+def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtpFile]:
+    """Return the **complete** file list of a PRIDE project, read from its FTP directory tree.
+
+    This is the authoritative counterpart to :func:`list_files`. Where ``list_files`` returns
+    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 the two largest
+    of the project's 13 files — this walks the FTP directory (subdirectories included) and returns
+    everything the project actually holds. Reach for it whenever completeness or a true project
+    size matters; use :func:`list_files` when you want the rich metadata (category, checksum,
+    controlled-vocabulary locations) that the REST manifest carries and the directory index does not.
+
+    The sizes are approximate: PRIDE's directory index rounds them (see
+    :attr:`PrideFtpFile.approximate_size_bytes`), so :func:`approximate_total_size_bytes` is an
+    estimate — but an estimate over the *whole* project, unlike :func:`total_size_bytes`.
+
+        >>> ftp = pymzlib.pride.list_ftp_files("PXD000001")           # doctest: +SKIP
+        >>> len(ftp)                                                  # doctest: +SKIP
+        13
+        >>> [f.relative_path for f in ftp if "generated/" in f.relative_path]   # doctest: +SKIP
+
+    Args:
+        accession: The project accession, e.g. ``"PXD000001"``.
+        timeout: Seconds to allow for the whole walk, which spans one request per directory.
+
+    Returns:
+        Every file under the project's FTP root, subdirectories included, in the order the walk
+        encounters them.
+
+    Raises:
+        UsageError: the accession is blank or malformed.
+        BridgeError: the project does not exist, has no publication date locating its FTP
+            directory, or PRIDE was unreachable. (An unknown accession is an error here, not an
+            empty list — mzLib resolves the project before walking, so it fails loudly.)
+    """
+    canonical = _normalise_accession(accession)
+
+    data = _bridge.invoke(
+        "pride", "ftp-files",
+        "--accession", canonical,
+        timeout=timeout,
+    )
+    return [PrideFtpFile._from_wire(item, canonical) for item in data.get("files", [])]
 
 
 def download(
@@ -466,10 +566,30 @@ def total_size_bytes(files: Iterable[PrideFile]) -> int:
 
     **It is also a sum over an incomplete manifest.** For PXD000001 this returns 0.51 GB; the
     project on disk is 1.44 GB, because PRIDE's API omits five files including the two largest
-    (see :func:`list_files`). The two errors run in opposite directions and do **not** cancel.
+    (see :func:`list_files`). The two errors run in opposite directions and do **not** cancel. For
+    a size that covers the whole project, use :func:`approximate_total_size_bytes` over
+    :func:`list_ftp_files`.
 
     >>> files = list_files("PXD000001")           # doctest: +SKIP
     >>> total_size_bytes(f for f in files if f.category == "RAW") / 1e9   # doctest: +SKIP
     0.51
     """
     return sum(f.file_size_bytes for f in files)
+
+
+def approximate_total_size_bytes(files: Iterable[PrideFtpFile]) -> int:
+    """Sum the approximate sizes of some FTP files.
+
+    This is the honest project-size number, and the counterpart to :func:`total_size_bytes` with the
+    trade-offs reversed. It sums over the **complete** FTP listing (:func:`list_ftp_files`), so no
+    files are missing — but each size is PRIDE's directory-index value, rounded to about three
+    significant figures, so the total is an **estimate**, not an exact byte count. For PXD000001 it
+    lands near the true 1.44 GB, where :func:`total_size_bytes` reports 0.51 GB over the incomplete
+    REST manifest. When you need the exact bytes for one file, HTTP HEAD its
+    :attr:`PrideFtpFile.url` and read ``Content-Length``.
+
+    >>> ftp = list_ftp_files("PXD000001")                       # doctest: +SKIP
+    >>> approximate_total_size_bytes(ftp) / 1e9                 # doctest: +SKIP
+    1.44
+    """
+    return sum(f.approximate_size_bytes for f in files)
