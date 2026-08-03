@@ -229,8 +229,17 @@ The returned objects are ordinary `ProteinGroup`s, so an intensity is **`None`**
 could not resolve a number (the degenerate-matrix case below) and **`0.0`** where the protein simply
 was not measured in that sample — including a group whose only peptides are shared, when
 `use_shared_peptides` is off. Pass `output_directory=...` to also write a `QuantifiedProteins.tsv`
-(its column headers follow FlashLFQ's own naming, which is not always identical to the returned
-objects' keys — the list is the primary result).
+— the list is the primary result and that file is a convenience.
+
+!!! note "The written file's column headers differ, for now"
+
+    For unfractionated data the `QuantifiedProteins.tsv` columns do **not** match the keys of the
+    returned objects. FlashLFQ labels a sample by file name exactly when a design *is* given, and
+    writes `Intensity__1` when one is not — an inverted condition
+    ([mzLib#1128](https://github.com/smith-chem-wisc/mzLib/issues/1128), fixed by
+    [mzLib#1129](https://github.com/smith-chem-wisc/mzLib/pull/1129)). `median_polish()` uses the
+    un-inverted rule, so the two disagree until pyMzLib re-pins to a build carrying that fix. The
+    **values** agree either way; only the labels differ.
 
 ## Two limits worth knowing
 

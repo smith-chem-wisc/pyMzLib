@@ -341,6 +341,10 @@ internal static class Quantification
                 "The quantified peptides file has no Intensity_ columns; it does not look like a FlashLFQ QuantifiedPeptides.tsv.");
 
         var rows = new List<PeptideRow>(lines.Length - 1);
+        // Sequence keys the peptide graph, so two rows sharing one would have the second silently
+        // overwrite the first's measurements. Rejecting says so instead of quantifying from half a
+        // table.
+        var seenSequences = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int r = 1; r < lines.Length; r++)
         {
             if (string.IsNullOrWhiteSpace(lines[r]))
@@ -351,14 +355,24 @@ internal static class Quantification
             if (sequence.Length == 0)
                 continue;
 
+            if (seenSequences.TryGetValue(sequence, out int firstSeenOn))
+                throw new Program.UsageException(
+                    $"Line {r + 1} repeats the sequence '{sequence}', first seen on line {firstSeenOn}. " +
+                    "Each sequence must appear once; a FlashLFQ QuantifiedPeptides.tsv has one row per peptide.");
+            seenSequences[sequence] = r + 1;
+
             var intensities = new double[runNames.Count];
             var detections = new DetectionType[runNames.Count];
             for (int f = 0; f < runNames.Count; f++)
             {
-                intensities[f] = ParseIntensity(Field(fields, intensityColumns[f]));
+                intensities[f] = ParseIntensity(Field(fields, intensityColumns[f]), r + 1, "Intensity_" + runNames[f]);
+                bool detectionColumnPresent = detectionColumnByRun.TryGetValue(runNames[f], out int dc);
                 detections[f] = ResolveDetectionType(
-                    detectionColumnByRun.TryGetValue(runNames[f], out int dc) ? Field(fields, dc) : string.Empty,
-                    intensities[f]);
+                    detectionColumnPresent ? Field(fields, dc) : string.Empty,
+                    detectionColumnPresent,
+                    intensities[f],
+                    r + 1,
+                    "Detection Type_" + runNames[f]);
             }
 
             rows.Add(new PeptideRow(
@@ -412,24 +426,38 @@ internal static class Quantification
         string? outputDirectory)
     {
         // Group runs into samples the way FlashLFQ's protein quant does — by condition, then
-        // biological replicate. The returned intensities key on a label chosen to be a useful
-        // dictionary key: the run's base name when the design is the bare default (one blank-condition
-        // run per replicate), and "condition_biorep" once a real design groups runs. That is not
-        // byte-identical to the header FlashLFQ writes into QuantifiedProteins.tsv (its columns follow
-        // its own, quirkier rule), which is why the on-disk file is a separate artifact from this.
+        // biological replicate. Ordered the same way the engine orders them
+        // (CalculateProteinResultsMedianPolish walks GroupBy(Condition).OrderBy(Key) then
+        // GroupBy(BiologicalReplicate).OrderBy(Key)) so that samples[i] here is the engine's sample i.
+        // Intensities below are read per file rather than by index, so the order is not load-bearing
+        // today; it is matched so it cannot quietly become wrong.
+        //
+        // A run's label is its own name when there is no design to label it with, and
+        // "condition_biorep" once a real design groups runs.
+        //
+        // NOTE: this deliberately leads mzLib. FlashLFQ's own QuantifiedProteins.tsv applies the same
+        // rule with the boolean inverted, so an unfractionated run is labelled by file name exactly
+        // when a design exists and yields "Intensity__1" when one does not — smith-chem-wisc/mzLib#1128,
+        // fixed by mzLib#1129. Until that lands and the pin moves, the labels here and the ones in a
+        // file written by --out disagree for unfractionated data. The values do not: the engine sets a
+        // sample's intensity on its first run and zeroes the rest, so both readings agree.
         bool unfractionated = spectraFiles.Select(f => f.Fraction).Distinct().Count() == 1;
         bool conditionsUndefined = spectraFiles.All(f => f.Condition == "Default")
             || spectraFiles.All(f => string.IsNullOrWhiteSpace(f.Condition));
-        bool labelByFileName = conditionsUndefined && unfractionated;
+        bool labelByRunName = conditionsUndefined && unfractionated;
 
         var samples = new List<(string Label, IGrouping<int, SpectraFileInfo> Files)>();
-        foreach (var conditionGroup in spectraFiles.GroupBy(f => f.Condition))
+        foreach (var conditionGroup in spectraFiles.GroupBy(f => f.Condition).OrderBy(g => g.Key, StringComparer.Ordinal))
         {
             foreach (var replicate in conditionGroup.GroupBy(f => f.BiologicalReplicate).OrderBy(g => g.Key))
             {
                 SpectraFileInfo representative = replicate.First();
-                string label = labelByFileName
-                    ? representative.FilenameWithoutExtension
+                // The run name was handed to SpectraFileInfo as its path, so it survives whole in
+                // FullFilePathWithExtension. FilenameWithoutExtension would truncate it at the last
+                // dot — "QC.2" becomes "QC" — which both mislabels the sample and can collide two
+                // runs onto one key.
+                string label = labelByRunName
+                    ? representative.FullFilePathWithExtension
                     : representative.Condition + "_" + (representative.BiologicalReplicate + 1);
                 samples.Add((label, replicate));
             }
@@ -463,7 +491,7 @@ internal static class Quantification
                     // the sum recovers it. NaN — FlashLFQ's "unquantifiable" — crosses as null.
                     intensities = samples.ToDictionary(
                         s => s.Label,
-                        s => Finite(labelByFileName
+                        s => Finite(labelByRunName
                             ? group.GetIntensity(s.Files.First())
                             : s.Files.Sum(f => group.GetIntensity(f)))),
                 }).ToList(),
@@ -498,21 +526,53 @@ internal static class Quantification
     private static List<string> SplitGroups(string cell) =>
         cell.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
-    /// <summary>Parses an intensity cell; a blank or unparseable value is treated as no measurement (0).</summary>
-    private static double ParseIntensity(string cell) =>
-        double.TryParse(cell, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) ? value : 0.0;
+    /// <summary>
+    /// Parses an intensity cell. A blank cell is no measurement (0) — FlashLFQ writes those. A cell
+    /// that is present but unreadable is rejected: silently reading it as 0 would turn a corrupt or
+    /// mis-delimited table into a table of "not measured", which is indistinguishable from a real
+    /// result and would quantify proteins from data that was never there.
+    /// </summary>
+    private static double ParseIntensity(string cell, int lineNumber, string column)
+    {
+        if (cell.Length == 0)
+            return 0.0;
+        if (double.TryParse(cell, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            return value;
+
+        throw new Program.UsageException(
+            $"Line {lineNumber}, column '{column}': '{cell}' is not a number. " +
+            "Intensity cells must be numeric (a blank cell means the peptide was not measured in that run).");
+    }
 
     /// <summary>
-    /// Resolves a run's detection type from its cell, falling back so the peptide stays usable: an
-    /// absent or unreadable detection type on a measured run is treated as an MS/MS detection rather
-    /// than silently excluding the peptide from protein quant, since
-    /// <see cref="Peptide.UnambiguousPeptideQuant"/> requires at least one non-ambiguous detection.
+    /// Resolves a run's detection type from its cell.
     /// </summary>
-    private static DetectionType ResolveDetectionType(string cell, double intensity)
+    /// <remarks>
+    /// <para>
+    /// When the table carries no <c>Detection Type_</c> column for the run at all, the type is
+    /// inferred from the intensity — a measured run is treated as an MS/MS detection rather than
+    /// silently excluding the peptide from protein quant, since
+    /// <see cref="Peptide.UnambiguousPeptideQuant"/> requires at least one non-ambiguous detection.
+    /// That is the one inference this verb makes, and it is made only where the table says nothing.
+    /// </para>
+    /// <para>
+    /// A column that is present but holds an unrecognized value is rejected instead. Inferring there
+    /// would overwrite what the table actually said with a guess, and an unreadable detection type is
+    /// a sign the table is not the FlashLFQ output it claims to be.
+    /// </para>
+    /// </remarks>
+    private static DetectionType ResolveDetectionType(
+        string cell, bool columnPresent, double intensity, int lineNumber, string column)
     {
-        if (!string.IsNullOrWhiteSpace(cell) && Enum.TryParse(cell.Trim(), out DetectionType parsed))
+        if (!columnPresent || cell.Length == 0)
+            return intensity > 0 ? DetectionType.MSMS : DetectionType.NotDetected;
+
+        if (Enum.TryParse(cell.Trim(), out DetectionType parsed))
             return parsed;
-        return intensity > 0 ? DetectionType.MSMS : DetectionType.NotDetected;
+
+        throw new Program.UsageException(
+            $"Line {lineNumber}, column '{column}': '{cell}' is not a FlashLFQ detection type. " +
+            $"Expected one of {string.Join(", ", Enum.GetNames<DetectionType>())}.");
     }
 
     /// <summary>Reads stdin into non-blank trimmed lines.</summary>
