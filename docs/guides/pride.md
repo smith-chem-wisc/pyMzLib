@@ -123,8 +123,24 @@ print(f"{len(ftp)} files, ~{gb:.2f} GB")     # ~1.44 GB
 (category, checksum, controlled-vocabulary locations) the REST manifest carries — it is what
 `download()` and `download_files()` select from. Reach for `list_ftp_files()` when completeness or a
 true project size matters, and the REST manifest might be hiding files. An unknown accession
-**raises** here too — mzLib resolves the project before walking, so a typo fails loudly rather than
-returning an empty list.
+**raises** `ProjectNotFoundError` here too, the same as `list_files()` — mzLib resolves the project
+before walking, so a typo fails loudly rather than returning an empty list.
+
+!!! warning "Downloading a file that only the FTP listing found"
+    `download()` and `download_files()` operate on the **REST manifest**, so a file that appears
+    *only* in `list_ftp_files()` — the whole point of that function — cannot be passed to them.
+    Fetch it directly from its `url` (a plain HTTPS GET), which is always populated:
+
+    ```python
+    import urllib.request
+
+    ftp = pymzlib.pride.list_ftp_files("PXD000001")
+    hidden = next(f for f in ftp if f.relative_path.endswith(".mzML"))
+    urllib.request.urlretrieve(hidden.url, hidden.file_name)
+    ```
+
+    (Note the field names differ by type: a `PrideFtpFile` exposes `url` — always the HTTPS
+    location — while a `PrideFile` exposes `https_url`, which is `None` for Aspera-only files.)
 
 ## Downloading what you selected
 

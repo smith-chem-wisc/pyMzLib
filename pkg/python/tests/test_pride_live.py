@@ -129,11 +129,16 @@ def test_the_ftp_fields_the_python_layer_reads_are_still_populated():
     assert first.approximate_size_bytes > 0
 
 
-def test_the_ftp_total_size_covers_more_than_the_rest_manifest_total():
-    """The complete-but-approximate total should exceed the incomplete REST total — the two size
-    numbers fail in opposite directions, and this pins that the FTP one is the larger, fuller one."""
+def test_the_ftp_total_size_is_populated_and_consistent():
+    """The complete-project size is a positive estimate that sums the listing.
+
+    Deliberately *not* compared against the REST total: PRIDE reports decompressed sizes for `.gz`
+    files, so the incomplete REST total is inflated by an unbounded amount and the two numbers "fail
+    in opposite directions" (as the docs say) — an FTP-vs-REST inequality is not durable. What is
+    durable: the total is positive and at least the largest single file it sums.
+    """
     with external_service():
-        rest = pymzlib.pride.list_files(CANARY_ACCESSION)
         ftp = pymzlib.pride.list_ftp_files(CANARY_ACCESSION)
 
-    assert pymzlib.pride.approximate_total_size_bytes(ftp) > pymzlib.pride.total_size_bytes(rest)
+    total = pymzlib.pride.approximate_total_size_bytes(ftp)
+    assert total >= max(f.approximate_size_bytes for f in ftp) > 0

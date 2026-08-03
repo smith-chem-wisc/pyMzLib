@@ -352,11 +352,12 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     """Return the **complete** file list of a PRIDE project, read from its FTP directory tree.
 
     This is the authoritative counterpart to :func:`list_files`. Where ``list_files`` returns
-    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 the two largest
-    of the project's 13 files — this walks the FTP directory (subdirectories included) and returns
-    everything the project actually holds. Reach for it whenever completeness or a true project
-    size matters; use :func:`list_files` when you want the rich metadata (category, checksum,
-    controlled-vocabulary locations) that the REST manifest carries and the directory index does not.
+    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 five of the
+    project's 13 files, including the two largest — this walks the FTP directory (subdirectories
+    included) and returns everything the project actually holds. Reach for it whenever completeness
+    or a true project size matters; use :func:`list_files` when you want the rich metadata (category,
+    checksum, controlled-vocabulary locations) that the REST manifest carries and the directory
+    index does not.
 
     The sizes are approximate: PRIDE's directory index rounds them (see
     :attr:`PrideFtpFile.approximate_size_bytes`), so :func:`approximate_total_size_bytes` is an
@@ -365,7 +366,7 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
         >>> ftp = pymzlib.pride.list_ftp_files("PXD000001")           # doctest: +SKIP
         >>> len(ftp)                                                  # doctest: +SKIP
         13
-        >>> [f.relative_path for f in ftp if "generated/" in f.relative_path]   # doctest: +SKIP
+        >>> nested = [f.relative_path for f in ftp if "/" in f.relative_path]   # doctest: +SKIP
 
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
@@ -373,22 +374,49 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
 
     Returns:
         Every file under the project's FTP root, subdirectories included, in the order the walk
-        encounters them.
+        encounters them. Never empty — an empty result is raised as an error (see below).
 
     Raises:
         UsageError: the accession is blank or malformed.
-        BridgeError: the project does not exist, has no publication date locating its FTP
-            directory, or PRIDE was unreachable. (An unknown accession is an error here, not an
-            empty list — mzLib resolves the project before walking, so it fails loudly.)
+        ProjectNotFoundError: no project has that accession (or it lacks the publication date that
+            locates its FTP directory), or the directory listed no files. Same "no such project"
+            signal :func:`list_files` raises, so one ``except`` catches both — the difference from
+            ``list_files`` is only *how* it is detected (mzLib resolves the project before walking,
+            so a typo fails loudly rather than looking like an empty project).
+        ServiceUnavailableError / BridgeError: PRIDE was unreachable, or a directory fetch failed.
     """
     canonical = _normalise_accession(accession)
 
-    data = _bridge.invoke(
-        "pride", "ftp-files",
-        "--accession", canonical,
-        timeout=timeout,
-    )
-    return [PrideFtpFile._from_wire(item, canonical) for item in data.get("files", [])]
+    try:
+        data = _bridge.invoke(
+            "pride", "ftp-files",
+            "--accession", canonical,
+            timeout=timeout,
+        )
+    except _bridge.BridgeError as exc:
+        # mzLib resolves the project (and its publication date) before walking, so an unknown
+        # accession comes back as an MzLibException rather than an empty list. Re-map it to the same
+        # ProjectNotFoundError that list_files() raises so callers catch one type for "not there".
+        # ServiceUnavailableError (a BridgeError subclass) has a different error_type and is left to
+        # propagate — an outage is not a missing project.
+        if exc.error_type == "MzLibException":
+            raise ProjectNotFoundError(
+                f"PRIDE has no project '{canonical}' (or it lacks the publication date needed to "
+                "locate its FTP directory). Check for a typo — a private project looks the same."
+            ) from exc
+        raise
+
+    files = [PrideFtpFile._from_wire(item, canonical) for item in data.get("files", [])]
+    if not files:
+        # The project resolved but its FTP directory listed nothing. Almost always PRIDE changing
+        # its autoindex format, never a real published project. Raise rather than hand back [], the
+        # same "0 files, done" trap list_files() defends against.
+        raise ProjectNotFoundError(
+            f"The FTP directory for '{canonical}' listed no files. Either the project is genuinely "
+            "empty or PRIDE's directory-index format has changed; list_files() may still return "
+            "its REST manifest."
+        )
+    return files
 
 
 def download(

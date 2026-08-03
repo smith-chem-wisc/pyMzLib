@@ -156,15 +156,36 @@ def test_list_ftp_files_rejects_a_bad_accession_before_any_work(accession):
         pride.list_ftp_files(accession)
 
 
-def test_list_ftp_files_surfaces_a_bridge_failure(monkeypatch):
-    # An unknown accession is an error from mzLib's side (it resolves the project before walking),
-    # so it must reach the caller as a BridgeError, not a quietly empty list.
+def test_list_ftp_files_unknown_project_raises_project_not_found(monkeypatch):
+    # mzLib resolves the project before walking, so an unknown accession comes back as an
+    # MzLibException. list_ftp_files re-maps that to ProjectNotFoundError — the same "no such
+    # project" signal list_files raises — so a caller catches one type across both functions.
     def failing_invoke(*args, timeout=None):
-        raise _bridge.BridgeError("MzLibException", "No PRIDE project 'PXDBOGUS'.")
+        raise _bridge.BridgeError("MzLibException", "No PRIDE project 'PXD999999'.")
 
     monkeypatch.setattr(_bridge, "invoke", failing_invoke)
-    with pytest.raises(_bridge.BridgeError):
+    with pytest.raises(pride.ProjectNotFoundError):
         pride.list_ftp_files("PXD999999")  # valid form, so it reaches the bridge, then fails there
+
+
+def test_list_ftp_files_empty_listing_raises_rather_than_returning_empty(monkeypatch):
+    # The project resolved but the directory parsed to nothing (e.g. PRIDE changed its autoindex).
+    # That must not come back as [] — the "0 files, done" trap list_files also defends against.
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"files": []})
+    with pytest.raises(pride.ProjectNotFoundError):
+        pride.list_ftp_files("PXD000001")
+
+
+def test_list_ftp_files_transport_failure_stays_a_bridge_error(monkeypatch):
+    # Only "not found" (MzLibException) is re-mapped; a genuine transport failure keeps its
+    # BridgeError so a caller can still tell an outage/HTTP error from a missing project.
+    def failing_invoke(*args, timeout=None):
+        raise _bridge.BridgeError("HttpRequestException", "PRIDE listing failed with status 500.")
+
+    monkeypatch.setattr(_bridge, "invoke", failing_invoke)
+    with pytest.raises(_bridge.BridgeError) as caught:
+        pride.list_ftp_files("PXD000001")
+    assert not isinstance(caught.value, pride.ProjectNotFoundError)
 
 
 def test_aspera_only_file_is_not_downloadable():

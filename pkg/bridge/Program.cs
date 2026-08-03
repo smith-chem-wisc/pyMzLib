@@ -208,8 +208,9 @@ public static class Program
     /// <summary>
     /// <c>pride ftp-files --accession PXD000001</c> — the COMPLETE file list, read by walking the
     /// project's FTP directory tree (mzLib #1121). Unlike <c>pride files</c>, which returns PRIDE's
-    /// REST manifest — knowingly incomplete, omitting for PXD000001 the two largest of 13 files —
-    /// this is the authoritative list of everything the project actually holds, subdirectories
+    /// REST manifest — knowingly incomplete, omitting for PXD000001 five of its 13 files, including
+    /// the two largest — this is the authoritative list of everything the project actually holds,
+    /// subdirectories
     /// included. Sizes are PRIDE's rounded index sizes (see <see cref="ToWireFtpFile"/>), so the
     /// total is <c>approximate_total_size_bytes</c>, deliberately named to say it is an estimate.
     /// </summary>
@@ -226,7 +227,10 @@ public static class Program
         {
             accession,
             file_count = files.Count,
-            approximate_total_size_bytes = files.Sum(f => f.ApproximateSizeBytes),
+            // The mainland owns the total (mzLib #1121's TotalApproximateSizeBytes), which is
+            // null-safe — the same reason PrideFilesAsync uses files.TotalSizeBytes() rather than a
+            // hand-rolled Sum. Re-deriving it here would drop that and diverge from the sibling.
+            approximate_total_size_bytes = files.TotalApproximateSizeBytes(),
             files = files.Select(ToWireFtpFile).ToList(),
         };
     }

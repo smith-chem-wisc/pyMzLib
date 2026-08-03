@@ -16,7 +16,8 @@ envelope is not a breaking change unless Python callers can see it.
 - PRIDE complete file listing: `pymzlib.pride.list_ftp_files()` and `approximate_total_size_bytes()`,
   with the `PrideFtpFile` type — the authoritative file list read by walking a project's FTP
   directory tree (mzLib #1121), for the projects where PRIDE's REST manifest is incomplete (for
-  PXD000001 it omits the two largest of 13 files). Sizes are PRIDE's rounded index sizes, so the
+  PXD000001 it omits five of 13 files, including the two largest). Sizes are PRIDE's rounded index
+  sizes, so the
   total is an estimate over the whole project, the opposite trade-off from `total_size_bytes()`
   (exact-ish but over an incomplete manifest) (#12).
 - Peptidoforms: `pymzlib.peptidoform.fragments()` — digest an annotated UniProt protein, apply its

@@ -94,11 +94,15 @@ public class PrideLiveCanaryTests
                 Assert.That(ftpCount, Is.GreaterThan(restCount),
                     $"the FTP listing ({ftpCount}) should exceed the REST manifest ({restCount}); if PRIDE's REST API is now complete, the verb has lost its purpose");
 
-                JsonElement file = ftp.GetProperty("files")[0];
-                Assert.That(file.GetProperty("relative_path").GetString(), Is.Not.Empty);
-                Assert.That(file.GetProperty("url").GetString(), Does.StartWith("https://"),
-                    "the download URL must be the HTTPS location");
-                Assert.That(file.GetProperty("approximate_size_bytes").GetInt64(), Is.GreaterThan(0));
+                JsonElement[] files = ftp.GetProperty("files").EnumerateArray().ToArray();
+                Assert.That(files.All(f => f.GetProperty("relative_path").GetString() is { Length: > 0 }), Is.True,
+                    "every file must carry a relative path");
+                Assert.That(files.All(f => f.GetProperty("url").GetString()!.StartsWith("https://")), Is.True,
+                    "every download URL must be the HTTPS location");
+                // Not files[0]: the first-walked entry could one day be a 0-byte placeholder, which
+                // would make an index-pinned assertion a hard failure rather than proving the point.
+                Assert.That(files.Any(f => f.GetProperty("approximate_size_bytes").GetInt64() > 0), Is.True,
+                    "at least one file must report a positive size");
             });
         });
 
