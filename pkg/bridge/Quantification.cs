@@ -452,14 +452,8 @@ internal static class Quantification
             foreach (var replicate in conditionGroup.GroupBy(f => f.BiologicalReplicate).OrderBy(g => g.Key))
             {
                 SpectraFileInfo representative = replicate.First();
-                // The run name was handed to SpectraFileInfo as its path, so it survives whole in
-                // FullFilePathWithExtension. FilenameWithoutExtension would truncate it at the last
-                // dot — "QC.2" becomes "QC" — which both mislabels the sample and can collide two
-                // runs onto one key.
-                string label = labelByRunName
-                    ? representative.FullFilePathWithExtension
-                    : representative.Condition + "_" + (representative.BiologicalReplicate + 1);
-                samples.Add((label, replicate));
+                string label = labelByFileName
+                    ? representative.FilenameWithoutExtension
             }
         }
 
