@@ -605,10 +605,13 @@ def median_polish(
         use_shared_peptides: Let peptides shared between protein groups contribute to protein quant
             (FlashLFQ's ``UseSharedPeptidesForProteinQuant``). Off by default; when off, a group with
             only shared peptides quantifies to ``0.0``.
-        output_directory: If given, also write a FlashLFQ ``QuantifiedProteins.tsv`` there. Its
-            column headers follow FlashLFQ's own naming, which is not always identical to the keys of
-            the returned objects' :attr:`~ProteinGroup.intensities` — the returned list is the
-            primary result and this file is a convenience.
+        output_directory: If given, also write a FlashLFQ ``QuantifiedProteins.tsv`` there. For
+            **unfractionated** data its column headers do not match the keys of the returned objects'
+            :attr:`~ProteinGroup.intensities`: FlashLFQ labels a sample by file name exactly when a
+            design *is* given, and writes ``Intensity__1`` when one is not (an inverted condition,
+            smith-chem-wisc/mzLib#1128, fixed by mzLib#1129 — the columns will agree once pyMzLib
+            re-pins). The values agree either way. The returned list is the primary result and this
+            file is a convenience.
         timeout: Seconds to allow; ``None`` waits indefinitely.
 
     Returns:

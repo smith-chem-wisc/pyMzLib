@@ -421,4 +421,120 @@ public class QuantificationTests
         JsonElement root = RunMedianPolish("﻿run_1\tcontrol\n", "quant", "median-polish", "--peptides", path);
         Assert.That(ProteinsByName(root)["P1"].GetProperty("intensities").TryGetProperty("control_1", out _), Is.True);
     }
+
+    /// <summary>Writes a peptide table verbatim from the given lines and returns its path.</summary>
+    private string WriteRawPeptideTable(params string[] lines)
+    {
+        string path = Path.Combine(_tempDirectory, "QuantifiedPeptides.tsv");
+        File.WriteAllLines(path, lines);
+        return path;
+    }
+
+    [Test]
+    public void MedianPolish_UnparseableIntensity_IsRejected()
+    {
+        // Reading a non-numeric cell as 0 would turn a corrupt table into a table of "not measured",
+        // which is indistinguishable from a real result once it reaches the caller.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\tnot_a_number\tMSMS");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("Intensity_run_1").And.Contain("not_a_number"));
+    }
+
+    [Test]
+    public void MedianPolish_BlankIntensity_IsNotMeasured()
+    {
+        // A blank cell is how FlashLFQ says "not measured", and must stay legal.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t\tNotDetected");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        Assert.That(Intensity(ProteinsByName(root)["P1"], "run_1"), Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void MedianPolish_UnparseableDetectionType_IsRejected()
+    {
+        // The column is present and says something the reader does not recognise. Guessing here would
+        // overwrite what the table actually said.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\tTeleported");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("Detection Type_run_1").And.Contain("Teleported"));
+    }
+
+    [Test]
+    public void MedianPolish_AbsentDetectionTypeColumn_IsInferredFromIntensity()
+    {
+        // No Detection Type_ column at all: the table says nothing, so inferring is the only way to
+        // keep the peptide usable for protein quant. This is the one inference the verb makes.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tIntensity_run_2",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\t2000",
+            "AAAAAR\tAAAAAR\tP1\tGENE\tHomo sapiens\t500\t1000");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        Assert.That(Intensity(ProteinsByName(root)["P1"], "run_1"), Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void MedianPolish_RunNameContainingADot_KeepsItsWholeName()
+    {
+        // The run name stands in for a file path, so a base-name-style read would truncate "QC.2" to
+        // "QC" — mislabelling the sample, and colliding two runs onto one key.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_QC.1\tIntensity_QC.2",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\t2000",
+            "AAAAAR\tAAAAAR\tP1\tGENE\tHomo sapiens\t500\t1000");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        JsonElement intensities = ProteinsByName(root)["P1"].GetProperty("intensities");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intensities.TryGetProperty("QC.1", out _), Is.True, "QC.1 should survive whole");
+            Assert.That(intensities.TryGetProperty("QC.2", out _), Is.True, "QC.2 should survive whole");
+        });
+    }
+
+    [Test]
+    public void MedianPolish_DuplicateSequence_IsRejected()
+    {
+        // Sequence keys the peptide graph, so the second row would silently overwrite the first's
+        // measurements and the protein would be quantified from half a table.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\tMSMS",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t9999\tMSMS");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("PEPTIDEK"));
+    }
+
+    [Test]
+    public void MedianPolish_WritesTheSampleOrderTheEngineUses()
+    {
+        // The engine walks conditions in order, then biological replicates. samples[i] here must be
+        // the engine's sample i, so the two cannot drift apart.
+        string[] runs = { "run_1", "run_2", "run_3" };
+        string path = WritePeptideTable(runs,
+            ("PEPTIDEK", "P1", new[] { 1000.0, 2000, 3000 }),
+            ("AAAAAR", "P1", new[] { 500.0, 1000, 1500 }));
+
+        // Deliberately out of alphabetical order on stdin.
+        string design = "run_1\tbeta\t0\nrun_2\talpha\t0\nrun_3\talpha\t1\n";
+        JsonElement root = RunMedianPolish(design, "quant", "median-polish", "--peptides", path);
+
+        var labels = root.GetProperty("samples").EnumerateArray()
+            .Select(s => s.GetProperty("label").GetString()).ToList();
+        Assert.That(labels, Is.EqualTo(new[] { "alpha_1", "alpha_2", "beta_1" }));
+    }
 }
