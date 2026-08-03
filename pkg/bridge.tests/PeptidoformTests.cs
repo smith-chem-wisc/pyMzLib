@@ -148,6 +148,32 @@ public class PeptidoformTests
     }
 
     [Test]
+    public async Task Etd_ProducesCAndZDotButNoYIons_PerMzLib1114()
+    {
+        // mzLib #1114 removed y from the ETD/ECD product sets (radical N-Ca cleavage yields c/z only).
+        // Pinned at the bridge so a re-pin that regressed it - or a stale build against a pre-#1114
+        // mzLib - fails here, and so the "spurious ETD y ion" caveat this test replaced can never
+        // quietly come back true.
+        UseXml(MiniEntryXml);
+
+        JsonElement data = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00001", "--dissociation", "ETD");
+
+        string[] productTypes = data.GetProperty("peptides").EnumerateArray()
+            .SelectMany(p => p.GetProperty("fragments").EnumerateArray())
+            .Select(f => f.GetProperty("product_type").GetString()!)
+            .Distinct().OrderBy(s => s, StringComparer.Ordinal).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(productTypes, Does.Contain("c"));
+            Assert.That(productTypes, Does.Contain("zDot"));
+            Assert.That(productTypes, Does.Not.Contain("y"),
+                "mzLib #1114 removed y from ETD; its return means the pin regressed below f6b0f0d1 or the build is stale");
+        });
+    }
+
+    [Test]
     public async Task TheCensusNamesEachFeatureTypeAndWhetherItWasLoaded()
     {
         UseXml(MiniEntryXml);
