@@ -16,8 +16,14 @@ files = pymzlib.pride.list_files("PXD000001")
 print(len(files))          # 8
 ```
 
-You get the **complete** manifest. PRIDE serves file lists in pages; that is handled for you, so
-a project with 4,000 files returns 4,000 entries in one list, not the first 100.
+Paging is handled for you: PRIDE serves file lists in pages, so a project with 4,000 files returns
+4,000 entries in one list, not the first 100.
+
+!!! warning "This is PRIDE's REST manifest, which is not always the whole project"
+    `list_files()` returns what PRIDE's REST API publishes — and that is sometimes incomplete. For
+    PXD000001 it returns **8** files while the project's FTP tree holds **13**, omitting the two
+    largest (the ~450 MB `.mzML` and `.mzXML` conversions). When completeness matters, use
+    [`list_ftp_files()`](#the-complete-file-list-from-the-ftp-tree) instead.
 
 Accessions are case-insensitive and whitespace is trimmed — `"pxd000001"` works — but an accession
 that doesn't exist **raises** rather than returning nothing:
@@ -69,6 +75,72 @@ raw = [f for f in files if f.category == "RAW"]
 gb = pymzlib.pride.total_size_bytes(raw) / 1e9
 print(f"{len(raw)} raw files, {gb:.1f} GB")
 ```
+
+!!! warning "`total_size_bytes()` has two blind spots"
+    It sums over the REST manifest — which is **incomplete** — and PRIDE frequently reports the
+    *decompressed* size for `.gz` files. For PXD000001 it returns 0.51 GB where the project on disk
+    is 1.44 GB. The two errors run in opposite directions and do not cancel. For a size that covers
+    the whole project, use `approximate_total_size_bytes()` over the FTP listing below.
+
+## The complete file list (from the FTP tree)
+
+When you need to know *everything* a project holds — not just what its REST manifest lists —
+`list_ftp_files()` walks the project's FTP directory tree and returns the authoritative list,
+subdirectories included:
+
+```python
+ftp = pymzlib.pride.list_ftp_files("PXD000001")
+print(len(ftp))          # 13, not the 8 the REST manifest reports
+```
+
+Each entry is a [`PrideFtpFile`](../reference.md):
+
+```python
+f = ftp[0]
+
+f.relative_path          # 'run1.raw', or 'generated/summary.mztab' for a nested file
+f.file_name              # 'summary.mztab' — the bare leaf name
+f.url                    # the HTTPS URL to download from
+f.approximate_size_bytes # PRIDE's rounded index size (see below)
+f.approximate_size_mb    # the same, in MB
+f.extension              # '.raw'
+```
+
+The whole project's size, covering every file this time:
+
+```python
+gb = pymzlib.pride.approximate_total_size_bytes(ftp) / 1e9
+print(f"{len(ftp)} files, ~{gb:.2f} GB")     # ~1.44 GB
+```
+
+!!! note "Why *approximate*"
+    PRIDE's FTP directory index rounds each size to about three significant figures (its `429M`
+    becomes 449,839,104 bytes), so these are good for a project-size estimate but are **not** exact.
+    When you need the precise transfer size of one file — to budget a download against — issue an
+    HTTP `HEAD` against its `url` and read the `Content-Length`.
+
+**Which listing should you use?** Reach for `list_files()` when you want the rich per-file metadata
+(category, checksum, controlled-vocabulary locations) the REST manifest carries — it is what
+`download()` and `download_files()` select from. Reach for `list_ftp_files()` when completeness or a
+true project size matters, and the REST manifest might be hiding files. An unknown accession
+**raises** `ProjectNotFoundError` here too, the same as `list_files()` — mzLib resolves the project
+before walking, so a typo fails loudly rather than returning an empty list.
+
+!!! warning "Downloading a file that only the FTP listing found"
+    `download()` and `download_files()` operate on the **REST manifest**, so a file that appears
+    *only* in `list_ftp_files()` — the whole point of that function — cannot be passed to them.
+    Fetch it directly from its `url` (a plain HTTPS GET), which is always populated:
+
+    ```python
+    import urllib.request
+
+    ftp = pymzlib.pride.list_ftp_files("PXD000001")
+    hidden = next(f for f in ftp if f.relative_path.endswith(".mzML"))
+    urllib.request.urlretrieve(hidden.url, hidden.file_name)
+    ```
+
+    (Note the field names differ by type: a `PrideFtpFile` exposes `url` — always the HTTPS
+    location — while a `PrideFile` exposes `https_url`, which is `None` for Aspera-only files.)
 
 ## Downloading what you selected
 

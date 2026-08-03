@@ -106,6 +106,135 @@ public class VerbHandlerTests
         Assert.That(seen, Does.Contain("pageSize=7"));
     }
 
+    // ---- pride ftp-files -----------------------------------------------------
+    //
+    // The complete listing, walked from the FTP directory tree (mzLib #1121). The stub serves the
+    // project metadata (for the publication date that locates the FTP root) and Apache autoindex
+    // pages, dispatched by URI — the same fixture shape mzLib's own PrideFtpListingTests uses.
+
+    private static HttpResponseMessage Html(string body) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "text/html") };
+
+    private const string FtpProjectJson =
+        """{ "accession": "PXD000001", "publicationDate": "2012-03-13" }""";
+
+    private const string FtpRootUrl = "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/";
+    private const string FtpGeneratedUrl = FtpRootUrl + "generated/";
+
+    // Three top-level files (one of which the REST manifest omits) plus a subdirectory to descend.
+    private const string FtpRootIndexHtml = """
+        <html><body><table>
+        <tr><th><a href="?C=N;O=D">Name</a></th><th><a href="?C=M;O=A">Last modified</a></th><th><a href="?C=S;O=A">Size</a></th></tr>
+        <tr><td><a href="/pride/data/archive/2012/03/">Parent Directory</a></td><td>&nbsp;</td><td align="right">  - </td></tr>
+        <tr><td><a href="README.txt">README.txt</a></td><td align="right">2021-10-20 04:56  </td><td align="right">1.6K</td></tr>
+        <tr><td><a href="run1.raw">run1.raw</a></td><td align="right">2021-10-20 04:56  </td><td align="right">210M</td></tr>
+        <tr><td><a href="hidden_from_rest.mzML">hidden_from_rest.mzML</a></td><td align="right">2021-10-20 04:56  </td><td align="right">429M</td></tr>
+        <tr><td><a href="generated/">generated/</a></td><td align="right">2021-10-20 04:56  </td><td align="right">  - </td></tr>
+        </table></body></html>
+        """;
+
+    private const string FtpGeneratedIndexHtml = """
+        <html><body><table>
+        <tr><th><a href="?C=N;O=D">Name</a></th></tr>
+        <tr><td><a href="/pride/data/archive/2012/03/PXD000001/">Parent Directory</a></td><td align="right">  - </td></tr>
+        <tr><td><a href="summary.mztab">summary.mztab</a></td><td align="right">2021-10-20 04:56  </td><td align="right">844K</td></tr>
+        </table></body></html>
+        """;
+
+    private static void UseFtpStub() => UseStub(request =>
+    {
+        string uri = request.RequestUri!.ToString();
+        if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Json(FtpProjectJson);
+        if (uri == FtpRootUrl) return Html(FtpRootIndexHtml);
+        if (uri == FtpGeneratedUrl) return Html(FtpGeneratedIndexHtml);
+        return new HttpResponseMessage(HttpStatusCode.NotFound);
+    });
+
+    [Test]
+    public async Task PrideFtpFiles_WalksTheTreeAndSurfacesFilesTheRestManifestOmits()
+    {
+        UseFtpStub();
+
+        JsonElement data = await InvokeAsync("pride", "ftp-files", "--accession", "PXD000001");
+        string[] paths = data.GetProperty("files").EnumerateArray()
+            .Select(f => f.GetProperty("relative_path").GetString()!).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("accession").GetString(), Is.EqualTo("PXD000001"));
+            // The whole point of the verb: the complete set, including a subdirectory file and the
+            // one a REST manifest would hide. "Parent Directory" and the column-sort links are not files.
+            Assert.That(paths, Is.EquivalentTo(new[]
+            {
+                "README.txt", "run1.raw", "hidden_from_rest.mzML", "generated/summary.mztab",
+            }));
+            Assert.That(data.GetProperty("file_count").GetInt32(), Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public async Task PrideFtpFiles_ProjectsRelativePathLeafNameUrlAndApproximateSize()
+    {
+        UseFtpStub();
+
+        JsonElement data = await InvokeAsync("pride", "ftp-files", "--accession", "PXD000001");
+        JsonElement nested = data.GetProperty("files").EnumerateArray()
+            .Single(f => f.GetProperty("relative_path").GetString() == "generated/summary.mztab");
+
+        Assert.Multiple(() =>
+        {
+            // A nested file keeps its subdirectory in relative_path but exposes a bare leaf file_name,
+            // and its url is the HTTPS location a caller can download from.
+            Assert.That(nested.GetProperty("file_name").GetString(), Is.EqualTo("summary.mztab"));
+            Assert.That(nested.GetProperty("url").GetString(), Is.EqualTo(FtpGeneratedUrl + "summary.mztab"));
+            Assert.That(nested.GetProperty("approximate_size_bytes").GetInt64(),
+                Is.EqualTo((long)Math.Round(844 * 1024.0)));
+
+            // The reported total is the sum of the (approximate) index sizes, named to say so.
+            long expectedTotal = (long)Math.Round(1.6 * 1024)
+                + 210L * 1024 * 1024 + 429L * 1024 * 1024 + (long)Math.Round(844 * 1024.0);
+            Assert.That(data.GetProperty("approximate_total_size_bytes").GetInt64(), Is.EqualTo(expectedTotal));
+        });
+    }
+
+    // ---- ftp-files failure classification ------------------------------------
+    //
+    // The bridge half of the contract the Python layer's ProjectNotFoundError re-map depends on.
+    // The FTP walk resolves the project over the REST API first, so an unknown accession is a 404
+    // there (not on the autoindex): mzLib turns that into an MzLibException, which must cross as the
+    // type string "MzLibException" that list_ftp_files() keys on. Previously covered only in Python.
+
+    [Test]
+    public void PrideFtpFiles_UnknownProject_SurfacesMzLibExceptionTheBindingsRemap()
+    {
+        // Every request 404s, so the REST project lookup returns not-found and mzLib throws
+        // MzLibException before any FTP walk begins.
+        UseStub(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "ftp-files", "--accession", "PXD999999"));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo("MzLibException"),
+            "an unknown accession must cross as MzLibException — the type list_ftp_files re-maps to ProjectNotFoundError");
+    }
+
+    [Test]
+    public void PrideFtpFiles_ProjectLookupUnavailable_ClassifiesAsServiceUnavailableNotNotFound()
+    {
+        // A 503 on the project lookup is an outage, not an absent project. mzLib throws
+        // HttpRequestException (not MzLibException), so the not-found re-map must NOT swallow it.
+        UseStub(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "ftp-files", "--accession", "PXD999999"));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo(Program.ServiceUnavailableType));
+    }
+
+    [Test]
+    public void PrideFtpFiles_NoAccession_IsAUsageError() =>
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("pride", "ftp-files"));
+
     // ---- failure classification ---------------------------------------------
     //
     // This is the behavior the whole external-service convention rests on: a caller must be able to
