@@ -95,3 +95,50 @@ def test_a_real_download_still_works_end_to_end(tmp_path):
     assert written[0].is_file()
     assert written[0].stat().st_size > 0
     assert not list(tmp_path.glob("*.partial")), "no partial file may survive a successful download"
+
+
+# ------------------------------------------------------------------- ftp-files
+
+
+def test_the_ftp_listing_is_more_complete_than_the_rest_manifest():
+    """The whole reason list_ftp_files exists: the FTP tree holds files the REST manifest omits.
+
+    Asserted as a comparison (FTP > REST), not a hard count, so it survives PRIDE re-curating the
+    project — while still catching the two ways this could break: the FTP walk finding nothing, or
+    the REST manifest quietly becoming complete (in which case the extra verb has lost its purpose).
+    """
+    with external_service():
+        rest = pymzlib.pride.list_files(CANARY_ACCESSION)
+        ftp = pymzlib.pride.list_ftp_files(CANARY_ACCESSION)
+
+    assert ftp, "the FTP walk returned nothing for a project known to have files"
+    assert len(ftp) > len(rest), (
+        f"the FTP listing ({len(ftp)}) should exceed the REST manifest ({len(rest)}); if PRIDE's "
+        "REST API has become complete, list_ftp_files no longer earns its place."
+    )
+
+
+def test_the_ftp_fields_the_python_layer_reads_are_still_populated():
+    with external_service():
+        ftp = pymzlib.pride.list_ftp_files(CANARY_ACCESSION)
+
+    first = ftp[0]
+    assert first.relative_path
+    assert first.file_name
+    assert first.url.startswith("https://"), "the download URL must be the HTTPS location"
+    assert first.approximate_size_bytes > 0
+
+
+def test_the_ftp_total_size_is_populated_and_consistent():
+    """The complete-project size is a positive estimate that sums the listing.
+
+    Deliberately *not* compared against the REST total: PRIDE reports decompressed sizes for `.gz`
+    files, so the incomplete REST total is inflated by an unbounded amount and the two numbers "fail
+    in opposite directions" (as the docs say) — an FTP-vs-REST inequality is not durable. What is
+    durable: the total is positive and at least the largest single file it sums.
+    """
+    with external_service():
+        ftp = pymzlib.pride.list_ftp_files(CANARY_ACCESSION)
+
+    total = pymzlib.pride.approximate_total_size_bytes(ftp)
+    assert total >= max(f.approximate_size_bytes for f in ftp) > 0

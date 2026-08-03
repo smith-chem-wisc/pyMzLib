@@ -162,6 +162,7 @@ public static class Program
         {
             "version" => VersionInfo(),
             "pride files" => await PrideFilesAsync(arguments).ConfigureAwait(false),
+            "pride ftp-files" => await PrideFtpFilesAsync(arguments).ConfigureAwait(false),
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
             "quant flashlfq" => Quantification.FlashLfq(arguments),
@@ -170,7 +171,7 @@ public static class Program
             "readers identify" => Reading.Identify(arguments),
             "readers read-results" => Reading.ReadResults(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results."),
         };
     }
 
@@ -183,8 +184,10 @@ public static class Program
     };
 
     /// <summary>
-    /// <c>pride files --accession PXD000001 [--page-size 100]</c> — the full file manifest of a
-    /// PRIDE Archive project, with paging already resolved by mzLib.
+    /// <c>pride files --accession PXD000001 [--page-size 100]</c> — PRIDE's REST file manifest for a
+    /// project, with paging already resolved by mzLib. This is what the REST API publishes, which is
+    /// knowingly incomplete for some projects (see <see cref="PrideFtpFilesAsync"/>, which walks the
+    /// FTP tree for the complete list).
     /// </summary>
     private static async Task<object> PrideFilesAsync(Arguments arguments)
     {
@@ -202,6 +205,36 @@ public static class Program
             file_count = files.Count,
             total_size_bytes = files.TotalSizeBytes(),
             files = files.Select(ToWireFile).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// <c>pride ftp-files --accession PXD000001</c> — the COMPLETE file list, read by walking the
+    /// project's FTP directory tree (mzLib #1121). Unlike <c>pride files</c>, which returns PRIDE's
+    /// REST manifest — knowingly incomplete, omitting for PXD000001 five of its 13 files, including
+    /// the two largest — this is the authoritative list of everything the project actually holds,
+    /// subdirectories
+    /// included. Sizes are PRIDE's rounded index sizes (see <see cref="ToWireFtpFile"/>), so the
+    /// total is <c>approximate_total_size_bytes</c>, deliberately named to say it is an estimate.
+    /// </summary>
+    private static async Task<object> PrideFtpFilesAsync(Arguments arguments)
+    {
+        string accession = arguments.Required("accession");
+
+        using PrideArchiveClient client = PrideClientFactory();
+        List<PrideFtpFile> files = await client
+            .GetProjectFilesFromFtpAsync(accession, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        return new
+        {
+            accession,
+            file_count = files.Count,
+            // The mainland owns the total (mzLib #1121's TotalApproximateSizeBytes), which is
+            // null-safe — the same reason PrideFilesAsync uses files.TotalSizeBytes() rather than a
+            // hand-rolled Sum. Re-deriving it here would drop that and diverge from the sibling.
+            approximate_total_size_bytes = files.TotalApproximateSizeBytes(),
+            files = files.Select(ToWireFtpFile).ToList(),
         };
     }
 
@@ -337,6 +370,20 @@ public static class Program
         accession = term.Accession,
         name = term.Name,
         value = term.Value,
+    };
+
+    /// <summary>
+    /// Flattens a <see cref="PrideFtpFile"/> into the wire shape. <c>approximate_size_bytes</c> is
+    /// PRIDE's autoindex size, rounded to about three significant figures — good for a project-size
+    /// estimate but not the exact transfer size, which a caller wanting bytes-to-budget gets from an
+    /// HTTP HEAD on <c>url</c>. The field is named to make that imprecision impossible to miss.
+    /// </summary>
+    internal static object ToWireFtpFile(PrideFtpFile file) => new
+    {
+        relative_path = file.RelativePath,
+        file_name = file.FileName,
+        url = file.Url,
+        approximate_size_bytes = file.ApproximateSizeBytes,
     };
 
     private static void WriteJson(Envelope envelope) =>

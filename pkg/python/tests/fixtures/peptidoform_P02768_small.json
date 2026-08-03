@@ -53,13 +53,6 @@
                                                "residue_position":  1
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  1,
-                                               "neutral_mass":  146.10552769921998,
-                                               "neutral_loss":  0,
-                                               "residue_position":  31
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  1,
                                                "neutral_mass":  130.08680364488805,
@@ -72,13 +65,6 @@
                                                "neutral_mass":  201.1477268648,
                                                "neutral_loss":  0,
                                                "residue_position":  2
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  2,
-                                               "neutral_mass":  217.14264148436996,
-                                               "neutral_loss":  0,
-                                               "residue_position":  30
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -95,13 +81,6 @@
                                                "residue_position":  3
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  3,
-                                               "neutral_mass":  364.21105539843995,
-                                               "neutral_loss":  0,
-                                               "residue_position":  29
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  3,
                                                "neutral_mass":  348.192331344108,
@@ -114,13 +93,6 @@
                                                "neutral_mass":  413.30020475739997,
                                                "neutral_loss":  0,
                                                "residue_position":  4
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  4,
-                                               "neutral_mass":  493.25364848718993,
-                                               "neutral_loss":  0,
-                                               "residue_position":  28
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -137,13 +109,6 @@
                                                "residue_position":  5
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  5,
-                                               "neutral_mass":  594.30132695637,
-                                               "neutral_loss":  0,
-                                               "residue_position":  27
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  5,
                                                "neutral_mass":  578.2826029020381,
@@ -156,13 +121,6 @@
                                                "neutral_mass":  597.4213825210801,
                                                "neutral_loss":  0,
                                                "residue_position":  6
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  6,
-                                               "neutral_mass":  693.36974087044,
-                                               "neutral_loss":  0,
-                                               "residue_position":  26
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -179,13 +137,6 @@
                                                "residue_position":  7
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  7,
-                                               "neutral_mass":  822.4123339591899,
-                                               "neutral_loss":  0,
-                                               "residue_position":  25
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  7,
                                                "neutral_mass":  806.3936099048581,
@@ -198,13 +149,6 @@
                                                "neutral_mass":  815.5269102203001,
                                                "neutral_loss":  0,
                                                "residue_position":  8
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  8,
-                                               "neutral_mass":  936.45526140057,
-                                               "neutral_loss":  0,
-                                               "residue_position":  24
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -221,13 +165,6 @@
                                                "residue_position":  9
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  9,
-                                               "neutral_mass":  1035.52367531464,
-                                               "neutral_loss":  0,
-                                               "residue_position":  23
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  9,
                                                "neutral_mass":  1019.5049512603081,
@@ -240,13 +177,6 @@
                                                "neutral_mass":  1106.6488162597802,
                                                "neutral_loss":  0,
                                                "residue_position":  10
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  10,
-                                               "neutral_mass":  1148.60773929317,
-                                               "neutral_loss":  0,
-                                               "residue_position":  22
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -263,13 +193,6 @@
                                                "residue_position":  11
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  11,
-                                               "neutral_mass":  1276.70270230836,
-                                               "neutral_loss":  0,
-                                               "residue_position":  21
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  11,
                                                "neutral_mass":  1260.683978254028,
@@ -282,13 +205,6 @@
                                                "neutral_mass":  1347.7914577441502,
                                                "neutral_loss":  0,
                                                "residue_position":  12
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  12,
-                                               "neutral_mass":  1375.77111622243,
-                                               "neutral_loss":  0,
-                                               "residue_position":  20
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -305,13 +221,6 @@
                                                "residue_position":  13
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  13,
-                                               "neutral_mass":  1512.8300280809,
-                                               "neutral_loss":  0,
-                                               "residue_position":  19
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  13,
                                                "neutral_mass":  1496.8113040265682,
@@ -324,13 +233,6 @@
                                                "neutral_mass":  1578.8592202095401,
                                                "neutral_loss":  0,
                                                "residue_position":  14
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  14,
-                                               "neutral_mass":  1627.85697110519,
-                                               "neutral_loss":  0,
-                                               "residue_position":  18
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -347,13 +249,6 @@
                                                "residue_position":  15
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  15,
-                                               "neutral_mass":  1756.89956419394,
-                                               "neutral_loss":  0,
-                                               "residue_position":  17
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  15,
                                                "neutral_mass":  1740.8808401396082,
@@ -364,13 +259,6 @@
                                                "product_type":  "c",
                                                "fragment_number":  16,
                                                "neutral_mass":  1822.9803979732203,
-                                               "neutral_loss":  0,
-                                               "residue_position":  16
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  16,
-                                               "neutral_mass":  1903.9679781080101,
                                                "neutral_loss":  0,
                                                "residue_position":  16
                                            },
@@ -389,25 +277,11 @@
                                                "residue_position":  17
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  17,
-                                               "neutral_mass":  2001.0207419576202,
-                                               "neutral_loss":  0,
-                                               "residue_position":  15
-                                           },
-                                           {
                                                "product_type":  "c",
                                                "fragment_number":  18,
                                                "neutral_mass":  2067.0499340862602,
                                                "neutral_loss":  0,
                                                "residue_position":  18
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  18,
-                                               "neutral_mass":  2104.0299269171705,
-                                               "neutral_loss":  0,
-                                               "residue_position":  14
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -424,13 +298,6 @@
                                                "residue_position":  19
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  19,
-                                               "neutral_mass":  2232.0885044230104,
-                                               "neutral_loss":  0,
-                                               "residue_position":  13
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  19,
                                                "neutral_mass":  2216.069780368678,
@@ -443,13 +310,6 @@
                                                "neutral_mass":  2303.1772598588,
                                                "neutral_loss":  0,
                                                "residue_position":  20
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  20,
-                                               "neutral_mass":  2360.14708192885,
-                                               "neutral_loss":  0,
-                                               "residue_position":  12
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -466,13 +326,6 @@
                                                "residue_position":  21
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  21,
-                                               "neutral_mass":  2473.2311459073803,
-                                               "neutral_loss":  0,
-                                               "residue_position":  11
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  21,
                                                "neutral_mass":  2457.212421853048,
@@ -485,13 +338,6 @@
                                                "neutral_mass":  2544.35628685252,
                                                "neutral_loss":  0,
                                                "residue_position":  22
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  22,
-                                               "neutral_mass":  2636.29447444102,
-                                               "neutral_loss":  0,
-                                               "residue_position":  10
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -508,13 +354,6 @@
                                                "residue_position":  23
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  23,
-                                               "neutral_mass":  2764.35305194686,
-                                               "neutral_loss":  0,
-                                               "residue_position":  9
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  23,
                                                "neutral_mass":  2748.3343278925277,
@@ -527,13 +366,6 @@
                                                "neutral_mass":  2757.46762820797,
                                                "neutral_loss":  0,
                                                "residue_position":  24
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  24,
-                                               "neutral_mass":  2835.39016573201,
-                                               "neutral_loss":  0,
-                                               "residue_position":  8
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -550,13 +382,6 @@
                                                "residue_position":  25
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  25,
-                                               "neutral_mass":  2982.4585796460797,
-                                               "neutral_loss":  0,
-                                               "residue_position":  7
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  25,
                                                "neutral_mass":  2966.4398555917473,
@@ -569,13 +394,6 @@
                                                "neutral_mass":  2985.57863521079,
                                                "neutral_loss":  0,
                                                "residue_position":  26
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  26,
-                                               "neutral_mass":  3053.4956934312295,
-                                               "neutral_loss":  0,
-                                               "residue_position":  6
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -592,13 +410,6 @@
                                                "residue_position":  27
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  27,
-                                               "neutral_mass":  3166.5797574097596,
-                                               "neutral_loss":  0,
-                                               "residue_position":  5
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  27,
                                                "neutral_mass":  3150.5610333554273,
@@ -611,13 +422,6 @@
                                                "neutral_mass":  3215.66890676872,
                                                "neutral_loss":  0,
                                                "residue_position":  28
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  28,
-                                               "neutral_mass":  3279.6638213882898,
-                                               "neutral_loss":  0,
-                                               "residue_position":  4
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -634,13 +438,6 @@
                                                "residue_position":  29
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  29,
-                                               "neutral_mass":  3378.7322353023596,
-                                               "neutral_loss":  0,
-                                               "residue_position":  3
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  29,
                                                "neutral_mass":  3362.7135112480273,
@@ -653,13 +450,6 @@
                                                "neutral_mass":  3433.7744344679395,
                                                "neutral_loss":  0,
                                                "residue_position":  30
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  30,
-                                               "neutral_mass":  3491.81629928089,
-                                               "neutral_loss":  0,
-                                               "residue_position":  2
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -705,13 +495,6 @@
                                                "residue_position":  1
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  1,
-                                               "neutral_mass":  246.12157169922,
-                                               "neutral_loss":  0,
-                                               "residue_position":  35
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  1,
                                                "neutral_mass":  230.10284764488804,
@@ -724,13 +507,6 @@
                                                "neutral_mass":  270.18042397478,
                                                "neutral_loss":  0,
                                                "residue_position":  2
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  2,
-                                               "neutral_mass":  375.16416478797,
-                                               "neutral_loss":  0,
-                                               "residue_position":  34
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -747,13 +523,6 @@
                                                "residue_position":  3
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  3,
-                                               "neutral_mass":  462.19619319269,
-                                               "neutral_loss":  0,
-                                               "residue_position":  33
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  3,
                                                "neutral_mass":  446.17746913835805,
@@ -766,13 +535,6 @@
                                                "neutral_mass":  520.2580228484001,
                                                "neutral_loss":  0,
                                                "residue_position":  4
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  4,
-                                               "neutral_mass":  575.28025717122,
-                                               "neutral_loss":  0,
-                                               "residue_position":  32
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -789,13 +551,6 @@
                                                "residue_position":  5
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  5,
-                                               "neutral_mass":  676.3279356404,
-                                               "neutral_loss":  0,
-                                               "residue_position":  31
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  5,
                                                "neutral_mass":  660.3092115860682,
@@ -808,13 +563,6 @@
                                                "neutral_mass":  678.3271650382701,
                                                "neutral_loss":  0,
                                                "residue_position":  6
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  6,
-                                               "neutral_mass":  779.33712059995,
-                                               "neutral_loss":  0,
-                                               "residue_position":  30
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -831,13 +579,6 @@
                                                "residue_position":  7
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  7,
-                                               "neutral_mass":  892.42118457848,
-                                               "neutral_loss":  0,
-                                               "residue_position":  29
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  7,
                                                "neutral_mass":  876.4024605241482,
@@ -850,13 +591,6 @@
                                                "neutral_mass":  920.4538221055501,
                                                "neutral_loss":  0,
                                                "residue_position":  8
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  8,
-                                               "neutral_mass":  1007.44812760277,
-                                               "neutral_loss":  0,
-                                               "residue_position":  28
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -873,13 +607,6 @@
                                                "residue_position":  9
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  9,
-                                               "neutral_mass":  1078.48524138792,
-                                               "neutral_loss":  0,
-                                               "residue_position":  27
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  9,
                                                "neutral_mass":  1062.4665173335882,
@@ -892,13 +619,6 @@
                                                "neutral_mass":  1134.54917904391,
                                                "neutral_loss":  0,
                                                "residue_position":  10
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  10,
-                                               "neutral_mass":  1215.5441532463901,
-                                               "neutral_loss":  0,
-                                               "residue_position":  26
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -915,13 +635,6 @@
                                                "residue_position":  11
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  11,
-                                               "neutral_mass":  1362.6125671604602,
-                                               "neutral_loss":  0,
-                                               "residue_position":  25
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  11,
                                                "neutral_mass":  1346.5938431061284,
@@ -934,13 +647,6 @@
                                                "neutral_mass":  1364.63945060184,
                                                "neutral_loss":  0,
                                                "residue_position":  12
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  12,
-                                               "neutral_mass":  1463.6602456296403,
-                                               "neutral_loss":  0,
-                                               "residue_position":  24
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -957,13 +663,6 @@
                                                "residue_position":  13
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  13,
-                                               "neutral_mass":  1610.7286595437104,
-                                               "neutral_loss":  0,
-                                               "residue_position":  23
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  13,
                                                "neutral_mass":  1594.7099354893785,
@@ -976,13 +675,6 @@
                                                "neutral_mass":  1626.7711930495502,
                                                "neutral_loss":  0,
                                                "residue_position":  14
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  14,
-                                               "neutral_mass":  1711.7763380128904,
-                                               "neutral_loss":  0,
-                                               "residue_position":  22
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -999,13 +691,6 @@
                                                "residue_position":  15
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  15,
-                                               "neutral_mass":  1840.8189311016404,
-                                               "neutral_loss":  0,
-                                               "residue_position":  21
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  15,
                                                "neutral_mass":  1824.8002070473085,
@@ -1018,13 +703,6 @@
                                                "neutral_mass":  1851.9189199143502,
                                                "neutral_loss":  0,
                                                "residue_position":  16
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  16,
-                                               "neutral_mass":  1911.8560448867904,
-                                               "neutral_loss":  0,
-                                               "residue_position":  20
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1041,13 +719,6 @@
                                                "residue_position":  17
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  17,
-                                               "neutral_mass":  2025.8989723281704,
-                                               "neutral_loss":  0,
-                                               "residue_position":  19
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  17,
                                                "neutral_mass":  2009.8802482738386,
@@ -1058,13 +729,6 @@
                                                "product_type":  "c",
                                                "fragment_number":  18,
                                                "neutral_mass":  2128.02992691717,
-                                               "neutral_loss":  0,
-                                               "residue_position":  18
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  18,
-                                               "neutral_mass":  2172.9673862422405,
                                                "neutral_loss":  0,
                                                "residue_position":  18
                                            },
@@ -1083,13 +747,6 @@
                                                "residue_position":  19
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  19,
-                                               "neutral_mass":  2302.0099793309905,
-                                               "neutral_loss":  0,
-                                               "residue_position":  17
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  19,
                                                "neutral_mass":  2285.991255276658,
@@ -1102,13 +759,6 @@
                                                "neutral_mass":  2313.1099681437,
                                                "neutral_loss":  0,
                                                "residue_position":  20
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  20,
-                                               "neutral_mass":  2430.1049423461805,
-                                               "neutral_loss":  0,
-                                               "residue_position":  16
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1125,25 +775,11 @@
                                                "residue_position":  21
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  21,
-                                               "neutral_mass":  2527.1577061957905,
-                                               "neutral_loss":  0,
-                                               "residue_position":  15
-                                           },
-                                           {
                                                "product_type":  "c",
                                                "fragment_number":  22,
                                                "neutral_mass":  2543.20023970163,
                                                "neutral_loss":  0,
                                                "residue_position":  22
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  22,
-                                               "neutral_mass":  2626.2261201098604,
-                                               "neutral_loss":  0,
-                                               "residue_position":  14
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1160,13 +796,6 @@
                                                "residue_position":  23
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  23,
-                                               "neutral_mass":  2789.2894486435002,
-                                               "neutral_loss":  0,
-                                               "residue_position":  13
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  23,
                                                "neutral_mass":  2773.270724589168,
@@ -1179,13 +808,6 @@
                                                "neutral_mass":  2791.31633208488,
                                                "neutral_loss":  0,
                                                "residue_position":  24
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  24,
-                                               "neutral_mass":  2890.3371271126803,
-                                               "neutral_loss":  0,
-                                               "residue_position":  12
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1202,13 +824,6 @@
                                                "residue_position":  25
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  25,
-                                               "neutral_mass":  3019.3797202014302,
-                                               "neutral_loss":  0,
-                                               "residue_position":  11
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  25,
                                                "neutral_mass":  3003.360996147098,
@@ -1221,13 +836,6 @@
                                                "neutral_mass":  3075.4436578574196,
                                                "neutral_loss":  0,
                                                "residue_position":  26
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  26,
-                                               "neutral_mass":  3134.4066632257204,
-                                               "neutral_loss":  0,
-                                               "residue_position":  10
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1244,13 +852,6 @@
                                                "residue_position":  27
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  27,
-                                               "neutral_mass":  3233.4750771397903,
-                                               "neutral_loss":  0,
-                                               "residue_position":  9
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  27,
                                                "neutral_mass":  3217.456353085458,
@@ -1263,13 +864,6 @@
                                                "neutral_mass":  3261.5077146668596,
                                                "neutral_loss":  0,
                                                "residue_position":  28
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  28,
-                                               "neutral_mass":  3362.5176702285403,
-                                               "neutral_loss":  0,
-                                               "residue_position":  8
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1286,13 +880,6 @@
                                                "residue_position":  29
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  29,
-                                               "neutral_mass":  3475.6017342070704,
-                                               "neutral_loss":  0,
-                                               "residue_position":  7
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  29,
                                                "neutral_mass":  3459.583010152738,
@@ -1305,13 +892,6 @@
                                                "neutral_mass":  3477.60096360494,
                                                "neutral_loss":  0,
                                                "residue_position":  30
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  30,
-                                               "neutral_mass":  3546.6388479922202,
-                                               "neutral_loss":  0,
-                                               "residue_position":  6
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1328,13 +908,6 @@
                                                "residue_position":  31
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  31,
-                                               "neutral_mass":  3633.67087639694,
-                                               "neutral_loss":  0,
-                                               "residue_position":  5
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  31,
                                                "neutral_mass":  3617.6521523426077,
@@ -1347,13 +920,6 @@
                                                "neutral_mass":  3691.73270605265,
                                                "neutral_loss":  0,
                                                "residue_position":  32
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  32,
-                                               "neutral_mass":  3780.73929031101,
-                                               "neutral_loss":  0,
-                                               "residue_position":  4
                                            },
                                            {
                                                "product_type":  "zDot",
@@ -1370,13 +936,6 @@
                                                "residue_position":  33
                                            },
                                            {
-                                               "product_type":  "y",
-                                               "fragment_number":  33,
-                                               "neutral_mass":  3883.74847527056,
-                                               "neutral_loss":  0,
-                                               "residue_position":  3
-                                           },
-                                           {
                                                "product_type":  "zDot",
                                                "fragment_number":  33,
                                                "neutral_mass":  3867.7297512162277,
@@ -1389,13 +948,6 @@
                                                "neutral_mass":  3907.80732754612,
                                                "neutral_loss":  0,
                                                "residue_position":  34
-                                           },
-                                           {
-                                               "product_type":  "y",
-                                               "fragment_number":  34,
-                                               "neutral_mass":  3980.80123912017,
-                                               "neutral_loss":  0,
-                                               "residue_position":  2
                                            },
                                            {
                                                "product_type":  "zDot",

@@ -311,12 +311,8 @@ def fragments(
         dissociation: ``"HCD"``/``"CID"`` (b and y ions), ``"ETD"``, and the rest of mzLib's
             dissociation types.
 
-            **``"ETD"`` returns three series, c, zDot **and y**, not two.** The y ions are
-            spurious: ETD cleaves the N-Ca bond and yields c/z*, while b/y come from amide
-            cleavage under vibrational activation, and mzLib's ``EThcD`` row correctly pairs y
-            *with* b. ETD's does not. They are about **a third** of every ETD fragment list,
-            so :attr:`Digest.fragment_count` over-counts real ETD ions by that much. Tracked
-            as smith-chem-wisc/mzLib#1109. Separately, z* ions are suppressed N-terminal to
+            ``"ETD"`` returns the c and zDot series (radical N-Ca cleavage yields c/z*, not the
+            b/y of vibrational activation). Note that z* ions are suppressed N-terminal to
             proline while the complementary c ions are not, leaving about 4% of the c series
             unobservable (smith-chem-wisc/mzLib#1110).
         modifications: Apply UniProt's annotated modifications.

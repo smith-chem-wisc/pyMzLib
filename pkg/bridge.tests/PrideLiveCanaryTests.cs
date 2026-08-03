@@ -73,6 +73,39 @@ public class PrideLiveCanaryTests
                 "No file exposed an HTTPS location — the FTP-to-HTTPS upgrade assumption may no longer hold.");
         });
 
+    [Test]
+    public Task TheFtpListingIsMoreCompleteThanTheRestManifest() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE Archive", async () =>
+        {
+            // The whole reason `pride ftp-files` exists. Asserted as a comparison (FTP > REST), not
+            // a hard count, so it survives PRIDE re-curating the project — while still catching the
+            // FTP walk finding nothing, or the REST manifest quietly becoming complete (which would
+            // leave the extra verb without a purpose). Mirrors mzLib's own #1121 canary.
+            JsonElement rest = await InvokeAsync("pride", "files", "--accession", CanaryAccession);
+            JsonElement ftp = await InvokeAsync("pride", "ftp-files", "--accession", CanaryAccession);
+
+            int restCount = rest.GetProperty("file_count").GetInt32();
+            int ftpCount = ftp.GetProperty("file_count").GetInt32();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ftpCount, Is.GreaterThan(0),
+                    "the FTP walk returned nothing for a project known to have files — the autoindex shape may have changed");
+                Assert.That(ftpCount, Is.GreaterThan(restCount),
+                    $"the FTP listing ({ftpCount}) should exceed the REST manifest ({restCount}); if PRIDE's REST API is now complete, the verb has lost its purpose");
+
+                JsonElement[] files = ftp.GetProperty("files").EnumerateArray().ToArray();
+                Assert.That(files.All(f => f.GetProperty("relative_path").GetString() is { Length: > 0 }), Is.True,
+                    "every file must carry a relative path");
+                Assert.That(files.All(f => f.GetProperty("url").GetString()!.StartsWith("https://")), Is.True,
+                    "every download URL must be the HTTPS location");
+                // Not files[0]: the first-walked entry could one day be a 0-byte placeholder, which
+                // would make an index-pinned assertion a hard failure rather than proving the point.
+                Assert.That(files.Any(f => f.GetProperty("approximate_size_bytes").GetInt64() > 0), Is.True,
+                    "at least one file must report a positive size");
+            });
+        });
+
     private static async Task<JsonElement> InvokeAsync(params string[] args)
     {
         object data = await Program.DispatchAsync(args);
