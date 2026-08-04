@@ -226,4 +226,315 @@ public class QuantificationTests
             Console.SetIn(originalIn);
         }
     }
+
+    // -----------------------------------------------------------------------------------------
+    // Median polish: roll a QuantifiedPeptides.tsv up to proteins without re-running peak-finding.
+    // Unlike the FlashLFQ engine, this whole path — parse the table, rebuild the object graph, run
+    // the (mzLib) median polish, project the result — lives in the bridge, so it is exercised here
+    // end-to-end against small tables written into the temp directory. No mzML and no engine run.
+    // -----------------------------------------------------------------------------------------
+
+    /// <summary>The standard peptide-table columns before the per-run intensity/detection blocks.</summary>
+    private const string PeptideTableLead = "Sequence\tBase Sequence\tProtein Groups\tGene Names\tOrganism";
+
+    /// <summary>
+    /// Writes a QuantifiedPeptides.tsv for runs <c>run_1..run_N</c> and returns its path. Each row is
+    /// (sequence, protein group, then one intensity per run); every intensity is an MS/MS detection.
+    /// </summary>
+    private string WritePeptideTable(string[] runs, params (string Seq, string Protein, double[] Intensities)[] rows)
+    {
+        var header = new System.Text.StringBuilder(PeptideTableLead);
+        foreach (string run in runs) header.Append("\tIntensity_").Append(run);
+        foreach (string run in runs) header.Append("\tDetection Type_").Append(run);
+
+        var lines = new List<string> { header.ToString() };
+        foreach (var (seq, protein, intensities) in rows)
+        {
+            var line = new System.Text.StringBuilder();
+            line.Append(seq).Append('\t').Append(seq).Append('\t').Append(protein).Append("\tGENE\tHomo sapiens");
+            foreach (double i in intensities)
+                line.Append('\t').Append(i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (double i in intensities)
+                line.Append('\t').Append(i > 0 ? "MSMS" : "NotDetected");
+            lines.Add(line.ToString());
+        }
+
+        string path = Path.Combine(_tempDirectory, "QuantifiedPeptides.tsv");
+        File.WriteAllLines(path, lines);
+        return path;
+    }
+
+    /// <summary>Runs the median-polish verb with the given stdin, returning its result as parsed JSON.</summary>
+    private static JsonElement RunMedianPolish(string stdin, params string[] args)
+    {
+        TextReader originalIn = Console.In;
+        Console.SetIn(new StringReader(stdin));
+        try
+        {
+            object result = Quantification.MedianPolish(new Program.Arguments(args));
+            return JsonDocument.Parse(JsonSerializer.Serialize(result, Program.JsonOptions)).RootElement;
+        }
+        finally
+        {
+            Console.SetIn(originalIn);
+        }
+    }
+
+    private static Dictionary<string, JsonElement> ProteinsByName(JsonElement root) =>
+        root.GetProperty("proteins").EnumerateArray().ToDictionary(p => p.GetProperty("protein_group").GetString()!);
+
+    private static double? Intensity(JsonElement protein, string sample)
+    {
+        JsonElement value = protein.GetProperty("intensities").GetProperty(sample);
+        return value.ValueKind == JsonValueKind.Null ? null : value.GetDouble();
+    }
+
+    [Test]
+    public void MedianPolish_NoDesign_LabelsEachRunAndTracksFoldChange()
+    {
+        // Two runs at one level, two at double: a protein's intensity should track that 2x step, and
+        // with no design each run is its own sample keyed by its base name.
+        string[] runs = { "run_1", "run_2", "run_3", "run_4" };
+        string path = WritePeptideTable(runs,
+            ("PEPTIDEK", "P1", new[] { 1000.0, 1100, 2000, 2200 }),
+            ("AAAAAR", "P1", new[] { 500.0, 550, 1000, 1050 }),
+            ("LLLLLK", "P1", new[] { 2000.0, 2100, 4000, 4100 }));
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        JsonElement p1 = ProteinsByName(root)["P1"];
+
+        Assert.That(Intensity(p1, "run_1"), Is.GreaterThan(0));
+        Assert.That(Intensity(p1, "run_3")! / Intensity(p1, "run_1")!, Is.EqualTo(2.0).Within(0.1),
+            "run_3 is 2x run_1 across every peptide, so the protein intensity should double too");
+    }
+
+    [Test]
+    public void MedianPolish_Design_GroupsByConditionAndBiorepLabels()
+    {
+        string[] runs = { "run_1", "run_2" };
+        string path = WritePeptideTable(runs,
+            ("PEPTIDEK", "P1", new[] { 1000.0, 2000 }),
+            ("AAAAAR", "P1", new[] { 500.0, 1000 }));
+
+        string design = "run_1\tcontrol\t0\nrun_2\ttreated\t0\n";
+        JsonElement root = RunMedianPolish(design, "quant", "median-polish", "--peptides", path);
+
+        // Real conditions give condition_(biorep+1) sample labels.
+        JsonElement p1 = ProteinsByName(root)["P1"];
+        Assert.That(p1.GetProperty("intensities").TryGetProperty("control_1", out _), Is.True);
+        Assert.That(p1.GetProperty("intensities").TryGetProperty("treated_1", out _), Is.True);
+    }
+
+    [Test]
+    public void MedianPolish_SharedPeptides_LiftsAProteinWithOnlySharedPeptides()
+    {
+        // Four runs with a signal that varies across them, so the shared peptide resolves to a real
+        // number rather than the NaN a degenerate (identical-across-runs) matrix would give. P2 has
+        // its own unique peptides; P3's only peptide is the one it shares with P2.
+        string[] runs = { "run_1", "run_2", "run_3", "run_4" };
+        string path = WritePeptideTable(runs,
+            ("CCCCCR", "P2", new[] { 800.0, 900, 850, 820 }),
+            ("DDDDDK", "P2", new[] { 1600.0, 1700, 1650, 1620 }),
+            ("EEEEEK", "P2;P3", new[] { 400.0, 410, 420, 430 }));
+
+        // Without shared peptides P3 has no unique peptide and cannot be quantified: it stays 0.
+        JsonElement without = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        Assert.That(Intensity(ProteinsByName(without)["P3"], "run_1"), Is.EqualTo(0.0));
+
+        // With shared peptides the shared peptide quantifies P3 to a real intensity.
+        JsonElement with = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path, "--shared-peptides");
+        Assert.That(Intensity(ProteinsByName(with)["P3"], "run_1"), Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void MedianPolish_WritesQuantifiedProteinsTsv_WhenOutGiven()
+    {
+        string[] runs = { "run_1", "run_2" };
+        string path = WritePeptideTable(runs, ("PEPTIDEK", "P1", new[] { 1000.0, 1000 }));
+        string outDir = Path.Combine(_tempDirectory, "out");
+
+        RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path, "--out", outDir);
+
+        Assert.That(File.Exists(Path.Combine(outDir, "QuantifiedProteins.tsv")), Is.True);
+    }
+
+    [Test]
+    public void MedianPolish_DesignNamingAnUnknownRun_IsRejected()
+    {
+        string path = WritePeptideTable(new[] { "run_1" }, ("PEPTIDEK", "P1", new[] { 1000.0 }));
+
+        Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish("not_a_run\tcontrol\n", "quant", "median-polish", "--peptides", path));
+    }
+
+    [Test]
+    public void MedianPolish_DesignMissingARunInTheTable_IsRejected()
+    {
+        string path = WritePeptideTable(new[] { "run_1", "run_2" }, ("PEPTIDEK", "P1", new[] { 1000.0, 1000 }));
+
+        // Design mentions run_1 but not run_2: an ambiguous replicate assignment, so it must fail.
+        Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish("run_1\tcontrol\n", "quant", "median-polish", "--peptides", path));
+    }
+
+    [Test]
+    public void MedianPolish_TableMissingARequiredColumn_IsRejected()
+    {
+        string path = Path.Combine(_tempDirectory, "QuantifiedPeptides.tsv");
+        // No "Protein Groups" column.
+        File.WriteAllLines(path, new[]
+        {
+            "Sequence\tBase Sequence\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\t1000\tMSMS",
+        });
+
+        Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+    }
+
+    [Test]
+    public void MedianPolish_TableWithNoIntensityColumns_IsRejected()
+    {
+        string path = Path.Combine(_tempDirectory, "QuantifiedPeptides.tsv");
+        File.WriteAllLines(path, new[] { PeptideTableLead, "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens" });
+
+        Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+    }
+
+    [Test]
+    public void MedianPolish_MissingPeptidesFile_IsRejected()
+    {
+        string missing = Path.Combine(_tempDirectory, "not-here.tsv");
+
+        Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", missing));
+    }
+
+    [Test]
+    public void MedianPolish_StripsAUtf8BomFromTheDesignStdin()
+    {
+        string path = WritePeptideTable(new[] { "run_1" }, ("PEPTIDEK", "P1", new[] { 1000.0 }));
+
+        // A BOM prefixing the first design line must not turn "run_1" into "﻿run_1", which would
+        // then match no column and be rejected. With the BOM stripped this quantifies cleanly.
+        JsonElement root = RunMedianPolish("﻿run_1\tcontrol\n", "quant", "median-polish", "--peptides", path);
+        Assert.That(ProteinsByName(root)["P1"].GetProperty("intensities").TryGetProperty("control_1", out _), Is.True);
+    }
+
+    /// <summary>Writes a peptide table verbatim from the given lines and returns its path.</summary>
+    private string WriteRawPeptideTable(params string[] lines)
+    {
+        string path = Path.Combine(_tempDirectory, "QuantifiedPeptides.tsv");
+        File.WriteAllLines(path, lines);
+        return path;
+    }
+
+    [Test]
+    public void MedianPolish_UnparseableIntensity_IsRejected()
+    {
+        // Reading a non-numeric cell as 0 would turn a corrupt table into a table of "not measured",
+        // which is indistinguishable from a real result once it reaches the caller.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\tnot_a_number\tMSMS");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("Intensity_run_1").And.Contain("not_a_number"));
+    }
+
+    [Test]
+    public void MedianPolish_BlankIntensity_IsNotMeasured()
+    {
+        // A blank cell is how FlashLFQ says "not measured", and must stay legal.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t\tNotDetected");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        Assert.That(Intensity(ProteinsByName(root)["P1"], "run_1"), Is.EqualTo(0.0));
+    }
+
+    [Test]
+    public void MedianPolish_UnparseableDetectionType_IsRejected()
+    {
+        // The column is present and says something the reader does not recognise. Guessing here would
+        // overwrite what the table actually said.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\tTeleported");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("Detection Type_run_1").And.Contain("Teleported"));
+    }
+
+    [Test]
+    public void MedianPolish_AbsentDetectionTypeColumn_IsInferredFromIntensity()
+    {
+        // No Detection Type_ column at all: the table says nothing, so inferring is the only way to
+        // keep the peptide usable for protein quant. This is the one inference the verb makes.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tIntensity_run_2",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\t2000",
+            "AAAAAR\tAAAAAR\tP1\tGENE\tHomo sapiens\t500\t1000");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        Assert.That(Intensity(ProteinsByName(root)["P1"], "run_1"), Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void MedianPolish_RunNameContainingADot_KeepsItsWholeName()
+    {
+        // The run name stands in for a file path, so a base-name-style read would truncate "QC.2" to
+        // "QC" — mislabelling the sample, and colliding two runs onto one key.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_QC.1\tIntensity_QC.2",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\t2000",
+            "AAAAAR\tAAAAAR\tP1\tGENE\tHomo sapiens\t500\t1000");
+
+        JsonElement root = RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path);
+        JsonElement intensities = ProteinsByName(root)["P1"].GetProperty("intensities");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(intensities.TryGetProperty("QC.1", out _), Is.True, "QC.1 should survive whole");
+            Assert.That(intensities.TryGetProperty("QC.2", out _), Is.True, "QC.2 should survive whole");
+        });
+    }
+
+    [Test]
+    public void MedianPolish_DuplicateSequence_IsRejected()
+    {
+        // Sequence keys the peptide graph, so the second row would silently overwrite the first's
+        // measurements and the protein would be quantified from half a table.
+        string path = WriteRawPeptideTable(
+            PeptideTableLead + "\tIntensity_run_1\tDetection Type_run_1",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t1000\tMSMS",
+            "PEPTIDEK\tPEPTIDEK\tP1\tGENE\tHomo sapiens\t9999\tMSMS");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => RunMedianPolish(string.Empty, "quant", "median-polish", "--peptides", path));
+        Assert.That(exception!.Message, Does.Contain("PEPTIDEK"));
+    }
+
+    [Test]
+    public void MedianPolish_WritesTheSampleOrderTheEngineUses()
+    {
+        // The engine walks conditions in order, then biological replicates. samples[i] here must be
+        // the engine's sample i, so the two cannot drift apart.
+        string[] runs = { "run_1", "run_2", "run_3" };
+        string path = WritePeptideTable(runs,
+            ("PEPTIDEK", "P1", new[] { 1000.0, 2000, 3000 }),
+            ("AAAAAR", "P1", new[] { 500.0, 1000, 1500 }));
+
+        // Deliberately out of alphabetical order on stdin.
+        string design = "run_1\tbeta\t0\nrun_2\talpha\t0\nrun_3\talpha\t1\n";
+        JsonElement root = RunMedianPolish(design, "quant", "median-polish", "--peptides", path);
+
+        var labels = root.GetProperty("samples").EnumerateArray()
+            .Select(s => s.GetProperty("label").GetString()).ToList();
+        Assert.That(labels, Is.EqualTo(new[] { "alpha_1", "alpha_2", "beta_1" }));
+    }
 }

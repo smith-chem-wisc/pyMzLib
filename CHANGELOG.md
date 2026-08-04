@@ -26,6 +26,11 @@ envelope is not a breaking change unless Python callers can see it.
 - FlashLFQ label-free quantification: `pymzlib.flashlfq.quantify()` — quantify a search's peptides
   across mzML runs with match-between-runs, returning typed `FlashLfqResults` / `Peptide` /
   `ProteinGroup` / `Peak`. Match-between-runs transfers are exposed via `result.peaks`.
+- Median-polish protein quantification: `pymzlib.flashlfq.median_polish()` — roll a
+  `QuantifiedPeptides.tsv` up to protein intensities with FlashLFQ's own median-polish algorithm,
+  without re-running peak-finding. Returns a list of `ProteinGroup`; takes an optional experimental
+  design (condition/replicate grouping) and a `use_shared_peptides` toggle, and can write a
+  `QuantifiedProteins.tsv`.
 - A self-contained .NET payload bundled in the wheel, so no .NET installation is required.
 - Documentation site, including the reasoning behind each design decision.
 

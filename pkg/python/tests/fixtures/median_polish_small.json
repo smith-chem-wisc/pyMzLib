@@ -1,0 +1,18 @@
+{
+  "peptides_file": "/abs/QuantifiedPeptides.tsv",
+  "parameters": {
+    "use_shared_peptides_for_protein_quant": false
+  },
+  "samples": [
+    {"label": "control_1", "condition": "control", "biological_replicate": 0},
+    {"label": "treated_1", "condition": "treated", "biological_replicate": 0}
+  ],
+  "peptide_count": 4,
+  "protein_count": 3,
+  "proteins": [
+    {"protein_group": "P1", "gene_name": "GENE1", "organism": "Homo sapiens", "intensities": {"control_1": 3005.6, "treated_1": 6011.3}},
+    {"protein_group": "P2", "gene_name": "GENE2", "organism": "Homo sapiens", "intensities": {"control_1": 2262.7, "treated_1": 2368.5}},
+    {"protein_group": "P3", "gene_name": "GENE3", "organism": "Homo sapiens", "intensities": {"control_1": null, "treated_1": null}}
+  ],
+  "output_directory": null
+}
