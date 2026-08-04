@@ -290,9 +290,12 @@ internal static class Quantification
             DesignEntry entry = design.Count > 0
                 ? design[name]
                 : new DesignEntry(string.Empty, BiologicalReplicate: i, TechnicalReplicate: 0, Fraction: 0);
-            // The run name is not a path — nothing is opened — so it stands in for the file path; the
-            // base name recovered from it is what every roll-up and label keys on.
-            files.Add(new SpectraFileInfo(name, entry.Condition,
+            // The run name is not a path — nothing is opened — so it stands in for the file path;
+            // The base name recovered from it is what every roll-up and label keys on.
+            // Because spectraFileInfo constructor assumes it will recieve a full file path, we spoof it by
+            // add ".mzML" to the run name to avoid unwanted truncations. 
+            // TODO: Add an additional SpectraFileInfo constructor to mzLib. 
+            files.Add(new SpectraFileInfo(name + ".mzML", entry.Condition,
                 biorep: entry.BiologicalReplicate, techrep: entry.TechnicalReplicate, fraction: entry.Fraction));
         }
 
@@ -453,7 +456,7 @@ internal static class Quantification
             {
                 SpectraFileInfo representative = replicate.First();
                 string label = labelByRunName
-                    ? representative.FilenameWithoutExtension
+                    ? representative.FullFilePathWithExtension // Because the spectra
                     : representative.Condition + "_" + (representative.BiologicalReplicate + 1);
                 samples.Add((label, replicate));
             }
