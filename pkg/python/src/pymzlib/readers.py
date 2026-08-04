@@ -929,8 +929,8 @@ def read_matches(
 
     Example:
         >>> m = read_matches("results_IcTda.tsv")                  # doctest: +SKIP
-        >>> m.columns["modifications"][0]                          # doctest: +SKIP
-        '12:Oxidation on M'
+        >>> m.record_count, m.columns["modifications"]             # doctest: +SKIP
+        (6, ['', '12:Oxidation on M', '', '', '4:Acetylation on K', ''])
     """
     args = _window("read-matches", path, limit=limit, offset=offset, out=out)
     data = _bridge.invoke(*args, timeout=timeout)
@@ -980,8 +980,8 @@ def read_spectra(
         >>> s = read_spectra("run.mzML", ms_order=2, limit=5)      # doctest: +SKIP
         >>> s.scan_count, s.record_count                           # doctest: +SKIP
         (14238, 11902)
-        >>> s.columns["selected_ion_mz"][:3]                       # doctest: +SKIP
-        [447.7391, 551.2903, 638.8215]
+        >>> s.columns["selected_ion_mz"]                           # doctest: +SKIP
+        [447.7391, 551.2903, 638.8215, 712.3344, 805.9012]
     """
     args = _window("read-spectra", path, limit=limit, offset=offset, out=out)
 
