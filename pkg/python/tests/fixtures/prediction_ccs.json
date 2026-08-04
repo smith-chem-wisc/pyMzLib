@@ -1,0 +1,34 @@
+{
+ "model": "IM2Deep",
+ "row_count": 1,
+ "failed_row_count": 0,
+ "column_names": [
+  "sequence",
+  "validated_sequence",
+  "precursor_charge",
+  "collisional_cross_section",
+  "warning"
+ ],
+ "columns": {
+  "sequence": [
+   "PEPTIDEK"
+  ],
+  "validated_sequence": [
+   "PEPTIDEK"
+  ],
+  "precursor_charge": [
+   2
+  ],
+  "collisional_cross_section": [
+   327.52545166015625
+  ],
+  "warning": [
+   null
+  ]
+ },
+ "output": null,
+ "collisional_cross_section_unit": "square_angstroms",
+ "caveats": [
+  "collisional_cross_section is in SQUARE ANGSTROMS, not 1/K0. Converting to the reduced mobility a timsTOF reports needs drift-gas temperature and pressure, which mzLib does not carry, so no conversion is offered here."
+ ]
+}

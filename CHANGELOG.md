@@ -22,6 +22,17 @@ envelope is not a breaking change unless Python callers can see it.
   the unit is honestly `"unknown"`, that Casanovo's `is_decoy` is `None` because de novo sequencing
   has no decoys, and that nothing from a typed view is FDR-filtered.
 
+- **Prediction clients** — `pymzlib.prediction`, exposing mzLib's Koina clients: 37 published
+  models across five families (retention time, fragment intensity, collisional cross-section,
+  detectability, crosslink intensity). `models()` enumerates the catalogue from mzLib with each
+  model's real constraints, including a tri-state `Constraint` for parameters whose requirement
+  mzLib encodes as a nullable set that reads backwards. Units are values, not prose:
+  `retention_time_unit` distinguishes iRT from minutes, and CCS is declared in square angstroms
+  rather than 1/K0. A peptide that cannot be predicted keeps its row with a warning, so predictions
+  always line up with the peptides sent. Koina's throttling defaults are mzLib's and are not
+  raised. The local TorchSharp Chronologer is deliberately not exposed — it is x64-only and would
+  break the arm64 macOS wheel; `Chronologer_RT` reaches the same model over the network.
+
 ### Fixed
 - A failure inside mzLib's parallel spectra readers now reports its real cause
   (`MzLibException: Reading profile mode mzmls not supported`) instead of the wrapper

@@ -223,8 +223,14 @@ public static class Program
             "readers read-features" => Reading.ReadFeatures(arguments),
             "readers read-matches" => Reading.ReadMatches(arguments),
             "readers read-spectra" => Reading.ReadSpectra(arguments),
+            "predict models" => Prediction.Models(arguments),
+            "predict retention-time" => Prediction.RetentionTime(arguments),
+            "predict fragments" => Prediction.Fragments(arguments),
+            "predict ccs" => Prediction.Ccs(arguments),
+            "predict detectability" => Prediction.Detectability(arguments),
+            "predict crosslink-fragments" => Prediction.CrosslinkFragments(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra, predict models, predict retention-time, predict fragments, predict ccs, predict detectability, predict crosslink-fragments."),
         };
     }
 

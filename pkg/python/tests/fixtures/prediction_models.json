@@ -1,0 +1,1426 @@
+{
+ "model_count": 37,
+ "families": {
+  "retention_time": "predict retention-time",
+  "fragment_intensity": "predict fragments",
+  "collisional_cross_section": "predict ccs",
+  "detectability": "predict detectability",
+  "crosslink_intensity": "predict crosslink-fragments"
+ },
+ "service": "https://koina.wilhelmlab.org:443/v2/models/",
+ "models": [
+  {
+   "model": "AlphaPeptDeep_ccs_generic",
+   "family": "collisional_cross_section",
+   "verb": "predict ccs",
+   "type": "AlphaPeptDeepCCSGeneric",
+   "min_peptide_length": 1,
+   "max_peptide_length": 50,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "IM2Deep",
+   "family": "collisional_cross_section",
+   "verb": "predict ccs",
+   "type": "IM2Deep",
+   "min_peptide_length": 1,
+   "max_peptide_length": 50,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2023_intensity_XL_CMS2",
+   "family": "crosslink_intensity",
+   "verb": "predict crosslink-fragments",
+   "type": "Prosit2023IntensityXLCMS2",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    1896
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 348
+  },
+  {
+   "model": "Prosit_2023_intensity_XL_CMS3",
+   "family": "crosslink_intensity",
+   "verb": "predict crosslink-fragments",
+   "type": "Prosit2023IntensityXLCMS3",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    1881
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2024_intensity_XL_NMS2",
+   "family": "crosslink_intensity",
+   "verb": "predict crosslink-fragments",
+   "type": "Prosit2024IntensityXLNMS2",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    1898
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 348
+  },
+  {
+   "model": "pfly_2024_fine_tuned",
+   "family": "detectability",
+   "verb": "predict detectability",
+   "type": "PFly2024FineTuned",
+   "min_peptide_length": 1,
+   "max_peptide_length": 40,
+   "max_batch_size": 128,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "AlphaPeptDeep_ms2_generic",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "AlphaPeptDeepMs2Generic",
+   "min_peptide_length": 1,
+   "max_peptide_length": 500,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "one_of",
+    "values": [
+     "LUMOS",
+     "QE",
+     "SCIEXTOF",
+     "TIMSTOF"
+    ]
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Altimeter_2024_intensities",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Altimeter2024Intensities",
+   "min_peptide_length": 6,
+   "max_peptide_length": 40,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ]
+   },
+   "collision_energy": {
+    "requirement": "one_of",
+    "values": [
+     20,
+     21,
+     22,
+     23,
+     24,
+     25,
+     26,
+     27,
+     28,
+     29,
+     30,
+     31,
+     32,
+     33,
+     34,
+     35,
+     36,
+     37,
+     38,
+     39,
+     40
+    ]
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 380
+  },
+  {
+   "model": "ms2pip_CID_TMT",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipCIDTMT",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_HCD2021",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipHCD2021",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_iTRAQphospho",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipITRAQPhospho",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_Immuno_HCD",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipImmunoHCD",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_TTOF5600",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipTTOF5600",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_timsTOF2023",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipTimsTOF2023",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "ms2pip_timsTOF2024",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Ms2PipTimsTOF2024",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 58
+  },
+  {
+   "model": "Prosit_2019_intensity",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2019Intensity",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2020_intensity_CID",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2020IntensityCID",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2020_intensity_HCD",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2020IntensityHCD",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2020_intensity_TMT",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2020IntensityTMT",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    214,
+    259,
+    267,
+    730,
+    737,
+    2016
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2023_intensity_timsTOF",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2023IntensityTimsTOF",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2024_intensity_cit",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2024IntensityCit",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [
+    4,
+    7,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2024_intensity_PTMs_gl",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2024IntensityPTMsGl",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [
+    1,
+    4,
+    7,
+    21,
+    27,
+    28,
+    34,
+    35,
+    36,
+    37,
+    43,
+    56,
+    58,
+    59,
+    121,
+    214,
+    267,
+    312,
+    411,
+    535,
+    730,
+    737,
+    1263,
+    1289,
+    1293,
+    1848,
+    1990,
+    2016,
+    2062,
+    5634,
+    12118,
+    19903,
+    129317
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2025_intensity_22PTM",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2025Intensity22PTM",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2025_intensity_40PTM",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2025Intensity40PTM",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2025_intensity_lac",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2025IntensityLac",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "one_of",
+    "values": [
+     "ASTRAL",
+     "ECLIPSE",
+     "LUMOS"
+    ]
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    2114
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "Prosit_2025_intensity_ptm2",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "Prosit2025IntensityPtm2",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "one_of",
+    "values": [
+     "CID",
+     "HCD"
+    ]
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    9990
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": 174
+  },
+  {
+   "model": "UniSpec",
+   "family": "fragment_intensity",
+   "verb": "predict fragments",
+   "type": "UniSpec",
+   "min_peptide_length": 1,
+   "max_peptide_length": 40,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "one_of",
+    "values": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   },
+   "collision_energy": {
+    "requirement": "any_value_required",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "one_of",
+    "values": [
+     "ELITE",
+     "LUMOS",
+     "NONE",
+     "QE",
+     "QEHFX",
+     "VELOS"
+    ]
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    1,
+    4,
+    21,
+    26,
+    27,
+    28,
+    35
+   ],
+   "retention_time_unit": null,
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "AlphaPeptDeep_rt_generic",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "AlphaPeptDeepRTGeneric",
+   "min_peptide_length": 1,
+   "max_peptide_length": 500,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Chronologer_RT",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "ChronologerRT",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": "minutes",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Deeplc_hela_hf",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "DeeplcHelaHf",
+   "min_peptide_length": 1,
+   "max_peptide_length": 60,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2019_irt",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2019iRT",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35
+   ],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2020_irt_TMT",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2020iRTTMT",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    214,
+    259,
+    267,
+    730,
+    737,
+    2016
+   ],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2024_irt_cit",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2024iRTCit",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    7,
+    35
+   ],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2024_irt_PTMs_gl",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2024iRTPTMsGl",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    1,
+    4,
+    7,
+    21,
+    27,
+    28,
+    34,
+    35,
+    36,
+    37,
+    43,
+    56,
+    58,
+    59,
+    121,
+    214,
+    267,
+    312,
+    411,
+    535,
+    730,
+    737,
+    1263,
+    1289,
+    1293,
+    1848,
+    1990,
+    2016,
+    2062,
+    5634,
+    12118,
+    19903,
+    129317
+   ],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2025_irt_22PTM",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2025iRT22PTM",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2025_irt_40PTM",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2025iRT40PTM",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  },
+  {
+   "model": "Prosit_2025_irt_lac",
+   "family": "retention_time",
+   "verb": "predict retention-time",
+   "type": "Prosit2025iRTLac",
+   "min_peptide_length": 1,
+   "max_peptide_length": 30,
+   "max_batch_size": 1000,
+   "precursor_charge": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "collision_energy": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "instrument_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "fragmentation_type": {
+    "requirement": "not_applicable",
+    "values": null
+   },
+   "allowed_unimod_ids": [
+    4,
+    35,
+    2114
+   ],
+   "retention_time_unit": "indexed_retention_time",
+   "number_of_predicted_fragment_ions": null
+  }
+ ]
+}

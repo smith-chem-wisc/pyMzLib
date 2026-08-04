@@ -1,0 +1,35 @@
+{
+ "model": "Prosit_2019_irt",
+ "row_count": 2,
+ "failed_row_count": 0,
+ "column_names": [
+  "sequence",
+  "validated_sequence",
+  "retention_time",
+  "warning"
+ ],
+ "columns": {
+  "sequence": [
+   "PEPTIDEK",
+   "ELVISLIVESK"
+  ],
+  "validated_sequence": [
+   "PEPTIDEK",
+   "ELVISLIVESK"
+  ],
+  "retention_time": [
+   5.516521453857422,
+   129.77230834960938
+  ],
+  "warning": [
+   null,
+   null
+  ]
+ },
+ "output": null,
+ "retention_time_unit": "indexed_retention_time",
+ "caveats": [
+  "A predicted retention time is a model's opinion, not a measurement, and is only comparable with an observed gradient after alignment against shared peptides.",
+  "retention_time is an INDEXED retention time (iRT): a dimensionless scale anchored to standard peptides, not minutes. Plotting it against a gradient without first fitting the iRT-to-minutes line is the commonest way to misread this number."
+ ]
+}
