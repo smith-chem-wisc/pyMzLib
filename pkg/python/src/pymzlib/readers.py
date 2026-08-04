@@ -42,7 +42,7 @@ all:
 |                     |       |                        | mzLib's names. Not uniform.           |
 +---------------------+-------+------------------------+---------------------------------------+
 
-``views == []`` is a real and common answer - fourteen types have it. TopPIC, Crux, MSFragger's
+``views == []`` is a real and common answer - thirteen types have it. TopPIC, Crux, MSFragger's
 peptide and protein tables and the FlashDeconv formats each parse into their own record type with
 nothing in common. mzLib reads them and so does :func:`read_records`; there is simply no uniform
 view to project them onto, and inventing one here would mean publishing a schema mzLib does not
@@ -813,7 +813,7 @@ def read_records(
     """Read **any** file mzLib recognises, into that format's own fields.
 
     This is the exhaustive verb: if :func:`identify` succeeds on a path, this reads it. All
-    twenty-nine file types, including the fourteen that belong to no cross-format view at all -
+    twenty-nine file types, including the thirteen that belong to no cross-format view at all -
     TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats - which no other
     function here can touch.
 

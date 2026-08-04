@@ -44,7 +44,7 @@ MetaMorpheus's, and no other format has them.
 ## Start with `views`, not with the file type
 
 It would be convenient if mzLib read all 29 formats into one uniform table. **It does not.** The
-formats fall into disjoint families, and fourteen belong to no family at all:
+formats fall into disjoint families, and thirteen belong to no family at all:
 
 | view | what it means | which formats |
 |---|---|---|
@@ -52,7 +52,7 @@ formats fall into disjoint families, and fourteen belong to no family at all:
 | `ms1_features` | deconvolved MS1 features | **2**: TopFD `_ms1.feature`, Dinosaur |
 | `spectral_match` | records are identifications, but share no *file*-level interface | **4**: MsPathFinderT ×3, Casanovo |
 | `spectra` | the file is spectra, not results | **7**: `.raw`, `.mzML`, `.mgf`, `.d` ×2, msalign ×2 |
-| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **14**: TopPIC ×4, Crux, MSFragger peptide/protein, FlashDeconv, and more |
+| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **13**: TopPIC ×4, Crux, MSFragger peptide/protein, FlashDeconv, and more |
 
 `views == []` is a real and common answer, not an error — it is the majority answer, in fact. It
 means "mzLib reads this, but there is no uniform projection of it", and `read_records()` is exactly
