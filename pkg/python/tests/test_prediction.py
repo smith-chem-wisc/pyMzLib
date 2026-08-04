@@ -375,7 +375,7 @@ def test_the_module_exports_what_it_documents():
 @pytest.mark.network
 def test_the_koina_catalogue_still_matches_what_this_package_describes():
     """The recorded catalogue must not drift from the installed mzLib."""
-    from .conftest import external_service
+    from conftest import external_service
 
     with external_service("Koina"):
         live = {m.model for m in prediction.models()}
@@ -388,7 +388,7 @@ def test_the_koina_catalogue_still_matches_what_this_package_describes():
 
 @pytest.mark.network
 def test_koina_still_answers_and_the_fields_this_package_reads_are_populated():
-    from .conftest import external_service
+    from conftest import external_service
 
     with external_service("Koina"):
         result = prediction.retention_time("Prosit_2019_irt", ["PEPTIDEK", "ELVISLIVESK"])

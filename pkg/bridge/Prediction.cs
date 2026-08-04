@@ -119,13 +119,7 @@ internal static class Prediction
 
         return Table(
             arguments, model.ModelName, predictions.Count,
-            new (string, Func<PeptideRTPrediction, object?>)[]
-            {
-                ("sequence", p => p.FullSequence),
-                ("validated_sequence", p => p.ValidatedFullSequence),
-                ("retention_time", p => p.PredictedRetentionTime),
-                ("warning", p => p.Warning?.Message),
-            },
+            RetentionTimeColumns,
             predictions,
             extra: new
             {
@@ -165,16 +159,7 @@ internal static class Prediction
 
         return Table(
             arguments, model.ModelName, predictions.Count,
-            new (string, Func<PeptideFragmentIntensityPrediction, object?>)[]
-            {
-                ("sequence", p => p.FullSequence),
-                ("validated_sequence", p => p.ValidatedFullSequence),
-                ("precursor_charge", p => p.PrecursorCharge),
-                ("fragment_annotations", p => p.FragmentAnnotations),
-                ("fragment_mz", p => p.FragmentMZs),
-                ("fragment_intensity", p => p.FragmentIntensities),
-                ("warning", p => p.Warning?.Message),
-            },
+            FragmentColumns,
             predictions,
             extra: new
             {
@@ -207,14 +192,7 @@ internal static class Prediction
 
         return Table(
             arguments, model.ModelName, predictions.Count,
-            new (string, Func<PeptideCCSPrediction, object?>)[]
-            {
-                ("sequence", p => p.FullSequence),
-                ("validated_sequence", p => p.ValidatedFullSequence),
-                ("precursor_charge", p => p.PrecursorCharge),
-                ("collisional_cross_section", p => p.PredictedCCS),
-                ("warning", p => p.Warning?.Message),
-            },
+            CcsColumns,
             predictions,
             extra: new
             {
@@ -244,16 +222,7 @@ internal static class Prediction
 
         return Table(
             arguments, model.ModelName, predictions.Count,
-            new (string, Func<PeptideDetectabilityPrediction, object?>)[]
-            {
-                ("sequence", p => p.FullSequence),
-                ("validated_sequence", p => p.ValidatedFullSequence),
-                ("not_detectable", p => p.DetectabilityProbabilities?.NotDetectable),
-                ("low_detectability", p => p.DetectabilityProbabilities?.LowDetectability),
-                ("intermediate_detectability", p => p.DetectabilityProbabilities?.IntermediateDetectability),
-                ("high_detectability", p => p.DetectabilityProbabilities?.HighDetectability),
-                ("warning", p => p.Warning?.Message),
-            },
+            DetectabilityColumns,
             predictions,
             extra: new
             {
@@ -290,18 +259,7 @@ internal static class Prediction
 
         return Table(
             arguments, model.ModelName, predictions.Count,
-            new (string, Func<CrosslinkFragmentIntensityPrediction, object?>)[]
-            {
-                ("alpha_sequence", p => p.AlphaSequence),
-                ("beta_sequence", p => p.BetaSequence),
-                ("validated_alpha_sequence", p => p.ValidatedAlphaSequence),
-                ("validated_beta_sequence", p => p.ValidatedBetaSequence),
-                ("precursor_charge", p => p.PrecursorCharge),
-                ("fragment_annotations", p => p.FragmentAnnotations),
-                ("fragment_mz", p => p.FragmentMZs),
-                ("fragment_intensity", p => p.FragmentIntensities),
-                ("warning", p => p.Warning?.Message),
-            },
+            CrosslinkColumns,
             predictions,
             extra: new
             {
@@ -316,6 +274,72 @@ internal static class Prediction
                 },
             });
     }
+
+    // ---------------------------------------------------------------------------------------
+    // Column sets
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>The retentiontime view's columns, named so a test can exercise the
+    /// same projection the verb uses rather than a copy of it.</summary>
+    internal static readonly (string Name, Func<PeptideRTPrediction, object?> Read)[] RetentionTimeColumns =
+    [
+                ("sequence", p => p.FullSequence),
+                ("validated_sequence", p => p.ValidatedFullSequence),
+                ("retention_time", p => p.PredictedRetentionTime),
+                ("warning", p => p.Warning?.Message),
+    ];
+
+    /// <summary>The fragment view's columns, named so a test can exercise the
+    /// same projection the verb uses rather than a copy of it.</summary>
+    internal static readonly (string Name, Func<PeptideFragmentIntensityPrediction, object?> Read)[] FragmentColumns =
+    [
+                ("sequence", p => p.FullSequence),
+                ("validated_sequence", p => p.ValidatedFullSequence),
+                ("precursor_charge", p => p.PrecursorCharge),
+                ("fragment_annotations", p => p.FragmentAnnotations),
+                ("fragment_mz", p => p.FragmentMZs),
+                ("fragment_intensity", p => p.FragmentIntensities),
+                ("warning", p => p.Warning?.Message),
+    ];
+
+    /// <summary>The ccs view's columns, named so a test can exercise the
+    /// same projection the verb uses rather than a copy of it.</summary>
+    internal static readonly (string Name, Func<PeptideCCSPrediction, object?> Read)[] CcsColumns =
+    [
+                ("sequence", p => p.FullSequence),
+                ("validated_sequence", p => p.ValidatedFullSequence),
+                ("precursor_charge", p => p.PrecursorCharge),
+                ("collisional_cross_section", p => p.PredictedCCS),
+                ("warning", p => p.Warning?.Message),
+    ];
+
+    /// <summary>The detectability view's columns, named so a test can exercise the
+    /// same projection the verb uses rather than a copy of it.</summary>
+    internal static readonly (string Name, Func<PeptideDetectabilityPrediction, object?> Read)[] DetectabilityColumns =
+    [
+                ("sequence", p => p.FullSequence),
+                ("validated_sequence", p => p.ValidatedFullSequence),
+                ("not_detectable", p => p.DetectabilityProbabilities?.NotDetectable),
+                ("low_detectability", p => p.DetectabilityProbabilities?.LowDetectability),
+                ("intermediate_detectability", p => p.DetectabilityProbabilities?.IntermediateDetectability),
+                ("high_detectability", p => p.DetectabilityProbabilities?.HighDetectability),
+                ("warning", p => p.Warning?.Message),
+    ];
+
+    /// <summary>The crosslink view's columns, named so a test can exercise the
+    /// same projection the verb uses rather than a copy of it.</summary>
+    internal static readonly (string Name, Func<CrosslinkFragmentIntensityPrediction, object?> Read)[] CrosslinkColumns =
+    [
+                ("alpha_sequence", p => p.AlphaSequence),
+                ("beta_sequence", p => p.BetaSequence),
+                ("validated_alpha_sequence", p => p.ValidatedAlphaSequence),
+                ("validated_beta_sequence", p => p.ValidatedBetaSequence),
+                ("precursor_charge", p => p.PrecursorCharge),
+                ("fragment_annotations", p => p.FragmentAnnotations),
+                ("fragment_mz", p => p.FragmentMZs),
+                ("fragment_intensity", p => p.FragmentIntensities),
+                ("warning", p => p.Warning?.Message),
+    ];
 
     // ---------------------------------------------------------------------------------------
     // The model catalogue
@@ -470,7 +494,7 @@ internal static class Prediction
     /// Matching is on the model's published Koina name, not its .NET class name, because that is
     /// the identifier a user finds in the Koina catalogue and in the literature.
     /// </remarks>
-    private static TModel Build<TModel>(Program.Arguments arguments) where TModel : class
+    internal static TModel Build<TModel>(Program.Arguments arguments) where TModel : class
     {
         string requested = arguments.Required("model");
 
@@ -660,7 +684,7 @@ internal static class Prediction
     /// order — so a caller who has learned one table shape has learned all of them, and a binding
     /// can reuse its table type rather than writing a second one.
     /// </remarks>
-    private static object Table<T>(
+    internal static object Table<T>(
         Program.Arguments arguments,
         string modelName,
         int rowCount,
@@ -699,7 +723,7 @@ internal static class Prediction
             extra);
     }
 
-    private static object WriteTable<T>(
+    internal static object WriteTable<T>(
         string outputPath, (string Name, Func<T, object?> Read)[] columns, List<T> rows)
     {
         string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
@@ -734,7 +758,7 @@ internal static class Prediction
         };
     }
 
-    private static string Render(object? value) => value switch
+    internal static string Render(object? value) => value switch
     {
         null => string.Empty,
         double number => number.ToString(CultureInfo.InvariantCulture),
@@ -747,7 +771,7 @@ internal static class Prediction
     };
 
     /// <summary>Flattens the shared fields and a verb's own into one wire object.</summary>
-    private static Dictionary<string, object?> Merge(object shared, object extra)
+    internal static Dictionary<string, object?> Merge(object shared, object extra)
     {
         var merged = new Dictionary<string, object?>();
         foreach (object source in new[] { shared, extra })
@@ -759,7 +783,7 @@ internal static class Prediction
 
     private static string SnakeCase(string name) => name;
 
-    private static string[] RetentionTimeCaveats(RetentionTimeModel model)
+    internal static string[] RetentionTimeCaveats(RetentionTimeModel model)
     {
         var caveats = new List<string>
         {
