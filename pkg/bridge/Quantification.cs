@@ -452,8 +452,10 @@ internal static class Quantification
             foreach (var replicate in conditionGroup.GroupBy(f => f.BiologicalReplicate).OrderBy(g => g.Key))
             {
                 SpectraFileInfo representative = replicate.First();
-                string label = labelByFileName
+                string label = labelByRunName
                     ? representative.FilenameWithoutExtension
+                    : representative.Condition + "_" + (representative.BiologicalReplicate + 1);
+                samples.Add((label, replicate));
             }
         }
 
