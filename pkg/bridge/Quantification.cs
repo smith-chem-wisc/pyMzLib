@@ -295,12 +295,14 @@ internal static class Quantification
             // Because spectraFileInfo constructor assumes it will recieve a full file path, we spoof it by
             // add ".mzML" to the run name to avoid unwanted truncations. 
             // TODO: Add an additional SpectraFileInfo constructor to mzLib. 
-            files.Add(new SpectraFileInfo(name + ".mzML", entry.Condition,
+            files.Add(new SpectraFileInfo(SpoofFilePath(name), entry.Condition,
                 biorep: entry.BiologicalReplicate, techrep: entry.TechnicalReplicate, fraction: entry.Fraction));
         }
 
         return files;
     }
+
+    private static string SpoofFilePath(string runName) => runName + ".mzML";
 
     /// <summary>
     /// Reads a <c>QuantifiedPeptides.tsv</c> into run names and rows. The columns are located by their
@@ -456,7 +458,7 @@ internal static class Quantification
             {
                 SpectraFileInfo representative = replicate.First();
                 string label = labelByRunName
-                    ? representative.FullFilePathWithExtension // Because the spectra
+                    ? representative.FilenameWithoutExtension // Because the spectra
                     : representative.Condition + "_" + (representative.BiologicalReplicate + 1);
                 samples.Add((label, replicate));
             }
