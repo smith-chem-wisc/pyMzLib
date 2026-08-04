@@ -9,7 +9,7 @@
   "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. Readers.ISpectralMatch carries identity fields only; every one of these formats records confidence in columns this view does not expose. read-records has them. Filter before you report.",
   "is_decoy is null for this format. Casanovo is de novo and writes no target/decoy label; mzLib's record leaves the field at its default false and never assigns it (CasanovoMzTabRecord.cs:84), so false would mean 'unknown', not 'target'.",
   "one_based_scan_number is the mzTab spectrum INDEX plus one, not necessarily the instrument's scan number (CasanovoMzTabFile.cs:116). When Casanovo was run on an MGF the two are unrelated, so do not join this against a raw file on scan number.",
-  "full_sequence and modifications are empty for this format unless the reader was built with modification loading enabled, which mzLib's file factory does not do (CasanovoMzTabFile.cs:122). base_sequence is always populated. Empty here means 'not loaded', not 'unmodified'."
+  "full_sequence and modifications are resolved by matching Casanovo's mass shifts against mzLib's modification dictionary (CasanovoMzTabFile.cs:124), not read from named annotations \u2014 Casanovo writes none. An empty value therefore means the peptide is unmodified, but a populated one is mzLib's interpretation of a mass, not the search engine's own call."
  ],
  "column_names": [
   "file_name_without_extension",

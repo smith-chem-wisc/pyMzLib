@@ -223,13 +223,18 @@ def test_read_spectra_parses_scan_headers(recorded):
 
 
 def test_read_spectra_reports_the_files_total_alongside_the_filtered_count(recorded):
-    recorded("readers_spectra_mzml.json")
+    # Deliberately the FILTERED payload. On an unfiltered one the two counts are equal by
+    # construction, so `scan_count >= record_count` would pass for an implementation that simply
+    # set scan_count = record_count - which is precisely the failure this field exists to prevent.
+    recorded("readers_spectra_ms2.json")
 
-    result = readers.read_spectra("run.mzML")
+    result = readers.read_spectra("run.mzML", ms_order=2)
 
-    # scan_count is the file's real total, so an ms_order filter that matched nothing can never
-    # look like an empty file.
-    assert result.scan_count >= result.record_count
+    assert result.ms_order == 2
+    assert result.scan_count > result.record_count, (
+        "the file's real total must survive the filter, so a filter that matched nothing can "
+        "never look like an empty file"
+    )
 
 
 def test_read_spectra_omits_peak_columns_by_default(recorded):
@@ -331,7 +336,23 @@ def test_every_read_verb_omits_a_zero_offset(name, _verb, captured):
 def test_the_module_exports_every_read_verb():
     for name, _ in READ_VERBS:
         assert name in readers.__all__
-    assert set(readers.__all__) == set(dir(readers))
+
+    # Deliberately NOT `set(__all__) == set(dir(readers))`: `__dir__` is defined as
+    # `sorted(__all__)`, so that comparison is a tautology that would pass for an `__all__` naming
+    # symbols the module does not have.
+    assert all(hasattr(readers, name) for name in readers.__all__), (
+        "every exported name must resolve"
+    )
+    # Only names DEFINED here - `vars()` also holds this module's own imports (`Any`, `dataclass`),
+    # which __all__ deliberately hides and which are not part of the public surface.
+    defined_here = {
+        name
+        for name, value in vars(readers).items()
+        if not name.startswith("_") and getattr(value, "__module__", None) == readers.__name__
+    }
+    assert defined_here - set(readers.__all__) == set(), (
+        "a name defined here but missing from __all__ is invisible to dir() and help()"
+    )
 
 
 def test_the_view_names_are_exported_as_constants():

@@ -585,7 +585,7 @@ internal static partial class Reading
         SupportedFileType.MsFraggerPsm =>
         [
             "is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, " +
-            "so mzLib cannot report decoy status (MsFraggerPsm.cs:217) and the field crosses as null. " +
+            "so mzLib cannot report decoy status (MsFraggerPsm.cs:231) and the field crosses as null. " +
             "Null means 'unknown', not 'target' - do not filter this format on is_decoy == false.",
             // Corrected after the readers bake-off: an earlier version of this caveat claimed the
             // psmtsv formats report the OBSERVED mass, which is false - they report the file's
@@ -593,7 +593,7 @@ internal static partial class Reading
             // The caveat manufactured a cross-format discrepancy that does not exist and sent a
             // reader chasing it. Both formats agree; what is worth saying is only that neither is
             // the observed precursor mass.
-            "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:220, " +
+            "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:233, " +
             "CalculatedPeptideMass), not the observed precursor mass. The psmtsv formats report " +
             "the theoretical mass here too, so the two are consistent - but neither is what the " +
             "instrument measured.",
@@ -602,9 +602,12 @@ internal static partial class Reading
         ],
         SupportedFileType.psmtsv or SupportedFileType.osmtsv =>
         [
-            "full_sequence and monoisotopic_mass keep only the FIRST candidate of an ambiguous " +
-            "identification; mzLib splits the '|'-separated list and discards the rest " +
-            "(SpectrumMatchFromTsv.cs:89).",
+            "monoisotopic_mass keeps only the FIRST candidate of an ambiguous identification: " +
+            "mzLib splits the '|'-separated list and parses the leading value " +
+            "(SpectrumMatchFromTsv.cs:89). full_sequence does NOT - it is passed through whole " +
+            "(SpectrumMatchFromTsv.cs:162), so on an ambiguous row it carries every candidate " +
+            "joined by '|' and is not a single sequence. The two fields therefore disagree about " +
+            "how many identifications the row holds; split full_sequence yourself before using it.",
             "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of " +
             "the identified peptide, not the observed precursor mass, which the file carries " +
             "separately as 'Precursor Mass'.",

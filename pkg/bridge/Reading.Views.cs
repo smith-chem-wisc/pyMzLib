@@ -22,17 +22,22 @@ internal static partial class Reading
     /// <summary>
     /// The <see cref="ISingleChargeMs1Feature"/> fields, under mzLib's own names.
     /// </summary>
-    private static IReadOnlyList<Column<ISingleChargeMs1Feature>> FeatureColumns { get; } = new[]
+    private static IReadOnlyList<Column<Feature>> FeatureColumns { get; } = new[]
     {
-        new Column<ISingleChargeMs1Feature>("mz", f => f.Mz),
-        new Column<ISingleChargeMs1Feature>("charge", f => f.Charge),
-        new Column<ISingleChargeMs1Feature>("retention_time_start", f => f.RetentionTimeStart),
-        new Column<ISingleChargeMs1Feature>("retention_time_end", f => f.RetentionTimeEnd),
-        new Column<ISingleChargeMs1Feature>("intensity", f => f.Intensity),
+        new Column<Feature>("mz", f => f.Value.Mz),
+        new Column<Feature>("charge", f => f.Value.Charge),
+        new Column<Feature>("retention_time_start", f => f.Value.RetentionTimeStart),
+        new Column<Feature>("retention_time_end", f => f.Value.RetentionTimeEnd),
+        // Null where mzLib had no apex intensity to report. The interface types Intensity as a
+        // non-nullable double and Ms1Feature fills it with `IntensityApex ?? 0`, so for a file
+        // whose schema lacks the optional Apex_intensity column — every FLASHDeconv/OpenMS
+        // _ms1.feature — a plain projection hands back a whole column of fabricated zeros that
+        // look exactly like measurements of nothing. Optionality is the honest projection.
+        new Column<Feature>("intensity", f => f.IntensityMeasured ? f.Value.Intensity : (double?)null),
         // Genuinely nullable on the interface, and null for a whole format rather than for odd
         // rows: mzLib's _ms1.feature expansion never sets it. Crossing as null is the faithful
         // projection; a zero would read as "no isotopes were found".
-        new Column<ISingleChargeMs1Feature>("number_of_isotopes", f => f.NumberOfIsotopes),
+        new Column<Feature>("number_of_isotopes", f => f.Value.NumberOfIsotopes),
     };
 
     /// <summary>The unit the feature view's retention times carry, for a given file.</summary>
@@ -58,7 +63,36 @@ internal static partial class Reading
     /// the same class of manufactured discrepancy the readers bake-off already caught once in the
     /// quantifiable caveats, and worth not repeating.
     /// </remarks>
-    private static List<string> FeatureCaveatsFor(IResultFile resultFile) => resultFile.FileType switch
+    private static List<string> FeatureCaveatsFor(IResultFile resultFile, IReadOnlyList<Feature> features)
+    {
+        List<string> caveats = BaseFeatureCaveatsFor(resultFile.FileType);
+
+        // Said only when it is true of THIS file, because it depends on the schema the writer used
+        // rather than on the file type: TopFD writes Apex_intensity and FLASHDeconv does not, and
+        // both are SupportedFileType.Ms1Feature.
+        int unmeasured = features.Count(feature => !feature.IntensityMeasured);
+        if (unmeasured == features.Count && features.Count > 0)
+        {
+            caveats.Add(
+                "intensity is NULL for every row of this file. mzLib takes the per-charge intensity " +
+                "from the optional Apex_intensity column (Ms1Feature.cs:86) and this file's schema " +
+                "does not have it — the FLASHDeconv/OpenMS _ms1.feature layout omits it entirely. " +
+                "mzLib substitutes zero, which is indistinguishable from a real measurement of " +
+                "nothing, so the value crosses as null instead. read-records has the file's own " +
+                "summed Intensity column.");
+        }
+        else if (unmeasured > 0)
+        {
+            caveats.Add(
+                $"intensity is null for {unmeasured} of {features.Count} rows: those features carry " +
+                "no Apex_intensity value, and mzLib substitutes zero (Ms1Feature.cs:86). Null here " +
+                "means 'not reported', not 'no signal'.");
+        }
+
+        return caveats;
+    }
+
+    private static List<string> BaseFeatureCaveatsFor(SupportedFileType fileType) => fileType switch
     {
         SupportedFileType.Ms1Feature =>
         [
@@ -183,10 +217,11 @@ internal static partial class Reading
                     "instrument's scan number (CasanovoMzTabFile.cs:116). When Casanovo was run on an " +
                     "MGF the two are unrelated, so do not join this against a raw file on scan number.");
                 caveats.Add(
-                    "full_sequence and modifications are empty for this format unless the reader was " +
-                    "built with modification loading enabled, which mzLib's file factory does not do " +
-                    "(CasanovoMzTabFile.cs:122). base_sequence is always populated. Empty here means " +
-                    "'not loaded', not 'unmodified'.");
+                    "full_sequence and modifications are resolved by matching Casanovo's mass shifts " +
+                    "against mzLib's modification dictionary (CasanovoMzTabFile.cs:124), not read " +
+                    "from named annotations — Casanovo writes none. An empty value therefore means " +
+                    "the peptide is unmodified, but a populated one is mzLib's interpretation of a " +
+                    "mass, not the search engine's own call.");
                 break;
         }
 
@@ -276,10 +311,15 @@ internal static partial class Reading
         {
             case SupportedFileType.Mgf:
                 caveats.Add(
-                    "MGF carries no MS1 scans and no scan-window range, and its 'scan numbers' come " +
-                    "from the TITLE line rather than from an instrument, so they need not be " +
-                    "contiguous or even unique. one_based_precursor_scan_number is always null: the " +
-                    "format does not record which survey scan a fragment scan came from.");
+                    "MGF carries no MS1 scans, and its 'scan numbers' come from the TITLE line " +
+                    "rather than from an instrument, so they need not be contiguous or even unique. " +
+                    "one_based_precursor_scan_number is always null: the format does not record " +
+                    "which survey scan a fragment scan came from.");
+                caveats.Add(
+                    "scan_window_lower_mz/_upper_mz are DERIVED, not recorded: MGF has no scan-window " +
+                    "field, so mzLib reports the first and last observed peak (Mgf.cs:221). They are " +
+                    "the fragment m/z range actually seen, which is narrower than the instrument's " +
+                    "window and depends on the peak-picking threshold.");
                 break;
 
             case SupportedFileType.Ms1Align:
@@ -288,6 +328,12 @@ internal static partial class Reading
                     "msalign holds DECONVOLVED masses, not raw m/z. The mz column carries neutral " +
                     "monoisotopic masses that a deconvolution step already produced, so it is not " +
                     "comparable with the mz of an mzML or raw file and must not be re-deconvolved.");
+                caveats.Add(
+                    "scan_window_lower_mz/_upper_mz are in m/z while the mz column is in neutral " +
+                    "MASS, so the two are not on the same axis and filtering peaks to the window " +
+                    "would discard most of the spectrum. mzLib synthesises the window by converting " +
+                    "each mass back to m/z at its reported charge (MsAlign.cs:526); msalign records " +
+                    "no window of its own.");
                 break;
 
             case SupportedFileType.BrukerD:

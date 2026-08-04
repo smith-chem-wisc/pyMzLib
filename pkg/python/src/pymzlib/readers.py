@@ -80,14 +80,17 @@ of the rest of pyMzLib:
   FDR-filtered**, even though every one of these files records confidence somewhere. Filter before
   you report.
 
-.. warning::
+.. note::
 
-   That units mismatch is not hypothetical. Passing an MSFragger ``psm.tsv`` to
-   :func:`pymzlib.flashlfq.quantify` returns near-zero intensities, because FlashLFQ reads the
-   seconds as minutes and searches for each peptide roughly sixty times too late in the gradient -
-   typically past the end of the run, so the peptide is never found.
-   ``identify()`` will still call the file ``quantifiable`` - that is mzLib's interface, honestly
-   reported - but quantify MetaMorpheus output only until the upstream fix lands.
+   That units mismatch was not hypothetical, and the fix shows where such things belong. Passing an
+   MSFragger ``psm.tsv`` to :func:`pymzlib.flashlfq.quantify` used to return near-zero intensities,
+   because FlashLFQ read the seconds as minutes and searched for each peptide about sixty times too
+   late in the gradient. It was fixed **upstream in mzLib** (`#1116
+   <https://github.com/smith-chem-wisc/mzLib/pull/1116>`_, converting at the reader) rather than
+   papered over here, so every mzLib consumer benefits and this library's caveat and
+   ``retention_time_unit`` changed with it. That is the standing rule: a value whose meaning or
+   availability is wrong is repaired in the core contract, and a binding discloses rather than
+   repairs.
 """
 
 from __future__ import annotations

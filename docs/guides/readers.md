@@ -198,6 +198,13 @@ f.record_count, f.retention_time_unit       # (25, 'unknown')
 `intensity` is the **apex** intensity, not the sum over the feature — both formats carry a summed
 intensity column too, and `read_records()` has it.
 
+!!! warning "`intensity` is `None` for every FLASHDeconv `_ms1.feature`"
+    mzLib takes the per-charge intensity from `Apex_intensity`, which is an *optional* column that
+    the FLASHDeconv/OpenMS `_ms1.feature` layout does not have — and substitutes **zero** when it is
+    absent. A whole column of zeros is indistinguishable from real measurements of nothing, so
+    pyMzLib crosses those as `None` and says so in `caveats`. TopFD files, which do write the
+    column, are unaffected. `read_records()` has the file's own summed `intensity` either way.
+
 ### `retention_time_unit` is `'unknown'` for `_ms1.feature`, and that is the honest answer
 
 TopFD wrote retention times in **seconds** through v1.6.2 and in **minutes** from v1.7.0 — *within
@@ -287,12 +294,10 @@ for c in pymzlib.readers.read_results("psm.tsv").caveats:
 ```
 
 ```
-- retention_time is in SECONDS for this format, not minutes: MSFragger's Retention column is
-  passed through unconverted (MsFraggerPsm.cs:48). ...
 - is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, so mzLib
-  cannot report decoy status. Null means 'unknown', not 'target'.
-- monoisotopic_mass is the THEORETICAL peptide mass (CalculatedPeptideMass), not the observed
-  precursor mass. ...
+  cannot report decoy status (MsFraggerPsm.cs:231). Null means 'unknown', not 'target'.
+- monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:233, CalculatedPeptideMass),
+  not the observed precursor mass. ...
 - file_name is the full 'Spectrum File' path including its .pep.xml extension ...
 ```
 
@@ -301,24 +306,26 @@ instead of hard-coding a table:
 
 ```python
 r = pymzlib.readers.read_results("psm.tsv")
-r.retention_time_unit            # 'seconds'
+r.retention_time_unit            # 'minutes'
 r.retention_time_in_minutes      # converted; raises rather than guess if the unit is 'unknown'
 ```
 
-The reason it differs at all is that mzLib's **result-file** readers pass each tool's columns
-through without normalising them, while its **spectra** readers do convert. Retention time is
-minutes for MetaMorpheus, seconds for MSFragger and TopPIC, either for TopFD depending on version,
-and always minutes from `read_spectra()`.
+The reason it differs at all is that mzLib's **result-file** readers largely pass each tool's
+columns through without normalising them, while its **spectra** readers convert. Where that has
+been fixed, it was fixed upstream in mzLib rather than papered over here: MSFragger wrote seconds
+until [mzLib #1116](https://github.com/smith-chem-wisc/mzLib/pull/1116) made the reader divide by
+60, and this library's caveat and unit changed with it. Today all three quantifiable formats report
+`'minutes'`, `read_spectra()` is always minutes, and the one genuinely unresolved case is TopFD
+`_ms1.feature`, which is `'unknown'`.
 
-**So: identifying a file is safe. Comparing a raw field across formats is not.** Read the caveats
-before you join two tables or plot them together.
+**So: identifying a file is safe. Comparing a raw field across formats needs a look at
+`retention_time_unit` and `caveats` first.**
 
-!!! danger "Do not quantify an MSFragger `psm.tsv`"
-    Because of the retention-time mismatch above, passing an MSFragger file to
-    [`flashlfq.quantify()`](flashlfq.md) returns near-zero intensities — FlashLFQ reads the seconds
-    as minutes and looks for each peptide about sixty times too late in the gradient, typically past
-    the end of the run. `identify()` will still report the file as `quantifiable`, which is honest
-    about mzLib's *interface* and is not a claim about the numbers.
+!!! info "Why the caveats cite line numbers"
+    Each one names the mzLib source it came from, and a test asserts that the cited line still
+    mentions what the caveat claims. That is not decoration: two citations had already gone stale
+    against the pinned mzLib because #1116 inserted fourteen lines above them. A caveat that reads
+    authoritatively and is wrong is worse than no caveat, so the anchoring is checked mechanically.
 
 ## Errors
 

@@ -76,35 +76,35 @@ public class ReadingCoverageTests
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
     {
-        [SupportedFileType.Ms1Feature] = @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature",
-        [SupportedFileType.Ms2Feature] = @"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature",
-        [SupportedFileType.TopFDMzrt] = @"FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv",
-        [SupportedFileType.Ms1Tsv_FlashDeconv] = @"FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvOpenMs3.0.0_ms1.tsv",
-        [SupportedFileType.Tsv_FlashDeconv] = @"FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv",
-        [SupportedFileType.Tsv_Dinosaur] = @"FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv",
-        [SupportedFileType.ThermoRaw] = @"DataFiles\ScanDescriptionTestData.raw",
-        [SupportedFileType.MzML] = @"DataFiles\sliced_ethcd.mzML",
-        [SupportedFileType.Mgf] = @"DataFiles\withZeros.mgf",
-        [SupportedFileType.Ms1Align] = @"FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign",
-        [SupportedFileType.Ms2Align] = @"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign",
-        [SupportedFileType.psmtsv] = @"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv",
-        [SupportedFileType.osmtsv] = @"Transcriptomics\TestData\OsmWithCustomMIons.osmtsv",
-        [SupportedFileType.ToppicPrsm] = @"FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv",
-        [SupportedFileType.ToppicPrsmSingle] = @"FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv",
-        [SupportedFileType.ToppicProteoform] = @"FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv",
-        [SupportedFileType.ToppicProteoformSingle] = @"FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv",
-        [SupportedFileType.MsFraggerPsm] = @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv",
-        [SupportedFileType.MsFraggerPeptide] = @"FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv",
-        [SupportedFileType.MsFraggerProtein] = @"FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv",
-        [SupportedFileType.FlashLFQQuantifiedPeak] = @"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv",
-        [SupportedFileType.MsPathFinderTTargets] = @"FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv",
-        [SupportedFileType.MsPathFinderTDecoys] = @"FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv",
-        [SupportedFileType.MsPathFinderTAllResults] = @"FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv",
-        [SupportedFileType.CruxResult] = @"FileReadingTests\ExternalFileTypes\crux.txt",
-        [SupportedFileType.ExperimentAnnotation] = @"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv",
-        [SupportedFileType.BrukerD] = @"DataFiles\centroid_1x_MS1_4x_autoMS2.d",
-        [SupportedFileType.BrukerTimsTof] = @"DataFiles\timsTOF_snippet.d",
-        [SupportedFileType.CasanovoMzTab] = @"FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab",
+        [SupportedFileType.Ms1Feature] = "FileReadingTests/ExternalFileTypes/Ms1Feature_TopFDv1.6.2_ms1.feature",
+        [SupportedFileType.Ms2Feature] = "FileReadingTests/ExternalFileTypes/Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature",
+        [SupportedFileType.TopFDMzrt] = "FileReadingTests/ExternalFileTypes/mzrt_TopFDv1.6.2.mzrt.csv",
+        [SupportedFileType.Ms1Tsv_FlashDeconv] = "FileReadingTests/ExternalFileTypes/Ms1Tsv_FlashDeconvOpenMs3.0.0_ms1.tsv",
+        [SupportedFileType.Tsv_FlashDeconv] = "FileReadingTests/ExternalFileTypes/Tsv_FlashDeconvOpenMs3.0.0.tsv",
+        [SupportedFileType.Tsv_Dinosaur] = "FileReadingTests/ExternalFileTypes/DinoSnippet.features.tsv",
+        [SupportedFileType.ThermoRaw] = "DataFiles/ScanDescriptionTestData.raw",
+        [SupportedFileType.MzML] = "DataFiles/sliced_ethcd.mzML",
+        [SupportedFileType.Mgf] = "DataFiles/withZeros.mgf",
+        [SupportedFileType.Ms1Align] = "FileReadingTests/ExternalFileTypes/Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign",
+        [SupportedFileType.Ms2Align] = "FileReadingTests/ExternalFileTypes/Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign",
+        [SupportedFileType.psmtsv] = "FileReadingTests/SearchResults/ExcelEditedPeptide.psmtsv",
+        [SupportedFileType.osmtsv] = "Transcriptomics/TestData/OsmWithCustomMIons.osmtsv",
+        [SupportedFileType.ToppicPrsm] = "FileReadingTests/ExternalFileTypes/ToppicPrsm_TopPICv1.6.2_prsm.tsv",
+        [SupportedFileType.ToppicPrsmSingle] = "FileReadingTests/ExternalFileTypes/ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv",
+        [SupportedFileType.ToppicProteoform] = "FileReadingTests/ExternalFileTypes/ToppicProteofrom_TopPICv1.6.2_proteoform.tsv",
+        [SupportedFileType.ToppicProteoformSingle] = "FileReadingTests/ExternalFileTypes/ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv",
+        [SupportedFileType.MsFraggerPsm] = "FileReadingTests/ExternalFileTypes/FraggerPsm_FragPipev21.1_psm.tsv",
+        [SupportedFileType.MsFraggerPeptide] = "FileReadingTests/ExternalFileTypes/FraggerPeptide_FragPipev21.1individual_peptide.tsv",
+        [SupportedFileType.MsFraggerProtein] = "FileReadingTests/ExternalFileTypes/FraggerProtein_FragPipev21.1individual_protein.tsv",
+        [SupportedFileType.FlashLFQQuantifiedPeak] = "FileReadingTests/ExternalFileTypes/FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv",
+        [SupportedFileType.MsPathFinderTTargets] = "FileReadingTests/ExternalFileTypes/MsPathFinderT_TargetResults_IcTarget.tsv",
+        [SupportedFileType.MsPathFinderTDecoys] = "FileReadingTests/ExternalFileTypes/MsPathFinderT_DecoyResults_IcDecoy.tsv",
+        [SupportedFileType.MsPathFinderTAllResults] = "FileReadingTests/ExternalFileTypes/MsPathFinderT_AllResults_IcTda.tsv",
+        [SupportedFileType.CruxResult] = "FileReadingTests/ExternalFileTypes/crux.txt",
+        [SupportedFileType.ExperimentAnnotation] = "FileReadingTests/ExternalFileTypes/EditedMSFraggerResults/experiment_annotation.tsv",
+        [SupportedFileType.BrukerD] = "DataFiles/centroid_1x_MS1_4x_autoMS2.d",
+        [SupportedFileType.BrukerTimsTof] = "DataFiles/timsTOF_snippet.d",
+        [SupportedFileType.CasanovoMzTab] = "FileReadingTests/ExternalFileTypes/Casanovo_5.0.0.mztab",
     };
 
     /// <summary>
@@ -366,9 +366,9 @@ public class ReadingCoverageTests
         // The evidence for the caveat above, pinned so it cannot rot into folklore: the same file
         // type, two TopFD versions, retention times three orders of magnitude apart.
         string older = Path.Combine(TestRoot(),
-            @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature");
+            "FileReadingTests/ExternalFileTypes/Ms1Feature_TopFDv1.6.2_ms1.feature");
         string newer = Path.Combine(TestRoot(),
-            @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            "FileReadingTests/ExternalFileTypes/Ms1Feature_TopFDv1.7.0_ms1.feature");
         if (!File.Exists(older) || !File.Exists(newer))
             Assert.Ignore("Both TopFD fixtures are needed to pin the unit change.");
 
@@ -400,13 +400,25 @@ public class ReadingCoverageTests
     [Test]
     public void MsPathFinderTReportsRealDecoyFlags()
     {
-        // The counterpart: this format DOES report decoys (from an XXX name prefix), so a null here
-        // would be an equally serious under-report.
-        JsonElement data = Invoke("readers", "read-matches",
-            "--path", FixtureFor(SupportedFileType.MsPathFinderTDecoys), "--limit", "1");
+        // The counterpart to the Casanovo test, and it has to assert the flag is RIGHT rather than
+        // merely non-null: "not null" would pass for an implementation that fabricated false for
+        // every row, which is the exact under-report this test is named for. The decoy fixture's
+        // every protein name starts with XXX, so every flag must be true.
+        JsonElement decoys = Invoke("readers", "read-matches",
+            "--path", FixtureFor(SupportedFileType.MsPathFinderTDecoys));
+        JsonElement targets = Invoke("readers", "read-matches",
+            "--path", FixtureFor(SupportedFileType.MsPathFinderTTargets));
 
-        Assert.That(data.GetProperty("columns").GetProperty("is_decoy")[0].ValueKind,
-            Is.AnyOf(JsonValueKind.True, JsonValueKind.False));
+        Assert.Multiple(() =>
+        {
+            foreach (JsonElement flag in decoys.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+                Assert.That(flag.ValueKind, Is.EqualTo(JsonValueKind.True),
+                    "every row of the decoy fixture is a decoy");
+
+            foreach (JsonElement flag in targets.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+                Assert.That(flag.ValueKind, Is.EqualTo(JsonValueKind.False),
+                    "every row of the target fixture is a target");
+        });
     }
 
     [Test]
@@ -423,8 +435,13 @@ public class ReadingCoverageTests
                 Is.EqualTo(all.GetProperty("scan_count").GetInt32()),
                 "scan_count reports the file's real total, so a filter that matched nothing can " +
                 "never look like an empty file.");
+            // Asserted before the loop below, which has an empty body — and so proves nothing —
+            // if the filter happened to match no scans at all.
+            Assert.That(ms2.GetProperty("record_count").GetInt32(), Is.GreaterThan(0),
+                "the fixture must contain MS2 scans for this test to mean anything");
             Assert.That(ms2.GetProperty("record_count").GetInt32(),
-                Is.LessThanOrEqualTo(all.GetProperty("record_count").GetInt32()));
+                Is.LessThan(all.GetProperty("record_count").GetInt32()),
+                "the fixture must also contain non-MS2 scans, or the filter is untested");
             foreach (JsonElement order in ms2.GetProperty("columns").GetProperty("ms_order").EnumerateArray())
                 Assert.That(order.GetInt32(), Is.EqualTo(2));
         });
@@ -496,6 +513,146 @@ public class ReadingCoverageTests
 
         Assert.That(error.GetProperty("message").GetString(), Does.Contain("no value"),
             $"{verb} must reject '--limit' with no value rather than silently returning everything.");
+    }
+
+    [Test]
+    public void AFlashDeconvFeatureFileReportsNullIntensityRatherThanFabricatedZero()
+    {
+        // A within-type schema variant, which one fixture per SupportedFileType cannot cover:
+        // Apex_intensity is [Optional] and the FLASHDeconv/OpenMS _ms1.feature layout omits it, so
+        // mzLib's `IntensityApex ?? 0` hands back a whole column of zeros that look exactly like
+        // measurements of nothing. The TopFD fixture in the map has the column and hides this.
+        string path = Path.Combine(TestRoot(),
+            "FileReadingTests/ExternalFileTypes/Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature");
+        if (!File.Exists(path))
+            Assert.Ignore($"mzLib fixture not present: {path}");
+
+        JsonElement data = Invoke("readers", "read-features", "--path", path, "--limit", "5");
+
+        Assert.Multiple(() =>
+        {
+            foreach (JsonElement intensity in data.GetProperty("columns").GetProperty("intensity").EnumerateArray())
+                Assert.That(intensity.ValueKind, Is.EqualTo(JsonValueKind.Null),
+                    "a fabricated zero must not be handed back as a measurement");
+
+            Assert.That(
+                data.GetProperty("caveats").EnumerateArray()
+                    .Any(caveat => caveat.GetString()!.Contains("intensity is NULL")),
+                Is.True,
+                "and the reason must be stated, not left as an unexplained empty column");
+        });
+    }
+
+    [Test]
+    public void ATopFdFeatureFileStillReportsRealIntensities()
+    {
+        // The counterpart. Nulling every intensity would be an equally serious over-correction, and
+        // this is the fixture that proves the null above is conditional rather than blanket.
+        JsonElement data = Invoke("readers", "read-features",
+            "--path", FixtureFor(SupportedFileType.Ms1Feature), "--limit", "3");
+
+        foreach (JsonElement intensity in data.GetProperty("columns").GetProperty("intensity").EnumerateArray())
+            Assert.That(intensity.ValueKind, Is.EqualTo(JsonValueKind.Number));
+    }
+
+    [Test]
+    public void TheTwoVerbsAgreeOnTheAbsentSentinelForTheSameColumn()
+    {
+        // read-records reaches the SAME IQuantifiableRecord properties that read-results nulls, so
+        // without the scoped exception one verb would answer null and the other -1 for the same
+        // column of the same file, and the -1 would enter a mean.
+        string path = FixtureFor(SupportedFileType.psmtsv);
+
+        JsonElement uniform = Invoke("readers", "read-results", "--path", path);
+        JsonElement native = Invoke("readers", "read-records", "--path", path);
+
+        JsonElement[] fromResults = uniform.GetProperty("columns").GetProperty("retention_time")
+            .EnumerateArray().ToArray();
+        JsonElement[] fromRecords = native.GetProperty("columns").GetProperty("retention_time")
+            .EnumerateArray().ToArray();
+
+        Assert.That(fromRecords, Has.Length.EqualTo(fromResults.Length));
+        for (int row = 0; row < fromResults.Length; row++)
+        {
+            Assert.That(fromRecords[row].ValueKind, Is.EqualTo(fromResults[row].ValueKind),
+                $"row {row}: the two verbs disagree about whether retention_time is present");
+        }
+    }
+
+    // ---- the caveats' own citations --------------------------------------------------------------
+
+    /// <summary>
+    /// Every <c>File.cs:NNN</c> a caveat cites must point at a line that mentions the thing the
+    /// caveat is about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The caveats are the most dangerous text this bridge emits: they read authoritatively, they
+    /// are quoted in three bindings' documentation, and nothing else checks them. Two had already
+    /// gone stale against the pinned mzLib — mzLib PR #1116 inserted fourteen lines into
+    /// <c>MsFraggerPsm.cs</c> and both citations below it silently moved — which is exactly the rot
+    /// this guards.
+    /// </para>
+    /// <para>
+    /// It checks the citation is <i>anchored</i>, not that the whole claim is true; a sentence
+    /// cannot be verified mechanically. But a citation pointing at a blank line is proof the claim
+    /// was not re-checked, and that is worth failing for.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void EveryCitedMzLibLineStillMentionsWhatTheCaveatSaysItDoes()
+    {
+        // file name -> the token the cited line must contain, per caveat.
+        (string Citation, string Token)[] citations =
+        [
+            ("MsFraggerPsm.cs:231", "IsDecoy"),
+            ("MsFraggerPsm.cs:233", "MonoisotopicMass"),
+            ("SpectrumMatchFromTsv.cs:89", "MonoisotopicMass"),
+            ("SpectrumMatchFromTsv.cs:162", "FullSequence"),
+            ("SpectrumMatchTsvReader.cs:71", "catch"),
+            ("PsmFromTsvFile.cs:17", "warnings"),
+            ("Ms1Feature.cs:84", "ChargeState"),
+            ("Ms1Feature.cs:86", "IntensityApex"),
+            ("Ms1Feature.cs:91", "SingleChargeMs1Feature"),
+            ("DinosaurFeature.cs:18", "Intensity"),
+            ("DinosaurTsvFile.cs:15", "Results"),
+            ("MsPathFinderTResult.cs:89", "Accession"),
+            ("MsPathFinderTResult.cs:92", "XXX"),
+            ("CasanovoMzTabRecord.cs:84", "IsDecoy"),
+            ("CasanovoMzTabFile.cs:116", "OneBasedScanNumber"),
+            ("CasanovoMzTabFile.cs:124", "Modification"),
+            ("Mgf.cs:221", "MzRange"),
+            ("MsAlign.cs:526", "MzRange"),
+        ];
+
+        var wrong = new List<string>();
+        foreach ((string citation, string token) in citations)
+        {
+            string[] parts = citation.Split(':');
+            string? file = Directory
+                .EnumerateFiles(Path.Combine(TestRoot(), "..", "Readers"), parts[0], SearchOption.AllDirectories)
+                .FirstOrDefault();
+            if (file is null)
+            {
+                wrong.Add($"{citation}: no such file under Readers/");
+                continue;
+            }
+
+            string[] lines = File.ReadAllLines(file);
+            int index = int.Parse(parts[1]) - 1;
+            if (index < 0 || index >= lines.Length)
+            {
+                wrong.Add($"{citation}: the file has only {lines.Length} lines");
+                continue;
+            }
+
+            if (!lines[index].Contains(token, StringComparison.Ordinal))
+                wrong.Add($"{citation}: expected '{token}', line reads: {lines[index].Trim()}");
+        }
+
+        Assert.That(wrong, Is.Empty,
+            "A caveat cites an mzLib line that no longer says what the caveat claims:\n  " +
+            string.Join("\n  ", wrong));
     }
 
     // ---- harness -------------------------------------------------------------------------------
