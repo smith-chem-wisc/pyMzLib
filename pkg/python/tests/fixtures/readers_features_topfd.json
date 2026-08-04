@@ -1,0 +1,68 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\Ms1Feature_TopFDv1.6.2_ms1.feature",
+ "file_type": "Ms1Feature",
+ "record_count": 25,
+ "returned_count": 5,
+ "offset": 0,
+ "truncated": true,
+ "retention_time_unit": "unknown",
+ "caveats": [
+  "One row here is one CHARGE STATE of one feature, not one row of the file. mzLib expands each deconvolved feature across [ChargeStateMin, ChargeStateMax] (Ms1Feature.cs:84), so record_count exceeds the file's line count, and a charge the tool never observed appears if the writer recorded a gapped charge range. Use read-records for the file's own rows.",
+  "intensity is the per-charge APEX intensity (Ms1Feature.cs:86), not the summed intensity over the feature. The file's own Intensity column is a different number, and read-records has it.",
+  "retention_time_start/_end are in UNKNOWN units for this format. TopFD wrote seconds through v1.6.2 and minutes from v1.7.0 without changing the file type, and mzLib normalises neither \u2014 its deconvolution parameters instead GUESS, dividing by 60 when the largest end time exceeds 500. Check the values against your gradient length before comparing them with anything.",
+  "number_of_isotopes is null for every row of this format: the single-charge expansion mzLib builds never sets it (Ms1Feature.cs:91). Null means 'not reported', not 'no isotopes found'."
+ ],
+ "column_names": [
+  "mz",
+  "charge",
+  "retention_time_start",
+  "retention_time_end",
+  "intensity",
+  "number_of_isotopes"
+ ],
+ "columns": {
+  "mz": [
+   1548.9862365959561,
+   1355.4888665798214,
+   1204.990912122828,
+   1084.592548557233,
+   986.0847965490191
+  ],
+  "charge": [
+   7,
+   8,
+   9,
+   10,
+   11
+  ],
+  "retention_time_start": [
+   2372.27,
+   2372.27,
+   2372.27,
+   2372.27,
+   2372.27
+  ],
+  "retention_time_end": [
+   2401.92,
+   2401.92,
+   2401.92,
+   2401.92,
+   2401.92
+  ],
+  "intensity": [
+   912795138.8,
+   912795138.8,
+   912795138.8,
+   912795138.8,
+   912795138.8
+  ],
+  "number_of_isotopes": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "output": null
+}

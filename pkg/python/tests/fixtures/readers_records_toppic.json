@@ -1,0 +1,276 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\ToppicPrsm_TopPICv1.6.2_prsm.tsv",
+ "file_type": "ToppicPrsm",
+ "reader": "ToppicSearchResultFile",
+ "record_type": "ToppicPrsm",
+ "views": [],
+ "record_count": 4,
+ "returned_count": 4,
+ "offset": 0,
+ "truncated": false,
+ "excluded_fields": [
+  {
+   "field": "alternative_identifications",
+   "type": "List<AlternativeToppicId>",
+   "reason": "a list of composite values has no faithful column shape"
+  }
+ ],
+ "failed_fields": [],
+ "column_names": [
+  "file_name_without_extension",
+  "file_path",
+  "prsm_id",
+  "spectrum_id",
+  "dissociation_type",
+  "one_based_scan_number",
+  "retention_time",
+  "peak_count",
+  "precursor_charge",
+  "precursor_mass",
+  "adjusted_precursor_mass",
+  "proteoform_id",
+  "feature_intensity",
+  "feature_score",
+  "feature_apex_time",
+  "protein_hits_count",
+  "protein_accession",
+  "protein_description",
+  "first_residue",
+  "last_residue",
+  "special_amino_acids",
+  "base_sequence",
+  "full_sequence",
+  "full_sequence_mass",
+  "protein_n_terminal_form",
+  "fixed_ptms",
+  "unexpected_modifications_count",
+  "unexpected_modifications",
+  "variable_modifications_count",
+  "variable_modifications",
+  "mi_score",
+  "matched_peaks_count",
+  "matched_fragment_ions_count",
+  "e_value",
+  "q_value_spectrum_level",
+  "q_value_proteoform_level"
+ ],
+ "columns": {
+  "file_name_without_extension": [
+   "05-26-17_B7A_yeast_td_fract5_rep1_ms2",
+   "05-26-17_B7A_yeast_td_fract5_rep1_ms2",
+   "05-26-17_B7A_yeast_td_fract5_rep1_ms2",
+   "05-26-17_B7A_yeast_td_fract5_rep1_ms2"
+  ],
+  "file_path": [
+   "B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign",
+   "B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign",
+   "B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign",
+   "B:/Users/Nic/SharedWithMe/targetBias/Centroided/05-26-17_B7A_yeast_td_fract5_rep1_ms2.msalign"
+  ],
+  "prsm_id": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "spectrum_id": [
+   7,
+   8,
+   10,
+   11
+  ],
+  "dissociation_type": [
+   "HCD",
+   "HCD",
+   "HCD",
+   "HCD"
+  ],
+  "one_based_scan_number": [
+   259,
+   270,
+   354,
+   361
+  ],
+  "retention_time": [
+   340.12,
+   356.42,
+   465.09,
+   476.49
+  ],
+  "peak_count": [
+   14,
+   12,
+   16,
+   13
+  ],
+  "precursor_charge": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "precursor_mass": [
+   576.12185,
+   535.15972,
+   535.1598,
+   1134.42247
+  ],
+  "adjusted_precursor_mass": [
+   575.1295,
+   536.16207,
+   534.16745,
+   1133.44012
+  ],
+  "proteoform_id": [
+   1029,
+   917,
+   1346,
+   1345
+  ],
+  "feature_intensity": [
+   3604000,
+   10380000,
+   10400000,
+   991
+  ],
+  "feature_score": [
+   -1000,
+   -1000,
+   -1000,
+   -1000
+  ],
+  "feature_apex_time": [
+   536.51,
+   548.52,
+   548.52,
+   472.29
+  ],
+  "protein_hits_count": [
+   1,
+   5,
+   1,
+   1
+  ],
+  "protein_accession": [
+   "DECOY_sp|Q8N5H7|SH2D3_HUMAN",
+   "DECOY_sp|O60494|CUBN_HUMAN",
+   "DECOY_sp|Q9NRR8|C42S1_HUMAN",
+   "DECOY_sp|P20929|NEBU_HUMAN"
+  ],
+  "protein_description": [
+   "SH2 domain-containing protein 3C OS=Homo sapiens OX=9606 GN=SH2D3C PE=1 SV=1",
+   "Cubilin OS=Homo sapiens OX=9606 GN=CUBN PE=1 SV=5",
+   "CDC42 small effector protein 1 OS=Homo sapiens OX=9606 GN=CDC42SE1 PE=1 SV=1",
+   "Nebulin OS=Homo sapiens OX=9606 GN=NEB PE=1 SV=5"
+  ],
+  "first_residue": [
+   719,
+   1363,
+   2,
+   977
+  ],
+  "last_residue": [
+   724,
+   1367,
+   9,
+   984
+  ],
+  "special_amino_acids": [
+   "",
+   "",
+   "",
+   ""
+  ],
+  "base_sequence": [
+   "GYASDS",
+   "THIGY",
+   "SAECTKRF",
+   "THASEKGY"
+  ],
+  "full_sequence": [
+   "R.GYA(S)[-23.0940]DS.P",
+   "P.TH(I)[-53.1239]GY.S",
+   "M.SAE(C)[Carbamidomethylation](TKRF)[-463.2977].D",
+   "Q.TH(ASEK)[+242.0315]GY.L"
+  ],
+  "full_sequence_mass": [
+   575.1295,
+   536.16207,
+   534.16745,
+   1133.44012
+  ],
+  "protein_n_terminal_form": [
+   "NONE",
+   "NONE",
+   "NME",
+   "NONE"
+  ],
+  "fixed_ptms": [
+   "",
+   "",
+   "Carbamidomethylation:[4]",
+   ""
+  ],
+  "unexpected_modifications_count": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "unexpected_modifications": [
+   "-23.0940:[4]",
+   "-53.1239:[3]",
+   "-463.2977:[5-8]",
+   "+242.0315:[3-6]"
+  ],
+  "variable_modifications_count": [
+   0,
+   0,
+   0,
+   0
+  ],
+  "variable_modifications": [
+   "",
+   "",
+   "",
+   ""
+  ],
+  "mi_score": [
+   null,
+   null,
+   null,
+   null
+  ],
+  "matched_peaks_count": [
+   2,
+   2,
+   1,
+   1
+  ],
+  "matched_fragment_ions_count": [
+   3,
+   2,
+   2,
+   2
+  ],
+  "e_value": [
+   1e+300,
+   1e+300,
+   1e+300,
+   1e+300
+  ],
+  "q_value_spectrum_level": [
+   1,
+   1,
+   1,
+   1
+  ],
+  "q_value_proteoform_level": [
+   1,
+   1,
+   1,
+   1
+  ]
+ },
+ "output": null
+}

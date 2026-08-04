@@ -1,0 +1,156 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\crux.txt",
+ "file_type": "CruxResult",
+ "reader": "CruxResultFile",
+ "record_type": "CruxResult",
+ "views": [],
+ "record_count": 14,
+ "returned_count": 3,
+ "offset": 0,
+ "truncated": true,
+ "excluded_fields": [],
+ "failed_fields": [],
+ "column_names": [
+  "file_path",
+  "one_based_scan_number",
+  "charge",
+  "retention_time",
+  "precursor_mz",
+  "neutral_mass",
+  "peptide_mass",
+  "delta_cn",
+  "x_corr_score",
+  "x_corr_rank",
+  "tailor_score",
+  "tdc_q_value",
+  "b_and_y_ions_matched",
+  "b_and_y_ions_total",
+  "b_and_y_ions_fraction",
+  "b_and_y_ion_repeat_match",
+  "distinct_matches_per_spectrum",
+  "full_sequence",
+  "base_sequence",
+  "protein_id",
+  "flanking_aa",
+  "file_name_without_extension",
+  "accession"
+ ],
+ "columns": {
+  "file_path": [
+   "/hdd/data/PXD005590/B02_21_161103_D4_HCD_OT_4ul.raw.mzXML",
+   "/hdd/data/PXD005590/B02_20_161103_E4_HCD_OT_4ul.raw.mzXML",
+   "/hdd/data/PXD005590/B02_18_161103_B4_HCD_OT_4ul.raw.mzXML"
+  ],
+  "one_based_scan_number": [
+   14674,
+   15417,
+   6847
+  ],
+  "charge": [
+   3,
+   3,
+   4
+  ],
+  "retention_time": [
+   2747.6599,
+   2814.6499,
+   2012.87
+  ],
+  "precursor_mz": [
+   1075.1815,
+   1075.182,
+   918.185
+  ],
+  "neutral_mass": [
+   3222.5227,
+   3222.5242,
+   3668.7109
+  ],
+  "peptide_mass": [
+   3222.5222,
+   3222.5222,
+   3668.7124
+  ],
+  "delta_cn": [
+   0.84335566,
+   0.86036599,
+   0.83817238
+  ],
+  "x_corr_score": [
+   6.4364114,
+   6.3186069,
+   6.7191076
+  ],
+  "x_corr_rank": [
+   1,
+   1,
+   1
+  ],
+  "tailor_score": [
+   1.9659604,
+   1.9550625,
+   1.9478002
+  ],
+  "tdc_q_value": [
+   3.8850189e-06,
+   3.8850189e-06,
+   3.8850189e-06
+  ],
+  "b_and_y_ions_matched": [
+   51,
+   48,
+   53
+  ],
+  "b_and_y_ions_total": [
+   116,
+   116,
+   191
+  ],
+  "b_and_y_ions_fraction": [
+   0.43965518,
+   0.41379309,
+   0.27748692
+  ],
+  "b_and_y_ion_repeat_match": [
+   0,
+   3,
+   0
+  ],
+  "distinct_matches_per_spectrum": [
+   68,
+   68,
+   64
+  ],
+  "full_sequence": [
+   "RPQYSNPPVQGEVMEGADNQGAGEQGRPVR",
+   "RPQYSNPPVQGEVMEGADNQGAGEQGRPVR",
+   "AASAAGAAGSAGGSSGAAGAAGGGAGAGTRPGDGGTASAGAAGPGAATK"
+  ],
+  "base_sequence": [
+   "RPQYSNPPVQGEVMEGADNQGAGEQGRPVR",
+   "RPQYSNPPVQGEVMEGADNQGAGEQGRPVR",
+   "AASAAGAAGSAGGSSGAAGAAGGGAGAGTRPGDGGTASAGAAGPGAATK"
+  ],
+  "protein_id": [
+   "sp|P67809|YBOX1_HUMAN(205)",
+   "sp|P67809|YBOX1_HUMAN(205)",
+   "sp|Q9UKY7|CDV3_HUMAN(28)"
+  ],
+  "flanking_aa": [
+   "RQ",
+   "RQ",
+   "RA"
+  ],
+  "file_name_without_extension": [
+   "B02_21_161103_D4_HCD_OT_4ul.raw",
+   "B02_20_161103_E4_HCD_OT_4ul.raw",
+   "B02_18_161103_B4_HCD_OT_4ul.raw"
+  ],
+  "accession": [
+   "P67809",
+   "P67809",
+   "Q9UKY7"
+  ]
+ },
+ "output": null
+}
