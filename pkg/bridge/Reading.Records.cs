@@ -133,8 +133,8 @@ internal static partial class Reading
             throw NoSuchView(resultFile, "ms1_features", "read-features");
 
         resultFile.LoadResults();
-        List<ISingleChargeMs1Feature> all = featureFile.GetMs1Features().ToList();
-        IReadOnlyList<ISingleChargeMs1Feature> selected = window.Apply(all, out bool truncated);
+        List<Feature> all = FeaturesOf(featureFile, resultFile);
+        IReadOnlyList<Feature> selected = window.Apply(all, out bool truncated);
 
         var columns = FeatureColumns;
         object? written = null;
@@ -150,7 +150,7 @@ internal static partial class Reading
             offset = window.Offset,
             truncated,
             retention_time_unit = FeatureRetentionTimeUnitOf(resultFile),
-            caveats = FeatureCaveatsFor(resultFile),
+            caveats = FeatureCaveatsFor(resultFile, all),
             column_names = columns.Select(c => c.Name).ToList(),
             columns = written is null ? BuildColumns(columns, selected) : null,
             output = written,
@@ -306,6 +306,60 @@ internal static partial class Reading
     // ---------------------------------------------------------------------------------------
     // Opening
     // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// One MS1 feature, and whether its intensity is a measurement or mzLib's zero.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="ISingleChargeMs1Feature.Intensity"/> is a non-nullable double, and
+    /// <c>Ms1Feature.GetSingleChargeFeatures</c> fills it with <c>IntensityApex ?? 0</c>
+    /// (Ms1Feature.cs:86). <c>Apex_intensity</c> is an <c>[Optional]</c> column, and the
+    /// FLASHDeconv/OpenMS <c>_ms1.feature</c> schema <b>does not have it at all</b> — so for that
+    /// whole family every feature's intensity is a fabricated zero, indistinguishable from a real
+    /// measurement of nothing.
+    /// </para>
+    /// <para>
+    /// Carrying the availability alongside the feature is what lets the column cross as null
+    /// instead. This is the bridge-principle case in miniature: the value is genuinely absent, the
+    /// core contract cannot say so because the interface types it non-nullable, and the honest
+    /// projection is optionality rather than a plausible number. It is recorded on
+    /// <c>bridge/UPSTREAM.md</c> as a candidate for a nullable <c>Intensity</c> upstream, which
+    /// would let this carrier go away.
+    /// </para>
+    /// </remarks>
+    private sealed record Feature(ISingleChargeMs1Feature Value, bool IntensityMeasured);
+
+    /// <summary>
+    /// The file's features, each tagged with whether mzLib had an intensity to report.
+    /// </summary>
+    /// <remarks>
+    /// The per-charge expansion is contiguous — <c>Ms1Feature</c> yields one feature per charge in
+    /// <c>[ChargeStateMin, ChargeStateMax]</c>, in order — so a record's availability applies to a
+    /// known run of outputs. If that ever stops holding, the counts disagree and this falls back to
+    /// reporting every intensity as measured: a wrong "measured" is the status quo, whereas a
+    /// misaligned null would mark the wrong rows.
+    /// </remarks>
+    private static List<Feature> FeaturesOf(IMs1FeatureFile featureFile, IResultFile resultFile)
+    {
+        List<ISingleChargeMs1Feature> features = featureFile.GetMs1Features().ToList();
+
+        if (resultFile is not Ms1FeatureFile ms1File)
+            return features.Select(feature => new Feature(feature, true)).ToList();
+
+        var measured = new List<bool>(features.Count);
+        foreach (Ms1Feature record in ms1File.Results)
+        {
+            int charges = record.ChargeStateMax - record.ChargeStateMin + 1;
+            for (int i = 0; i < charges; i++)
+                measured.Add(record.IntensityApex is not null);
+        }
+
+        if (measured.Count != features.Count)
+            return features.Select(feature => new Feature(feature, true)).ToList();
+
+        return features.Select((feature, index) => new Feature(feature, measured[index])).ToList();
+    }
 
     /// <summary>Opens a path as whatever mzLib says it is, or explains why it cannot.</summary>
     private static IResultFile OpenAny(string path)
@@ -507,6 +561,7 @@ internal static partial class Reading
 
         private readonly List<(string Name, PropertyInfo Property)> _fields;
         private readonly HashSet<string> _failed = [];
+        private readonly HashSet<string> _sentinelFields;
 
         public string RecordTypeName { get; }
         public IReadOnlyList<string> ColumnNames { get; }
@@ -531,15 +586,43 @@ internal static partial class Reading
             _fields = fields;
             ColumnNames = fields.Select(f => f.Item1).ToList();
             Excluded = excluded;
+            _sentinelFields = SentinelFieldsOf(recordType);
         }
 
         /// <summary>
-        /// The projection for a record type, worked out once and reused.
+        /// The fields on this record type where mzLib documents <c>-1</c> as "absent".
         /// </summary>
         /// <remarks>
-        /// Cached because the reflection is per-type rather than per-row, and a million-row file
-        /// would otherwise re-derive the same column list a million times.
+        /// <para>
+        /// The general rule here is that <c>-1</c> crosses through untouched, because in a format's
+        /// own columns it is usually a real measurement — a mass difference, a delta, TopPIC's
+        /// <c>feature_score</c>. That rule has exactly one documented exception, and it is not
+        /// optional: <see cref="IQuantifiableRecord.RetentionTime"/> and
+        /// <see cref="IQuantifiableRecord.MonoisotopicMass"/> are typed as non-nullable doubles, so
+        /// mzLib assigns literal <c>-1</c> when the column is missing (SpectrumMatchFromTsv.cs:198,
+        /// :89).
+        /// </para>
+        /// <para>
+        /// Those two members are projected by <c>read-results</c> as null, and
+        /// <c>read-records</c> reaches <b>the same properties on the same record types</b> — so
+        /// without this, one verb would answer <c>null</c> and the other <c>-1</c> for the same
+        /// column of the same file, and the <c>-1</c> would enter a mean. The exception is scoped
+        /// to the interface that documents it rather than to a name, so a format-specific
+        /// <c>retention_time</c> elsewhere is untouched.
+        /// </para>
         /// </remarks>
+        private static HashSet<string> SentinelFieldsOf(Type recordType)
+        {
+            if (!typeof(IQuantifiableRecord).IsAssignableFrom(recordType))
+                return [];
+
+            return
+            [
+                nameof(IQuantifiableRecord.RetentionTime),
+                nameof(IQuantifiableRecord.MonoisotopicMass),
+            ];
+        }
+
         public static RecordProjection For(Type recordType)
         {
             lock (Cache)
@@ -653,6 +736,9 @@ internal static partial class Reading
                     _failed.Add($"{SnakeCase(property.Name)}: {(exception.InnerException ?? exception).GetType().Name}");
                 return null;
             }
+
+            if (value is double number && _sentinelFields.Contains(property.Name))
+                return NullIfSentinel(number);
 
             return Normalize(value);
         }
