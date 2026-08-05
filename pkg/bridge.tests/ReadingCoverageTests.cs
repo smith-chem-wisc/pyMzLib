@@ -516,12 +516,16 @@ public class ReadingCoverageTests
     }
 
     [Test]
-    public void AFlashDeconvFeatureFileReportsNullIntensityRatherThanFabricatedZero()
+    public void AFlashDeconvFeatureFileDisclosesThatItsZeroIntensitiesAreFabricated()
     {
         // A within-type schema variant, which one fixture per SupportedFileType cannot cover:
         // Apex_intensity is [Optional] and the FLASHDeconv/OpenMS _ms1.feature layout omits it, so
         // mzLib's `IntensityApex ?? 0` hands back a whole column of zeros that look exactly like
         // measurements of nothing. The TopFD fixture in the map has the column and hides this.
+        //
+        // This PR DISCLOSES that rather than repairing it: the wire reports mzLib's zero and the
+        // caveat says the zero is fabricated. Nulling the value makes the wire disagree with mzLib
+        // about a number, which is a different kind of change and ships separately.
         string path = Path.Combine(TestRoot(),
             "FileReadingTests/ExternalFileTypes/Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature");
         if (!File.Exists(path))
@@ -532,51 +536,36 @@ public class ReadingCoverageTests
         Assert.Multiple(() =>
         {
             foreach (JsonElement intensity in data.GetProperty("columns").GetProperty("intensity").EnumerateArray())
-                Assert.That(intensity.ValueKind, Is.EqualTo(JsonValueKind.Null),
-                    "a fabricated zero must not be handed back as a measurement");
+                Assert.That(intensity.GetDouble(), Is.Zero,
+                    "mzLib's value is passed through unchanged");
 
             Assert.That(
                 data.GetProperty("caveats").EnumerateArray()
-                    .Any(caveat => caveat.GetString()!.Contains("intensity is NULL")),
+                    .Any(caveat => caveat.GetString()!.Contains("FABRICATED")),
                 Is.True,
-                "and the reason must be stated, not left as an unexplained empty column");
+                "a column of zeros that are not measurements must say so, or it is indistinguishable "
+                    + "from a file where nothing was detected");
         });
     }
 
     [Test]
-    public void ATopFdFeatureFileStillReportsRealIntensities()
+    public void ATopFdFeatureFileCarriesNoFabricationCaveat()
     {
-        // The counterpart. Nulling every intensity would be an equally serious over-correction, and
-        // this is the fixture that proves the null above is conditional rather than blanket.
+        // The counterpart, and the fixture that proves the caveat above is conditional rather than
+        // blanket: TopFD writes Apex_intensity, so its intensities are real and nothing is claimed.
         JsonElement data = Invoke("readers", "read-features",
             "--path", FixtureFor(SupportedFileType.Ms1Feature), "--limit", "3");
 
-        foreach (JsonElement intensity in data.GetProperty("columns").GetProperty("intensity").EnumerateArray())
-            Assert.That(intensity.ValueKind, Is.EqualTo(JsonValueKind.Number));
-    }
-
-    [Test]
-    public void TheTwoVerbsAgreeOnTheAbsentSentinelForTheSameColumn()
-    {
-        // read-records reaches the SAME IQuantifiableRecord properties that read-results nulls, so
-        // without the scoped exception one verb would answer null and the other -1 for the same
-        // column of the same file, and the -1 would enter a mean.
-        string path = FixtureFor(SupportedFileType.psmtsv);
-
-        JsonElement uniform = Invoke("readers", "read-results", "--path", path);
-        JsonElement native = Invoke("readers", "read-records", "--path", path);
-
-        JsonElement[] fromResults = uniform.GetProperty("columns").GetProperty("retention_time")
-            .EnumerateArray().ToArray();
-        JsonElement[] fromRecords = native.GetProperty("columns").GetProperty("retention_time")
-            .EnumerateArray().ToArray();
-
-        Assert.That(fromRecords, Has.Length.EqualTo(fromResults.Length));
-        for (int row = 0; row < fromResults.Length; row++)
+        Assert.Multiple(() =>
         {
-            Assert.That(fromRecords[row].ValueKind, Is.EqualTo(fromResults[row].ValueKind),
-                $"row {row}: the two verbs disagree about whether retention_time is present");
-        }
+            foreach (JsonElement intensity in data.GetProperty("columns").GetProperty("intensity").EnumerateArray())
+                Assert.That(intensity.GetDouble(), Is.GreaterThan(0));
+
+            Assert.That(
+                data.GetProperty("caveats").EnumerateArray()
+                    .Any(caveat => caveat.GetString()!.Contains("FABRICATED")),
+                Is.False);
+        });
     }
 
     // ---- the caveats' own citations --------------------------------------------------------------

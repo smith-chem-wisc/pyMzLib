@@ -22,22 +22,22 @@ internal static partial class Reading
     /// <summary>
     /// The <see cref="ISingleChargeMs1Feature"/> fields, under mzLib's own names.
     /// </summary>
-    private static IReadOnlyList<Column<Feature>> FeatureColumns { get; } = new[]
+    private static IReadOnlyList<Column<ISingleChargeMs1Feature>> FeatureColumns { get; } = new[]
     {
-        new Column<Feature>("mz", f => f.Value.Mz),
-        new Column<Feature>("charge", f => f.Value.Charge),
-        new Column<Feature>("retention_time_start", f => f.Value.RetentionTimeStart),
-        new Column<Feature>("retention_time_end", f => f.Value.RetentionTimeEnd),
-        // Null where mzLib had no apex intensity to report. The interface types Intensity as a
-        // non-nullable double and Ms1Feature fills it with `IntensityApex ?? 0`, so for a file
-        // whose schema lacks the optional Apex_intensity column — every FLASHDeconv/OpenMS
-        // _ms1.feature — a plain projection hands back a whole column of fabricated zeros that
-        // look exactly like measurements of nothing. Optionality is the honest projection.
-        new Column<Feature>("intensity", f => f.IntensityMeasured ? f.Value.Intensity : (double?)null),
+        new Column<ISingleChargeMs1Feature>("mz", f => f.Mz),
+        new Column<ISingleChargeMs1Feature>("charge", f => f.Charge),
+        new Column<ISingleChargeMs1Feature>("retention_time_start", f => f.RetentionTimeStart),
+        new Column<ISingleChargeMs1Feature>("retention_time_end", f => f.RetentionTimeEnd),
+        // Passed through exactly as mzLib reports it, INCLUDING the fabricated zero it substitutes
+        // when a file has no Apex_intensity column. That zero is disclosed in the caveats rather
+        // than repaired here: repairing it would make the wire disagree with mzLib about a number,
+        // which is a different kind of change from adding a verb and belongs in its own PR — and
+        // ultimately upstream, where the interface should be nullable (bridge/UPSTREAM.md U1).
+        new Column<ISingleChargeMs1Feature>("intensity", f => f.Intensity),
         // Genuinely nullable on the interface, and null for a whole format rather than for odd
         // rows: mzLib's _ms1.feature expansion never sets it. Crossing as null is the faithful
-        // projection; a zero would read as "no isotopes were found".
-        new Column<Feature>("number_of_isotopes", f => f.Value.NumberOfIsotopes),
+        // projection — no repair involved, because the interface already says it may be absent.
+        new Column<ISingleChargeMs1Feature>("number_of_isotopes", f => f.NumberOfIsotopes),
     };
 
     /// <summary>The unit the feature view's retention times carry, for a given file.</summary>
@@ -63,30 +63,26 @@ internal static partial class Reading
     /// the same class of manufactured discrepancy the readers bake-off already caught once in the
     /// quantifiable caveats, and worth not repeating.
     /// </remarks>
-    private static List<string> FeatureCaveatsFor(IResultFile resultFile, IReadOnlyList<Feature> features)
+    private static List<string> FeatureCaveatsFor(IResultFile resultFile)
     {
         List<string> caveats = BaseFeatureCaveatsFor(resultFile.FileType);
 
         // Said only when it is true of THIS file, because it depends on the schema the writer used
         // rather than on the file type: TopFD writes Apex_intensity and FLASHDeconv does not, and
-        // both are SupportedFileType.Ms1Feature.
-        int unmeasured = features.Count(feature => !feature.IntensityMeasured);
-        if (unmeasured == features.Count && features.Count > 0)
+        // both are SupportedFileType.Ms1Feature. Tested against the file's own records, which is
+        // the same check mzLib itself uses to tell the two writers apart (Ms1FeatureFile.cs:50).
+        if (resultFile is Ms1FeatureFile file &&
+            file.Results.Count > 0 &&
+            file.Results.All(record => record.IntensityApex is null))
         {
             caveats.Add(
-                "intensity is NULL for every row of this file. mzLib takes the per-charge intensity " +
-                "from the optional Apex_intensity column (Ms1Feature.cs:86) and this file's schema " +
-                "does not have it — the FLASHDeconv/OpenMS _ms1.feature layout omits it entirely. " +
-                "mzLib substitutes zero, which is indistinguishable from a real measurement of " +
-                "nothing, so the value crosses as null instead. read-records has the file's own " +
-                "summed Intensity column.");
-        }
-        else if (unmeasured > 0)
-        {
-            caveats.Add(
-                $"intensity is null for {unmeasured} of {features.Count} rows: those features carry " +
-                "no Apex_intensity value, and mzLib substitutes zero (Ms1Feature.cs:86). Null here " +
-                "means 'not reported', not 'no signal'.");
+                "intensity is 0 for EVERY row of this file, and that zero is FABRICATED. mzLib takes " +
+                "the per-charge intensity from the optional Apex_intensity column " +
+                "(Ms1Feature.cs:86); this file's schema does not have it - the FLASHDeconv/OpenMS " +
+                "_ms1.feature layout omits it entirely - so mzLib substitutes zero, which is " +
+                "indistinguishable from a real measurement of nothing. Do not read these as " +
+                "intensities, and do not sum or rank them. read-records has the file's own summed " +
+                "Intensity column, which is real.");
         }
 
         return caveats;
