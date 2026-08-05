@@ -1,0 +1,141 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\DataFiles\\sliced_ethcd.mzML",
+ "file_type": "MzML",
+ "reader": "Mzml",
+ "scan_count": 6,
+ "ms_order": 2,
+ "record_count": 5,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
+ "peaks_included": false,
+ "retention_time_unit": "minutes",
+ "caveats": [
+  "Peaks are not included. This is scan HEADERS only; peak_count reports how many peaks each scan has but not what they are. Pass peaks=true to include the mz and intensity arrays, and expect the payload to grow by roughly the size of the file."
+ ],
+ "column_names": [
+  "one_based_scan_number",
+  "ms_order",
+  "retention_time",
+  "polarity",
+  "mz_analyzer",
+  "is_centroid",
+  "total_ion_current",
+  "injection_time",
+  "peak_count",
+  "scan_window_lower_mz",
+  "scan_window_upper_mz",
+  "scan_filter",
+  "native_id",
+  "scan_description",
+  "one_based_precursor_scan_number",
+  "isolation_mz",
+  "isolation_width",
+  "selected_ion_mz",
+  "selected_ion_intensity",
+  "selected_ion_charge_state_guess",
+  "selected_ion_monoisotopic_guess_mz",
+  "dissociation_type",
+  "hcd_energy",
+  "compensation_voltage"
+ ],
+ "columns": {
+  "one_based_scan_number": [
+   2,
+   3
+  ],
+  "ms_order": [
+   2,
+   2
+  ],
+  "retention_time": [
+   38.92606115255,
+   38.930491015233
+  ],
+  "polarity": [
+   "Positive",
+   "Positive"
+  ],
+  "mz_analyzer": [
+   "Quadrupole",
+   "Quadrupole"
+  ],
+  "is_centroid": [
+   true,
+   true
+  ],
+  "total_ion_current": [
+   8444001,
+   3569885.25
+  ],
+  "injection_time": [
+   33.678737640381,
+   60
+  ],
+  "peak_count": [
+   409,
+   339
+  ],
+  "scan_window_lower_mz": [
+   100,
+   100
+  ],
+  "scan_window_upper_mz": [
+   2000,
+   2000
+  ],
+  "scan_filter": [
+   "FTMS + p NSI d Full ms2 548.4539@hcd36.00 [100.0000-2000.0000]",
+   "FTMS + p NSI d Full ms2 797.1675@hcd36.00 [100.0000-2000.0000]"
+  ],
+  "native_id": [
+   "controllerType=0 controllerNumber=1 scan=2",
+   "controllerType=0 controllerNumber=1 scan=3"
+  ],
+  "scan_description": [
+   null,
+   null
+  ],
+  "one_based_precursor_scan_number": [
+   1,
+   1
+  ],
+  "isolation_mz": [
+   548.453918457031,
+   797.16748046875
+  ],
+  "isolation_width": [
+   2,
+   2
+  ],
+  "selected_ion_mz": [
+   548.453918457031,
+   796.765197753906
+  ],
+  "selected_ion_intensity": [
+   14565240.5625,
+   3121098.5
+  ],
+  "selected_ion_charge_state_guess": [
+   5,
+   5
+  ],
+  "selected_ion_monoisotopic_guess_mz": [
+   548.4539184570312,
+   796.7651977539062
+  ],
+  "dissociation_type": [
+   "HCD",
+   "Unknown"
+  ],
+  "hcd_energy": [
+   null,
+   null
+  ],
+  "compensation_voltage": [
+   null,
+   null
+  ]
+ },
+ "output": null
+}

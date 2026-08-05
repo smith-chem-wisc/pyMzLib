@@ -24,7 +24,7 @@ namespace MzLibBridge;
 /// deep in a later call, a caller is told up front which views a given file actually supports.
 /// </para>
 /// </remarks>
-internal static class Reading
+internal static partial class Reading
 {
     /// <summary>
     /// <c>readers formats</c> — every file type mzLib can recognise, with its extension and the
@@ -218,7 +218,7 @@ internal static class Reading
         // the end makes the sum exceed the total and reports a complete answer for an empty one.
         bool truncated = selected.Count < all.Count;
 
-        var columns = Column.QuantifiableView;
+        var columns = QuantifiableView;
         object? written = null;
         if (!string.IsNullOrWhiteSpace(outputPath))
             written = WriteTable(outputPath, columns, selected);
@@ -293,7 +293,7 @@ internal static class Reading
                 IResultFile any = FileReader.ReadResultFile(path);
                 List<string> views = ViewsOf(any.GetType());
                 detail = views.Count == 0
-                    ? $"'{any.FileType}' files have no cross-format record view at all — mzLib parses " +
+                    ? $"'{any.FileType}' files have no cross-format record view at all - mzLib parses " +
                       "them into a format-specific shape only."
                     : $"'{any.FileType}' files offer the {string.Join(", ", views)} view, not quantifiable.";
             }
@@ -317,91 +317,119 @@ internal static class Reading
     }
 
     /// <summary>
-    /// One field of the uniform view: its wire name and how to read it off a record.
+    /// One field of a view: its wire name and how to read it off a record.
     /// </summary>
     /// <remarks>
     /// Declared once so the JSON columns and the written table cannot disagree about which fields
-    /// exist, what they are called, or what order they are in.
+    /// exist, what they are called, or what order they are in. Generic in the record type so the
+    /// four view verbs — quantifiable records, MS1 features, spectral matches, scans — share one
+    /// column writer rather than four that can drift on quoting or on how null is rendered.
     /// </remarks>
-    private sealed record Column(string Name, Func<IQuantifiableRecord, object?> Read)
+    private sealed record Column<T>(string Name, Func<T, object?> Read);
+
+    /// <summary>
+    /// The <see cref="IQuantifiableRecord"/> fields, under mzLib's own names.
+    /// </summary>
+    /// <remarks>
+    /// <c>retention_time</c> and <c>monoisotopic_mass</c> use <c>-1</c> as a "not present"
+    /// sentinel in mzLib because the interface types them as non-nullable doubles. Passing that
+    /// through would put a real-looking -1 into someone's arithmetic, so it crosses as null.
+    /// The protein tuple list is flattened into three parallel <c>;</c>-joined fields, matching
+    /// how the FlashLFQ tranche already renders protein groups.
+    /// </remarks>
+    private static IReadOnlyList<Column<IQuantifiableRecord>> QuantifiableView { get; } = new[]
     {
-        /// <summary>
-        /// The <see cref="IQuantifiableRecord"/> fields, under mzLib's own names.
-        /// </summary>
-        /// <remarks>
-        /// <c>retention_time</c> and <c>monoisotopic_mass</c> use <c>-1</c> as a "not present"
-        /// sentinel in mzLib because the interface types them as non-nullable doubles. Passing that
-        /// through would put a real-looking -1 into someone's arithmetic, so it crosses as null.
-        /// The protein tuple list is flattened into three parallel <c>;</c>-joined fields, matching
-        /// how the FlashLFQ tranche already renders protein groups.
-        /// </remarks>
-        public static IReadOnlyList<Column> QuantifiableView { get; } = new[]
-        {
-            new Column("file_name", r => r.FileName),
-            new Column("base_sequence", r => r.BaseSequence),
-            new Column("full_sequence", r => r.FullSequence),
-            new Column("retention_time", r => NullIfSentinel(r.RetentionTime)),
-            new Column("charge_state", r => r.ChargeState),
-            new Column("monoisotopic_mass", r => NullIfSentinel(r.MonoisotopicMass)),
+            new Column<IQuantifiableRecord>("file_name", r => r.FileName),
+            new Column<IQuantifiableRecord>("base_sequence", r => r.BaseSequence),
+            new Column<IQuantifiableRecord>("full_sequence", r => r.FullSequence),
+            new Column<IQuantifiableRecord>("retention_time", r => NullIfSentinel(r.RetentionTime)),
+            new Column<IQuantifiableRecord>("charge_state", r => r.ChargeState),
+            new Column<IQuantifiableRecord>("monoisotopic_mass", r => NullIfSentinel(r.MonoisotopicMass)),
             // Null, not false, where the format cannot report decoys. mzLib hardcodes false for
             // MSFragger because psm.tsv carries no target/decoy column at all - so the value means
             // "unknown", and a boolean column that silently means "unknown" for part of a table is
             // the single most dangerous thing this view could hand back. Both bake-off rounds named
             // it. Reported upstream; until the contract can express it, the wire refuses to.
-            new Column("is_decoy", r => DecoysAreKnown(r) ? r.IsDecoy : (bool?)null),
+            new Column<IQuantifiableRecord>("is_decoy", r => DecoysAreKnown(r) ? r.IsDecoy : (bool?)null),
             // Named exactly as mzLib names the tuple fields —
             // List<(string proteinAccessions, string geneName, string organism)> — including the
             // singulars, even though each carries a ';'-joined list here. A caller reading the
             // mzLib source must not have to hold a translation table.
-            new Column("protein_accessions", r => Join(r, p => p.proteinAccessions)),
-            new Column("gene_name", r => Join(r, p => p.geneName)),
-            new Column("organism", r => Join(r, p => p.organism)),
-        };
+            new Column<IQuantifiableRecord>("protein_accessions", r => Join(r, p => p.proteinAccessions)),
+            new Column<IQuantifiableRecord>("gene_name", r => Join(r, p => p.geneName)),
+            new Column<IQuantifiableRecord>("organism", r => Join(r, p => p.organism)),
+    };
 
-        /// <summary>Whether this record's format can report decoy status at all.</summary>
-        /// <remarks>
-        /// <c>MsFraggerPsm.IsDecoy</c> is <c>=> false</c> with a comment saying decoy reading is
-        /// unsupported, and the file genuinely has no target/decoy column - FragPipe strips decoys
-        /// before writing it. So false is not an answer, and passing it through would let a caller
-        /// group by a column that is fabricated for one format and real for another.
-        /// </remarks>
-        private static bool DecoysAreKnown(IQuantifiableRecord record) =>
-            // An ALLOWLIST, not a denylist. Naming the formats that cannot report decoys would make
-            // "decoys are known" the default for any type mzLib adds later — so a new reader that
-            // also hardcodes false would start emitting fabricated booleans without anyone editing
-            // this file. Defaulting to "unknown" is wrong in the harmless direction.
-            record is SpectrumMatchFromTsv or LightWeightSpectralMatch;
+    /// <summary>Whether this record's format can report decoy status at all.</summary>
+    /// <remarks>
+    /// <c>MsFraggerPsm.IsDecoy</c> is <c>=> false</c> with a comment saying decoy reading is
+    /// unsupported, and the file genuinely has no target/decoy column - FragPipe strips decoys
+    /// before writing it. So false is not an answer, and passing it through would let a caller
+    /// group by a column that is fabricated for one format and real for another.
+    /// </remarks>
+    private static bool DecoysAreKnown(IQuantifiableRecord record) =>
+        // An ALLOWLIST, not a denylist. Naming the formats that cannot report decoys would make
+        // "decoys are known" the default for any type mzLib adds later — so a new reader that
+        // also hardcodes false would start emitting fabricated booleans without anyone editing
+        // this file. Defaulting to "unknown" is wrong in the harmless direction.
+        record is SpectrumMatchFromTsv or LightWeightSpectralMatch;
 
-        private static string Join(
-            IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
-            => string.Join(";", (record.ProteinGroupInfos ?? []).Select(part));
+    private static string Join(
+        IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
+        => string.Join(";", (record.ProteinGroupInfos ?? []).Select(part));
 
-        /// <summary>mzLib's "absent" sentinel for retention_time and monoisotopic_mass.</summary>
-        private const double AbsentSentinel = -1;
+    /// <summary>mzLib's "absent" sentinel for retention_time and monoisotopic_mass.</summary>
+    private const double AbsentSentinel = -1;
 
-        /// <summary>mzLib's -1 "absent" sentinel, and any non-finite value, as null.</summary>
-        private static double? NullIfSentinel(double value) =>
-            // Never compare doubles with exact ==: the sentinel happens to be assigned as the literal
-            // -1 today, but a value derived rather than assigned (a subtraction, a reparse) would slip
-            // a real-looking -1 past an exact check and into the caller's arithmetic.
-            double.IsFinite(value) && Math.Abs(value - AbsentSentinel) > 1e-9 ? value : null;
-    }
+    /// <summary>mzLib's -1 "absent" sentinel, and any non-finite value, as null.</summary>
+    private static double? NullIfSentinel(double value) =>
+        // Never compare doubles with exact ==: the sentinel happens to be assigned as the literal
+        // -1 today, but a value derived rather than assigned (a subtraction, a reparse) would slip
+        // a real-looking -1 past an exact check and into the caller's arithmetic.
+        double.IsFinite(value) && Math.Abs(value - AbsentSentinel) > 1e-9 ? value : null;
 
     /// <summary>Builds the columnar payload: one array per field.</summary>
-    private static Dictionary<string, List<object?>> BuildColumns(
-        IReadOnlyList<Column> columns, List<IQuantifiableRecord> records)
+    private static Dictionary<string, List<object?>> BuildColumns<T>(
+        IReadOnlyList<Column<T>> columns, IReadOnlyList<T> records)
     {
         var built = new Dictionary<string, List<object?>>(columns.Count);
-        foreach (Column column in columns)
+        foreach (Column<T> column in columns)
         {
             var values = new List<object?>(records.Count);
-            foreach (IQuantifiableRecord record in records)
-                values.Add(column.Read(record));
+            foreach (T record in records)
+                values.Add(WireValue(column.Read(record)));
             built[column.Name] = values;
         }
 
         return built;
     }
+
+    /// <summary>A column value in the shape the JSON envelope can carry.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Non-finite doubles cross as null, and this is not cosmetic.</b> JSON has no
+    /// representation for infinity or NaN, so serialising one does not produce a slightly wrong
+    /// number — it throws, and the whole read fails with a message about JSON rather than about the
+    /// file. mzLib emits both routinely: <c>NaN</c> is its "column absent" default for the
+    /// confidence fields, and an mzML whose scan window is unbounded gives
+    /// <c>ScanWindowRange.Maximum</c> as positive infinity. Caught on <c>tester.mzML</c>, where a
+    /// scan-window column took the entire spectra read down.
+    /// </para>
+    /// <para>
+    /// Applied centrally here rather than per column so a view added later cannot reintroduce the
+    /// failure by forgetting it. Note this is <i>not</i> the -1 sentinel rule, which is specific to
+    /// two members of the quantifiable view and is applied by those columns themselves.
+    /// </para>
+    /// </remarks>
+    private static object? WireValue(object? value) => value switch
+    {
+        double number => double.IsFinite(number) ? number : null,
+        float number => float.IsFinite(number) ? (object)number : null,
+        // A peak array, for the --peaks column. Non-finite members are nulled individually so one
+        // bad peak cannot void a whole scan's spectrum.
+        double[] numbers => numbers.Select(n => double.IsFinite(n) ? n : (double?)null).ToList(),
+        _ => value,
+    };
 
     /// <summary>
     /// Writes the selected records as a tab-separated table and reports where they went.
@@ -415,8 +443,8 @@ internal static class Reading
     /// format) and what the FlashLFQ verb already emits. Fields are still quoted when they would
     /// otherwise contain a delimiter or newline, so the file is lossless rather than lucky.
     /// </remarks>
-    private static object WriteTable(
-        string outputPath, IReadOnlyList<Column> columns, List<IQuantifiableRecord> records)
+    private static object WriteTable<T>(
+        string outputPath, IReadOnlyList<Column<T>> columns, IReadOnlyList<T> records)
     {
         string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
         if (!string.IsNullOrEmpty(directory))
@@ -430,14 +458,14 @@ internal static class Reading
         using (var writer = new StreamWriter(File.Create(outputPath)))
         using (var csv = new CsvHelper.CsvWriter(writer, configuration))
         {
-            foreach (Column column in columns)
+            foreach (Column<T> column in columns)
                 csv.WriteField(column.Name);
             csv.NextRecord();
 
-            foreach (IQuantifiableRecord record in records)
+            foreach (T record in records)
             {
-                foreach (Column column in columns)
-                    csv.WriteField(Render(column.Read(record)));
+                foreach (Column<T> column in columns)
+                    csv.WriteField(Render(WireValue(column.Read(record))));
                 csv.NextRecord();
             }
         }
@@ -457,6 +485,12 @@ internal static class Reading
         double number => number.ToString(CultureInfo.InvariantCulture),
         int number => number.ToString(CultureInfo.InvariantCulture),
         bool flag => flag ? "true" : "false",
+        // A per-row array — a scan's peak list, a record's ';'-joined list field. Rendered
+        // element-wise rather than via ToString(), which on a List<T> yields the type's name and
+        // would write "System.Collections.Generic.List`1[System.Double]" into every cell.
+        string text => text,
+        System.Collections.IEnumerable sequence =>
+            string.Join(";", sequence.Cast<object?>().Select(Render)),
         _ => value.ToString() ?? string.Empty,
     };
 
@@ -551,7 +585,7 @@ internal static class Reading
         SupportedFileType.MsFraggerPsm =>
         [
             "is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, " +
-            "so mzLib cannot report decoy status (MsFraggerPsm.cs:217) and the field crosses as null. " +
+            "so mzLib cannot report decoy status (MsFraggerPsm.cs:231) and the field crosses as null. " +
             "Null means 'unknown', not 'target' - do not filter this format on is_decoy == false.",
             // Corrected after the readers bake-off: an earlier version of this caveat claimed the
             // psmtsv formats report the OBSERVED mass, which is false - they report the file's
@@ -559,7 +593,7 @@ internal static class Reading
             // The caveat manufactured a cross-format discrepancy that does not exist and sent a
             // reader chasing it. Both formats agree; what is worth saying is only that neither is
             // the observed precursor mass.
-            "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:220, " +
+            "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:233, " +
             "CalculatedPeptideMass), not the observed precursor mass. The psmtsv formats report " +
             "the theoretical mass here too, so the two are consistent - but neither is what the " +
             "instrument measured.",
@@ -568,9 +602,12 @@ internal static class Reading
         ],
         SupportedFileType.psmtsv or SupportedFileType.osmtsv =>
         [
-            "full_sequence and monoisotopic_mass keep only the FIRST candidate of an ambiguous " +
-            "identification; mzLib splits the '|'-separated list and discards the rest " +
-            "(SpectrumMatchFromTsv.cs:89).",
+            "monoisotopic_mass keeps only the FIRST candidate of an ambiguous identification: " +
+            "mzLib splits the '|'-separated list and parses the leading value " +
+            "(SpectrumMatchFromTsv.cs:89). full_sequence does NOT - it is passed through whole " +
+            "(SpectrumMatchFromTsv.cs:162), so on an ambiguous row it carries every candidate " +
+            "joined by '|' and is not a single sequence. The two fields therefore disagree about " +
+            "how many identifications the row holds; split full_sequence yourself before using it.",
             "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of " +
             "the identified peptide, not the observed precursor mass, which the file carries " +
             "separately as 'Precursor Mass'.",

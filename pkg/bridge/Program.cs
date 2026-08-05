@@ -67,13 +67,52 @@ public static class Program
     /// composes its exception message by hand and leaves the property null.
     /// </para>
     /// </remarks>
-    internal static string ClassifyError(Exception exception) => exception switch
+    internal static string ClassifyError(Exception exception)
     {
-        TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
-        SocketException => ServiceUnavailableType,
-        HttpRequestException http => ClassifyHttpFailure(http),
-        _ => exception.GetType().Name,
-    };
+        // Bound to a local first: the default arm must name the UNWRAPPED exception's type, and a
+        // `switch` on Unwrap(exception) whose default arm still reads `exception` would silently
+        // keep reporting "AggregateException" while every other arm classified the real cause.
+        Exception cause = Unwrap(exception);
+
+        return cause switch
+        {
+            TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
+            SocketException => ServiceUnavailableType,
+            HttpRequestException http => ClassifyHttpFailure(http),
+            _ => cause.GetType().Name,
+        };
+    }
+
+    /// <summary>
+    /// The exception actually worth reporting, with any single-cause aggregate wrapper removed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// mzLib parallelises its spectra readers, so a fault inside one — a malformed scan, a profile
+    /// mode it cannot read — reaches the boundary as an <see cref="AggregateException"/>. Left
+    /// alone it crosses the wire as the type <c>AggregateException</c> and the message
+    /// <i>"One or more errors occurred. (Index was outside the bounds of the array.)"</i>, which
+    /// names neither what failed nor which file it was reading. The caller's language has no
+    /// <c>InnerException</c> to inspect, so whatever is chosen here is all they will ever see.
+    /// </para>
+    /// <para>
+    /// Only a <b>single-cause</b> aggregate is unwrapped. An aggregate carrying several genuinely
+    /// different faults is itself the honest answer, and picking one of them to report would hide
+    /// the others.
+    /// </para>
+    /// </remarks>
+    internal static Exception Unwrap(Exception exception)
+    {
+        while (exception is AggregateException aggregate)
+        {
+            AggregateException flattened = aggregate.Flatten();
+            if (flattened.InnerExceptions.Count != 1)
+                return flattened;
+            exception = flattened.InnerExceptions[0];
+        }
+
+        return exception;
+    }
 
     /// <summary>
     /// Classifies an HTTP failure as availability or correctness.
@@ -137,6 +176,14 @@ public static class Program
             WriteError("usage", ex.Message);
             return 2;
         }
+        catch (AggregateException ex) when (Unwrap(ex) is UsageException usage)
+        {
+            // A usage failure raised inside mzLib's parallel readers arrives wrapped, and must
+            // still exit 2: a caller distinguishing "I asked wrongly" from "it broke" keys off the
+            // exit code, and the wrapper would silently reclassify every such case as a fault.
+            WriteError("usage", usage.Message);
+            return 2;
+        }
         catch (Exception ex)
         {
             // Every failure crosses the boundary as structured data, never as a stack trace on
@@ -148,7 +195,9 @@ public static class Program
             // only layer with enough information to tell them apart. Classifying here rather than
             // in a Python test helper means every consumer gets it — including a future binding
             // in another language.
-            WriteError(ClassifyError(ex), ex.Message);
+            // Reported from the unwrapped exception so the message names the real cause rather
+            // than the parallel-reader wrapper that happened to carry it.
+            WriteError(ClassifyError(ex), Unwrap(ex).Message);
             return 1;
         }
     }
@@ -170,8 +219,12 @@ public static class Program
             "readers formats" => Reading.Formats(arguments),
             "readers identify" => Reading.Identify(arguments),
             "readers read-results" => Reading.ReadResults(arguments),
+            "readers read-records" => Reading.ReadRecords(arguments),
+            "readers read-features" => Reading.ReadFeatures(arguments),
+            "readers read-matches" => Reading.ReadMatches(arguments),
+            "readers read-spectra" => Reading.ReadSpectra(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra."),
         };
     }
 

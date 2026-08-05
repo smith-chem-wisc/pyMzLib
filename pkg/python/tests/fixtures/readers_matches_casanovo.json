@@ -1,0 +1,83 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\Casanovo_5.0.0.mztab",
+ "file_type": "CasanovoMzTab",
+ "record_count": 5,
+ "returned_count": 5,
+ "offset": 0,
+ "truncated": false,
+ "caveats": [
+  "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. Readers.ISpectralMatch carries identity fields only; every one of these formats records confidence in columns this view does not expose. read-records has them. Filter before you report.",
+  "is_decoy is null for this format. Casanovo is de novo and writes no target/decoy label; mzLib's record leaves the field at its default false and never assigns it (CasanovoMzTabRecord.cs:84), so false would mean 'unknown', not 'target'.",
+  "one_based_scan_number is the mzTab spectrum INDEX plus one, not necessarily the instrument's scan number (CasanovoMzTabFile.cs:116). When Casanovo was run on an MGF the two are unrelated, so do not join this against a raw file on scan number.",
+  "full_sequence and modifications are resolved by matching Casanovo's mass shifts against mzLib's modification dictionary (CasanovoMzTabFile.cs:124), not read from named annotations \u2014 Casanovo writes none. An empty value therefore means the peptide is unmodified, but a populated one is mzLib's interpretation of a mass, not the search engine's own call."
+ ],
+ "column_names": [
+  "file_name_without_extension",
+  "one_based_scan_number",
+  "base_sequence",
+  "full_sequence",
+  "accession",
+  "is_decoy",
+  "modifications",
+  "modification_count"
+ ],
+ "columns": {
+  "file_name_without_extension": [
+   "",
+   "",
+   "",
+   "",
+   ""
+  ],
+  "one_based_scan_number": [
+   1,
+   3,
+   4,
+   5,
+   7
+  ],
+  "base_sequence": [
+   "AGAHLQGGAK",
+   "RGTGVENVK",
+   "LDDPKEEDEEKEEGK",
+   "HQGVMVGMGQK",
+   "RQEFEMK"
+  ],
+  "full_sequence": [
+   "AGAHLQGGAK",
+   "RGTGVENVK",
+   "LDDPKEEDEEKEEGK",
+   "HQGVM[Common Variable:Oxidation on M]VGM[Common Variable:Oxidation on M]GQK",
+   "RQEFEM[Common Variable:Oxidation on M]K"
+  ],
+  "accession": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "is_decoy": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "modifications": [
+   "",
+   "",
+   "",
+   "6:Oxidation on M;9:Oxidation on M",
+   "7:Oxidation on M"
+  ],
+  "modification_count": [
+   0,
+   0,
+   0,
+   2,
+   1
+  ]
+ },
+ "output": null
+}

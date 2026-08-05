@@ -1,0 +1,83 @@
+{
+ "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MsPathFinderT_WithMods_IcTda.tsv",
+ "file_type": "MsPathFinderTAllResults",
+ "record_count": 5,
+ "returned_count": 5,
+ "offset": 0,
+ "truncated": false,
+ "caveats": [
+  "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. Readers.ISpectralMatch carries identity fields only; every one of these formats records confidence in columns this view does not expose. read-records has them. Filter before you report.",
+  "is_decoy is derived from the protein NAME, not from a column: mzLib reports a decoy when ProteinName starts with 'XXX' (MsPathFinderTResult.cs:92). A database whose decoys carry a different prefix reads entirely as targets.",
+  "accession is ProteinName split on '|' taking the second field (MsPathFinderTResult.cs:89), which assumes a UniProt-style header. A FASTA with plain headers makes that property throw, and the cell arrives null with the field named in failed_fields rather than the whole file failing to read.",
+  "modifications are resolved by a FUZZY match against mzLib's modification dictionary (ModificationConverter.GetClosestMod), not by an exact identifier, so a name here can differ from the one the search engine wrote."
+ ],
+ "column_names": [
+  "file_name_without_extension",
+  "one_based_scan_number",
+  "base_sequence",
+  "full_sequence",
+  "accession",
+  "is_decoy",
+  "modifications",
+  "modification_count"
+ ],
+ "columns": {
+  "file_name_without_extension": [
+   "MsPathFinderT_WithMods",
+   "MsPathFinderT_WithMods",
+   "MsPathFinderT_WithMods",
+   "MsPathFinderT_WithMods",
+   "MsPathFinderT_WithMods"
+  ],
+  "one_based_scan_number": [
+   654,
+   676,
+   676,
+   680,
+   734
+  ],
+  "base_sequence": [
+   "KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRMQYNRRFVNVVPTFGKKKGPNANS",
+   "KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRMQYNRRFVNVVPTFGKKKGPNANS",
+   "TEIKEKSVAELNALLKEKKVLLFTLKQKLKTMQLSNPNEIRALKKEIARINTAISASK",
+   "CNRQAVAGQLLPSTWSLHAHGLAKEAPILPVKKISRSCSVNNKVSKKTTKPPTLRSFLSPI",
+   "SFFDHLQKKGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSKPVAARRSA"
+  ],
+  "full_sequence": [
+   "KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRM[Common Variable:Oxidation on M]QYNRRFVNVVPTFGKKKGPNANS",
+   "KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRMQYNRRFVNVVPTFGKKKGPNANS",
+   "[Common Biological:Acetylation on X]TEIKEKSVAELNALLKEKKVLLFTLK[Common Biological:Acetylation on K]QKLKTMQLSNPNEIRALKKEIARINTAISASK",
+   "CNRQAVAGQLLPSTWSLHAHGLAK[Common Biological:Methylation on K]EAPILPVKKISRSCSVNNKVSKKTTK[Common Biological:Acetylation on K]PPTLRSFLSPI",
+   "SFFDHLQK[Common Biological:Acetylation on K]KGVGAIQAQKVQIRKVERKPSKVVSSSSSSSIAKPQRRLDTVSK[Common Biological:Acetylation on K]PVAARRSA"
+  ],
+  "accession": [
+   "P62861",
+   "P62861",
+   "A7H104",
+   "Q5T036",
+   "Q1DKD8"
+  ],
+  "is_decoy": [
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "modifications": [
+   "37:Oxidation on M",
+   "",
+   "1:Acetylation on X;27:Acetylation on K",
+   "25:Methylation on K;51:Acetylation on K",
+   "9:Acetylation on K;53:Acetylation on K"
+  ],
+  "modification_count": [
+   1,
+   0,
+   2,
+   2,
+   2
+  ]
+ },
+ "output": null
+}
