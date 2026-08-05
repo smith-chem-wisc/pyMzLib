@@ -409,7 +409,7 @@ internal static partial class Reading
             : $"it offers the {string.Join(", ", views)} view";
 
         return new Program.UsageException(
-            $"'{resultFile.FileType}' files do not offer the {view} view, so {verb} cannot read them — " +
+            $"'{resultFile.FileType}' files do not offer the {view} view, so {verb} cannot read them - " +
             $"{has}. Every file type can be read with read-records, which returns that format's own fields.");
     }
 

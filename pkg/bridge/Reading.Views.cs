@@ -101,7 +101,7 @@ internal static partial class Reading
             "read-records has it.",
             "retention_time_start/_end are in UNKNOWN units for this format. TopFD wrote seconds " +
             "through v1.6.2 and minutes from v1.7.0 without changing the file type, and mzLib " +
-            "normalises neither — its deconvolution parameters instead GUESS, dividing by 60 when " +
+            "normalises neither - its deconvolution parameters instead GUESS, dividing by 60 when " +
             "the largest end time exceeds 500. Check the values against your gradient length before " +
             "comparing them with anything.",
             "number_of_isotopes is null for every row of this format: the single-charge expansion " +
@@ -215,7 +215,7 @@ internal static partial class Reading
                 caveats.Add(
                     "full_sequence and modifications are resolved by matching Casanovo's mass shifts " +
                     "against mzLib's modification dictionary (CasanovoMzTabFile.cs:124), not read " +
-                    "from named annotations — Casanovo writes none. An empty value therefore means " +
+                    "from named annotations - Casanovo writes none. An empty value therefore means " +
                     "the peptide is unmodified, but a populated one is mzLib's interpretation of a " +
                     "mass, not the search engine's own call.");
                 break;

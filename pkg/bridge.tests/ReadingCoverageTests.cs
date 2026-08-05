@@ -568,6 +568,102 @@ public class ReadingCoverageTests
         });
     }
 
+    [Test]
+    [TestCaseSource(nameof(SpectraFileTypes))]
+    public void EverySpectraFormatReportsItsOwnCaveats(SupportedFileType fileType)
+    {
+        // Driven by the type list rather than run once on mzML: the caveats differ per format and
+        // each one is a claim about that format specifically. A single mzML case would leave the
+        // msalign neutral-mass warning, the MGF derived-scan-window warning and the vendor
+        // native-library warning all unexercised — and those are the three most likely to be wrong.
+        string path = FixtureFor(fileType);
+
+        JsonElement data = Invoke("readers", "read-spectra", "--path", path, "--limit", "1");
+
+        List<string> caveats = data.GetProperty("caveats").EnumerateArray()
+            .Select(caveat => caveat.GetString()!).ToList();
+
+        Assert.Multiple(() =>
+        {
+            // Every format gets the peaks-omitted note, because peaks are opt-in for all of them.
+            Assert.That(caveats.Any(caveat => caveat.Contains("Peaks are not included")), Is.True);
+
+            switch (fileType)
+            {
+                case SupportedFileType.Mgf:
+                    Assert.That(caveats.Any(c => c.Contains("no MS1 scans")), Is.True);
+                    // Derived from the observed peaks rather than recorded by the format.
+                    Assert.That(caveats.Any(c => c.Contains("DERIVED")), Is.True);
+                    break;
+
+                case SupportedFileType.Ms1Align:
+                case SupportedFileType.Ms2Align:
+                    Assert.That(caveats.Any(c => c.Contains("DECONVOLVED")), Is.True);
+                    // ...and that its scan window is on a different axis from its mz column.
+                    Assert.That(caveats.Any(c => c.Contains("neutral")), Is.True);
+                    break;
+
+                case SupportedFileType.ThermoRaw:
+                    Assert.That(caveats.Any(c => c.Contains("RawFileReader")), Is.True);
+                    break;
+
+                case SupportedFileType.BrukerD:
+                    Assert.That(caveats.Any(c => c.Contains("Windows-x64")), Is.True);
+                    break;
+
+                case SupportedFileType.BrukerTimsTof:
+                    Assert.That(caveats.Any(c => c.Contains("Windows-x64")), Is.True);
+                    // The mobility axis is collapsed into scans, which is worth saying out loud.
+                    Assert.That(caveats.Any(c => c.Contains("mobility")), Is.True);
+                    break;
+
+                case SupportedFileType.MzML:
+                    // mzML is the one format with no format-specific hazard to report.
+                    break;
+
+                default:
+                    Assert.Fail($"{fileType} is not a spectra type");
+                    break;
+            }
+        });
+    }
+
+    private static IEnumerable<SupportedFileType> SpectraFileTypes() =>
+    [
+        SupportedFileType.MzML,
+        SupportedFileType.Mgf,
+        SupportedFileType.Ms1Align,
+        SupportedFileType.Ms2Align,
+        SupportedFileType.ThermoRaw,
+        SupportedFileType.BrukerD,
+        SupportedFileType.BrukerTimsTof,
+    ];
+
+    [Test]
+    [TestCaseSource(nameof(AllFileTypes))]
+    public void EveryFormatsCaveatsAreAsciiAndNonEmpty(SupportedFileType fileType)
+    {
+        // A caveat is read in a terminal and quoted into three bindings' documentation. A stray
+        // em-dash renders as mojibake in a Windows console, and an empty string is a caveat that
+        // was meant to say something.
+        string path = FixtureFor(fileType);
+
+        foreach (string verb in new[] { "read-features", "read-matches", "read-spectra" })
+        {
+            JsonElement envelope = Envelope(["readers", verb, "--path", path, "--limit", "1"]);
+            if (!envelope.GetProperty("ok").GetBoolean())
+                continue;
+
+            foreach (JsonElement caveat in envelope.GetProperty("data").GetProperty("caveats").EnumerateArray())
+            {
+                string text = caveat.GetString()!;
+                Assert.That(text, Is.Not.Empty);
+                Assert.That(text.All(character => character < 128), Is.True,
+                    $"non-ASCII in a {fileType} {verb} caveat: {text}");
+            }
+        }
+    }
+
     // ---- the caveats' own citations --------------------------------------------------------------
 
     /// <summary>

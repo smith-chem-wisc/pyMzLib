@@ -293,7 +293,7 @@ internal static partial class Reading
                 IResultFile any = FileReader.ReadResultFile(path);
                 List<string> views = ViewsOf(any.GetType());
                 detail = views.Count == 0
-                    ? $"'{any.FileType}' files have no cross-format record view at all — mzLib parses " +
+                    ? $"'{any.FileType}' files have no cross-format record view at all - mzLib parses " +
                       "them into a format-specific shape only."
                     : $"'{any.FileType}' files offer the {string.Join(", ", views)} view, not quantifiable.";
             }
