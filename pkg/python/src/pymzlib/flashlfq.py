@@ -57,6 +57,7 @@ __all__ = [
     "Peak",
     "FlashLfqResults",
     "quantify",
+    "median_polish",
 ]
 
 #: One entry in the ``spectra`` argument: either a bare mzML path, or a mapping carrying the
@@ -508,3 +509,133 @@ def _number(value: Any, name: str) -> str:
     if value != value or value in (float("inf"), float("-inf")):  # NaN / infinity
         raise _bridge.UsageError(f"{name} must be a finite number; got {value!r}.")
     return repr(float(value))
+
+
+#: One entry in the ``design`` argument to :func:`median_polish`: a mapping with a required
+#: ``file_name`` (matching an ``Intensity_<file_name>`` column of the peptide table) plus any of the
+#: experimental-design fields ``condition``, ``biological_replicate``, ``technical_replicate``,
+#: ``fraction``. The field names are FlashLFQ's ``SpectraFileInfo`` names, as in :func:`quantify`.
+DesignInput = Mapping[str, Any]
+
+
+def _design_stdin(design: Sequence[DesignInput]) -> str:
+    """Render the experimental design as the median-polish verb's tab-separated stdin lines.
+
+    One run per line: ``file_name[\\tcondition[\\tbiorep[\\ttechrep[\\tfraction]]]]``. Trailing
+    design fields that were not set are dropped, so a run given only a condition renders as
+    ``name<TAB>condition``. Mirrors :func:`_spectra_stdin`, but the leading field is a run *name*
+    (a ``QuantifiedPeptides.tsv`` column, not a file on disk) and so is never checked for an
+    extension or existence.
+    """
+    if not isinstance(design, Sequence) or isinstance(design, (str, bytes)):
+        raise _bridge.UsageError("design must be a list of run-design mappings, or None.")
+
+    lines: list[str] = []
+    for index, item in enumerate(design):
+        if not isinstance(item, Mapping):
+            raise _bridge.UsageError(
+                f"design[{index}] must be a mapping with a 'file_name', got {type(item).__name__}."
+            )
+        name = item.get("file_name")
+        if not name:
+            raise _bridge.UsageError(f"design[{index}] is a mapping with no 'file_name'.")
+        name = str(name)
+        if "\t" in name or "\n" in name:
+            raise _bridge.UsageError(f"design[{index}] file_name may not contain a tab or newline.")
+
+        fields = [
+            name,
+            str(item.get("condition", "")),
+            _design_int(item, "biological_replicate", index),
+            _design_int(item, "technical_replicate", index),
+            _design_int(item, "fraction", index),
+        ]
+        while len(fields) > 1 and fields[-1] == "":
+            fields.pop()
+        lines.append("\t".join(fields))
+
+    return "\n".join(lines) + "\n"
+
+
+def median_polish(
+    peptides: str,
+    *,
+    design: Sequence[DesignInput] | None = None,
+    use_shared_peptides: bool = False,
+    output_directory: str | None = None,
+    timeout: float | None = None,
+) -> list[ProteinGroup]:
+    """Roll a ``QuantifiedPeptides.tsv`` up to protein intensities with FlashLFQ's median polish.
+
+    This is the second half of :func:`quantify` on its own: given a peptide table FlashLFQ already
+    wrote — its ``Intensity_<run>`` and ``Detection Type_<run>`` columns — it rebuilds the FlashLFQ
+    peptide/protein object graph and runs the exact same median-polish protein quant
+    (``CalculateProteinResultsMedianPolish``), without re-reading any mzML. Reach for it to
+    re-quantify proteins under a different experimental design, or with shared peptides toggled,
+    without paying for peak-finding again::
+
+        >>> import pymzlib
+        >>> proteins = pymzlib.flashlfq.median_polish(                    # doctest: +SKIP
+        ...     "QuantifiedPeptides.tsv",
+        ...     design=[
+        ...         {"file_name": "run_3", "condition": "control", "biological_replicate": 0},
+        ...         {"file_name": "run_4", "condition": "treated", "biological_replicate": 0},
+        ...     ],
+        ... )
+        >>> proteins[0].intensity("control_1")                           # doctest: +SKIP
+        3005.6
+
+    The returned objects are ordinary :class:`ProteinGroup`\\ s, so their intensity semantics are the
+    ones documented there and on :func:`quantify`: an intensity is ``None`` where median polish could
+    not resolve a number (a degenerate peptide matrix), ``0.0`` where the protein was simply not
+    measured in that sample.
+
+    Args:
+        peptides: Path to a FlashLFQ ``QuantifiedPeptides.tsv`` (the file :func:`quantify` writes as
+            ``QuantifiedPeptides.tsv`` when given an ``output_directory``). It must carry the
+            ``Sequence``, ``Base Sequence``, ``Protein Groups`` and ``Intensity_<run>`` columns.
+        design: The experimental design, one mapping per run. Each needs a ``file_name`` matching an
+            ``Intensity_<file_name>`` column, plus any of ``condition``, ``biological_replicate``,
+            ``technical_replicate``, ``fraction`` (FlashLFQ's ``SpectraFileInfo`` names). Median
+            polish groups measurements by condition and biological replicate, so **this is how you
+            tell it which runs are replicates of which sample** — the whole reason to re-run it. If a
+            design is given it must name every run in the table and only runs in the table. When
+            ``None``, each ``Intensity_`` column becomes its own biological replicate with a blank
+            condition — exactly what FlashLFQ assumes when it writes the file with no design.
+        use_shared_peptides: Let peptides shared between protein groups contribute to protein quant
+            (FlashLFQ's ``UseSharedPeptidesForProteinQuant``). Off by default; when off, a group with
+            only shared peptides quantifies to ``0.0``.
+        output_directory: If given, also write a FlashLFQ ``QuantifiedProteins.tsv`` there. For
+            **unfractionated** data its column headers do not match the keys of the returned objects'
+            :attr:`~ProteinGroup.intensities`: FlashLFQ labels a sample by file name exactly when a
+            design *is* given, and writes ``Intensity__1`` when one is not (an inverted condition,
+            smith-chem-wisc/mzLib#1128, fixed by mzLib#1129 — the columns will agree once pyMzLib
+            re-pins). The values agree either way. The returned list is the primary result and this
+            file is a convenience.
+        timeout: Seconds to allow; ``None`` waits indefinitely.
+
+    Returns:
+        A list of :class:`ProteinGroup`, ordered by protein group name. Each carries its per-sample
+        :attr:`~ProteinGroup.intensities`, keyed by the sample label (a run base name when no design
+        is given, ``"condition_biorep"`` once a design groups runs).
+
+    Raises:
+        UsageError: ``peptides`` is blank, the file is missing a required column or has no
+            ``Intensity_`` columns, or the design and the table's runs do not match.
+        BridgeError: the reconstruction or quantification itself failed.
+    """
+    if not isinstance(peptides, str) or not peptides.strip():
+        raise _bridge.UsageError("A quantified peptides file path is required, e.g. 'QuantifiedPeptides.tsv'.")
+
+    stdin = _design_stdin(design) if design is not None else None
+
+    args: list[str] = ["quant", "median-polish", "--peptides", peptides]
+    if use_shared_peptides:
+        args.append("--shared-peptides")
+    if output_directory is not None:
+        if not isinstance(output_directory, str) or not output_directory.strip():
+            raise _bridge.UsageError("output_directory must be a non-empty path or None.")
+        args += ["--out", output_directory]
+
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return [ProteinGroup._from_wire(g) for g in (data.get("proteins") or [])]
