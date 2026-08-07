@@ -1,0 +1,44 @@
+{
+ "model": "Prosit_2020_intensity_HCD",
+ "row_count": 1,
+ "failed_row_count": 1,
+ "column_names": [
+  "sequence",
+  "validated_sequence",
+  "precursor_charge",
+  "fragment_annotations",
+  "fragment_mz",
+  "fragment_intensity",
+  "warning"
+ ],
+ "columns": {
+  "sequence": [
+   "PEPTIDEK"
+  ],
+  "validated_sequence": [
+   null
+  ],
+  "precursor_charge": [
+   2
+  ],
+  "fragment_annotations": [
+   null
+  ],
+  "fragment_mz": [
+   null
+  ],
+  "fragment_intensity": [
+   null
+  ],
+  "warning": [
+   "Input is missing required parameter CollisionEnergy for this model."
+  ]
+ },
+ "output": null,
+ "intensity_scale": "relative",
+ "caveats": [
+  "fragment_intensity is RELATIVE, on Koina's own 0-1 scale, and is not comparable with a measured intensity or between models.",
+  "The three fragment arrays are RAGGED: Koina returns a fixed-width grid with -1 marking ions that cannot exist for a peptide, and mzLib drops those, so each row's arrays are as long as its possible ions rather than the model's nominal ion count. Index them per row, never as a rectangle.",
+  "Predictions are a model's opinion, not a measurement. Nothing here has been matched against a spectrum."
+ ]
+}

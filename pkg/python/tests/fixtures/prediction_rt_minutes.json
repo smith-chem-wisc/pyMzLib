@@ -1,0 +1,31 @@
+{
+ "model": "Chronologer_RT",
+ "row_count": 1,
+ "failed_row_count": 0,
+ "column_names": [
+  "sequence",
+  "validated_sequence",
+  "retention_time",
+  "warning"
+ ],
+ "columns": {
+  "sequence": [
+   "PEPTIDEK"
+  ],
+  "validated_sequence": [
+   "PEPTIDEK"
+  ],
+  "retention_time": [
+   4.203695297241211
+  ],
+  "warning": [
+   null
+  ]
+ },
+ "output": null,
+ "retention_time_unit": "minutes",
+ "caveats": [
+  "A predicted retention time is a model's opinion, not a measurement, and is only comparable with an observed gradient after alignment against shared peptides.",
+  "This is the NETWORK Chronologer, which returns absolute retention time. mzLib also ships a local Chronologer that returns % acetonitrile from the same weights - the two are not interchangeable, and the local one is not exposed here because it needs x64-only native libraries."
+ ]
+}

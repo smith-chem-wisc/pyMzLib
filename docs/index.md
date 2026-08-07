@@ -52,16 +52,39 @@ Coverage is deliberately partial and grows by demand — the same way
 | [PRIDE Archive](guides/pride.md) — list a project's files, filtered download | :material-check: available |
 | [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide | :material-check: available |
 | [FlashLFQ](guides/flashlfq.md) — label-free quantification across mzML runs, with match-between-runs | :material-check: available |
-| [Readers](guides/readers.md) — identify any of 29 result-file formats and read the ones with a uniform record view | :material-check: available |
+| [Readers](guides/readers.md) — identify **and read all 29** result-file formats, plus spectra | :material-check: available |
+| [Prediction](guides/prediction.md) — retention time, MS2 fragments, CCS and detectability from 37 Koina models | :material-check: available |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 If there is something in mzLib you want from Python, opening an issue is genuinely the fastest
 path. The [extension recipe](contributing/adding-a-capability.md) is short, and requests are how
 we decide what to cover next.
 
+## "I want to…"
+
+The fastest route in, if you already know what you are after:
+
+| I want to… | do this |
+|---|---|
+| download a public dataset | [`pride.list_files()` / `pride.download()`](guides/pride.md) |
+| work out what a file *is* | [`readers.identify()`](guides/readers.md#start-with-views-not-with-the-file-type) |
+| read a search result into a table | [`readers.read_records()`](guides/readers.md#read_records-any-format-its-own-fields) — works on all 29 formats |
+| compare two search engines' results | [`readers.read_results()`](guides/readers.md#read_results-the-quantifiable-view) — the columns that mean the same thing |
+| read scans or peaks out of an mzML/raw | [`readers.read_spectra()`](guides/readers.md#read_spectra-scans-and-peaks) |
+| quantify peptides across runs | [`flashlfq.quantify()`](guides/flashlfq.md) |
+| digest a protein and fragment its peptides | [`peptidoform.fragments()`](guides/peptidoforms.md) |
+| predict retention time or an MS2 spectrum | [`prediction.retention_time()` / `.fragments()`](guides/prediction.md) |
+| find out which prediction models exist | [`prediction.models()`](guides/prediction.md#start-with-models) |
+
+**New to all of this?** Start with the [tutorial](tutorial.md) — a complete first hour, with every
+proteomics term defined where it appears.
+
 ## Where to go next
 
 <div class="grid cards" markdown>
+
+- :material-school: **[Tutorial](tutorial.md)**
+  A complete first hour on public data. No proteomics background assumed.
 
 - :material-rocket-launch: **[Getting started](getting-started.md)**
   Install it and run something, written for people who don't live in Python.

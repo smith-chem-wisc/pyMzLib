@@ -1,0 +1,41 @@
+{
+ "model": "pfly_2024_fine_tuned",
+ "row_count": 1,
+ "failed_row_count": 0,
+ "column_names": [
+  "sequence",
+  "validated_sequence",
+  "not_detectable",
+  "low_detectability",
+  "intermediate_detectability",
+  "high_detectability",
+  "warning"
+ ],
+ "columns": {
+  "sequence": [
+   "PEPTIDEK"
+  ],
+  "validated_sequence": [
+   "PEPTIDEK"
+  ],
+  "not_detectable": [
+   0.6082084774971008
+  ],
+  "low_detectability": [
+   0.29690027236938477
+  ],
+  "intermediate_detectability": [
+   0.08468843251466751
+  ],
+  "high_detectability": [
+   0.010202806442975998
+  ],
+  "warning": [
+   null
+  ]
+ },
+ "output": null,
+ "caveats": [
+  "The four probabilities are a distribution over classes and sum to 1 for each peptide. They are not an expected intensity and not a detection probability."
+ ]
+}

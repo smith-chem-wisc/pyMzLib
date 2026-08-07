@@ -76,11 +76,13 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Tutorial: tutorial.md
   - Guides:
       - PRIDE Archive: guides/pride.md
       - Peptidoforms: guides/peptidoforms.md
       - FlashLFQ: guides/flashlfq.md
       - Readers: guides/readers.md
+      - Prediction: guides/prediction.md
   - API reference: reference.md
   - How it works:
       - Architecture: design/architecture.md

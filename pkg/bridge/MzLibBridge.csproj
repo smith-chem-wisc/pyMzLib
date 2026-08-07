@@ -42,6 +42,13 @@
          MassSpectrometry. This is the narrowest seam that lets the bridge do quant with mzLib
          alone (no MetaMorpheus). See design/expansion-plans/flashlfq-tranche.md. -->
     <ProjectReference Include="..\..\code\mzLib\mzLib\FlashLFQ\FlashLFQ.csproj" />
+    <!-- The Koina prediction clients: 40 published models across five families (retention time,
+         fragment intensity, CCS, detectability, crosslink intensity). Managed-only — its single
+         package dependency is Newtonsoft.Json — and it brings Chromatography, which the graph
+         already carried through Proteomics. So the prediction tranche costs the payload almost
+         nothing, unlike the LOCAL Chronologer predictor in Chromatography, which needs libtorch
+         natives at runtime and is deliberately not exposed (see Prediction.cs). -->
+    <ProjectReference Include="..\..\code\mzLib\mzLib\PredictionClients\PredictionClients.csproj" />
   </ItemGroup>
 
 </Project>
