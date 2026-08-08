@@ -23,6 +23,14 @@ envelope is not a breaking change unless Python callers can see it.
   has no decoys, and that nothing from a typed view is FDR-filtered.
 
 ### Fixed
+- A download that dies part-way through now raises `ServiceUnavailableError` instead of a plain
+  `BridgeError`. A request that fails outright carries a status code; one that fails *after* the
+  response has begun does not — the server already said 200 — so it surfaced as a bare
+  `IOException` (`Received an unexpected EOF or 0 bytes from the transport stream`) and escaped the
+  availability classification entirely. A retry loop written around `ServiceUnavailableError`, as
+  the PRIDE guide recommends, did not catch the one failure most worth retrying. Disk failures
+  during a download are deliberately *not* reclassified: a full disk is still reported as itself
+  (#30).
 - A failure inside mzLib's parallel spectra readers now reports its real cause
   (`MzLibException: Reading profile mode mzmls not supported`) instead of the wrapper
   (`AggregateException: One or more errors occurred.`), and a usage failure raised inside one still
