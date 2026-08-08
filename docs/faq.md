@@ -81,9 +81,28 @@ The installed package has no payload for your platform. Almost always one of:
 - Your platform isn't among the published wheels (linux-x64, win-x64, osx-x64, osx-arm64).
   Open an issue — adding one is a line of CI configuration.
 
-### `BridgeError: HttpRequestException … status 503`
+### `ServiceUnavailableError: … status 503`
 
 PRIDE was unavailable. Not a pyMzLib problem; retry later.
+
+This arrives as `ServiceUnavailableError`, **not** a plain `BridgeError` — the bridge classifies
+408, 429 and 5xx as availability failures so you can retry them and report everything else. Since
+`ServiceUnavailableError` subclasses `BridgeError`, `except BridgeError` still catches it; catch the
+narrower one when you want to retry. See [the PRIDE guide](guides/pride.md#errors-you-might-hit).
+
+### `ServiceUnavailableError: Received an unexpected EOF or 0 bytes from the transport stream`
+
+The connection dropped **part-way through a download**. The server accepted the request and started
+sending, then went away — so it is an outage like any other, and retrying is the right response.
+
+Large downloads are the usual place to meet it, simply because they are exposed for longer. If it
+repeats at roughly the same point every time, suspect something between you and EBI (a proxy or
+scanner cutting long transfers) rather than EBI itself.
+
+!!! note "Before pyMzLib 0.1.0.dev4 this surfaced as `BridgeError`"
+    Older versions reported it under the raw .NET type name, which made an outage look like a
+    contract break — retry loops written around `ServiceUnavailableError` did not catch it. If you
+    wrote a workaround that also catches `BridgeError` for this message, you can drop it.
 
 ### `BridgeError: NotSupportedException … no HTTPS-reachable location`
 
