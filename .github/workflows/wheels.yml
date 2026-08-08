@@ -188,9 +188,17 @@ jobs:
       # unzip one. Both repositories' `live` jobs currently stop at `exit 1` with a comment saying
       # they are waiting for exactly this file to exist somewhere fetchable.
       #
-      # tar.gz rather than zip because it preserves the executable bit. A bare binary uploaded as a
-      # release asset arrives without it, so every consumer would have to know to chmod +x — and
-      # the one who forgets gets "permission denied" from a file that looks perfectly fine.
+      # An archive rather than a bare binary, because the payload is a TREE, not one file: the
+      # executable sits alongside libmmd.dll, Resources/ (unimod.xml, PSI-MOD, ptmlist) and the
+      # Bruker/timsTOF native libs. Publishing only the executable would ship something that starts
+      # and then fails the moment it needs a modification table.
+      #
+      # tar.gz rather than zip for the executable bit. A zip CAN record a Unix mode — the wheels
+      # do, at 0755 — but restoring it is the extractor's choice, and the common ones do not:
+      # R's utils::unzip() drops it, which is why mzLibR carries bridge_make_runnable() to chmod
+      # afterwards (install-bridge.R:254-265). tar restores the mode by default, so a consumer
+      # extracts and runs. Verified: the packed tree lists mzlib-bridge as -rwxr-xr-x and survives
+      # a round trip.
       #
       # Staged BEFORE the wheel build so this is provably the same bytes the wheel ships, not a
       # rebuild that happens to agree.
@@ -391,8 +399,15 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # Named explicitly rather than `sha256sum *`: the redirect creates SHA256SUMS before the
-      # glob is expanded, so the wildcard form can hash the file it is in the middle of writing.
+      # Named explicitly rather than `sha256sum *`. Not for the reason one might assume — the glob
+      # is expanded before the redirect creates SHA256SUMS, so on a fresh runner the wildcard form
+      # would not list the file itself. The reason is that `*` publishes whatever happens to be in
+      # the directory, so a stray artifact silently acquires the authority of a signed manifest,
+      # and a MISSING class of artifact goes unnoticed because nothing was named to be absent.
+      # Listing the two extensions states what a release must contain: if the bridges failed to
+      # upload, `*.tar.gz` matches nothing, bash passes the pattern through literally, sha256sum
+      # exits 1 on it and `set -e` fails the job. The wildcard form exits 0 and publishes a
+      # manifest that is short by four files. Both behaviours confirmed by hand.
       - name: Record checksums
         working-directory: dist
         run: |
