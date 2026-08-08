@@ -7,6 +7,12 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **The raw bridge is now a release asset.** Every `v*` tag attaches `mzlib-bridge-<rid>.tar.gz`
+  for all four platforms alongside the wheels, plus a `SHA256SUMS` covering both. A consumer with
+  no reason to install a Python package — mzLibRust, a shell script, a container build — can
+  unpack one and set `MZLIB_BRIDGE`. tar rather than zip so the executable bit survives extraction.
+  `SHA256SUMS` also makes re-pinning mechanical for bindings that record these digests by hand
+  (#31).
 - Readers: `pymzlib.readers.identify()`, `read_results()`, and `formats()` — identify any of the 29
   result-file types mzLib recognises (returning the projections each supports), and read the three
   quantifiable formats into a uniform record view, each with per-format caveats about what its
