@@ -239,9 +239,19 @@ print(f"Wrote {len(paths)} files")
 | Exception | Means |
 |---|---|
 | `UsageError` | The accession is blank, or `page_size` isn't positive. Raised before any network call. |
-| `ServiceUnavailableError` | PRIDE was down, rate-limiting, or timed out (HTTP 408/429/5xx). **Not your bug** — retry later. |
+| `ServiceUnavailableError` | PRIDE was down, rate-limiting, or timed out (HTTP 408/429/5xx), **or the connection dropped part-way through a transfer**. **Not your bug** — retry later. |
 | `BridgeError` with `error_type='HttpRequestException'` | PRIDE answered with a client error such as 404. Something about the request is wrong. |
 | `BridgeError` with `error_type='NotSupportedException'` | A selected file has no HTTPS location (Aspera-only). Filter on `downloadable` first. |
+
+!!! note "A download that dies in the middle is an outage, not a bug"
+    A request that fails outright reports a status code. One that fails **after** the response has
+    begun has no status left to report — the server already said 200 — so it surfaces as a
+    truncated stream (`Received an unexpected EOF or 0 bytes from the transport stream`). Both are
+    the same thing from your side, and both raise `ServiceUnavailableError`, so the retry loop
+    below covers `download()` as well as `list_files()`.
+
+    Before 0.1.0.dev4 the truncation case escaped as a plain `BridgeError` and a retry loop written
+    around `ServiceUnavailableError` would not have caught it.
 
 `ServiceUnavailableError` is a subclass of `BridgeError`, so catching `BridgeError` still catches
 everything. Separating them lets you retry the failures worth retrying and report the rest:
