@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -79,9 +80,48 @@ public static class Program
             TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
             SocketException => ServiceUnavailableType,
             HttpRequestException http => ClassifyHttpFailure(http),
+            IOException io when IsTransportFailure(io) => ServiceUnavailableType,
             _ => cause.GetType().Name,
         };
     }
+
+    /// <summary>
+    /// Whether an <see cref="IOException"/> came from the network rather than from the disk.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A response that dies part-way through never reaches the <see cref="HttpRequestException"/>
+    /// arm. By then HttpClient has handed back the headers and the request is "successful"; the
+    /// failure surfaces later, on the content stream, as a bare <see cref="IOException"/> — which
+    /// fell through to the default arm and crossed the wire under its own type name. That is what
+    /// turned a truncated PRIDE download into a red canary on 5 August 2026:
+    /// <i>"Received an unexpected EOF or 0 bytes from the transport stream."</i> reported as a
+    /// correctness failure when it was EBI hanging up mid-transfer.
+    /// </para>
+    /// <para>
+    /// Deliberately narrow, because this arm is one careless widening away from the failure the
+    /// whole classifier exists to prevent. A bare <see cref="IOException"/> is also how a full disk
+    /// reports itself while a download is being written out, and a full disk is our problem, not
+    /// EBI's. So the default stays "correctness failure", and only shapes that can ONLY come from
+    /// the transport are excused: an <see cref="HttpIOException"/> (which .NET raises for HTTP
+    /// protocol failures and nothing else), an exception wrapping a socket or TLS failure, and
+    /// .NET's stream-truncation message.
+    /// </para>
+    /// <para>
+    /// That last one matches on message text, which this file otherwise treats as a hazard, so the
+    /// distinction is worth stating. The pattern that must never be used is one steerable by
+    /// caller-supplied text — an accession of <c>"x status 503 x"</c> classifying itself as an
+    /// outage. This sentence is a fixed .NET resource string with nothing interpolated into it, so
+    /// no caller input can produce it. It is locale-sensitive, which is a genuine weakness, but it
+    /// fails the safe way: on a localized runner the match misses and the failure stays red.
+    /// </para>
+    /// </remarks>
+    private static bool IsTransportFailure(IOException exception) =>
+        exception is HttpIOException
+        || exception.InnerException is SocketException or AuthenticationException
+        || exception.Message.Contains(
+            "Received an unexpected EOF or 0 bytes from the transport stream",
+            StringComparison.Ordinal);
 
     /// <summary>
     /// The exception actually worth reporting, with any single-cause aggregate wrapper removed.

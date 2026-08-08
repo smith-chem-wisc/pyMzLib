@@ -300,6 +300,48 @@ public class VerbHandlerTests
     }
 
     [Test]
+    public void ATruncatedResponseBodyCountsAsUnavailable()
+    {
+        // The live regression, 5 August 2026: the PRIDE download canary went red on
+        // "Received an unexpected EOF or 0 bytes from the transport stream." EBI hung up partway
+        // through the body. By then HttpClient had already returned the headers, so this never
+        // reached the HttpRequestException arm - it surfaced on the content stream as a bare
+        // IOException and crossed the wire as the type "IOException", which the Python and R
+        // suites read as a contract break rather than an outage.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Program.ClassifyError(new IOException(
+                    "Received an unexpected EOF or 0 bytes from the transport stream.")),
+                Is.EqualTo(Program.ServiceUnavailableType), "TLS stream truncated mid-body");
+            Assert.That(Program.ClassifyError(new HttpIOException(
+                    HttpRequestError.ResponseEnded, "The response ended prematurely.")),
+                Is.EqualTo(Program.ServiceUnavailableType), "response ended prematurely");
+            Assert.That(Program.ClassifyError(new IOException(
+                    "Unable to read data from the transport connection.",
+                    new System.Net.Sockets.SocketException(10054))),
+                Is.EqualTo(Program.ServiceUnavailableType), "connection reset mid-read");
+        });
+    }
+
+    [Test]
+    public void AFullDiskIsNotExcusedAsAnOutage()
+    {
+        // The counterweight to the test above, and the reason that arm is narrow rather than a
+        // blanket `IOException => ServiceUnavailable`. The bridge writes downloads to disk, so the
+        // same code path raises IOException for reasons that are entirely ours. Excusing those
+        // would skip the canary on a broken runner and report nothing.
+        Assert.Multiple(() =>
+        {
+            Assert.That(Program.ClassifyError(new IOException("There is not enough space on the disk.")),
+                Is.EqualTo(nameof(IOException)), "disk full");
+            Assert.That(Program.ClassifyError(new FileNotFoundException("Could not find file 'x.raw'.")),
+                Is.EqualTo(nameof(FileNotFoundException)), "missing file");
+            Assert.That(Program.ClassifyError(new DirectoryNotFoundException("Could not find a part of the path.")),
+                Is.EqualTo(nameof(DirectoryNotFoundException)), "missing directory");
+        });
+    }
+
+    [Test]
     public void TheStatusPatternCannotBeSteeredByCallerSuppliedText()
     {
         // An unanchored "status NNN" match could be driven by any caller string that reaches the
