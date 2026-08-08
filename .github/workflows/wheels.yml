@@ -322,6 +322,49 @@ jobs:
           "$PY" -c "import pymzlib; print(pymzlib.bridge_version())"
 
   # ---------------------------------------------------------------------------------------
+  # Attach the built wheels to the GitHub Release for the tag. This is the step whose absence
+  # shipped a v0.1.0.dev3 release page advertising wheels that were never uploaded: the workflow
+  # only ever produced ephemeral Actions artifacts and (separately) a PyPI publish that is gated
+  # off. Attaching to the Release was a manual step, and manual steps get skipped.
+  #
+  # Unlike the PyPI job below, this has NO PYPI_PUBLISH gate: the whole point of the GitHub Release
+  # is to distribute wheels while the project is not yet on PyPI, so it must run on every v* tag.
+  # It waits on the same platform gates the PyPI job does, so a wheel that fails to install or run
+  # on any supported OS never reaches the Release.
+  #
+  # The release for the tag is expected to already exist (created by hand, with notes). This job
+  # only adds assets: no `body`/`name` is passed, so the existing notes are left untouched. If the
+  # release does not exist yet, the action creates a minimal one rather than failing.
+  # ---------------------------------------------------------------------------------------
+  github-release:
+    name: attach wheels to the GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          merge-multiple: true
+          path: dist
+
+      - name: List what will be attached
+        run: ls -lh dist
+
+      - name: Attach wheels to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
+          # A tag with no matching wheels means an upstream job silently produced nothing —
+          # fail loudly rather than "succeed" with an empty release.
+          fail_on_unmatched_files: true
+          # Keep this release out of "Latest" while the project is in dev previews. The scheme is
+          # X.Y.Z.devN today; extend this if alpha/beta/rc tags start being cut.
+          prerelease: ${{ contains(github.ref_name, 'dev') || contains(github.ref_name, 'rc') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
+
+  # ---------------------------------------------------------------------------------------
   # Publish, on a tag, via Trusted Publishing. No stored API token: PyPI verifies the workflow's
   # OIDC identity instead. Deliberately no sdist — a source-only sdist for a package whose whole
   # value is the bundled binary installs "successfully" and then fails on first call, whereas
