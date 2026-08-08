@@ -181,6 +181,33 @@ jobs:
         shell: pwsh
         run: ./pkg/build/publish-bridge.ps1 -Runtime ${{ matrix.rid }}
 
+      # The same binary the wheel is about to swallow, kept as an asset in its own right.
+      #
+      # A wheel is a Python artifact, and two of the three bindings are not Python: mzLibRust does
+      # not know what a wheel is, and mzLibR only knows because install-bridge.R was taught to
+      # unzip one. Both repositories' `live` jobs currently stop at `exit 1` with a comment saying
+      # they are waiting for exactly this file to exist somewhere fetchable.
+      #
+      # tar.gz rather than zip because it preserves the executable bit. A bare binary uploaded as a
+      # release asset arrives without it, so every consumer would have to know to chmod +x — and
+      # the one who forgets gets "permission denied" from a file that looks perfectly fine.
+      #
+      # Staged BEFORE the wheel build so this is provably the same bytes the wheel ships, not a
+      # rebuild that happens to agree.
+      - name: Package the raw bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="pkg/python/src/pymzlib/_dotnet/${{ matrix.rid }}"
+          mkdir -p bridge_dist
+          tar -czf "bridge_dist/mzlib-bridge-${{ matrix.rid }}.tar.gz" -C "$stage" .
+          ls -lh bridge_dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.rid }}
+          path: bridge_dist/*.tar.gz
+
       - name: Build the wheel
         working-directory: pkg/python
         run: |
@@ -322,7 +349,7 @@ jobs:
           "$PY" -c "import pymzlib; print(pymzlib.bridge_version())"
 
   # ---------------------------------------------------------------------------------------
-  # Attach the built wheels to the GitHub Release for the tag. This is the step whose absence
+  # Attach the built artifacts to the GitHub Release for the tag. This is the step whose absence
   # shipped a v0.1.0.dev3 release page advertising wheels that were never uploaded: the workflow
   # only ever produced ephemeral Actions artifacts and (separately) a PyPI publish that is gated
   # off. Attaching to the Release was a manual step, and manual steps get skipped.
@@ -335,9 +362,17 @@ jobs:
   # The release for the tag is expected to already exist (created by hand, with notes). This job
   # only adds assets: no `body`/`name` is passed, so the existing notes are left untouched. If the
   # release does not exist yet, the action creates a minimal one rather than failing.
+  #
+  # Three kinds of asset go up, and they serve different consumers:
+  #   *.whl        — pip, and mzLibR's install-bridge.R, which unzips one to get at the binary.
+  #   *.tar.gz     — the raw bridge, for the bindings that are not Python. This is what mzLibRust
+  #                  and mzLibR are blocked on; see the note in the build job.
+  #   SHA256SUMS   — so a consumer pinning these can verify, and re-pin mechanically. mzLibR
+  #                  hardcodes four digests today and its comment says bumping the version means
+  #                  re-recording all four by hand. This is that file.
   # ---------------------------------------------------------------------------------------
   github-release:
-    name: attach wheels to the GitHub Release
+    name: attach assets to the GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
     runs-on: ubuntu-latest
@@ -350,13 +385,31 @@ jobs:
           merge-multiple: true
           path: dist
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bridge-*
+          merge-multiple: true
+          path: dist
+
+      # Named explicitly rather than `sha256sum *`: the redirect creates SHA256SUMS before the
+      # glob is expanded, so the wildcard form can hash the file it is in the middle of writing.
+      - name: Record checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum *.whl *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
       - name: List what will be attached
         run: ls -lh dist
 
-      - name: Attach wheels to the release
+      - name: Attach the wheels, the bridges, and the checksums
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.whl
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA256SUMS
           # A tag with no matching wheels means an upstream job silently produced nothing —
           # fail loudly rather than "succeed" with an empty release.
           fail_on_unmatched_files: true
