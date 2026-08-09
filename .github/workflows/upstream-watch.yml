@@ -173,15 +173,24 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@v6
         with:
-          # A PAT is used when one is configured, and the default token otherwise, because of a
-          # GitHub rule with real consequences here: events raised by GITHUB_TOKEN do not start new
-          # workflow runs. Without a PAT this pull request opens with NO checks on it — which would
-          # quietly defeat the whole design, since CI-as-the-gate is the reason it is a pull request
-          # at all. The fallback step below dispatches wheels.yml against the branch so the
-          # verification still happens and is linked, but it lands as a branch run rather than a
-          # check on the PR. Setting a repository secret UPSTREAM_WATCH_TOKEN (a fine-grained PAT
-          # with Contents: read/write and Pull requests: read/write on this repository) upgrades it
-          # to real PR checks. Nothing breaks without it; less is automatic.
+          # A PAT is used when one is configured, and the default token otherwise. What that buys is
+          # NOT what the first version of this file claimed.
+          #
+          # The claim was that events raised by GITHUB_TOKEN do not start workflow runs, so the pull
+          # request would open with no checks at all. Observed on the first real run (2026-08-09):
+          # both `wheels` and `docs` DID queue against the branch — and both landed as
+          # `action_required`, held behind GitHub's approval gate because the pull request's author
+          # is github-actions[bot], which the repository treats as a first-time contributor. The
+          # checks exist; they need one click.
+          #
+          # So a PAT does not add checks that were missing. It makes the pull request come from a
+          # human account instead of the bot, which is what removes the approval gate and lets CI
+          # start on its own. Same secret, same recommendation — different reason, and the
+          # difference matters because the old reason justified a fallback step that was dispatching
+          # a run GitHub was already queuing.
+          #
+          # Set UPSTREAM_WATCH_TOKEN (a fine-grained PAT with Contents: read/write and Pull requests:
+          # read/write on this repository) to skip the click. Nothing breaks without it.
           token: ${{ secrets.UPSTREAM_WATCH_TOKEN || github.token }}
           branch: upstream/mzlib-${{ steps.upstream.outputs.tag }}
           # Reuse the branch across re-runs so a weekly cron updates one pull request per mzLib
@@ -196,14 +205,15 @@ jobs:
           labels: upstream
           delete-branch: true
 
-      - name: Run the wheels matrix against the branch
-        # Only when there is no PAT: with one, wheels.yml already triggered on the pull request and
-        # a second run would burn the whole cross-platform matrix twice for the same commit.
+      # There is deliberately no "dispatch wheels.yml as a fallback" step here any more. The first
+      # real run proved it was solving a problem that does not exist — GitHub queues `wheels` and
+      # `docs` against the branch on its own — and it could not have worked regardless: the default
+      # GITHUB_TOKEN has no `actions: write`, so the dispatch failed with
+      # `403 Resource not accessible by integration` and took the whole job red AFTER it had already
+      # opened a perfectly good pull request. A cleanup step that cannot succeed, guarding against a
+      # condition that never occurs, is worse than nothing: it turns a working watcher into a
+      # failing one and trains everyone to ignore the red.
+      - name: Say what still needs a human
         if: steps.pin.outputs.action == 'bump' && steps.pat.outputs.configured == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          branch="upstream/mzlib-${{ steps.upstream.outputs.tag }}"
-          gh workflow run wheels.yml --ref "$branch"
-          echo "::notice::No UPSTREAM_WATCH_TOKEN is set, so the pull request has no checks of its own. Dispatched wheels.yml against $branch instead: https://github.com/${{ github.repository }}/actions/workflows/wheels.yml"
+          echo "::notice::Opened the bump pull request. Its checks are held for approval because the author is github-actions[bot] — click 'Approve workflows to run' on the PR. Set UPSTREAM_WATCH_TOKEN to skip that step."
