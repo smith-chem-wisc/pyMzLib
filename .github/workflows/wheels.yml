@@ -34,6 +34,54 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------------------
+  # A tag must agree with the version the package declares. Nothing checked this until
+  # 2026-08-09, and the gap is not theoretical: cutting v0.1.0.dev4 while __init__.py still said
+  # 0.1.0.dev3 would have built four wheels named 0.1.0.dev3, attached them to a release page
+  # headed v0.1.0.dev4, and gone entirely green. Only a manual bump kept that release honest.
+  #
+  # It is worth failing loudly over because it is close to unrecoverable. PyPI and crates.io both
+  # refuse to reissue a version number once taken, so a mislabelled artefact cannot be replaced —
+  # only yanked and superseded. And it is the kind of wrong nobody notices from inside the repo:
+  # the build is correct, the tests pass, the wheels install. It surfaces when a user reports
+  # having installed something other than what the release page advertised.
+  #
+  # Both sibling bindings' release.yml gained this check when they were written (mzLibRust#11,
+  # mzLibR#8); this repository is the one that had it only as a habit. No `needs:`, so it runs
+  # immediately rather than after the cross-platform matrix — a tag typo should cost seconds.
+  # ---------------------------------------------------------------------------------------
+  tag-matches-version:
+    name: the tag matches the declared version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the tag with __version__
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+
+          # Read it the way hatchling does — from the source of truth named in pyproject.toml
+          # ([tool.hatch.version] path) — rather than re-deriving it, so this cannot pass while the
+          # build reads something else.
+          declared=$(python -c "
+          import pathlib, re
+          text = pathlib.Path('pkg/python/src/pymzlib/__init__.py').read_text(encoding='utf-8')
+          match = re.search(r'^__version__ = \"([^\"]+)\"', text, re.MULTILINE)
+          if not match:
+              raise SystemExit('no __version__ found in pkg/python/src/pymzlib/__init__.py')
+          print(match.group(1))
+          ")
+
+          echo "tag says      $tag"
+          echo "__init__ says $declared"
+
+          if [ "$tag" != "$declared" ]; then
+            echo "::error::Tag v$tag does not match __version__ $declared. The wheels would be built and published as $declared under a release page headed v$tag. Bump pkg/python/src/pymzlib/__init__.py, or retag."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------------------
   # Both languages, both coverage gates. This runs first and fastest: a failure here should
   # stop the expensive cross-platform matrix below.
   # ---------------------------------------------------------------------------------------
@@ -424,7 +472,7 @@ jobs:
   github-release:
     name: attach assets to the GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    needs: [tag-matches-version, tests, external-services, build, test, no-dotnet, glibc-floor]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -495,7 +543,7 @@ jobs:
     # precisely because they SKIP on an EBI outage rather than failing, so this cannot block a
     # release when PRIDE is merely down — but it does block one when the API contract has actually
     # broken, which is the only state in which shipping would be wrong.
-    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    needs: [tag-matches-version, tests, external-services, build, test, no-dotnet, glibc-floor]
     runs-on: ubuntu-latest
     environment:
       name: pypi
