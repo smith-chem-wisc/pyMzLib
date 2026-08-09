@@ -39,7 +39,10 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | Area | Status |
 |---|---|
 | PRIDE Archive — list project files, filtered download | ✅ |
-| Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/mzLib/issues) |
+| Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
+| Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
+| Readers — identify and read all 29 file types mzLib knows, from raw spectra to search results | ✅ |
+| Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 ## How it works, and why you probably don't care
 
