@@ -210,9 +210,28 @@ def test_every_error_is_catchable_as_one_type():
 
 
 def test_matching_protocol_returns_the_version_info(monkeypatch, fake_bridge):
+    # No `mzlib` key here, which is what a bridge built before that field existed sends. It must
+    # still be readable: an added wire field may not strand a caller on an older bridge, which is
+    # why callers read it with .get() and why `protocol` stays 1 across the addition.
     info = {"bridge": "1.0.0.0", "protocol": _bridge.PROTOCOL_VERSION, "runtime": "8.0.27"}
     _run_returns(monkeypatch, _Completed(stdout=json.dumps({"ok": True, "data": info})))
     assert _bridge.bridge_version() == info
+    assert _bridge.bridge_version().get("mzlib") is None
+
+
+def test_the_mzlib_build_is_reported_when_the_bridge_sends_it(monkeypatch, fake_bridge):
+    """Which mzLib produced a result is not answerable from a wheel without this field."""
+    info = {
+        "bridge": "1.0.0.0",
+        "protocol": _bridge.PROTOCOL_VERSION,
+        "runtime": "8.0.27",
+        "mzlib": "1.0.0+f6b0f0d17f32383918ef895006aaecb71cdb9a7e",
+    }
+    _run_returns(monkeypatch, _Completed(stdout=json.dumps({"ok": True, "data": info})))
+    reported = _bridge.bridge_version()
+    assert reported["mzlib"] == "1.0.0+f6b0f0d17f32383918ef895006aaecb71cdb9a7e"
+    # It reports which mzLib, it does not gate on it. `protocol` is the compatibility contract.
+    assert reported["protocol"] == _bridge.PROTOCOL_VERSION
 
 
 def test_mismatched_protocol_fails_loudly(monkeypatch, fake_bridge):

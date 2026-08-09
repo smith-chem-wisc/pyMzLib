@@ -248,6 +248,24 @@ def invoke(*args: str, stdin: str | None = None, timeout: float | None = None) -
 def bridge_version() -> dict[str, Any]:
     """Return the bridge's own version information, and check protocol compatibility.
 
+    The payload carries:
+
+    ``bridge``
+        The bridge assembly's own version.
+    ``protocol``
+        The wire-format version. This — not the mzLib version — is the compatibility
+        contract: a binding is compatible with a *bridge* by protocol.
+    ``runtime``
+        The bundled .NET runtime.
+    ``mzlib``
+        Which mzLib this bridge was built against, as ``1.0.0+<commit>``, or absent when
+        the build recorded no commit. It answers "which mzLib am I actually running?" for
+        someone holding a wheel who has no access to the repository's pin file. It is
+        deliberately *not* a version to compare against: use ``protocol`` for that.
+
+    Because ``mzlib`` is absent from bridges built before it was added, read it with
+    ``.get("mzlib")`` rather than indexing.
+
     Raises:
         PyMzLibError: if the bridge speaks a different wire format than this package.
     """
