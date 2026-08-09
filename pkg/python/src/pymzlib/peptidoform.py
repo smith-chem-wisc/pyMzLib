@@ -317,15 +317,17 @@ def fragments(
             unobservable (smith-chem-wisc/mzLib#1110).
         modifications: Apply UniProt's annotated modifications.
 
-            **``False`` is not a clean control.** It discards UniProt's whole feature table,
-            which also carries the signal-peptide and propeptide boundaries mzLib digests at,
-            so the *peptide list* changes too, not only the modifications on it. On albumin,
-            ``False`` loses ``MKWVTFISLLFLFSSAYS`` (1-18) and ``WVTFISLLFLFSSAYS`` (3-18),
-            both unmodified, both ending exactly at the signal-peptide cleavage site. See
-            issue #8.
+            Pass ``False`` for the bare sequences — a clean control, since the digest's
+            distinct backbones are unchanged and only the modified variants of them go
+            away. The peptidoform count drops a long way; on albumin from 303 to 195.
 
-            Still true of the modifications themselves: pass ``False`` for the bare
-            sequence — useful as a control, and the difference is usually large.
+            This once carried a caveat saying ``False`` was *not* a clean control, because
+            it discarded UniProt's whole feature table and with it the signal-peptide and
+            propeptide boundaries mzLib digests at — costing albumin two peptides and
+            changing the peptide list, not just the modifications on it (issue #8). That
+            was true and is no longer: verified against the published bridge, both peptides
+            are present either way and albumin gives 195 distinct base sequences with
+            modifications on or off.
         missed_cleavages: Maximum missed cleavage sites per peptide.
         min_length: Shortest peptide to keep. The default of 7 silently discards shorter
             peptides — roughly a third of a histone digest — so pass ``min_length=1`` when you
