@@ -76,7 +76,7 @@ if (-not $report) {
 #
 # Matched by a path SEGMENT equal to $Configuration rather than a bin/<Configuration> subtree, because
 # a platform-qualified build nests it one level deeper: CI runs `-c Release -p:Platform=x64`, which
-# emits bin/x64/Release/net8.0/, and a plain build emits bin/Release/net8.0/. Both carry a `Release`
+# emits bin/x64/Release/net10.0/, and a plain build emits bin/Release/net10.0/. Both carry a `Release`
 # segment; `bin/Debug/...` does not, so the other configuration is still excluded.
 $configSegment = "[\\/]$([regex]::Escape($Configuration))[\\/]"
 $assembly = Get-ChildItem (Join-Path $repoRoot 'pkg/bridge.tests/bin') -Recurse -Filter 'MzLibBridge.Tests.dll' -ErrorAction SilentlyContinue |
