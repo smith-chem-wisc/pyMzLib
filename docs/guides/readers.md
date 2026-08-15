@@ -1,6 +1,6 @@
 # Readers
 
-mzLib recognises **29 file types** written by a dozen different search and deconvolution tools —
+mzLib recognises **31 file types** written by a dozen different search and deconvolution tools —
 MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux, Casanovo, FlashDeconv, Dinosaur,
 FlashLFQ — and maintains a parser for each. pyMzLib lets you point at a file, ask what it is, and
 read it.
@@ -15,7 +15,7 @@ table = pymzlib.readers.read_records("toppic_prsm.tsv")
 print(table.record_type, len(table.column_names))    # ToppicPrsm 36
 ```
 
-**All 29 formats are readable.** What differs between them is not whether you can read them but
+**All 31 formats are readable.** What differs between them is not whether you can read them but
 what the columns mean — which is the whole subject of this page.
 
 ## Five ways to read, and how to choose
@@ -25,7 +25,7 @@ worth stating plainly before anything else:
 
 | function | reads | columns | use it when |
 |---|---|---|---|
-| [`read_records()`](#read_records-any-format-its-own-fields) | **all 29** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
+| [`read_records()`](#read_records-any-format-its-own-fields) | **all 31** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
 | [`read_results()`](#read_results-the-quantifiable-view) | 3 | uniform: sequence, RT, charge, mass, proteins | you are feeding [FlashLFQ](flashlfq.md) or comparing search results |
 | [`read_features()`](#read_features-deconvolved-ms1-features) | 2 | uniform: m/z, charge, RT range, intensity | you are working with deconvolved MS1 features |
 | [`read_matches()`](#read_matches-identifications) | 4 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT or Casanovo |
@@ -43,7 +43,7 @@ MetaMorpheus's, and no other format has them.
 
 ## Start with `views`, not with the file type
 
-It would be convenient if mzLib read all 29 formats into one uniform table. **It does not.** The
+It would be convenient if mzLib read all 31 formats into one uniform table. **It does not.** The
 formats fall into disjoint families, and thirteen belong to no family at all:
 
 | view | what it means | which formats |
@@ -133,8 +133,8 @@ t.failed_fields          # ['accession: IndexOutOfRangeException']  (on a non-Un
 
 ## `read_results()`: the quantifiable view
 
-The three types offering `quantifiable` — MetaMorpheus `.psmtsv` and `.osmtsv`, MSFragger
-`psm.tsv` — read into a fixed 10-column shape that is safe to compare between files.
+The four types offering `quantifiable` — MetaMorpheus `.psmtsv` and `.osmtsv`, MSFragger
+`psm.tsv`, DIA-NN `report.tsv` — read into a fixed 10-column shape that is safe to compare between files.
 
 ```python
 r = pymzlib.readers.read_results("AllPSMs.psmtsv")
@@ -322,7 +322,7 @@ The reason it differs at all is that mzLib's **result-file** readers largely pas
 columns through without normalising them, while its **spectra** readers convert. Where that has
 been fixed, it was fixed upstream in mzLib rather than papered over here: MSFragger wrote seconds
 until [mzLib #1116](https://github.com/smith-chem-wisc/mzLib/pull/1116) made the reader divide by
-60, and this library's caveat and unit changed with it. Today all three quantifiable formats report
+60, and this library's caveat and unit changed with it. Today all four quantifiable formats report
 `'minutes'`, `read_spectra()` is always minutes, and the one genuinely unresolved case is TopFD
 `_ms1.feature`, which is `'unknown'`.
 
@@ -399,12 +399,22 @@ reflects your installed version rather than this page's age. Every row is readab
 | `BrukerD` | `.d` | `spectra` |
 | `BrukerTimsTof` | `.d` | `spectra` |
 | `CasanovoMzTab` | `.mztab` | `spectral_match` |
+| `DiaNnReport` | `report.tsv` | `quantifiable` |
+| `Sdrf` | `.sdrf.tsv` | (none) |
 
 Note that **extensions are not unique**: both Bruker types are `.d` (told apart by what the
 directory contains), and several formats share `.tsv`, disambiguated by filename suffix and
 sometimes by reading the first line. Renaming a file changes how it parses — which is not
 hypothetical: mzLib's own Dinosaur test fixture is named `.features.tsv` and cannot be dispatched
 until it is renamed to `.feature.tsv`.
+
+`DiaNnReport` is the one row where the extension column is **not** how dispatch works. mzLib
+reports its extension as `report.tsv`, the conventional DIA-NN name, but matches on the header
+instead — a file is a DIA-NN report if its first line carries `File.Name`, `Precursor.Id` and
+`Stripped.Sequence`. That is deliberate upstream: whoever ran the search routinely renames the
+report, and `File.Name` is what separates the long-format report from the `pr_matrix` reports
+DIA-NN writes beside it, which carry the other two columns but one column per run. So a renamed
+DIA-NN report still reads, and a `report.tsv` that is not one still will not.
 
 ## What is not covered
 

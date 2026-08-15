@@ -9,16 +9,16 @@ namespace MzLibBridge;
 /// </summary>
 /// <remarks>
 /// <para>
-/// mzLib's <c>Readers</c> recognises 29 file types written by a dozen different search and
+/// mzLib's <c>Readers</c> recognises 31 file types written by a dozen different search and
 /// deconvolution tools, and dispatches each to a parser it maintains. That dispatch is the whole
 /// value here — the bridge adds no parsing of its own; it asks mzLib what a path is
 /// (<see cref="SupportedFileTypeExtensions.ParseFileType"/>) and reports the answer.
 /// </para>
 /// <para>
 /// The important honesty in this verb is <c>views</c>. It is tempting to describe mzLib as reading
-/// 29 formats into one uniform shape; it does not. Only three types implement
-/// <see cref="IQuantifiableResultFile"/> (MetaMorpheus <c>.psmtsv</c> and <c>.osmtsv</c>, and
-/// MSFragger <c>psm.tsv</c>); deconvolution features have their own interface
+/// 31 formats into one uniform shape; it does not. Only four types implement
+/// <see cref="IQuantifiableResultFile"/> (MetaMorpheus <c>.psmtsv</c> and <c>.osmtsv</c>,
+/// MSFragger <c>psm.tsv</c>, and DIA-NN <c>report.tsv</c>); deconvolution features have their own interface
 /// (<see cref="IMs1FeatureFile"/>); spectra files are an <see cref="MsDataFile"/>; and several
 /// formats belong to no common interface at all. Rather than discovering that as a cast failure
 /// deep in a later call, a caller is told up front which views a given file actually supports.
@@ -312,7 +312,7 @@ internal static partial class Reading
             throw new Program.UsageException(
                 $"Cannot read '{path}' into the uniform record view. {detail} " +
                 "Identifying a file reports the views it supports; the formats listing names the " +
-                "three types that offer this one.");
+                "four types that offer this one.");
         }
     }
 
@@ -560,6 +560,11 @@ internal static partial class Reading
         // MSFragger writes seconds, but mzLib now converts to minutes at the reader (PR #1116,
         // MsFraggerPsm.RetentionTime = RetentionTimeInSeconds / 60), so the value that crosses is minutes.
         SupportedFileType.MsFraggerPsm => "minutes",
+        // DIA-NN writes minutes already and mzLib converts nothing, which its own reader states:
+        // DiaNnPrecursor.RetentionTime is documented "Apex retention time in minutes. DIA-NN writes
+        // retention times in minutes already, so this needs no conversion". Leaving it to fall
+        // through to "unknown" would understate what is actually known about the format.
+        SupportedFileType.DiaNnReport => "minutes",
         _ => "unknown",
     };
 

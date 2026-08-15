@@ -7,17 +7,27 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **DIA-NN and SDRF are readable**, following the pin to mzLib 1.0.585. `DiaNnReport` is the
+  fourth format offering the `quantifiable` view, so DIA data can now feed
+  `pymzlib.flashlfq.quantify()`; `Sdrf` (HUPO-PSI experimental design, `.sdrf.tsv`) reads through
+  `read_records()` like any other format. This takes the supported count from 29 to 31 (mzLib
+  #1120, #1138).
+
+  DIA-NN retention times cross as `'minutes'` rather than `'unknown'`: DIA-NN writes minutes and
+  mzLib converts nothing, which its own reader states. Note that mzLib dispatches this format on
+  the file's **header**, not its name — a renamed DIA-NN report still reads, and a `report.tsv`
+  that is not one still does not.
 - **The raw bridge is now a release asset.** Every `v*` tag attaches `mzlib-bridge-<rid>.tar.gz`
   for all four platforms alongside the wheels, plus a `SHA256SUMS` covering both. A consumer with
   no reason to install a Python package — mzLibRust, a shell script, a container build — can
   unpack one and set `MZLIB_BRIDGE`. tar rather than zip so the executable bit survives extraction.
   `SHA256SUMS` also makes re-pinning mechanical for bindings that record these digests by hand
   (#31).
-- Readers: `pymzlib.readers.identify()`, `read_results()`, and `formats()` — identify any of the 29
-  result-file types mzLib recognises (returning the projections each supports), and read the three
+- Readers: `pymzlib.readers.identify()`, `read_results()`, and `formats()` — identify any of the 31
+  result-file types mzLib recognises (returning the projections each supports), and read the four
   quantifiable formats into a uniform record view, each with per-format caveats about what its
   numbers do and do not mean.
-- **Exhaustive readers coverage** — all 29 file types are now readable, up from 3.
+- **Exhaustive readers coverage** — all 31 file types are now readable, up from 3.
   `pymzlib.readers.read_records()` reads *any* format mzLib recognises into that format's own
   fields (so TopPIC, Crux, MSFragger's peptide/protein tables and the FlashDeconv formats become
   reachable for the first time), naming every field it could not project rather than dropping it
