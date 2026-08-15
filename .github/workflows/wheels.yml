@@ -30,7 +30,11 @@ env:
   # The pin still exists for the original reason: the bridge and the Python package must be built
   # from the same mzLib source, so it is pinned rather than tracking master. Its provenance — which
   # release, which PRs, and why — is recorded in code/PINNED.md.
-  DOTNET_VERSION: '8.0.x'
+  # Must track the target framework of the pinned mzLib, not merely be "some SDK we have". mzLib
+  # #1141 moved to net10.0 in 1.0.585, and an 8.0.x SDK cannot build a net10.0 project -- so a pin
+  # bump past that line is never a one-line change, and the automatic bump PR would go red without
+  # this moving in the same commit.
+  DOTNET_VERSION: '10.0.x'
 
 jobs:
   # ---------------------------------------------------------------------------------------

@@ -62,7 +62,7 @@ Cross-build for another platform — no hardware required:
 
     ```powershell
     # Absolute, because you will run pytest from pkg/python and a relative path breaks there.
-    $env:PYMZLIB_BRIDGE = "$PWD/pkg/bridge/bin/x64/Release/net8.0/win-x64/mzlib-bridge.exe"
+    $env:PYMZLIB_BRIDGE = "$PWD/pkg/bridge/bin/x64/Release/net10.0/win-x64/mzlib-bridge.exe"
     ```
 
 ## Set up Python and run the tests

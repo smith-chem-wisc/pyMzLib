@@ -1,5 +1,5 @@
 {
-  "format_count": 29,
+  "format_count": 31,
   "formats": [
     {
       "file_type": "Ms1Feature",
@@ -206,6 +206,20 @@
       "views": [
         "spectral_match"
       ]
+    },
+    {
+      "file_type": "DiaNnReport",
+      "extension": "report.tsv",
+      "reader": "DiaNnReportFile",
+      "views": [
+        "quantifiable"
+      ]
+    },
+    {
+      "file_type": "Sdrf",
+      "extension": ".sdrf.tsv",
+      "reader": "SdrfDocument",
+      "views": []
     }
   ]
 }
