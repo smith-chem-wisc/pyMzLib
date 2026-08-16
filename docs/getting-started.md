@@ -5,7 +5,7 @@ This page assumes nothing. If you already work in Python daily, you only need th
 ## Install
 
 ```bash
-pip install pymzlib
+pip install mzlib
 ```
 
 Then check it:
@@ -74,7 +74,7 @@ projects can't disturb each other. It ships with Python — nothing to install:
     ```powershell
     python -m venv .venv
     .\.venv\Scripts\Activate.ps1
-    pip install pymzlib
+    pip install mzlib
     ```
 
 === "macOS / Linux"
@@ -82,7 +82,7 @@ projects can't disturb each other. It ships with Python — nothing to install:
     ```bash
     python -m venv .venv
     source .venv/bin/activate
-    pip install pymzlib
+    pip install mzlib
     ```
 
 Once activated, `python` and `pip` mean the ones inside `.venv`. Delete the folder and every
@@ -91,7 +91,7 @@ legitimate and complete fix — nothing is registered anywhere else.
 
 !!! tip "If you want the modern version of this"
     [`uv`](https://docs.astral.sh/uv/) is a single executable that manages Python interpreters
-    *and* environments, so you never install Python at all: `uv venv && uv pip install pymzlib`.
+    *and* environments, so you never install Python at all: `uv venv && uv pip install mzlib`.
     It is dramatically faster and removes most remaining ways to get confused.
 
 ### Reading the results

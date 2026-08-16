@@ -37,7 +37,7 @@ GitHub Release. This is automatic; there is nothing to upload by hand.
 
 | Asset | For whom |
 |---|---|
-| `pymzlib-<version>-py3-none-<platform>.whl` ×4 | `pip install`, and mzLibR, which unzips one to reach the bridge inside |
+| `mzlib-<version>-py3-none-<platform>.whl` ×4 | `pip install` |
 | `mzlib-bridge-<rid>.tar.gz` ×4 | any non-Python consumer — mzLibRust, a shell script, a container build |
 | `SHA256SUMS` | verifying all of the above |
 

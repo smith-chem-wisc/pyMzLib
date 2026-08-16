@@ -46,7 +46,7 @@ body:
     id: install
     attributes:
       label: How did you install pyMzLib?
-      placeholder: pip install pymzlib · a built wheel · from source
+      placeholder: pip install mzlib · a built wheel · from source
 
   - type: textarea
     id: tried

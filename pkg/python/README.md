@@ -5,7 +5,7 @@ and proteomics library written in C#, developed in the Smith lab at UW–Madison
 callable from Python.
 
 ```bash
-pip install pymzlib
+pip install mzlib
 ```
 
 That is the whole installation. There is no .NET to install, no runtime to configure, and no

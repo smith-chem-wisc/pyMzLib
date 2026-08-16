@@ -108,7 +108,7 @@ it. A scientific package that requires `numpy<2` can lock a user out of half the
 By requiring nothing, pyMzLib cannot participate in that failure mode at all. This is worth
 protecting: a convenience that would cost a runtime dependency is not worth it, and if a future
 capability genuinely needs one, it belongs behind an optional extra
-(`pip install pymzlib[something]`), never in the base requirements.
+(`pip install mzlib[something]`), never in the base requirements.
 
 ## Where the .NET payload lives
 
