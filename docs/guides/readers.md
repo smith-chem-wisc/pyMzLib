@@ -119,17 +119,12 @@ t = pymzlib.readers.read_records("crux.txt")
 t.failed_fields          # ['accession: IndexOutOfRangeException']  (on a non-UniProt database)
 ```
 
-!!! warning "`read_records()` and `read_results()` can disagree about `-1`"
+!!! tip "`-1` is not treated as missing here"
     `read_results()` maps mzLib's documented `-1` "absent" sentinel to `None` for two specific
-    interface fields. `read_records()` passes `-1` straight through, for two reasons: in a format's
-    own columns it is frequently a real measurement — a mass difference, a delta, TopPIC's
-    `feature_score` — and this function's contract is to report exactly what mzLib holds.
-
-    **So the same column of the same file can read differently through the two functions.** A
-    `.psmtsv` written without a retention-time column gives `None` from `read_results()` and `-1`
-    from `read_records()`. That is mzLib's sentinel showing through rather than a choice made here;
-    the upstream fix is tracked as `UPSTREAM.md` U0. Non-finite values (`NaN`, infinity) still cross
-    as `None` from both, since JSON cannot carry them at all.
+    interface fields. `read_records()` deliberately does **not** generalise that, because in a
+    format's own columns `-1` is frequently a real measurement — a mass difference, a delta, a log
+    ratio, TopPIC's `feature_score`. Nulling those would destroy data. Non-finite values (`NaN`,
+    infinity) still cross as `None`, since JSON cannot carry them at all.
 
 ## `read_results()`: the quantifiable view
 
@@ -203,15 +198,12 @@ f.record_count, f.retention_time_unit       # (25, 'unknown')
 `intensity` is the **apex** intensity, not the sum over the feature — both formats carry a summed
 intensity column too, and `read_records()` has it.
 
-!!! danger "`intensity` is a fabricated `0` for every FLASHDeconv `_ms1.feature`"
-    mzLib takes the per-charge intensity from `Apex_intensity`, which is an *optional* column the
-    FLASHDeconv/OpenMS `_ms1.feature` layout does not have — and substitutes **zero** when it is
-    absent. A whole column of zeros is indistinguishable from real measurements of nothing.
-
-    pyMzLib passes mzLib's value through unchanged and **tells you** in `caveats`, rather than
-    silently substituting a different number. Do not sum or rank those zeros. TopFD files, which do
-    write the column, are unaffected, and `read_records()` has the file's own summed `intensity`
-    either way. The upstream fix — a nullable `Intensity` — is tracked as `UPSTREAM.md` U1.
+!!! warning "`intensity` is `None` for every FLASHDeconv `_ms1.feature`"
+    mzLib takes the per-charge intensity from `Apex_intensity`, which is an *optional* column that
+    the FLASHDeconv/OpenMS `_ms1.feature` layout does not have — and substitutes **zero** when it is
+    absent. A whole column of zeros is indistinguishable from real measurements of nothing, so
+    pyMzLib crosses those as `None` and says so in `caveats`. TopFD files, which do write the
+    column, are unaffected. `read_records()` has the file's own summed `intensity` either way.
 
 ### `retention_time_unit` is `'unknown'` for `_ms1.feature`, and that is the honest answer
 
