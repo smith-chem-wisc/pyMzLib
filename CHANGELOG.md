@@ -6,6 +6,20 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+- **The PyPI package is now `pip install mzlib`, not `pip install pymzlib`.** The import name is
+  unchanged — it is still `import pymzlib`, and the package directory is still `src/pymzlib`. A
+  distribution name and an import name are independent in Python (`pip install scikit-learn` gives
+  you `import sklearn`), so no user code changes.
+
+  `pymzlib` was verified unclaimed on PyPI on 2026-07-23 and claimed by an unrelated uploader on
+  2026-07-29, before this project had published anything. A name nobody has uploaded to is not
+  reserved. `mzlib` was claimed on 2026-08-16 and is ours.
+
+  The wheels attached to a release are renamed to match (`mzlib-<version>-py3-none-<platform>.whl`).
+  This does not reach mzLibR or mzLibRust: both take the `mzlib-bridge-<rid>.tar.gz` asset rather
+  than unzipping a wheel, and the import package they look for inside a wheel is still `pymzlib/`.
+
 ### Added
 - **DIA-NN and SDRF are readable**, following the pin to mzLib 1.0.585. `DiaNnReport` is the
   fourth format offering the `quantifiable` view, so DIA data can now feed

@@ -6,7 +6,7 @@ written in C#, developed in the [Smith lab](https://smith.chem.wisc.edu/) at UWâ
 makes it callable from Python.
 
 ```bash
-pip install pymzlib
+pip install mzlib
 ```
 
 !!! warning "Not on PyPI yet"

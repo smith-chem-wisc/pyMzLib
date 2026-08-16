@@ -19,7 +19,7 @@ requirement, not a happy accident.
 
 ## Does it work with conda?
 
-Yes — `pip install pymzlib` inside a conda environment works, and because pyMzLib has no
+Yes — `pip install mzlib` inside a conda environment works, and because pyMzLib has no
 dependencies, it can't disturb conda's own resolution. A native bioconda package is
 [planned](contributing/releasing.md#bioconda-secondary-automatic-after-one-time-setup).
 

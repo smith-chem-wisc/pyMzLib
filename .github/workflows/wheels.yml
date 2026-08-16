@@ -466,12 +466,14 @@ jobs:
   # release does not exist yet, the action creates a minimal one rather than failing.
   #
   # Three kinds of asset go up, and they serve different consumers:
-  #   *.whl        — pip, and mzLibR's install-bridge.R, which unzips one to get at the binary.
-  #   *.tar.gz     — the raw bridge, for the bindings that are not Python. This is what mzLibRust
-  #                  and mzLibR are blocked on; see the note in the build job.
+  #   *.whl        — pip. Named `mzlib-<version>-...` after the distribution, not `pymzlib-...`;
+  #                  the import package inside is still `pymzlib/`, which is what the non-Python
+  #                  bindings look for when they reach into a wheel. See pyproject.toml.
+  #   *.tar.gz     — the raw bridge, for the bindings that are not Python. Both mzLibRust and
+  #                  mzLibR now take this rather than unzipping a wheel, so a change to the wheel
+  #                  filename does not reach them.
   #   SHA256SUMS   — so a consumer pinning these can verify, and re-pin mechanically. mzLibR
-  #                  hardcodes four digests today and its comment says bumping the version means
-  #                  re-recording all four by hand. This is that file.
+  #                  regenerates its pins from this file.
   # ---------------------------------------------------------------------------------------
   github-release:
     name: attach assets to the GitHub Release
@@ -551,7 +553,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/pymzlib
+      url: https://pypi.org/p/mzlib
     permissions:
       id-token: write
     steps:

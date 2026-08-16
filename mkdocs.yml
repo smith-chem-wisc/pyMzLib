@@ -97,4 +97,4 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/smith-chem-wisc/pyMzLib
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/pymzlib/
+      link: https://pypi.org/project/mzlib/

@@ -4,7 +4,7 @@
 [mzLib](https://github.com/smith-chem-wisc/mzLib) C# library, with no .NET to install.
 
 ```bash
-pip install pymzlib
+pip install mzlib
 ```
 
 ```python
@@ -20,16 +20,15 @@ digest = pymzlib.peptidoform.fragments("P02768")
 print(digest.modification_census.explain())
 ```
 
-> **Preview release available — not on PyPI yet.** Install the wheel for your OS from the
-> [latest release](https://github.com/smith-chem-wisc/pyMzLib/releases/latest). For example, on
-> Windows:
+> **Preview release — the working wheels are on GitHub, not yet on PyPI.** Download the wheel for
+> your OS from the [latest release](https://github.com/smith-chem-wisc/pyMzLib/releases/latest)
+> and `pip install` the file directly (Windows, macOS Intel / Apple Silicon, and Linux are all
+> there). The command above is what release day will look like.
 >
-> ```bash
-> pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev0/pymzlib-0.1.0.dev0-py3-none-win_amd64.whl
-> ```
->
-> The release page lists the Linux and macOS (Intel / Apple Silicon) wheels too. `pip install
-> pymzlib` is what release day will look like.
+> `pip install mzlib` today fetches a 5.2 KB placeholder that holds the name and raises on import
+> with a pointer back to that release page — deliberately, so it cannot be mistaken for a working
+> install. Real wheels land there once PyPI grants a file-size limit increase: each wheel carries a
+> self-contained .NET runtime and runs to ~100–170 MB against PyPI's default 100 MB per-file cap.
 
 That's the whole installation. No .NET runtime, no configuration, and **no third-party Python
 dependencies** — so pyMzLib cannot conflict with anything already in your environment.

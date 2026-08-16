@@ -6,7 +6,18 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pymzlib"
+# The DISTRIBUTION name (what you `pip install`) is `mzlib`. The IMPORT name (what you
+# `import`) is still `pymzlib`, and the package directory is still src/pymzlib. Those two names
+# are independent in Python and disagreeing is completely normal - `pip install scikit-learn`
+# gives you `import sklearn`. Do not "fix" one to match the other: renaming the import package
+# would break every user's code and every line of the documentation, for no gain.
+#
+# Why they diverge here: `pymzlib` was verified unclaimed on PyPI on 2026-07-23 and claimed by an
+# unrelated uploader on 2026-07-29, before this project published anything. A name you have not
+# uploaded to is not reserved - PyPI is first-upload-wins, and even a "pending publisher" does not
+# hold a name ("A 'pending' publisher does not create a project or reserve a project's name until
+# it is actually used to publish"). `mzlib` was claimed on 2026-08-16 and is ours. See decision D12.
+name = "mzlib"
 # Single-sourced from the package itself; keeping two copies in step by hand is a mistake
 # waiting for a busy release day.
 dynamic = ["version"]
