@@ -1,5 +1,7 @@
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
+using System.Security.Authentication;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -79,9 +81,48 @@ public static class Program
             TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
             SocketException => ServiceUnavailableType,
             HttpRequestException http => ClassifyHttpFailure(http),
+            IOException io when IsTransportFailure(io) => ServiceUnavailableType,
             _ => cause.GetType().Name,
         };
     }
+
+    /// <summary>
+    /// Whether an <see cref="IOException"/> came from the network rather than from the disk.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A response that dies part-way through never reaches the <see cref="HttpRequestException"/>
+    /// arm. By then HttpClient has handed back the headers and the request is "successful"; the
+    /// failure surfaces later, on the content stream, as a bare <see cref="IOException"/> — which
+    /// fell through to the default arm and crossed the wire under its own type name. That is what
+    /// turned a truncated PRIDE download into a red canary on 5 August 2026:
+    /// <i>"Received an unexpected EOF or 0 bytes from the transport stream."</i> reported as a
+    /// correctness failure when it was EBI hanging up mid-transfer.
+    /// </para>
+    /// <para>
+    /// Deliberately narrow, because this arm is one careless widening away from the failure the
+    /// whole classifier exists to prevent. A bare <see cref="IOException"/> is also how a full disk
+    /// reports itself while a download is being written out, and a full disk is our problem, not
+    /// EBI's. So the default stays "correctness failure", and only shapes that can ONLY come from
+    /// the transport are excused: an <see cref="HttpIOException"/> (which .NET raises for HTTP
+    /// protocol failures and nothing else), an exception wrapping a socket or TLS failure, and
+    /// .NET's stream-truncation message.
+    /// </para>
+    /// <para>
+    /// That last one matches on message text, which this file otherwise treats as a hazard, so the
+    /// distinction is worth stating. The pattern that must never be used is one steerable by
+    /// caller-supplied text — an accession of <c>"x status 503 x"</c> classifying itself as an
+    /// outage. This sentence is a fixed .NET resource string with nothing interpolated into it, so
+    /// no caller input can produce it. It is locale-sensitive, which is a genuine weakness, but it
+    /// fails the safe way: on a localized runner the match misses and the failure stays red.
+    /// </para>
+    /// </remarks>
+    private static bool IsTransportFailure(IOException exception) =>
+        exception is HttpIOException
+        || exception.InnerException is SocketException or AuthenticationException
+        || exception.Message.Contains(
+            "Received an unexpected EOF or 0 bytes from the transport stream",
+            StringComparison.Ordinal);
 
     /// <summary>
     /// The exception actually worth reporting, with any single-cause aggregate wrapper removed.
@@ -234,7 +275,51 @@ public static class Program
         bridge = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0",
         protocol = ProtocolVersion,
         runtime = Environment.Version.ToString(),
+        mzlib = MzLibVersion(),
     };
+
+    /// <summary>
+    /// Which mzLib this bridge was built against, as <c>1.0.0+&lt;commit&gt;</c> — or <c>null</c> if
+    /// the build did not record one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A native C# consumer never needs this: FlashLFQ and MetaMorpheus reference mzLib directly and
+    /// can read its version themselves. A binding cannot. It holds a prebuilt binary fetched from a
+    /// release, and until now the only record of which mzLib went into that binary was
+    /// <c>code/mzlib.pin</c> in a repository the user may not have. So the question "which mzLib am I
+    /// actually running?" had no answer available at runtime, in any of the three languages.
+    /// </para>
+    /// <para>
+    /// Read from the linked assembly rather than stamped in at build time, deliberately. The .NET SDK
+    /// already writes the source commit into <see cref="AssemblyInformationalVersionAttribute"/> —
+    /// mzLib's assemblies carry <c>1.0.0+f6b0f0d17f32383918ef895006aaecb71cdb9a7e</c> — so reading it
+    /// reports what was genuinely linked. A value passed in through the build could disagree with the
+    /// binary it describes; this one cannot, because it comes out of it.
+    /// </para>
+    /// <para>
+    /// Nullable on purpose. The attribute carries no commit when the build had no git metadata, and a
+    /// bare <c>"1.0.0"</c> would be a worse answer than none — it looks like a version while saying
+    /// nothing about which mzLib it is. Every binding projects the absence natively rather than
+    /// inventing a placeholder, exactly as it does for any other optional wire field.
+    /// </para>
+    /// </remarks>
+    private static string? MzLibVersion()
+    {
+        // Loaders comes from UsefulProteomicsDatabases, which Peptidoform.cs already drives, so this
+        // names an assembly the bridge provably links rather than one it merely could.
+        var informational = typeof(Loaders).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+
+        if (string.IsNullOrWhiteSpace(informational))
+        {
+            return null;
+        }
+
+        // No commit recorded means no useful answer; say so rather than reporting a bare "1.0.0".
+        return informational.Contains('+') ? informational : null;
+    }
 
     /// <summary>
     /// <c>pride files --accession PXD000001 [--page-size 100]</c> — PRIDE's REST file manifest for a

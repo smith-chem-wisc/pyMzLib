@@ -28,7 +28,7 @@ from ._bridge import (
     bridge_version,
 )
 
-__version__ = "0.1.0.dev3"
+__version__ = "0.1.0.dev5"
 
 __all__ = [
     "flashlfq",

@@ -1,8 +1,8 @@
 """Read proteomics result files: what a file *is*, what you can do with it, and its records.
 
-mzLib recognises 29 file types written by a dozen different search and deconvolution tools  - 
+mzLib recognises 31 file types written by a dozen different search and deconvolution tools  - 
 MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux, Casanovo, FlashDeconv, Dinosaur,
-FlashLFQ - and dispatches each to a parser it maintains. This module asks it what a path is::
+DIA-NN, FlashLFQ - and dispatches each to a parser it maintains. This module asks it what a path is::
 
     >>> import pymzlib
     >>> info = pymzlib.readers.identify("psm.tsv")     # doctest: +SKIP
@@ -15,16 +15,16 @@ FlashLFQ - and dispatches each to a parser it maintains. This module asks it wha
     >>> table.record_type, len(table.column_names)                # doctest: +SKIP
     ('ToppicPrsm', 36)
 
-**Every one of the 29 formats is readable** - :func:`read_records` reads any of them. What differs
+**Every one of the 31 formats is readable** - :func:`read_records` reads any of them. What differs
 between formats is not *whether* you can read them but *what the columns mean*, and that is what
-:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 29 formats into one
+:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 31 formats into one
 uniform shape; it does not. They fall into disjoint families, and several belong to no family at
 all:
 
 +---------------------+-------+------------------------+---------------------------------------+
 | view                | types | function               | columns                               |
 +=====================+=======+========================+=======================================+
-| ``"quantifiable"``  | 3     | :func:`read_results`   | uniform: sequence, RT, charge, mass,  |
+| ``"quantifiable"``  | 4     | :func:`read_results`   | uniform: sequence, RT, charge, mass,  |
 |                     |       |                        | protein groups. What                  |
 |                     |       |                        | :func:`pymzlib.flashlfq.quantify`     |
 |                     |       |                        | consumes.                             |
@@ -38,11 +38,11 @@ all:
 | ``"spectra"``       | 7     | :func:`read_spectra`   | uniform: scan headers, and peaks on   |
 |                     |       |                        | request.                              |
 +---------------------+-------+------------------------+---------------------------------------+
-| *(any)*             | 29    | :func:`read_records`   | **this format's own fields**, under   |
+| *(any)*             | 31    | :func:`read_records`   | **this format's own fields**, under   |
 |                     |       |                        | mzLib's names. Not uniform.           |
 +---------------------+-------+------------------------+---------------------------------------+
 
-``views == []`` is a real and common answer - thirteen types have it. TopPIC, Crux, MSFragger's
+``views == []`` is a real and common answer - fourteen types have it. TopPIC, Crux, MSFragger's
 peptide and protein tables and the FlashDeconv formats each parse into their own record type with
 nothing in common. mzLib reads them and so does :func:`read_records`; there is simply no uniform
 view to project them onto, and inventing one here would mean publishing a schema mzLib does not
@@ -716,7 +716,7 @@ def formats(timeout: float | None = 60) -> list[Format]:
     Example:
         >>> quantifiable = [f.file_type for f in formats() if f.is_quantifiable]  # doctest: +SKIP
         >>> quantifiable                                                          # doctest: +SKIP
-        ['psmtsv', 'osmtsv', 'MsFraggerPsm']
+        ['psmtsv', 'osmtsv', 'MsFraggerPsm', 'DiaNnReport']
     """
     data = _bridge.invoke("readers", "formats", timeout=timeout)
     return [Format._from_wire(item) for item in (data.get("formats") or [])]

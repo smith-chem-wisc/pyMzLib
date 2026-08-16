@@ -1,0 +1,219 @@
+# Notices when mzLib cuts a release, and opens the pull request that bumps our pin to it.
+#
+# Before this existed, nothing anywhere connected an mzLib release to any of the three bindings.
+# mzLib released 1.0.584 on 2026-08-07 and not one job in pyMzLib, mzLibRust or mzLibR reacted,
+# because none of them consumes mzLib as a *release*: this repository builds the bridge from a
+# pinned commit (code/mzlib.pin), and the other two consume the bridge binary this repository
+# publishes. So the pin moved only when a human remembered to move it, and the record of what it
+# was pointing at had already drifted in one of the three places it was written down.
+#
+# What this does NOT do is push the bump. It opens a pull request, because wheels.yml already runs
+# on `pull_request` and its cross-platform matrix — four wheels built, six OS/Python combinations
+# installed and exercised, a no-.NET container, a glibc-floor container — is precisely the evidence
+# needed to decide whether a new mzLib is safe to build against. Bumping by push would skip the one
+# check that makes the bump trustworthy.
+
+name: upstream-watch
+
+on:
+  schedule:
+    # Mondays, 07:00 UTC. mzLib releases every few weeks, so anything more frequent is noise; the
+    # workflow is a no-op on a week with no release and costs one API call to find that out.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+# Least privilege: enough to push a branch and open a PR against this repository, nothing more.
+# Note this workflow deliberately touches NO file under .github/workflows/ — GitHub rejects a push
+# from the default GITHUB_TOKEN that modifies one. That constraint is why the pin lives in a plain
+# file (code/mzlib.pin) instead of an `env:` entry in wheels.yml where it started.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  mzlib:
+    name: check mzLib for a new release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The `secrets` context is not available in a step's `if:` — only in `env:` and `with:`. So
+      # whether a PAT is configured has to be turned into an ordinary output here before anything
+      # downstream can branch on it.
+      - name: Note whether a PAT is configured
+        id: pat
+        env:
+          UPSTREAM_WATCH_TOKEN: ${{ secrets.UPSTREAM_WATCH_TOKEN }}
+        run: |
+          if [ -n "${UPSTREAM_WATCH_TOKEN:-}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve mzLib's latest release to a commit
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # `releases/latest` excludes drafts and prereleases, which is what we want: the pin should
+          # follow what mzLib considers shipped, not whatever tag exists.
+          tag=$(gh api repos/smith-chem-wisc/mzLib/releases/latest --jq .tag_name)
+
+          # mzLib's tags are ANNOTATED. `git/ref/tags/<tag>` therefore returns the sha of the tag
+          # OBJECT, not of the commit it points at — a subtle wrong answer that looks like a valid
+          # sha and would pin the build to something `git checkout` cannot resolve to a tree. The
+          # commits endpoint dereferences, and also works for lightweight tags. Both forms were
+          # checked against 1.0.584 by hand: the ref endpoint gives b6df93dc (the tag object),
+          # this one gives e3220d6a (the commit).
+          sha=$(gh api repos/smith-chem-wisc/mzLib/commits/"$tag" --jq .sha)
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "mzLib's latest release is $tag ($sha)"
+
+      - name: Compare it with our pin
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_SHA: ${{ steps.upstream.outputs.sha }}
+          NEW_TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+          pin=$(tr -d '[:space:]' < code/mzlib.pin)
+          echo "current pin: $pin"
+
+          if [ "$pin" = "$NEW_SHA" ]; then
+            echo "Already pinned to $NEW_TAG. Nothing to do."
+            echo "action=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Direction matters. The pin is allowed to sit AHEAD of the latest release — it does today,
+          # and it did deliberately, to pick up #1116 and #1121 before either was in a release. In
+          # that state the honest report is "nothing to do", not a pull request that rolls the build
+          # backwards onto an older mzLib. `.status` is relative to the base, so with base=pin and
+          # head=release it reads "ahead" only when the release genuinely contains new commits.
+          status=$(gh api repos/smith-chem-wisc/mzLib/compare/"$pin"..."$NEW_SHA" --jq .status)
+          echo "release is '$status' relative to the pin"
+
+          if [ "$status" != "ahead" ]; then
+            echo "::notice::mzLib $NEW_TAG is '$status' relative to the current pin; leaving the pin alone."
+            echo "action=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api repos/smith-chem-wisc/mzLib/compare/"$pin"..."$NEW_SHA" \
+            --jq '.commits[] | "- `\(.sha[0:8])` \(.commit.message | split("\n")[0])"' > /tmp/commits.md
+          echo "commits between the pin and $NEW_TAG:"
+          cat /tmp/commits.md
+
+          echo "action=bump" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the pin and record why
+        if: steps.pin.outputs.action == 'bump'
+        env:
+          NEW_SHA: ${{ steps.upstream.outputs.sha }}
+          NEW_TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$NEW_SHA" > code/mzlib.pin
+
+          # One row appended to the end of PINNED.md, which is why that file's pin-history table is
+          # required to be the last thing in it. Appending is the only edit this workflow makes to
+          # prose: rewriting a paragraph mechanically is how a document ends up asserting something
+          # nobody wrote and nobody checked.
+          today=$(date -u +%Y-%m-%d)
+          short=$(printf '%s' "$NEW_SHA" | cut -c1-8)
+          printf '| %s | `%s` | %s | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |\n' \
+            "$today" "$short" "$NEW_TAG" >> code/PINNED.md
+
+      - name: Compose the pull request body
+        if: steps.pin.outputs.action == 'bump'
+        id: body
+        env:
+          NEW_SHA: ${{ steps.upstream.outputs.sha }}
+          NEW_TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          set -euo pipefail
+          {
+            echo "mzLib released **$NEW_TAG**, which is ahead of the commit this repository builds"
+            echo "the bridge from. This bumps \`code/mzlib.pin\` to \`$NEW_SHA\`."
+            echo
+            echo "### What it brings in"
+            echo
+            cat /tmp/commits.md
+            echo
+            echo "### What to look at before merging"
+            echo
+            echo "The wheels workflow runs on this pull request, so the cross-platform matrix is the"
+            echo "gate — if it is green, the new mzLib builds and runs everywhere we claim support."
+            echo "What CI cannot judge is whether any of the commits above **changes a value mzLib"
+            echo "reports**. That is the split rule the readers tranche settled on: a pure projection"
+            echo "is routine, a changed number is a judgement call. Skim the list with that in mind."
+            echo
+            echo "Also worth checking: whether any commit above retires a caveat one of the three"
+            echo "bindings still carries. Under BRIDGE-MAINTAIN-PARITY a caveat deletion lands in"
+            echo "pyMzLib, mzLibRust and mzLibR as one unit of work, not just here."
+            echo
+            echo "---"
+            echo "Opened by \`.github/workflows/upstream-watch.yml\`."
+          } > /tmp/body.md
+          cat /tmp/body.md
+          echo "path=/tmp/body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Open (or update) the bump pull request
+        if: steps.pin.outputs.action == 'bump'
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          # A PAT is used when one is configured, and the default token otherwise. What that buys is
+          # NOT what the first version of this file claimed.
+          #
+          # The claim was that events raised by GITHUB_TOKEN do not start workflow runs, so the pull
+          # request would open with no checks at all. Observed on the first real run (2026-08-09):
+          # both `wheels` and `docs` DID queue against the branch — and both landed as
+          # `action_required`, held behind GitHub's approval gate because the pull request's author
+          # is github-actions[bot], which the repository treats as a first-time contributor. The
+          # checks exist; they need one click.
+          #
+          # So a PAT does not add checks that were missing. It makes the pull request come from a
+          # human account instead of the bot, which is what removes the approval gate and lets CI
+          # start on its own. Same secret, same recommendation — different reason, and the
+          # difference matters because the old reason justified a fallback step that was dispatching
+          # a run GitHub was already queuing.
+          #
+          # Set UPSTREAM_WATCH_TOKEN (a fine-grained PAT with Contents: read/write and Pull requests:
+          # read/write on this repository) to skip the click. Nothing breaks without it.
+          token: ${{ secrets.UPSTREAM_WATCH_TOKEN || github.token }}
+          branch: upstream/mzlib-${{ steps.upstream.outputs.tag }}
+          # Reuse the branch across re-runs so a weekly cron updates one pull request per mzLib
+          # release rather than opening a duplicate every Monday until it is merged.
+          title: "chore(mzlib): bump the pin to ${{ steps.upstream.outputs.tag }}"
+          body-path: ${{ steps.body.outputs.path }}
+          commit-message: |
+            chore(mzlib): bump the pin to ${{ steps.upstream.outputs.tag }}
+
+            mzLib released ${{ steps.upstream.outputs.tag }}; code/mzlib.pin now points at
+            ${{ steps.upstream.outputs.sha }}. Opened by upstream-watch.yml.
+          labels: upstream
+          delete-branch: true
+
+      # There is deliberately no "dispatch wheels.yml as a fallback" step here any more. The first
+      # real run proved it was solving a problem that does not exist — GitHub queues `wheels` and
+      # `docs` against the branch on its own — and it could not have worked regardless: the default
+      # GITHUB_TOKEN has no `actions: write`, so the dispatch failed with
+      # `403 Resource not accessible by integration` and took the whole job red AFTER it had already
+      # opened a perfectly good pull request. A cleanup step that cannot succeed, guarding against a
+      # condition that never occurs, is worse than nothing: it turns a working watcher into a
+      # failing one and trains everyone to ignore the red.
+      - name: Say what still needs a human
+        if: steps.pin.outputs.action == 'bump' && steps.pat.outputs.configured == 'false'
+        run: |
+          echo "::notice::Opened the bump pull request. Its checks are held for approval because the author is github-actions[bot] — click 'Approve workflows to run' on the PR. Set UPSTREAM_WATCH_TOKEN to skip that step."

@@ -30,24 +30,64 @@
     3. Set the repository variable `PYPI_PUBLISH=true`.
     4. Bump to a real version and tag.
 
-## Giving someone a build before the first PyPI release
+## What a tag publishes
 
-You don't need PyPI to hand a colleague a working install. Every push to `main` builds all four
-platform wheels; attach them to a GitHub Release and they install with one command:
+Pushing a `v*` tag builds and tests every platform, then attaches **nine assets** to that tag's
+GitHub Release. This is automatic; there is nothing to upload by hand.
+
+| Asset | For whom |
+|---|---|
+| `pymzlib-<version>-py3-none-<platform>.whl` ×4 | `pip install`, and mzLibR, which unzips one to reach the bridge inside |
+| `mzlib-bridge-<rid>.tar.gz` ×4 | any non-Python consumer — mzLibRust, a shell script, a container build |
+| `SHA256SUMS` | verifying all of the above |
+
+!!! warning "The release must already exist"
+    The job **adds assets to the release for the tag**; it does not write release notes. Create the
+    release first (with its notes), then push the tag. If no release exists the action creates a
+    minimal one rather than failing, but you will be writing the notes afterwards.
+
+Because `PYPI_PUBLISH` is off, a `v*` tag builds, tests, and attaches without attempting to publish
+to PyPI.
+
+### Installing from a release
+
+No PyPI, no .NET:
 
 ```bash
-# grab the wheels CI already built for a commit, then publish a release with them attached
-gh run download <run-id> --pattern 'wheel-*' --dir wheels
-gh release create v0.1.0.dev0 --prerelease --title "pyMzLib 0.1.0.dev0 (preview)" wheels/**/*.whl
+pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev3/<wheel-for-their-os>
 ```
 
-The recipient installs the wheel for their platform straight from the release — no PyPI, no .NET:
+### Using the bridge without Python
+
+The `.tar.gz` assets carry the same executable the wheels do, for callers that have no reason to
+install a Python package. Unpack and point `MZLIB_BRIDGE` at it:
 
 ```bash
-pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev0/<wheel-for-their-os>
+V=v0.1.0.dev3; RID=linux-x64
+curl -sSLO https://github.com/smith-chem-wisc/pyMzLib/releases/download/$V/mzlib-bridge-$RID.tar.gz
+mkdir -p ~/.local/share/mzlib/$RID
+tar -xzf mzlib-bridge-$RID.tar.gz -C ~/.local/share/mzlib/$RID
+export MZLIB_BRIDGE=~/.local/share/mzlib/$RID/mzlib-bridge
+"$MZLIB_BRIDGE" version      # {"ok":true,"data":{"bridge":"…","protocol":1,…},"error":null}
 ```
 
-Because `PYPI_PUBLISH` is off, this `v*` tag builds and tests wheels without attempting to publish.
+!!! note "Unpack the whole archive, not just the executable"
+    The payload is a directory tree, not a single file: the executable sits beside its native
+    libraries and a `Resources/` directory holding `unimod.xml`, `ptmlist.txt` and the other
+    modification tables. Extracting only `mzlib-bridge` gives you something that starts and then
+    fails the first time it needs a modification table.
+
+    tar restores the executable bit, so there is no `chmod` step. (A zip would not reliably —
+    the wheels record mode `0755`, but several common extractors discard it.)
+
+### Verifying a download
+
+```bash
+curl -sSLO https://github.com/smith-chem-wisc/pyMzLib/releases/download/$V/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+`--ignore-missing` checks only the files you actually downloaded rather than demanding all eight.
 
 ## Version numbers
 
@@ -69,6 +109,19 @@ unless it changes what Python callers see.
 - [ ] `code/PINNED.md` matches the mzLib commit CI actually builds against
 - [ ] Docs updated: coverage table, guide pages, changelog
 - [ ] Bridge `protocol` bumped if the envelope changed incompatibly
+- [ ] The GitHub Release for this tag **already exists, with its notes** — the workflow adds assets,
+      it does not write notes
+- [ ] The version really was bumped before tagging. `v0.1.0.dev3` was first cut with `__version__`
+      still reading `dev2`, so CI dutifully built four wheels named `dev2` and the tag had to be
+      moved. The build takes its version from the source tree, not from the tag.
+
+## After a tag
+
+- [ ] The release page lists **nine** assets: four wheels, four `mzlib-bridge-*.tar.gz`, one
+      `SHA256SUMS`. Fewer means a matrix leg failed — check the run before announcing anything.
+- [ ] `sha256sum -c SHA256SUMS --ignore-missing` passes against a wheel downloaded from the page.
+- [ ] If a binding pins these digests (mzLibR does, in `install-bridge.R`), open its bump PR now
+      rather than at the next release, while it is obvious which release the numbers came from.
 
 ## Channels
 

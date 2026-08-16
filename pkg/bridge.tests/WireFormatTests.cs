@@ -101,6 +101,38 @@ public class WireFormatTests
     }
 
     [Test]
+    public async Task VersionReportsWhichMzLibItWasBuiltAgainst()
+    {
+        // A native C# consumer never needs this: FlashLFQ references mzLib and can read its version
+        // directly. A binding holds a prebuilt binary fetched from a release and cannot, so without
+        // this field "which mzLib produced this result?" has no runtime answer in any of the three
+        // languages — only a pin file in a repository the user may not have.
+        JsonElement json = Serialize(new Program.Envelope
+        {
+            Ok = true,
+            Data = await Program.DispatchAsync(["version"]),
+        });
+
+        JsonElement data = json.GetProperty("data");
+
+        Assert.Multiple(() =>
+        {
+            // The compatibility contract stays `protocol`. Adding a field must not move it, which is
+            // exactly why the bindings could take this addition without a protocol bump.
+            Assert.That(data.GetProperty("protocol").GetInt32(), Is.EqualTo(1));
+
+            // Read out of the linked assembly's informational version, so it describes the mzLib
+            // that is genuinely in this binary rather than one passed in alongside it.
+            string? mzlib = data.GetProperty("mzlib").GetString();
+            Assert.That(mzlib, Is.Not.Null.And.Not.Empty,
+                "the bridge should report the mzLib it was built against; a null here means the "
+                + "build recorded no source commit, which makes a release untraceable to its source");
+            Assert.That(mzlib, Does.Contain("+"),
+                "the value is `<version>+<commit>`; without the commit it names no particular mzLib");
+        });
+    }
+
+    [Test]
     public void SuccessEnvelopeCarriesDataAndANullError()
     {
         JsonElement json = Serialize(new Program.Envelope { Ok = true, Data = new { a = 1 } });

@@ -71,7 +71,7 @@ public class ReadingCoverageTests
     /// member absent from mzLib's own <c>TestSupportedFileExtensions</c> cases, which is presumably
     /// how the naming slipped through. The fixture is therefore copied to a correctly-named
     /// temporary file by <see cref="FixtureFor"/> rather than skipped, so the coverage claim holds
-    /// for all twenty-nine; the upstream fixture is tracked in bridge/UPSTREAM.md.
+    /// for all thirty-one; the upstream fixture is tracked in bridge/UPSTREAM.md.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
@@ -105,6 +105,10 @@ public class ReadingCoverageTests
         [SupportedFileType.BrukerD] = "DataFiles/centroid_1x_MS1_4x_autoMS2.d",
         [SupportedFileType.BrukerTimsTof] = "DataFiles/timsTOF_snippet.d",
         [SupportedFileType.CasanovoMzTab] = "FileReadingTests/ExternalFileTypes/Casanovo_5.0.0.mztab",
+        [SupportedFileType.DiaNnReport] = "FileReadingTests/ExternalFileTypes/DiaNn_LongFormat_report.tsv",
+        // The smallest of mzLib's three SDRF corpus files; the other two (PXD026824, PXD059974)
+        // exercise the validator and the cross-document lint, which are not this suite's subject.
+        [SupportedFileType.Sdrf] = "FileReadingTests/ExternalFileTypes/PXD000070.sdrf.tsv",
     };
 
     /// <summary>
@@ -358,6 +362,19 @@ public class ReadingCoverageTests
             "TopFD wrote seconds through v1.6.2 and minutes from v1.7.0 without changing the file " +
             "type. Claiming either would be a guess; mzLib's own deconvolution code guesses here " +
             "and this deliberately does not.");
+    }
+
+    [Test]
+    public void DiaNnRetentionTimeUnitIsMinutes_BecauseDiaNnWritesMinutes()
+    {
+        JsonElement data = Invoke("readers", "read-results",
+            "--path", FixtureFor(SupportedFileType.DiaNnReport), "--limit", "1");
+
+        Assert.That(data.GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"),
+            "DIA-NN writes retention times in minutes and mzLib converts nothing, which its own " +
+            "reader states at DiaNnPrecursor.RetentionTime. Letting this fall through to 'unknown' " +
+            "would understate what is actually known, and would make the guide's claim that every " +
+            "quantifiable format reports minutes false.");
     }
 
     [Test]

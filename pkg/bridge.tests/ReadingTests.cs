@@ -75,6 +75,11 @@ public class ReadingTests
     {
         // Bare .tsv, disambiguated by its first line.
         "Tsv_FlashDeconv" => Touch("flashdeconv.tsv", "FeatureIndex\tMonoisotopicMass\n"),
+        // Bare .tsv, disambiguated by its first line -- despite the conventional report.tsv name,
+        // which mzLib deliberately does NOT dispatch on because whoever ran the search routinely
+        // renames it. All three columns are required: File.Name is what separates the long-format
+        // report from the matrix reports DIA-NN writes beside it, which carry the other two.
+        "DiaNnReport" => Touch("diann.tsv", "File.Name\tPrecursor.Id\tStripped.Sequence\n"),
         // .mztab, disambiguated by "casanovo" in its first five lines.
         "CasanovoMzTab" => Touch("denovo.mztab",
             "MTD\tsoftware[1]\t[MS, MS:1003281, casanovo, 5.0.0]\n"),
@@ -157,7 +162,7 @@ public class ReadingTests
     [Test]
     public void Identify_CasanovoMzTab_ReportsSpectralMatchView_FromFileContents()
     {
-        // .mztab is one of the three types mzLib disambiguates by reading the file rather than the
+        // .mztab is one of the four types mzLib disambiguates by reading the file rather than the
         // name, so this also covers the content-sniffing branch.
         JsonElement result = Run("readers", "identify", "--path",
             Touch("denovo.mztab", "MTD\tmzTab-version\t1.0.0\nMTD\tsoftware[1]\t[MS, MS:1003281, casanovo, 5.0.0]\n"));
@@ -262,8 +267,8 @@ public class ReadingTests
         // comparison is tautological — it checks the output against its own source — so mzLib adding
         // a 30th type would pass it green while the guide's supported-format table silently went
         // stale. The literal is the tripwire that forces the docs to be regenerated.
-        Assert.That(formats.GetArrayLength(), Is.EqualTo(29),
-            "mzLib recognises 29 result-file types; a change here means the docs table needs regenerating");
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(31),
+            "mzLib recognises 31 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
             "every enum member must appear in the listing");
 
@@ -286,18 +291,23 @@ public class ReadingTests
     }
 
     [Test]
-    public void Formats_ExactlyThreeTypesOfferTheQuantifiableView()
+    public void Formats_ExactlyFourTypesOfferTheQuantifiableView()
     {
         // The headline fact about this tranche, pinned so a change in mzLib is DETECTED rather than
-        // silently widening or narrowing what pyMzLib claims. mzLib reads 29 formats; only these
-        // three implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
+        // silently widening or narrowing what pyMzLib claims. mzLib reads 31 formats; only these
+        // four implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
         // If mzLib adds one, this test fails and the docs get updated — which is the point.
+        //
+        // It just did: mzLib #1120 added DiaNnReport as an IQuantifiableResultFile, which is how
+        // DIA data reaches flashlfq.quantify() at all. This test failing is the mechanism working,
+        // not a regression -- the name moved from Three to Four because the claim itself changed.
         string[] quantifiable = Run("readers", "formats").GetProperty("formats").EnumerateArray()
             .Where(f => ViewsOf(f).Contains("quantifiable"))
             .Select(f => f.GetProperty("file_type").GetString()!)
             .ToArray();
 
-        Assert.That(quantifiable, Is.EquivalentTo(new[] { "psmtsv", "osmtsv", "MsFraggerPsm" }));
+        Assert.That(quantifiable,
+            Is.EquivalentTo(new[] { "psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport" }));
     }
 
     [Test]
@@ -308,7 +318,7 @@ public class ReadingTests
 
         // The exact count, not "more than ten": a loose bound cannot detect mzLib narrowing or
         // widening the viewless set, which is the only thing this test is for.
-        Assert.That(viewless, Is.EqualTo(13),
+        Assert.That(viewless, Is.EqualTo(14),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
     }

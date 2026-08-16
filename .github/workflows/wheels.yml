@@ -18,12 +18,73 @@ on:
   workflow_dispatch:
 
 env:
-  # Keep in step with code/PINNED.md. The bridge and the Python package must be built from the
-  # same mzLib source, so this is pinned rather than tracking master.
-  MZLIB_COMMIT: f6b0f0d17f32383918ef895006aaecb71cdb9a7e
-  DOTNET_VERSION: '8.0.x'
+  # The mzLib commit is NOT here. It lives in code/mzlib.pin, and every job below reads that file.
+  #
+  # It used to be an `env:` entry in this workflow, which was fine while a human moved it and wrong
+  # the moment anything else wanted to. GitHub refuses a push that modifies a file under
+  # .github/workflows/ when it is authenticated with the default GITHUB_TOKEN — so a pin living in
+  # this file can only be bumped by a human or by a stored PAT with `workflow` scope. Moving the one
+  # value that legitimately changes on someone else's schedule into a plain file means
+  # upstream-watch.yml can open its bump PR with no secret at all and no elevated scope.
+  #
+  # The pin still exists for the original reason: the bridge and the Python package must be built
+  # from the same mzLib source, so it is pinned rather than tracking master. Its provenance — which
+  # release, which PRs, and why — is recorded in code/PINNED.md.
+  # Must track the target framework of the pinned mzLib, not merely be "some SDK we have". mzLib
+  # #1141 moved to net10.0 in 1.0.585, and an 8.0.x SDK cannot build a net10.0 project -- so a pin
+  # bump past that line is never a one-line change, and the automatic bump PR would go red without
+  # this moving in the same commit.
+  DOTNET_VERSION: '10.0.x'
 
 jobs:
+  # ---------------------------------------------------------------------------------------
+  # A tag must agree with the version the package declares. Nothing checked this until
+  # 2026-08-09, and the gap is not theoretical: cutting v0.1.0.dev4 while __init__.py still said
+  # 0.1.0.dev3 would have built four wheels named 0.1.0.dev3, attached them to a release page
+  # headed v0.1.0.dev4, and gone entirely green. Only a manual bump kept that release honest.
+  #
+  # It is worth failing loudly over because it is close to unrecoverable. PyPI and crates.io both
+  # refuse to reissue a version number once taken, so a mislabelled artefact cannot be replaced —
+  # only yanked and superseded. And it is the kind of wrong nobody notices from inside the repo:
+  # the build is correct, the tests pass, the wheels install. It surfaces when a user reports
+  # having installed something other than what the release page advertised.
+  #
+  # Both sibling bindings' release.yml gained this check when they were written (mzLibRust#11,
+  # mzLibR#8); this repository is the one that had it only as a habit. No `needs:`, so it runs
+  # immediately rather than after the cross-platform matrix — a tag typo should cost seconds.
+  # ---------------------------------------------------------------------------------------
+  tag-matches-version:
+    name: the tag matches the declared version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the tag with __version__
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+
+          # Read it the way hatchling does — from the source of truth named in pyproject.toml
+          # ([tool.hatch.version] path) — rather than re-deriving it, so this cannot pass while the
+          # build reads something else.
+          declared=$(python -c "
+          import pathlib, re
+          text = pathlib.Path('pkg/python/src/pymzlib/__init__.py').read_text(encoding='utf-8')
+          match = re.search(r'^__version__ = \"([^\"]+)\"', text, re.MULTILINE)
+          if not match:
+              raise SystemExit('no __version__ found in pkg/python/src/pymzlib/__init__.py')
+          print(match.group(1))
+          ")
+
+          echo "tag says      $tag"
+          echo "__init__ says $declared"
+
+          if [ "$tag" != "$declared" ]; then
+            echo "::error::Tag v$tag does not match __version__ $declared. The wheels would be built and published as $declared under a release page headed v$tag. Bump pkg/python/src/pymzlib/__init__.py, or retag."
+            exit 1
+          fi
+
   # ---------------------------------------------------------------------------------------
   # Both languages, both coverage gates. This runs first and fastest: a failure here should
   # stop the expensive cross-platform matrix below.
@@ -35,9 +96,20 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check out pinned mzLib
+        shell: bash
         run: |
+          set -euo pipefail
+          # Read, then validate. A pin file that has been mangled — an empty file, a stray branch
+          # name, a truncated sha — would otherwise reach `git checkout` and fail there with a
+          # message about a bad revision, which reads like mzLib's problem rather than ours.
+          pin=$(tr -d '[:space:]' < code/mzlib.pin)
+          if ! [[ "$pin" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::code/mzlib.pin must hold a full 40-character mzLib commit sha; got '$pin'"
+            exit 1
+          fi
+          echo "Building against mzLib $pin"
           git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
-          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+          git -C code/mzLib checkout --detach "$pin"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -105,9 +177,20 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check out pinned mzLib
+        shell: bash
         run: |
+          set -euo pipefail
+          # Read, then validate. A pin file that has been mangled — an empty file, a stray branch
+          # name, a truncated sha — would otherwise reach `git checkout` and fail there with a
+          # message about a bad revision, which reads like mzLib's problem rather than ours.
+          pin=$(tr -d '[:space:]' < code/mzlib.pin)
+          if ! [[ "$pin" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::code/mzlib.pin must hold a full 40-character mzLib commit sha; got '$pin'"
+            exit 1
+          fi
+          echo "Building against mzLib $pin"
           git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
-          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+          git -C code/mzLib checkout --detach "$pin"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -165,9 +248,20 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check out pinned mzLib
+        shell: bash
         run: |
+          set -euo pipefail
+          # Read, then validate. A pin file that has been mangled — an empty file, a stray branch
+          # name, a truncated sha — would otherwise reach `git checkout` and fail there with a
+          # message about a bad revision, which reads like mzLib's problem rather than ours.
+          pin=$(tr -d '[:space:]' < code/mzlib.pin)
+          if ! [[ "$pin" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::code/mzlib.pin must hold a full 40-character mzLib commit sha; got '$pin'"
+            exit 1
+          fi
+          echo "Building against mzLib $pin"
           git clone --filter=blob:none --no-checkout https://github.com/smith-chem-wisc/mzLib.git code/mzLib
-          git -C code/mzLib checkout --detach "$MZLIB_COMMIT"
+          git -C code/mzLib checkout --detach "$pin"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -180,6 +274,41 @@ jobs:
       - name: Publish the self-contained bridge
         shell: pwsh
         run: ./pkg/build/publish-bridge.ps1 -Runtime ${{ matrix.rid }}
+
+      # The same binary the wheel is about to swallow, kept as an asset in its own right.
+      #
+      # A wheel is a Python artifact, and two of the three bindings are not Python: mzLibRust does
+      # not know what a wheel is, and mzLibR only knows because install-bridge.R was taught to
+      # unzip one. Both repositories' `live` jobs currently stop at `exit 1` with a comment saying
+      # they are waiting for exactly this file to exist somewhere fetchable.
+      #
+      # An archive rather than a bare binary, because the payload is a TREE, not one file: the
+      # executable sits alongside libmmd.dll, Resources/ (unimod.xml, PSI-MOD, ptmlist) and the
+      # Bruker/timsTOF native libs. Publishing only the executable would ship something that starts
+      # and then fails the moment it needs a modification table.
+      #
+      # tar.gz rather than zip for the executable bit. A zip CAN record a Unix mode — the wheels
+      # do, at 0755 — but restoring it is the extractor's choice, and the common ones do not:
+      # R's utils::unzip() drops it, which is why mzLibR carries bridge_make_runnable() to chmod
+      # afterwards (install-bridge.R:254-265). tar restores the mode by default, so a consumer
+      # extracts and runs. Verified: the packed tree lists mzlib-bridge as -rwxr-xr-x and survives
+      # a round trip.
+      #
+      # Staged BEFORE the wheel build so this is provably the same bytes the wheel ships, not a
+      # rebuild that happens to agree.
+      - name: Package the raw bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="pkg/python/src/pymzlib/_dotnet/${{ matrix.rid }}"
+          mkdir -p bridge_dist
+          tar -czf "bridge_dist/mzlib-bridge-${{ matrix.rid }}.tar.gz" -C "$stage" .
+          ls -lh bridge_dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.rid }}
+          path: bridge_dist/*.tar.gz
 
       - name: Build the wheel
         working-directory: pkg/python
@@ -322,7 +451,7 @@ jobs:
           "$PY" -c "import pymzlib; print(pymzlib.bridge_version())"
 
   # ---------------------------------------------------------------------------------------
-  # Attach the built wheels to the GitHub Release for the tag. This is the step whose absence
+  # Attach the built artifacts to the GitHub Release for the tag. This is the step whose absence
   # shipped a v0.1.0.dev3 release page advertising wheels that were never uploaded: the workflow
   # only ever produced ephemeral Actions artifacts and (separately) a PyPI publish that is gated
   # off. Attaching to the Release was a manual step, and manual steps get skipped.
@@ -335,11 +464,19 @@ jobs:
   # The release for the tag is expected to already exist (created by hand, with notes). This job
   # only adds assets: no `body`/`name` is passed, so the existing notes are left untouched. If the
   # release does not exist yet, the action creates a minimal one rather than failing.
+  #
+  # Three kinds of asset go up, and they serve different consumers:
+  #   *.whl        — pip, and mzLibR's install-bridge.R, which unzips one to get at the binary.
+  #   *.tar.gz     — the raw bridge, for the bindings that are not Python. This is what mzLibRust
+  #                  and mzLibR are blocked on; see the note in the build job.
+  #   SHA256SUMS   — so a consumer pinning these can verify, and re-pin mechanically. mzLibR
+  #                  hardcodes four digests today and its comment says bumping the version means
+  #                  re-recording all four by hand. This is that file.
   # ---------------------------------------------------------------------------------------
   github-release:
-    name: attach wheels to the GitHub Release
+    name: attach assets to the GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    needs: [tag-matches-version, tests, external-services, build, test, no-dotnet, glibc-floor]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -350,13 +487,38 @@ jobs:
           merge-multiple: true
           path: dist
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bridge-*
+          merge-multiple: true
+          path: dist
+
+      # Named explicitly rather than `sha256sum *`. Not for the reason one might assume — the glob
+      # is expanded before the redirect creates SHA256SUMS, so on a fresh runner the wildcard form
+      # would not list the file itself. The reason is that `*` publishes whatever happens to be in
+      # the directory, so a stray artifact silently acquires the authority of a signed manifest,
+      # and a MISSING class of artifact goes unnoticed because nothing was named to be absent.
+      # Listing the two extensions states what a release must contain: if the bridges failed to
+      # upload, `*.tar.gz` matches nothing, bash passes the pattern through literally, sha256sum
+      # exits 1 on it and `set -e` fails the job. The wildcard form exits 0 and publishes a
+      # manifest that is short by four files. Both behaviours confirmed by hand.
+      - name: Record checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum *.whl *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
       - name: List what will be attached
         run: ls -lh dist
 
-      - name: Attach wheels to the release
+      - name: Attach the wheels, the bridges, and the checksums
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.whl
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA256SUMS
           # A tag with no matching wheels means an upstream job silently produced nothing —
           # fail loudly rather than "succeed" with an empty release.
           fail_on_unmatched_files: true
@@ -385,7 +547,7 @@ jobs:
     # precisely because they SKIP on an EBI outage rather than failing, so this cannot block a
     # release when PRIDE is merely down — but it does block one when the API contract has actually
     # broken, which is the only state in which shipping would be wrong.
-    needs: [tests, external-services, build, test, no-dotnet, glibc-floor]
+    needs: [tag-matches-version, tests, external-services, build, test, no-dotnet, glibc-floor]
     runs-on: ubuntu-latest
     environment:
       name: pypi

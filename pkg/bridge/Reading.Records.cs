@@ -47,7 +47,7 @@ internal static partial class Reading
 {
     /// <summary>
     /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c> — any of the
-    /// 29 file types, as a table of its own native fields.
+    /// 31 file types, as a table of its own native fields.
     /// </summary>
     /// <remarks>
     /// The only verb here with no view requirement: if <c>readers identify</c> succeeds on a path,
