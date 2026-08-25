@@ -264,10 +264,62 @@ public static class Program
             "readers read-features" => Reading.ReadFeatures(arguments),
             "readers read-matches" => Reading.ReadMatches(arguments),
             "readers read-spectra" => Reading.ReadSpectra(arguments),
+            "sdrf read" => Sdrf.Read(arguments),
+            "sdrf pool" => Sdrf.Pool(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra, sdrf read, sdrf pool."),
         };
     }
+
+    /// <summary>Reads stdin into non-blank trimmed lines.</summary>
+
+    /// <remarks>
+
+    /// A UTF-8 byte-order mark is stripped from the first line if present. A caller that pipes a
+
+    /// BOM-prefixed stream (some shells and editors add one) would otherwise carry the mark into the
+
+    /// first field — a file path or run name that then matches nothing — so it is removed here once,
+
+    /// where every stdin-consuming verb benefits.
+
+    /// </remarks>
+
+    internal static List<string> ReadStdinLines()
+
+    {
+
+        var lines = new List<string>();
+
+        string? line;
+
+        bool first = true;
+
+        while ((line = Console.In.ReadLine()) != null)
+
+        {
+
+            if (first)
+
+            {
+
+                line = line.TrimStart('﻿');
+
+                first = false;
+
+            }
+
+            if (!string.IsNullOrWhiteSpace(line))
+
+                lines.Add(line);
+
+        }
+
+        return lines;
+
+    }
+
+
 
     /// <summary>Reports the bridge and protocol versions so a caller can check compatibility.</summary>
     private static object VersionInfo() => new
