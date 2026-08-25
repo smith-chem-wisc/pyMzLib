@@ -21,11 +21,36 @@ envelope is not a breaking change unless Python callers can see it.
   than unzipping a wheel, and the import package they look for inside a wheel is still `pymzlib/`.
 
 ### Added
+- **SDRF-Proteomics experimental design**: `pymzlib.sdrf.read()` reads one `.sdrf.tsv`, and
+  `pymzlib.sdrf.pool()` merges several into one analysis table with a `comment[source document]`
+  column recording provenance. This is the first module here that answers *what was searched*
+  rather than *what the search found*, which is what makes results from two experiments
+  comparable at all.
+
+  **It is row-major where every other reader is columnar**, and that is forced by the format: SDRF
+  column names are data rather than a schema and they repeat - 649 files in the curated corpus
+  carry `comment[modification parameters]` more than once, up to eight times in one file - so a
+  name-keyed table would keep one occurrence and silently drop the rest. `columns` is a list that
+  may contain duplicates, `rows` is a list of cell lists, and `value()` / `all()` reach them by
+  position. Rows are ragged and stay ragged, cells are raw strings that are never interpreted, and
+  a reserved word (`"not available"`) is reported as the real value it is, distinct from `None` for
+  a column the document does not have.
+
+  `pool()` takes a `{path: label}` mapping. Passing a plain list falls back to mzLib's
+  `containing-folder/file-stem`, which depends on where the files sit, so the result carries a
+  caveat saying it is not reproducible elsewhere. A partially-labelled set is refused outright.
+
+  Validation is deliberately absent: mzLib's `SdrfValidator` and `SdrfDriftLint` are `internal` to
+  its Readers assembly, so the bridge cannot reach them, and reimplementing a specification's rules
+  once per binding is how three copies drift apart. That fix belongs upstream.
+
 - **DIA-NN and SDRF are readable**, following the pin to mzLib 1.0.585. `DiaNnReport` is the
   fourth format offering the `quantifiable` view, so DIA data can now feed
-  `pymzlib.flashlfq.quantify()`; `Sdrf` (HUPO-PSI experimental design, `.sdrf.tsv`) reads through
-  `read_records()` like any other format. This takes the supported count from 29 to 31 (mzLib
-  #1120, #1138).
+  `pymzlib.flashlfq.quantify()`; `Sdrf` (HUPO-PSI experimental design, `.sdrf.tsv`) became a
+  recognised type. This takes the supported count from 29 to 31 (mzLib #1120, #1138).
+
+  *Corrected since:* SDRF is **not** usefully readable through `read_records()`, which
+  semicolon-joins each row into one unsplittable string. Use `pymzlib.sdrf.read()`.
 
   DIA-NN retention times cross as `'minutes'` rather than `'unknown'`: DIA-NN writes minutes and
   mzLib converts nothing, which its own reader states. Note that mzLib dispatches this format on

@@ -66,7 +66,7 @@ internal static class Quantification
         bool usePepQValue = arguments.Flag("use-pep-q");
         string? outputDirectory = arguments.Optional("out");
 
-        List<SpectraFileInfo> spectraFiles = BuildSpectraFiles(ReadStdinLines());
+        List<SpectraFileInfo> spectraFiles = BuildSpectraFiles(Program.ReadStdinLines());
 
         IQuantifiableResultFile resultFile;
         try
@@ -158,7 +158,7 @@ internal static class Quantification
         if (!File.Exists(peptidesPath))
             throw new Program.UsageException($"Quantified peptides file not found: '{peptidesPath}'.");
 
-        Dictionary<string, DesignEntry> design = ParseMedianPolishDesign(ReadStdinLines());
+        Dictionary<string, DesignEntry> design = ParseMedianPolishDesign(Program.ReadStdinLines());
 
         PeptideTable table = ReadPeptideTable(peptidesPath);
         List<SpectraFileInfo> spectraFiles = BuildDesignedFiles(table.RunNames, design);
@@ -574,31 +574,6 @@ internal static class Quantification
         throw new Program.UsageException(
             $"Line {lineNumber}, column '{column}': '{cell}' is not a FlashLFQ detection type. " +
             $"Expected one of {string.Join(", ", Enum.GetNames<DetectionType>())}.");
-    }
-
-    /// <summary>Reads stdin into non-blank trimmed lines.</summary>
-    /// <remarks>
-    /// A UTF-8 byte-order mark is stripped from the first line if present. A caller that pipes a
-    /// BOM-prefixed stream (some shells and editors add one) would otherwise carry the mark into the
-    /// first field — a file path or run name that then matches nothing — so it is removed here once,
-    /// where every stdin-consuming verb benefits.
-    /// </remarks>
-    private static List<string> ReadStdinLines()
-    {
-        var lines = new List<string>();
-        string? line;
-        bool first = true;
-        while ((line = Console.In.ReadLine()) != null)
-        {
-            if (first)
-            {
-                line = line.TrimStart('﻿');
-                first = false;
-            }
-            if (!string.IsNullOrWhiteSpace(line))
-                lines.Add(line);
-        }
-        return lines;
     }
 
     /// <summary>

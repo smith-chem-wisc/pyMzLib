@@ -240,3 +240,43 @@ def test_mismatched_protocol_fails_loudly(monkeypatch, fake_bridge):
     _run_returns(monkeypatch, _Completed(stdout=json.dumps({"ok": True, "data": info})))
     with pytest.raises(_bridge.PyMzLibError, match="different sources"):
         _bridge.bridge_version()
+
+
+# ---- the 3.9 floor -----------------------------------------------------------------------------
+
+
+def _package_modules() -> list[Path]:
+    """Every shipped module in ``pymzlib``, excluding ``__init__``."""
+    package = Path(_bridge.__file__).parent
+    return sorted(p for p in package.glob("*.py") if p.name != "__init__.py")
+
+
+def test_every_module_declares_future_annotations():
+    """``requires-python`` is ``>=3.9`` (decision D7), and that is a discipline on the author.
+
+    Type syntax is where it bites. ``str | None`` is a *runtime* expression in an annotation, so on
+    3.9 it raises ``TypeError`` the moment the module is imported - not when the annotation is
+    inspected, and not only in the function it appears in. One missing ``from __future__ import
+    annotations`` therefore breaks ``import pymzlib`` outright for every 3.9 user, which is
+    precisely the audience D7 keeps the floor low for: someone on a locked-down cluster with a
+    Python they cannot change.
+
+    Nothing else catches it locally. Ruff is configured ``target-version = "py39"`` but does not
+    flag a union that is merely unevaluable at runtime, and ``ast.parse`` accepts the syntax on
+    every version - it is valid to *parse* and invalid to *evaluate*. So without this test the
+    first sign is a red 3.9 job in a matrix that only runs on a pull request.
+
+    Caught exactly that on the sdrf module, which shipped without the import and took
+    ``import pymzlib`` down on 3.9 along with the no-.NET job that installs the wheel into a
+    ``python:3.9-slim`` container.
+    """
+    missing = [
+        path.name
+        for path in _package_modules()
+        if "from __future__ import annotations" not in path.read_text(encoding="utf-8")
+    ]
+
+    assert missing == [], (
+        "These modules do not declare `from __future__ import annotations`, so any `X | Y` "
+        f"annotation in them raises TypeError on Python 3.9: {', '.join(missing)}"
+    )

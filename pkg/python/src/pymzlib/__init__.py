@@ -15,7 +15,7 @@ The first area covered is the PRIDE Archive::
     pymzlib.pride.download("PXD000001", "downloads", category="RAW")
 """
 
-from . import flashlfq, peptidoform, pride, readers
+from . import flashlfq, peptidoform, pride, readers, sdrf
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -35,6 +35,7 @@ __all__ = [
     "peptidoform",
     "pride",
     "readers",
+    "sdrf",
     "PyMzLibError",
     "BridgeError",
     "ServiceUnavailableError",
