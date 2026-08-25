@@ -1,0 +1,198 @@
+# Notices when CPython ships a new stable series, and opens the pull request that tests against it.
+#
+# The wheels this repository publishes are `py3-none-<platform>`: there is no compiled Python code
+# in the package, so a new CPython release needs no new wheel and the existing ones keep installing.
+# That is the good half. The other half is that nothing then verifies they still WORK, because the
+# test matrix in wheels.yml names its Python versions literally. Support would quietly outrun the
+# evidence for it -- the wheel installs on 3.15 the day 3.15 ships, and nothing has ever run on it.
+#
+# So this watcher exists to keep the CEILING of that matrix honest. It does not touch the floor:
+# dropping an old Python is a support decision with users on the other end of it, not a chore.
+#
+# What it does NOT do is decide the new version works. It opens a pull request; the matrix on that
+# pull request is what answers the question, on all four platforms.
+
+name: python-ceiling-watch
+
+on:
+  schedule:
+    # Fridays, 07:00 UTC. CPython ships a minor series once a year, so this is a no-op almost every
+    # week and costs one HTTP request to establish that. Deliberately not the same day as the mzLib
+    # and bridge watchers, so an unattended week does not produce three pull requests at once.
+    - cron: "0 7 * * 5"
+  workflow_dispatch:
+
+# NOTE: this workflow edits .github/workflows/wheels.yml, which the default GITHUB_TOKEN is not
+# permitted to push. UPSTREAM_WATCH_TOKEN must therefore carry workflow-editing rights -- `workflow`
+# scope on a classic token, or `Workflows: read and write` on a fine-grained one. Without that the
+# push fails with a 403 naming the refusal, which is a clear failure rather than a silent one. Every
+# other watcher here deliberately avoids workflow files for exactly this reason; this one cannot,
+# because the matrix it maintains lives in one.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: python-ceiling-watch
+  cancel-in-progress: false
+
+jobs:
+  ceiling:
+    name: check CPython for a newer stable series
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the newest released CPython series
+        id: cpython
+        run: |
+          set -euo pipefail
+
+          # endoflife.date rather than the GitHub tag list: tags include alphas, betas and release
+          # candidates, and picking a ceiling off those would put the matrix on an unreleased Python.
+          # This feed carries a releaseDate and an eol per series, which is enough to insist on a
+          # series that is actually out and actually still supported.
+          curl -fsSL https://endoflife.date/api/python.json -o /tmp/python.json
+
+          newest=$(python3 - <<'EOF'
+          import json, datetime
+          today = datetime.date.today().isoformat()
+          cycles = json.load(open("/tmp/python.json"))
+          released = [
+              c["cycle"] for c in cycles
+              # A series counts only once it is out (releaseDate in the past) and still supported.
+              # `eol` is a date for a dated series and True/False for some entries, hence the str().
+              if str(c.get("releaseDate", "9999")) <= today and str(c.get("eol", "")) > today
+          ]
+          # Numeric sort: "3.9" must not outrank "3.14", which a lexical sort would let it do.
+          released.sort(key=lambda v: tuple(int(p) for p in v.split(".")))
+          print(released[-1] if released else "")
+          EOF
+          )
+          if [ -z "$newest" ]; then
+            echo "::error::could not determine a released CPython series from endoflife.date"
+            exit 1
+          fi
+          echo "newest=$newest" >> "$GITHUB_OUTPUT"
+          echo "newest released CPython series: $newest"
+
+      - name: Compare it with the matrix ceiling
+        id: ceiling
+        env:
+          NEWEST: ${{ steps.cpython.outputs.newest }}
+        run: |
+          set -euo pipefail
+
+          # Read the ceiling out of the matrix rather than keeping a second copy of it somewhere.
+          # A duplicated version number is a version number that goes stale on one side.
+          current=$(grep -oE "python: '3\.[0-9]+'" .github/workflows/wheels.yml \
+            | grep -oE "3\.[0-9]+" | sort -t. -k2 -n | tail -1)
+          if [ -z "$current" ]; then
+            echo "::error::found no \`python: '3.NN'\` rows in wheels.yml; this workflow's assumptions no longer hold"
+            exit 1
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "matrix ceiling: $current, newest released: $NEWEST"
+
+          highest=$(printf '%s\n%s\n' "$current" "$NEWEST" | sort -t. -k2 -n | tail -1)
+          if [ "$highest" = "$current" ]; then
+            echo "The matrix already tests $current; nothing to do."
+            echo "action=none" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "action=raise" >> "$GITHUB_OUTPUT"
+
+      - name: Raise the ceiling
+        if: steps.ceiling.outputs.action == 'raise'
+        env:
+          NEWEST: ${{ steps.cpython.outputs.newest }}
+          CURRENT: ${{ steps.ceiling.outputs.current }}
+        run: |
+          set -euo pipefail
+
+          # The ceiling rows are REPLACED, not added to. The matrix is deliberately floor-and-ceiling:
+          # appending each new series instead would double the job count every year to test versions
+          # nothing in between exercises differently. The floor rows are untouched -- dropping an old
+          # Python is a support decision, not something a cron job should propose.
+          sed -i "s|python: '$CURRENT'|python: '$NEWEST'|g" .github/workflows/wheels.yml
+
+          # The classifier list IS cumulative: it advertises every series the package supports, so the
+          # new one is appended rather than swapped in.
+          if ! grep -q "Programming Language :: Python :: $NEWEST" pkg/python/pyproject.toml; then
+            sed -i "s|\(\s*\)\"Programming Language :: Python :: $CURRENT\",|&\n\1\"Programming Language :: Python :: $NEWEST\",|" pkg/python/pyproject.toml
+          fi
+
+          echo "--- matrix rows now:"
+          grep -nE "python: '3\.[0-9]+'" .github/workflows/wheels.yml
+          echo "--- classifiers now:"
+          grep -nE "Programming Language :: Python :: 3\.[0-9]+" pkg/python/pyproject.toml
+
+          # Refuse to propose a half-applied change: if the old ceiling survives anywhere in the
+          # matrix, the rewrite matched fewer rows than it should have.
+          if grep -qE "python: '$CURRENT'" .github/workflows/wheels.yml; then
+            echo "::error::matrix rows still name $CURRENT after the rewrite; refusing to open a partial change"
+            exit 1
+          fi
+          if ! grep -q "Programming Language :: Python :: $NEWEST" pkg/python/pyproject.toml; then
+            echo "::error::classifier for $NEWEST was not added"
+            exit 1
+          fi
+
+      - name: Compose the pull request body
+        if: steps.ceiling.outputs.action == 'raise'
+        id: body
+        env:
+          NEWEST: ${{ steps.cpython.outputs.newest }}
+          CURRENT: ${{ steps.ceiling.outputs.current }}
+        run: |
+          set -euo pipefail
+          {
+            echo "CPython **$NEWEST** is out. This repository's test matrix topped out at **$CURRENT**."
+            echo
+            echo "### Why this needs a pull request at all"
+            echo
+            echo "The wheels are \`py3-none-<platform>\` -- there is no compiled Python code in the"
+            echo "package, so **no new wheel is needed** and the published ones already install on"
+            echo "$NEWEST. That is exactly the problem: they install on a Python nothing has ever run"
+            echo "them on. This raises the ceiling so the claim and the evidence match again."
+            echo
+            echo "### What changed"
+            echo
+            echo "- \`wheels.yml\`: the ceiling rows move from \`$CURRENT\` to \`$NEWEST\`. The floor rows"
+            echo "  are untouched -- dropping an old Python is a support decision, not a chore."
+            echo "- \`pyproject.toml\`: \`Programming Language :: Python :: $NEWEST\` appended. That list is"
+            echo "  cumulative, so it gains an entry rather than swapping one."
+            echo
+            echo "### What to look at"
+            echo
+            echo "The matrix on this pull request is the answer: it runs on Linux, Windows, macOS"
+            echo "arm64 and macOS x64. If it is green, $NEWEST works and the only thing that was"
+            echo "missing was the evidence. If it is red, that is a real incompatibility found before"
+            echo "a user found it, which is the entire point of raising the ceiling deliberately"
+            echo "rather than discovering it from an issue."
+            echo
+            echo "Consider whether \`requires-python\` or the README's supported-versions wording need"
+            echo "anything; neither is touched here, because neither is mechanical."
+            echo
+            echo "---"
+            echo "Opened by \`.github/workflows/python-ceiling-watch.yml\`."
+          } > /tmp/body.md
+          cat /tmp/body.md
+          echo "path=/tmp/body.md" >> "$GITHUB_OUTPUT"
+
+      - name: Open (or update) the pull request
+        if: steps.ceiling.outputs.action == 'raise'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          # Must be a token that may edit .github/workflows/ -- see the note at the top of this file.
+          # The default token cannot, and will fail the push with a 403 rather than silently skipping.
+          token: ${{ secrets.UPSTREAM_WATCH_TOKEN || github.token }}
+          branch: python/ceiling-${{ steps.cpython.outputs.newest }}
+          title: "ci: test against Python ${{ steps.cpython.outputs.newest }}"
+          body-path: ${{ steps.body.outputs.path }}
+          commit-message: |
+            ci: raise the test ceiling to Python ${{ steps.cpython.outputs.newest }}
+
+            The wheels are py3-none-<platform>, so they already install on
+            ${{ steps.cpython.outputs.newest }} and no new wheel is needed. Nothing had run
+            them on it, though, so support was outrunning the evidence. Moves the
+            matrix ceiling and appends the classifier; the floor is untouched.
