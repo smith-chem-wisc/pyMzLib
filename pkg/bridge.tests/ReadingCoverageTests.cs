@@ -293,6 +293,71 @@ public class ReadingCoverageTests
     }
 
     [Test]
+    public void NegativeModeMgf_ReportsANegativeChargeAndNegativePolarity()
+    {
+        // Regression for mzLib #1164. An MGF CHARGE line carries its sign as a TRAILING character
+        // ("CHARGE=2-"), which the reader previously dropped: a negative-mode precursor arrived as
+        // charge +2 with positive polarity. Nothing in the envelope disclosed it, and the sign is
+        // not recoverable downstream -- a caller computing a neutral mass from selected_ion_mz and
+        // selected_ion_charge_state_guess got an answer wrong by two proton masses that looked
+        // entirely ordinary.
+        //
+        // Pinned here rather than only upstream because both wrong values are columns this verb
+        // publishes, so the projection is what a pyMzLib caller actually sees.
+        //
+        // The fixture is written here rather than taken from the mzLib worktree ON PURPOSE.
+        // mzLib ships negativeModeCharge.mgf, but it arrived WITH the fix, so a worktree-sourced
+        // test cannot fail against a pre-#1164 mzLib -- it skips for a missing fixture and reports
+        // green. Six lines inline make this fail where it should. Verified: against pin 5ba13155
+        // this asserts -2 and gets 2.
+        string path = Path.Combine(Path.GetTempPath(), $"pymzlib-negative-{Guid.NewGuid():N}.mgf");
+        File.WriteAllText(path, """
+            BEGIN IONS
+            TITLE=negative mode scan
+            PEPMASS=571.806916 999999
+            CHARGE=2-
+            RTINSECONDS=16
+            SCANS=1
+            110.0719 3823.8
+            130.0863 5897.2
+            END IONS
+            BEGIN IONS
+            TITLE=positive mode scan
+            PEPMASS=684.312500 888888
+            CHARGE=3+
+            RTINSECONDS=32
+            SCANS=2
+            115.0866 2100.4
+            310.4567 4400.1
+            END IONS
+            """);
+
+        try
+        {
+            JsonElement data = Invoke("readers", "read-spectra", "--path", path);
+            JsonElement columns = data.GetProperty("columns");
+
+            string[] polarity = columns.GetProperty("polarity").EnumerateArray()
+                .Select(x => x.GetString()!).ToArray();
+            int?[] charge = columns.GetProperty("selected_ion_charge_state_guess").EnumerateArray()
+                .Select(x => x.ValueKind == JsonValueKind.Null ? (int?)null : x.GetInt32()).ToArray();
+
+            // One negative-mode scan followed by one positive-mode scan, so the sign is pinned in
+            // both directions: a reader that simply negated everything would pass on scan 1 alone.
+            Assert.Multiple(() =>
+            {
+                Assert.That(charge, Is.EqualTo(new int?[] { -2, 3 }),
+                    "CHARGE=2- must read as -2 - mzLib #1164 has regressed");
+                Assert.That(polarity, Is.EqualTo(new[] { "Negative", "Positive" }));
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public void AParallelReaderFailureReportsItsRealCause_NotTheAggregateWrapper()
     {
         // mzLib parallelises its mzML reader, so "profile mode is unsupported" arrives wrapped in

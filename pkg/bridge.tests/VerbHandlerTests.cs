@@ -106,6 +106,57 @@ public class VerbHandlerTests
         Assert.That(seen, Does.Contain("pageSize=7"));
     }
 
+    /// <summary>
+    /// A PRIDE manifest whose <c>total_records</c> UNDERSTATES the truth must still arrive whole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is a regression test for mzLib #1173, and it is here rather than only upstream because
+    /// the damage is visible in this verb's own answer: <c>file_count</c> and <c>total_size_bytes</c>
+    /// are computed from whatever the pager returned, so a truncated manifest reports a smaller
+    /// project rather than an error. A caller downloading "all" the files of a project would have
+    /// silently skipped the tail, and nothing in the envelope would have said so.
+    /// </para>
+    /// <para>
+    /// The shape is the one the pager's own comments name as the ambiguous case: page 0 comes back
+    /// FULL (two records against a requested page size of two) while the header claims two records
+    /// total. Full-and-satisfied is indistinguishable from full-and-one-page-short, so the fix
+    /// spends one speculative request before believing the header. Stopping at
+    /// <c>Count &gt;= total</c> - what the code did before #1173 - drops <c>c.raw</c> here.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task PrideFiles_UnderstatedTotalRecords_StillReturnsTheTail()
+    {
+        UseStub(request =>
+        {
+            // The pager asks for page 0, then (because page 0 looked full) probes page 1.
+            string uri = request.RequestUri!.ToString();
+            string body = uri.Contains("page=1", StringComparison.Ordinal)
+                ? $"[{FileJson("c.raw")}]"
+                : $"[{FileJson("a.raw")},{FileJson("b.raw")}]";
+
+            HttpResponseMessage response = Json(body);
+            // Understated on EVERY page, which is what a server with a stale count actually does.
+            response.Headers.Add("total_records", "2");
+            return response;
+        });
+
+        JsonElement data = await InvokeAsync("pride", "files", "--accession", "PXD012345", "--page-size", "2");
+
+        string[] names = data.GetProperty("files").EnumerateArray()
+            .Select(f => f.GetProperty("file_name").GetString()!)
+            .ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(names, Is.EqualTo(new[] { "a.raw", "b.raw", "c.raw" }),
+                "the record past the understated total was dropped - mzLib #1173 has regressed");
+            Assert.That(data.GetProperty("file_count").GetInt32(), Is.EqualTo(3));
+            Assert.That(data.GetProperty("total_size_bytes").GetInt64(), Is.EqualTo(3072));
+        });
+    }
+
     // ---- pride ftp-files -----------------------------------------------------
     //
     // The complete listing, walked from the FTP directory tree (mzLib #1121). The stub serves the

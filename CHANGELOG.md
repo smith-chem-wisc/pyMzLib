@@ -53,6 +53,21 @@ envelope is not a breaking change unless Python callers can see it.
   has no decoys, and that nothing from a typed view is FDR-filtered.
 
 ### Fixed
+- **A PRIDE project's file manifest could be silently truncated.** `pymzlib.pride.list_files()`
+  stopped as soon as it held as many files as the server's `total_records` header claimed, so a
+  server understating that count had the tail of its manifest dropped with no error - and
+  `file_count` and the total size were computed from what arrived, so the answer looked like a
+  smaller project rather than a failure. Fixed upstream in mzLib #1173 and pinned by a regression
+  test here.
+- **Negative-mode MGF precursors reported a positive charge.** An MGF `CHARGE` line carries its
+  sign as a trailing character (`CHARGE=2-`), which mzLib's reader dropped, so `read_spectra()`
+  published charge `+2` and `Positive` polarity for a negative-mode scan. A neutral mass computed
+  from those was wrong by two proton masses and looked entirely ordinary. Fixed upstream in mzLib
+  #1164, pinned by a regression test here.
+- **`quantify(match_between_runs=True)` was not reproducible.** FlashLFQ built its PEP training
+  rows in a nondeterministic order, so the same inputs could give different MBR results between
+  runs. Fixed upstream in mzLib #1155, which carries its own determinism test.
+
 - A download that dies part-way through now raises `ServiceUnavailableError` instead of a plain
   `BridgeError`. A request that fails outright carries a status code; one that fails *after* the
   response has begun does not — the server already said 200 — so it surfaced as a bare
