@@ -311,13 +311,16 @@ internal static partial class Reading
         {
             case SupportedFileType.Mgf:
                 caveats.Add(
-                    "MGF carries no MS1 scans, and its 'scan numbers' come from the TITLE line " +
-                    "rather than from an instrument, so they need not be contiguous or even unique. " +
-                    "one_based_precursor_scan_number is always null: the format does not record " +
-                    "which survey scan a fragment scan came from.");
+                    "MGF's 'scan numbers' come from the TITLE line rather than from an instrument, " +
+                    "so they need not be contiguous or even unique. one_based_precursor_scan_number is " +
+                    "always null: the format does not record which survey scan a fragment scan came from. " +
+                    "ms_order is no longer always 2. mzLib takes it from the MSLEVEL line when the writer " +
+                    "supplied one, and otherwise reads a block with a precursor as MS2 and a block without " +
+                    "one as MS1 (Mgf.cs:256). Files written before MSLEVEL existed all carry PEPMASS, so " +
+                    "they still read as MS2 throughout.");
                 caveats.Add(
                     "scan_window_lower_mz/_upper_mz are DERIVED, not recorded: MGF has no scan-window " +
-                    "field, so mzLib reports the first and last observed peak (Mgf.cs:221). They are " +
+                    "field, so mzLib reports the first and last observed peak (Mgf.cs:236). They are " +
                     "the fragment m/z range actually seen, which is narrower than the instrument's " +
                     "window and depends on the peak-picking threshold.");
                 break;
