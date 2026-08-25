@@ -619,7 +619,13 @@ public class ReadingCoverageTests
             switch (fileType)
             {
                 case SupportedFileType.Mgf:
-                    Assert.That(caveats.Any(c => c.Contains("no MS1 scans")), Is.True);
+                    // mzLib #1165 gave MGF a real MS level: MSLEVEL when the writer supplied one,
+                    // otherwise MS2 for a block with a precursor and MS1 for one without. The old claim
+                    // that MGF has no MS1 scans is therefore retired rather than adjusted -- it was the
+                    // assertion that went wrong, not the reader, and loosening it would have hidden that.
+                    // What still has to reach a caller is that ms_order is inferred rather than fixed,
+                    // since a caller filtering on it would otherwise assume every MGF scan is MS2.
+                    Assert.That(caveats.Any(c => c.Contains("ms_order is no longer always 2")), Is.True);
                     // Derived from the observed peaks rather than recorded by the format.
                     Assert.That(caveats.Any(c => c.Contains("DERIVED")), Is.True);
                     break;
@@ -734,7 +740,7 @@ public class ReadingCoverageTests
             ("CasanovoMzTabRecord.cs:84", "IsDecoy"),
             ("CasanovoMzTabFile.cs:116", "OneBasedScanNumber"),
             ("CasanovoMzTabFile.cs:124", "Modification"),
-            ("Mgf.cs:221", "MzRange"),
+            ("Mgf.cs:236", "MzRange"),
             ("MsAlign.cs:526", "MzRange"),
         ];
 
