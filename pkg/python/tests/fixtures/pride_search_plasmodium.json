@@ -1,0 +1,909 @@
+{
+  "keyword": "plasmodium falciparum schizont",
+  "result_count": 6,
+  "results": [
+    {
+      "accession": "PXD070842",
+      "title": "High-resolution spatial proteomics of Plasmodium falciparum schizonts using hyperLOPIT and TMT-based mass spectrometry",
+      "project_description": "This dataset contains a hyperLOPIT spatial proteomics experiment performed on Plasmodium falciparum to determine the subcellular localization of parasite proteins. Schizont-stage parasites were fractionated by density gradient centrifugation, and collected fractions were labelled with tandem mass tags (TMT) for multiplexed quantification. Peptides were analysed by LC\u2013MS/MS on an Orbitrap Fusion Lumos mass spectrometer. Protein identification and quantification were performed using Proteome Discoverer with the Sequest HT search engine against the P. falciparum reference proteome and human proteome. The dataset supports high-resolution mapping of organelle localization and contributes to understanding the compartmental organization of the malaria parasite proteome.",
+      "sample_processing_protocol": "- Parasite culture: Synchronised P. falciparum schizonts grown in human erythrocytes under standard conditions; schizont enrichment prior to lysis - Fractionation: Density gradient centrifugation to separate subcellular compartments - Protein digestion: Trypsin/Lys-C digestion - Labeling: TMT 11-plex labeling of gradient fractions - Peptide cleanup: polymer-based reversed-phase SPE; Thermo Scientific - Instrument: Orbitrap Fusion Lumos - Acquisition mode: Data-dependent acquisition (DDA, SPS-MS\u00b3 method) - LC gradient: 7\u201337% acetonitrile with 0.1% formic acid over 180 min at 300 nL min\u207b\u00b9 (total run time 210 min) - MS1 resolution: 120,000 at m/z 200 (Orbitrap) - MS2 resolution: CID in ion trap, collision energy 35%, isolation window 0.7 m/z - MS3 acquisition: HCD in Orbitrap, collision energy 65%, resolution 60,000, isolation window 0.7 m/z",
+      "data_processing_protocol": "- Software: Proteome Discoverer (version 3.1) - Search engine: Sequest HT - Database: P. falciparum 3D7 reference proteome (PlasmoDB version 68), SwissProt human proteome - Enzyme: Trypsin/Lys-C (maximum 2 missed cleavages) - Fixed modifications: Carbamidomethyl (C) - Variable modifications: Oxidation (M), TMT (K and peptide N-terminus) - Precursor tolerance: 10 ppm - Fragment tolerance: 0.6 Da - Validation: Percolator Peptide Validator (1% strict, 5% relaxed FDR); Protein FDR Validator (1% strict, 5% relaxed) - Quantification: Reporter ion quantification using TMT reporter intensities",
+      "doi": "10.6019/PXD070842",
+      "submission_type": "COMPLETE",
+      "sdrf": "",
+      "submission_date": "2025-11-17",
+      "publication_date": "2026-06-01",
+      "updated_date": "2025-11-17",
+      "project_tags": [],
+      "keywords": [
+        ""
+      ],
+      "submitters": [
+        "Scott Chisholm"
+      ],
+      "lab_pis": [
+        "Ross Waller"
+      ],
+      "affiliations": [
+        "Department of Biochemistry, University of Cambridge, United Kingdom"
+      ],
+      "instruments": [
+        "Orbitrap Fusion Lumos"
+      ],
+      "softwares": [
+        "Proteome Discoverer"
+      ],
+      "quantification_methods": [
+        "TMT"
+      ],
+      "sample_attributes": [
+        "blood cell",
+        "Homo sapiens (Human)",
+        "Plasmodium falciparum (isolate 3D7)",
+        "malaria",
+        "blood"
+      ],
+      "organisms": [
+        "Homo sapiens (human)",
+        "Plasmodium falciparum (isolate 3d7)"
+      ],
+      "organism_parts": [
+        "Blood cell",
+        "Blood"
+      ],
+      "diseases": [
+        "Malaria"
+      ],
+      "references": [
+        "Chisholm SA, Flores V, Kemp A, Breckels LM, Koreny L, Dos Santos Pacheco N, Barylyuk K, Kuroshchenkova A, Lilley KS, Rayner JC, Waller RF. The spatial proteome of the Plasmodium falciparum schizont illuminates the composition and evolutionary trajectories of its organelles.  Nat Commun. 2026--pubMed:42218142--doi: 10.1038/s41467-026-73664-2"
+      ],
+      "experiment_types": [
+        "Data-dependent acquisition"
+      ],
+      "project_file_names": [
+        "RW_SC_PFl5_F5_080921_run1.raw",
+        "RW_SC_PFl5_F8_080921_run1.raw",
+        "PFA6.raw",
+        "RW_SC_PFl5_F2_080921_run1.raw",
+        "20-01-2024_hao_group_universal_contaminants_ds.fasta",
+        "checksum.txt",
+        "RW_SC_PFl5_F11_080921_run1.raw",
+        "RW_SC_ML4_F2_310323_run1.raw",
+        "RW_SC_ML4_F5_310323_run1.raw",
+        "metadata.txt",
+        "RW_SC_ML4_F8_310323_run1.raw",
+        "PFA7.raw",
+        "SL3.mzML",
+        "PFA15.raw",
+        "20-01-2024_swissprot_reviewed_human_proteome_noisoforms.fasta",
+        "PlasmoDB-68_Pfalciparum3D7_AnnotatedProteins.fasta",
+        "SL2_export.mzML",
+        "PFA8.raw",
+        "RW_SC_PFl5_F6_070921_run1.raw",
+        "RW_SC_PFl5_F9_080921_run1.raw",
+        "RW_SC_ML4_F11_310323_run1.raw",
+        "RW_SC_PFl5_F3_080921_run1.raw",
+        "PFA9.raw",
+        "PFA1.raw",
+        "SL1_export_Parameters.txt",
+        "RW_SC_ML4_F10_310323_run1.raw",
+        "PFA13.raw",
+        "RW_SC_ML4_F3_310323_run1.raw",
+        "RW_SC_ML4_F6_310323_run1.raw",
+        "RW_SC_PFl5_F12_080921_run1.raw",
+        "RW_SC_ML4_F9_310323_run1.raw",
+        "SL2_export.mzid",
+        "SL1_export.mzid",
+        "PFA14.raw",
+        "RW_SC_PFl5_F7_080921_run1.raw",
+        "PFA2.raw",
+        "SL1_export.mzML",
+        "SL2_export_Parameters.txt",
+        "PFA3.raw",
+        "SL3.mzid",
+        "RW_SC_ML4_F7_310323_run1.raw",
+        "RW_SC_PFl5_F10_080921_run1.raw",
+        "RW_SC_ML4_F12_310323_run1.raw",
+        "RW_SC_PFl5_F1_080921_run1.raw",
+        "PFA10.raw",
+        "RW_SC_PFl5_F4_080921_run1.raw",
+        "PFA4.raw",
+        "SL3_Parameters.txt",
+        "PFA11.raw",
+        "PFA12.raw",
+        "PFA5.raw",
+        "RW_SC_ML4_F1_310323_run1.raw",
+        "RW_SC_ML4_F4_310323_run1.raw"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "references": [
+          "The spatial proteome of the <em>Plasmodium</em> <em>falciparum</em> <em>schizont</em> illuminates the composition and evolutionary trajectories of its organelles."
+        ],
+        "title": [
+          "High-resolution spatial proteomics of <em>Plasmodium</em> <em>falciparum</em> <em>schizonts</em> using hyperLOPIT and TMT-based mass spectrometry"
+        ]
+      },
+      "yearly_downloads": [],
+      "download_count": 0,
+      "avg_downloads_per_file": 0,
+      "percentile": 0,
+      "bot_count": 0,
+      "hub_count": 0,
+      "organic_count": 0
+    },
+    {
+      "accession": "PXD020210",
+      "title": "A Protein Kinase G -interacting protein regulates critical calcium signals in malaria parasites (Co-IP)",
+      "project_description": "In malaria parasites, cGMP signalling is mediated by a single cGMP-dependent protein kinase (PKG) . One of the major functions of PKG is to control calcium signals essential for the parasite to exit red blood cells or for the transmission of the gametocyte stages to the mosquito . However, how PKG controls these signals in the absence of known second messenger-dependent calcium channels or scaffolding proteins remains a mystery. Here we use pull-down approaches to identify a PKG partner protein in both Plasmodium falciparum schizonts and P. berghei gametocytes. This partner, named ICM1, is a polytopic membrane protein with homologies to transporters and calcium channels, raising the possibility of a direct functional link between PKG and calcium homeostasis. Phosphoproteomic analyses in both Plasmodium species highlight a densely phosphorylated region of ICM1 with multiple phosphorylation events dependent on PKG activity. Conditional disruption of the P. falciparum ICM1 gene results in reduced cGMP-dependent calcium mobilisation associated with defective egress and invasion. Stage-specific depletion of ICM1 in P. berghei gametocytes blocks gametogenesis due to the inability of mutant parasites to mobilise intracellular calcium upon PKG activation. These results provide us with new insights into the atypical calcium homeostasis in malaria parasites.",
+      "sample_processing_protocol": "Sample preparation. Co-immunoprecipitations (IPs) of proteins were performed with purified gametocytes. The following IPs were performed: ICM1-3xHA in schizonts or gametocytes (15 sec pa +/- Compound A), PKG- 3xHA in schizonts or gametocytes (15 sec pa +/- Compound A). IPs from wild type non-activated gametocytes lacking an epitope tag were used as controls. Samples were fixed for 10 min with 1% formaldehyde. Parasites were lysed in RIPA buffer (50 mM Tris HCl pH 8, 150 mM NaCl, 1% NP-40, 0.5% sodium deoxycholate, 0.1% SDS) and the supernatant was subjected to affinity purification with anti-HA antibody (Sigma) conjugated to magnetics beads. Beads were re-suspended in 100 \u03bcl of 6 M urea in 50 mM ammonium bicarbonate (AB). Two \u03bcl of 50 mM dithioerythritol (DTE) were added and the reduction was carried out at 37\u00b0C for 1h. Alkylation was performed by adding 2 \u03bcl of 400 mM iodoacetamide for 1 h at room temperature in the dark. Urea was reduced to 1 M by addition of 500 \u03bcl AB and overnight digestion was performed at 37 \u00b0C with 5 \u03bcl of freshly prepared 0.2 \u03bcg/\u03bcl trypsin (Promega) in AB. Supernatants were collected and completely dried under speed-vacuum. Samples were then desalted with a C18 microspin column (Harvard Apparatus) according to manufacturer\u2019s instructions, completely dried under speed-vacuum and stored at -20\u00b0C. Liquid chromatography electrospray ionisation tandem mass spectrometry (LC-ESI-MSMS). Samples were diluted in 20 \u03bcl loading buffer (5% acetonitrile [CH3CN], 0.1% formic acid [FA]) and 2 \u03bcl were injected onto the column. LC-ESI-MS/MS was performed either on a Q-Exactive Plus Hybrid Quadrupole-Orbitrap Mass Spectrometer (Thermo Fisher Scientific) equipped with an Easy nLC 1000 liquid chromatography system (Thermo Fisher Scientific) or an Orbitrap Fusion Lumos Tribrid mass Spectrometer (Thermo Fisher Scientific) equipped with an Easy nLC 1200 liquid chromatography system (Thermo Fisher Scientific). Peptides were trapped on an Acclaim pepmap100, 3 \u03bcm C18, 75 \u03bcm x 20 mm nano trap-column (Thermo Fisher Scientific) and separated on a 75 \u03bcm x 250 mm (Q-Exactive) or 500 mm (Orbitrap Fusion Lumos), 2\u03bcm C18, 100 \u00c5 Easy-Spray column (Thermo Fisher Scientific). The analytical separation used a gradient of H2O/0.1% FA (solvent A) and CH3CN/0.1 % FA (solvent B). The gradient was run as follows: 0 to 5 min 95 % A and 5 % B, then to 65 % A and 35 % B for 60 min, then to 10 % A and 90 % B for 10 min and finally for 15 min at 10 % A and 90 % B. Flow rate was 250 nL/min for a total run time of 90 min. Data-dependant analysis (DDA) was performed on the Q-Exactive Plus with MS1 full scan at a resolution of 70,000 Full width at half maximum (FWHM) followed by MS2 scans on up to 15 selected precursors. MS1 was performed with an AGC target of 3 x 106, a maximum injection time of 100 ms and a scan range from 400 to 2000 m/z. MS2 was performed at a resolution of 17,500 FWHM with an automatic gain control (AGC) target at 1 x 105 and a maximum injection time of 50 ms. Isolation window was set at 1.6 m/z and 27% normalised collision energy was used for higher-energy collisional dissociation (HCD). DDA was performed on the Orbitrap Fusion Lumos with MS1 full scan at a resolution of 120,000 FWHM followed by as many subsequent MS2 scans on selected precursors as possible within a 3 sec maximum cycle time. MS1 was performed in the Orbitrap with an AGC target of 4 x 105, a maximum injection time of 50 ms and a scan range from 400 to 2000 m/z. MS2 was performed in the Ion Trap with a rapid scan rate, an AGC target of 1 x 104 and a maximum injection time of 35 ms. Isolation window was set at 1.2 m/z and 30% normalised collision energy was used for HCD.",
+      "data_processing_protocol": "Database searches. Peak lists (MGF file format) were generated from raw data using the MS Convert conversion tool from ProteoWizard. The peak list files were searched against the PlasmoDB_P.berghei ANKA database (PlasmoDB.org, release 38, 5076 entries) combined with an in-house database of common contaminants using Mascot (Matrix Science, London, UK; version 2.5.1). Trypsin was selected as the enzyme, with one potential missed cleavage. Precursor ion tolerance was set to 10 ppm and fragment ion tolerance to 0.02 Da for Q-Exactive Plus data and to 0.6 for Lumos data. Variable amino acid modifications were oxidized methionine and deamination (Asn and Gln) as well as phosphorylated serine, threonine and tyrosine. Fixed amino acid modification was carbamidomethyl cysteine. The Mascot search was validated using Scaffold 4.8.4 (Proteome Software) with 1% of protein false discovery rate (FDR) and at least 2 unique peptides per protein with a 0.1% peptide FDR. PCA analysis. Enrichment and principal component analysis were performed in the statistical programming package \u2018R\u2019 (www.r-project.org). Quantitative values were analysed as log-transformed spectral count values and displayed in principal components with greatest degrees of variance.",
+      "doi": "10.6019/PXD020210",
+      "submission_type": "COMPLETE",
+      "sdrf": "",
+      "submission_date": "2020-07-06",
+      "publication_date": "2021-01-25",
+      "updated_date": "2020-07-06",
+      "project_tags": [],
+      "keywords": [
+        "Plasmodium",
+        "Lc-msms",
+        "Gametocytes",
+        "Co-ip"
+      ],
+      "submitters": [
+        "alexandre Hainard"
+      ],
+      "lab_pis": [
+        "Mathieu Brochet"
+      ],
+      "affiliations": [
+        "Department of Microbiology and Molecular Medicine, Faculty of Medicine, University of Geneva, Geneva, CH-1211 Switzerland"
+      ],
+      "instruments": [
+        "Orbitrap Fusion Lumos",
+        "Q Exactive"
+      ],
+      "softwares": [
+        "ProteoWizard msconvert",
+        "Mascot",
+        "Scaffold"
+      ],
+      "quantification_methods": [],
+      "sample_attributes": [
+        "gametocyte",
+        "Plasmodium berghei ANKA"
+      ],
+      "organisms": [
+        "Plasmodium berghei anka"
+      ],
+      "organism_parts": [
+        "Gametocyte"
+      ],
+      "diseases": [],
+      "references": [],
+      "experiment_types": [
+        "Affinity purification coupled with mass spectrometry proteomics"
+      ],
+      "project_file_names": [
+        "pl19053_MB_LFQminoraPHOSPHO.mzML",
+        "20190705_LU50HMC44_pl19062_MB_neg_phosphoMetx2F010536.mzid.gz",
+        "20190705_LU50HMC46_pl19062_MB_pos_phosphoMetx2F010537.mzid.gz",
+        "20190705_LU50HMC44_pl19062_MB_neg_phosphoMetx2.raw",
+        "20160926_QE_49.raw",
+        "20190612_LU50HMC35_pl19053_MB_PhosphoMet_Neg.raw",
+        "20190612_LU50HMC37_pl19053_MB_PhosphoMet_Pos.mgf",
+        "20160926_QE49_pl16043_MBrochet_IP3F004688.mzid.gz",
+        "20190705_LU50HMC44_pl19062_MB_neg_phosphoMetx2F010536.mzid_20190705_LU50HMC44_pl19062_MB_neg_phosphoMetx2_F010536.MGF",
+        "20190612_LU50HMC37_pl19053_MB_PhosphoMet_Pos.raw",
+        "20190705_LU50HMC46_pl19062_MB_pos_phosphoMetx2F010537.mzid_20190705_LU50HMC46_pl19062_MB_pos_phosphoMetx2_F010537.MGF",
+        "pl19053_MB_LFQminoraPHOSPHO.mzid.gz",
+        "20190612_LU50HMC35_pl19053_MB_PhosphoMet_Neg.mgf",
+        "20190705_LU50HMC46_pl19062_MB_pos_phosphoMetx2.raw",
+        "20160926_QE49_pl16043_MBrochet_IP3F004688.mzid_20160926_QE49_pl16043_MBrochet_IP3_F004688.MGF"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "projectDescription": [
+          "Here we use pull-down approaches to identify a PKG partner protein in both <em>Plasmodium</em> <em>falciparum</em> <em>schizonts</em> and P. berghei gametocytes."
+        ]
+      },
+      "yearly_downloads": [
+        {
+          "year": "2021",
+          "count": 14
+        },
+        {
+          "year": "2022",
+          "count": 64
+        },
+        {
+          "year": "2023",
+          "count": 6
+        },
+        {
+          "year": "2024",
+          "count": 23
+        },
+        {
+          "year": "2025",
+          "count": 1053
+        },
+        {
+          "year": "2026",
+          "count": 114
+        }
+      ],
+      "download_count": 1274,
+      "avg_downloads_per_file": 84.933334,
+      "percentile": 44,
+      "bot_count": 370,
+      "hub_count": 892,
+      "organic_count": 12
+    },
+    {
+      "accession": "PXD020189",
+      "title": "A Protein Kinase G-interacting protein regulates critical calcium signals in malaria parasites (phosphoproteomic)",
+      "project_description": "In malaria parasites, cGMP signalling is mediated by a single cGMP-dependent protein kinase (PKG). One of the major functions of PKG is to control calcium signals essential for the parasite to exit red blood cells or for the transmission of the gametocyte stages to the mosquito. However, how PKG controls these signals in the absence of known second messenger-dependent calcium channels or scaffolding proteins remains a mystery. Here we use pull-down approaches to identify a PKG partner protein in both Plasmodium falciparum schizonts and P. berghei gametocytes. This partner, named ICM1, is a polytopic membrane protein with homologies to transporters and calcium channels, raising the possibility of a direct functional link between PKG and calcium homeostasis. Phosphoproteomic analyses in both Plasmodium species highlight a densely phosphorylated region of ICM1 with multiple phosphorylation events dependent on PKG activity. Conditional disruption of the P. falciparum ICM1 gene results in reduced cGMP-dependent calcium mobilisation associated with defective egress and invasion. Stage-specific depletion of ICM1 in P. berghei gametocytes blocks gametogenesis due to the inability of mutant parasites to mobilise intracellular calcium upon PKG activation. These results provide us with new insights into the atypical calcium homeostasis in malaria parasites",
+      "sample_processing_protocol": "Sample preparation. Samples (about 100 \u03bcl) were diluted with 25 \u03bcl of Laemmli 5x buffer, and sonicated 6 x 30 sec at 70% amplitude and 0.5 pulse (30 sec. on ice between each cycle). Samples were heated 5 min at 65\u00b0C and loaded onto a Novex Wedgewell 12% Tris-glycine gel (Invitrogen). Each sample was loaded on two different wells and protein\u2019s migration was then performed according to manufacturer\u2019s instructions. Proteins were then stained with coomassie blue. For each lane, a band between 180 kDa and 220 kDa was cut and destained by incubation in 100 \u03bcl of 30% acetonitrile (AcN) in 50 mM ammonium bicarbonate (AB) for 15 min at room temperature. Proteins were reduced by incubation of gel pieces for 35 min. at 56\u00b0C in 100 \u03bcl of 10 mM DTE in 50 mM AB. DTE solution was then replaced by 100 \u03bcl of 55 mM iodoacetamide in 50 mM AB and proteins were alkylated by incubation of the gel pieces for 30 min at room temperature in the dark. Gel pieces were then washed for 10 min with 100 \u03bcl of 50 mM AB and dehydrated for 10 min with 100 \u03bcl of 30% AcN. Gel pieces were then dried for 30 min in a vacuum centrifuge. Dried pieces of gel were rehydrated for 45 min at 4\u00b0C with 70 \u03bcl of trypsin (6.25 ng/\u03bcl in AB 50 mM) and then incubated overnight at 37\u00b0C. Supernatant was transferred to a new polypropylene tube and two additional peptide extraction were performed with respectively 70 \u03bcl of 1% TFA and 100 \u03bcl of 50% ACN; 0.1% TFA. Extractions were pooled and dried under speed vacuum. Titanium dioxide enrichment. Phosphopeptides enrichment was performed as previously described (Rapid commun. mass. Spectrom. 2007, 21, 3635). Briefly, stage-tips were prepared using Glass Microfibre Filters (Whatman) and 5 \u03bcm TiO2 beads (GL SCIENCES). Beads were suspended with 0.1% TFA in 80% AcN and inserted onto a gel-loading tip to create a 5 mm long column. Peptides samples were dissolved in 1 M Glycolic Acid 2% TFA in 80% AcN and loaded onto dedicated TiO2 columns by centrifugation 1 min at 6000 rpm. Columns were then washed four times with 1M Glycolic Acid 2% TFA in 80% AcN and four times with 0.1% TFA in 80% AcN. Bounded peptides were eluted first with 3% NH4OH and then with 0.1% TFA in 80% AcN. Eluates were then acidified with 5% TFA and dried under speed-vacuum. Fe-NTA enrichment. Flow through from TiO2 beads were enriched using home-made stage-tips as described before but containing beads from High-Select Fe-NTA Phosphopeptide Enrichment Kit (Thermo Fisher Scientific). Enrichment was performed according to Manufacturer\u2019s instructions. Samples were diluted in 10 \u03bcl of loading buffer (5% CH3CN, 0.1% FA) and 6 \u03bcl were injected on column. LC-ESI-MS/MS was performed on an Orbitrap Fusion Lumos Tribrid mass spectrometer (Thermo Fisher Scientific) equipped with an Easy nLC1200 liquid chromatography system (Thermo Fisher Scientific). Peptides were trapped on an Acclaim pepmap100, C18, 3\u03bcm, 75\u03bcm x 20mm nano trap-column (Thermo Fisher Scientific) and separated on a 75 \u03bcm x 500 mm, C18 ReproSil-Pur from Dr. Maisch GmBH, 1.9 \u03bcm, 100 \u00c5, home-made column. The analytical separation was run for 90 min using a gradient of H2O/FA 99.9%/0.1% (solvent A) and CH3CN/FA 80%/0.1% (solvent B). The gradient was run as follows: 0-5 min 95 % A and 5 % B, then to 65 % A and 35 % B in 60 min, and finally to 5% A and 95% B in 10 min with a stay for 15 min at this composition. Flow rate was of 250 nL/min. Data-dependant analysis (DDA) was performed with MS1 full scan at a resolution of 120\u2019000 FWHM followed by as many subsequent MS2 scans on selected precursors as possible within 3 second maximum cycle time. MS1 was performed in the Orbitrap with an AGC target of 4 x 105, a maximum injection time of 50 ms and a scan range from 375 to 1500 m/z. MS2 was performed in the Orbitrap at a resolution of 30\u2019000 FWHM with an AGC target at 5 x 104 and a maximum injection time of 54 ms. Isolation windows was set at 1.6 m/z and 30% normalised collision energy was used for HCD",
+      "data_processing_protocol": "Raw data were processed using Proteome Discoverer (PD) 2.3 software (Thermo Fisher). Briefly, spectra were extracted and searched against the Plasmodium berghei ANKA database (PlasmoDB.org, release 38, 5076 entries) combined with an in-house database of common contaminants using Mascot (Matrix Science, London, UK; version 2.5.1). Trypsin was selected as the enzyme, with one potential missed cleavage. Precursor ion tolerance was set to 10 ppm and fragment ion tolerance to 0.02 Da. Carbamidomethylation of cysteine was specified as fixed modification. Deamidation of asparagine and glutamine, oxidation of methionine as well as phosphorylation of serine, threonine and tyrosine were specified as variable modifications. Peptide-spectrum matches were validated using the target decoy PSM validator node with a target FDR of 0.01 and a Delta Cn of 0.5. For label-free quantification, features and chromatographic peaks were detected using the \u201cMinora Feature Detector\u201d Node with the default parameters. PSM and peptides were filtered with a false discovery rate (FDR) of 1%, and then grouped to proteins with again an FDR of 1% and using only peptides with high confidence level. Both unique and razor peptides were used for quantitation and protein abundances are calculated as the average of the three most abundant distinct peptide groups. The abundances were normalised on the \u201cTotal Peptide Amount\u201d and then \u201cProtein abundance based\u201d option was selected for protein ratio calculation and associated p-values were calculated with an ANOVA test (individual proteins).",
+      "doi": "10.6019/PXD020189",
+      "submission_type": "COMPLETE",
+      "sdrf": "",
+      "submission_date": "2020-07-03",
+      "publication_date": "2021-01-25",
+      "updated_date": "2020-07-03",
+      "project_tags": [],
+      "keywords": [
+        "Plasmodium",
+        "Lc-msms",
+        "Gametocytes",
+        "Phosphoproteomic"
+      ],
+      "submitters": [
+        "alexandre Hainard"
+      ],
+      "lab_pis": [
+        "Mathieu Brochet"
+      ],
+      "affiliations": [
+        "Department of Microbiology and Molecular Medicine, Faculty of Medicine, University of Geneva, Geneva, CH-1211 Switzerland"
+      ],
+      "instruments": [
+        "Orbitrap Fusion Lumos"
+      ],
+      "softwares": [
+        "MaxQuant",
+        "Mascot",
+        "Scaffold",
+        "Proteome Discoverer"
+      ],
+      "quantification_methods": [],
+      "sample_attributes": [
+        "gametocyte",
+        "Plasmodium berghei ANKA"
+      ],
+      "organisms": [
+        "Plasmodium berghei anka"
+      ],
+      "organism_parts": [
+        "Gametocyte"
+      ],
+      "diseases": [],
+      "references": [],
+      "experiment_types": [
+        "Shotgun proteomics"
+      ],
+      "project_file_names": [
+        "20191118_LU50HMC83_pl19108_MB_IMAC_06.mgf",
+        "20191118_LU50HMC67_pl19108_MB_TiO2_05.raw",
+        "20191118_LU50HMC65_pl19108_MB_TiO2_04.mgf",
+        "20191118_LU50HMC59_pl19108_MB_FT_02_12_separate-1.mzML",
+        "20191118_LU50HMC79_pl19108_MB_IMAC_04.mgf",
+        "20191118_LU50HMC59_pl19108_MB_TiO2_01.mgf",
+        "20191118_LU50HMC73_pl19108_MB_IMAC_01.raw",
+        "20191118_LU50HMC93_pl19108_MB_FT_04.mgf",
+        "20191118_LU50HMC87_pl19108_MB_FT_01.mgf",
+        "20191118_LU50HMC89_pl19108_MB_FT_02.raw",
+        "20191118_LU50HMC91_pl19108_MB_FT_03.mgf",
+        "20191118_LU50HMC81_pl19108_MB_IMAC_05.mgf",
+        "20191118_LU50HMC69_pl19108_MB_TiO2_06.mgf",
+        "20191118_LU50HMC77_pl19108_MB_IMAC_03.mgf",
+        "20191118_LU50HMC59_pl19108_MB_FT_02_12_separate.mzid.gz",
+        "20191118_LU50HMC67_pl19108_MB_TiO2_05.mgf",
+        "20191118_LU50HMC59_pl19108_MB_IMAC_2_12_separate.mzML",
+        "20191118_LU50HMC65_pl19108_MB_TiO2_04.raw",
+        "20191118_LU50HMC75_pl19108_MB_IMAC_02.raw",
+        "20191118_LU50HMC95_pl19108_MB_FT_05.raw",
+        "20191118_LU50HMC97_pl19108_MB_FT_06.mgf",
+        "20191118_LU50HMC59_pl19108_MB_TiO2_01.raw",
+        "20191118_LU50HMC61_pl19108_MB_TiO2_02.mgf",
+        "20191118_LU50HMC75_pl19108_MB_IMAC_02.mgf",
+        "20191118_LU50HMC63_pl19108_MB_TiO2_03.raw",
+        "20191118_LU50HMC91_pl19108_MB_FT_03.raw",
+        "20191118_LU50HMC59_pl19108_MB_TiO2_2_12_separate.mzML",
+        "20191118_LU50HMC77_pl19108_MB_IMAC_03.raw",
+        "20191118_LU50HMC83_pl19108_MB_IMAC_06.raw",
+        "20191118_LU50HMC93_pl19108_MB_FT_04.raw",
+        "20191118_LU50HMC69_pl19108_MB_TiO2_06.raw",
+        "20191118_LU50HMC63_pl19108_MB_TiO2_03.mgf",
+        "20191118_LU50HMC89_pl19108_MB_FT_02.mgf",
+        "20191118_LU50HMC59_pl19108_MB_TiO2_2_12_separate.mzid.gz",
+        "20191118_LU50HMC59_pl19108_MB_IMAC_2_12_separate.mzid.gz",
+        "20191118_LU50HMC73_pl19108_MB_IMAC_01.mgf",
+        "20191118_LU50HMC95_pl19108_MB_FT_05.mgf",
+        "20191118_LU50HMC97_pl19108_MB_FT_06.raw",
+        "20191118_LU50HMC61_pl19108_MB_TiO2_02.raw",
+        "20191118_LU50HMC79_pl19108_MB_IMAC_04.raw",
+        "20191118_LU50HMC87_pl19108_MB_FT_01.raw",
+        "20191118_LU50HMC81_pl19108_MB_IMAC_05.raw"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "projectDescription": [
+          "Here we use pull-down approaches to identify a PKG partner protein in both <em>Plasmodium</em> <em>falciparum</em> <em>schizonts</em> and P. berghei gametocytes."
+        ]
+      },
+      "yearly_downloads": [
+        {
+          "year": "2021",
+          "count": 14
+        },
+        {
+          "year": "2022",
+          "count": 44
+        },
+        {
+          "year": "2023",
+          "count": 42
+        },
+        {
+          "year": "2024",
+          "count": 5
+        },
+        {
+          "year": "2025",
+          "count": 1595
+        },
+        {
+          "year": "2026",
+          "count": 479
+        }
+      ],
+      "download_count": 2179,
+      "avg_downloads_per_file": 51.88095,
+      "percentile": 60,
+      "bot_count": 931,
+      "hub_count": 1208,
+      "organic_count": 40
+    },
+    {
+      "accession": "PXD008250",
+      "title": "Plasmodium falciparum schizont proteome",
+      "project_description": "Proteome of the human malaria parasite Plasmodium falciparum at schizont life cycle stage during blood stage development",
+      "sample_processing_protocol": "Human erythrocytes (Rh+) infected with P.falciparum parasites (Palo Alto strain, mycoplasma- free) were cultivated in growth medium (GM), consisting of RPMI 1640 supplemented with 25mM HEPES and NaHCO3, 0,032mg/ml gentamycin sulfate, 2mM glutamine, 20mM glucose, 5 mM adenine, 0,6 mM mannitole, and 10%(v/v) decomplemented Rh+ human plasma (local blood bank). Cultures were maintained at 37\u00b0C under 5% CO2-95% air-atmosphere, at 1% haematocrit. Synchronous cultures were obtained separating culture of predominant schizont stage on an isotonic 10/40/80% v/v Percoll gradient (containing PBS, 10mM glucose, 330mM mannitole) and collecting the fraction of schizonts lying on 40-80% interface. Parasites were then washed twice with warmed RPMI 1640 medium, containing 25 mM HEPES and blood was added to a parasitemia of 10%. Haematocrit was adjusted with GM to 1% and cultures were incubated in at 37C for schizogony. Isolated schizonts (7.5x107 infected erythrocytes) were harvested and subsequently lysed in 4% SDS in PBS, 4X Laemmli Sample Buffer, and reduced with 50 mM DTT at 95 0C for 5 minutes prior to protein gel electrophoresis. The soluble fraction was divided into three gel lanes and the pellet fraction into two gel lanes. Gel based fractionation of the proteins prior to tryptic digestion was conducted by SDS PAGE. Gels were stained with Coomassie G-250 (Bio-Rad) and cut into 10 slices per cellular fraction. Gel slices were treated with 10 mM DTT and 55 mM iodoacetamide and digested by trypsin overnight at 37 0C Tryptic digests were acidified to a final concentration of 0.1% TFA and purified by STAGE tips. Liquid Chromatography Tandem Mass Spectrometry:  Peptide identification experiments were performed using a nano-HPLC Agilent 1100 flow system connected on line to a 7 Tesla linear ion trap (LTQ) ion cyclotron resonance FT mass spectrometer (Thermo Fisher,Bremen, Germany). Digested samples were measured up to four times to increase the number of low abundance protein identifications. Peptides were separated on 15 cm 100 um inner diameter PicoTip columns (New Objective, Woburn, MA) packed with 3 um Reprosil C18 beads (Dr. Maisch GmbH, Ammerbuch, Germany) using a 90 min gradient from 12% buffer B to 40% buffer B (buffer B contained 80% acetonitrile in 0.5% acetic acid) with a flow rate of 300 nl/min. Peptides eluting from the column tip were electrosprayed directly into the mass spectrometer with a spray voltage of 2.0 \u20132.2 kV. Data acquisition with the LTQ-FT instrument was performed in a data-dependent mode to automatically switch between MS and MS2. Full-scan MS spectra of intact peptides (m/z 350\u20131500) with an automated gain control accumulation target value of 1,000,0000 ions were acquired in the Fourier transform ion cyclotron resonance cell with a resolution of 50,000. The four most abundant ions were sequentially isolated and fragmented in the linear ion trap by applying collisionally induced dissociation using an accumulation target value of 10,000, a capillary temperature of 100 \u00b0C, and a normalized collision energy of 27%. A dynamic exclusion of ions previously sequenced within 180 s was applied. All unassigned charge states and singly charged ions were excluded from sequencing. A minimum of 500 counts was required for MS2 selection.",
+      "data_processing_protocol": "Raw spectrum files were converted into Mascot generic peak lists by MaxQuant (version 1.0. 13.13). Proteins were identified by searching peak lists containing fragmentation spectra with Mascot version 2.2 (Matrix Science) against the P. falciparum database (PlasmoDB version 6.1, 5479 sequences from http://plasmodb.org/common/downloads/release-6.1/Pfalciparum/) supplemented with the human International Protein Index database (version 3.52, 73,928 sequences) and frequently observed contaminants and concatenated with reversed copies of all entries. Mascot search parameters for protein identification specified an initial mass tolerance of 30 ppm for the parental peptide and 0.5 Da for fragmentation spectra and a trypsin specificity allowing up to three miscleaved sites. Carbamidomethylation of cysteines was specified as a fixed modification, and oxidation of methionine, deamidation of glutamine and asparagine and N-terminal protein acetylation were set as variable modifications. The required minimal peptide length was set at 6 amino acids. Internal mass calibration of measured ions and peptide validation by establishing false discovery rates (FDRs) was performed by MaxQuant. A final absolute recalibrated mass tolerance for the parental peptide was set at 10 ppm. We accepted proteins with an FDR better than 1% and multiply charged peptides with an FDR better than 1% and not more than three variable modifications based on the number of accepted identifications of the reversed protein sequences. For proteins identified by one peptide, we applied a more stringent threshold and accepted unmodified peptides with a Mascot score threshold of 40 that were unambiguously assigned to one protein by a Mascot peptide delta score larger than 10.  To determine protein abundance values mass spectrometric data were quantified by a peptide count analysis that computed emPAI values for all proteins with emPAI values calculated according to the following formula: emPAI = 10 EXP (PAI) with Protein Abundance Index (PAI) = n (observed peptides) / n (observable peptides).",
+      "doi": "",
+      "submission_type": "PARTIAL",
+      "sdrf": "",
+      "submission_date": "2017-11-21",
+      "publication_date": "2018-02-13",
+      "updated_date": "2017-11-21",
+      "project_tags": [
+        "Biological",
+        "Biomedical"
+      ],
+      "keywords": [
+        "Plasmodium falciparum",
+        "Human malaria",
+        "Schizont"
+      ],
+      "submitters": [
+        "Edwin Lasonder"
+      ],
+      "lab_pis": [
+        "Edwin Lasonder"
+      ],
+      "affiliations": [
+        "School of Biomedical and Healthcare Sciences Plymouth University Peninsula Schools of Medicine and Dentistry Plymouth University (UK)"
+      ],
+      "instruments": [
+        "LTQ FT"
+      ],
+      "softwares": [
+        "MaxQuant",
+        "Mascot"
+      ],
+      "quantification_methods": [
+        "Protein Abundance Index - PAI"
+      ],
+      "sample_attributes": [
+        "Plasmodium falciparum Palo Alto/Uganda",
+        "Plasmodium falciparum malaria",
+        "erythrocyte"
+      ],
+      "organisms": [
+        "Plasmodium falciparum palo alto/uganda"
+      ],
+      "organism_parts": [
+        "Erythrocyte"
+      ],
+      "diseases": [
+        "Plasmodium falciparum malaria"
+      ],
+      "references": [
+        "Stone WJR, Campo JJ, Ou\u00e9draogo AL, Meerstein-Kessel L, Morlais I, Da D, Cohuet A, Nsango S, Sutherland CJ, van de Vegte-Bolmer M, Siebelink-Stoter R, van Gemert GJ, Graumans W, Lanke K, Shandling AD, Pablo JV, Teng AA, Jones S, de Jong RM, Fabra-Garc\u00eda A, Bradley J, Roeffen W, Lasonder E, Gremo G, Schwarzer E, Janse CJ, Singh SK, Theisen M, Felgner P, Marti M, Drakeley C, Sauerwein R, Bousema T, Jore MM. Unravelling the immune signature of Plasmodium falciparum transmission-reducing immunity. Nat Commun. 2018 9(1):558--pubMed:29422648--doi: 10.1038/s41467-017-02646-2"
+      ],
+      "experiment_types": [
+        "Shotgun proteomics"
+      ],
+      "project_file_names": [
+        "modifiedPeptides.txt",
+        "20090214EL08.RAW",
+        "20090117EL14.RAW",
+        "20090214EL17.RAW",
+        "20090124EL08.RAW",
+        "20090131EL01.RAW",
+        "20090117EL06.RAW",
+        "20090131EL18.RAW",
+        "20090214EL09.RAW",
+        "SCHIZONTVALIDATEDProteinsandPeptidesIDENTIFICATIONS.xlsx",
+        "20090124EL17.RAW",
+        "20090117EL21.RAW",
+        "20090124EL15.RAW",
+        "20090131EL09.RAW",
+        "20090131EL10.RAW",
+        "OxidationMSites.txt",
+        "20090117EL04.RAW",
+        "20090131EL02.RAW",
+        "20090124EL07.RAW",
+        "20090214EL07.RAW",
+        "20090117EL13.RAW",
+        "20090131EL19.RAW",
+        "20090214EL16.RAW",
+        "20090117EL05.RAW",
+        "20090124EL16.RAW",
+        "20090117EL03.RAW",
+        "20090131EL11.RAW",
+        "20090117EL16.RAW",
+        "20090214EL06.RAW",
+        "20090124EL13.RAW",
+        "20090131EL07.RAW",
+        "F032660.dat",
+        "F032656.dat",
+        "20090124EL09.RAW",
+        "20090117EL02.RAW",
+        "20090214EL05.RAW",
+        "evidenceSchizonts.xlsx",
+        "20090117EL15.RAW",
+        "20090214EL10.RAW",
+        "20090131EL12.RAW",
+        "msmsScans.txt",
+        "F032655.dat",
+        "20090124EL14.RAW",
+        "20090131EL08.RAW",
+        "20090117EL20.RAW",
+        "proteinGroups.txt",
+        "20090124EL03.RAW",
+        "20090124EL11.RAW",
+        "20090131EL14.RAW",
+        "DeamidatedNQSites.txt",
+        "20090124EL20.RAW",
+        "20090131EL13.RAW",
+        "20090214EL04.RAW",
+        "20090131EL05.RAW",
+        "20090117EL19.RAW",
+        "20090124EL02.RAW",
+        "20090214EL11.RAW",
+        "F032658.dat",
+        "experimentalDesignTemplate.txt",
+        "20090214EL13.RAW",
+        "F032657.dat",
+        "20090124EL04.RAW",
+        "20090117EL10.RAW",
+        "20090117EL17.RAW",
+        "20090131EL15.RAW",
+        "20090131EL06.RAW",
+        "20090124EL12.RAW",
+        "20090214EL03.RAW",
+        "SAMPLESschizontproteome.xlsx",
+        "20090214EL12.RAW",
+        "20090117EL09.RAW",
+        "20090214EL01.RAW",
+        "20090131EL03.RAW",
+        "peptides.txt",
+        "20090117EL11.RAW",
+        "20090131EL16.RAW",
+        "20090124EL06.RAW",
+        "allPeptides.txt",
+        "20090214EL15.RAW",
+        "20090117EL12.RAW",
+        "20090124EL19.RAW",
+        "parameters.txt",
+        "evidence.txt",
+        "20090117EL08.RAW",
+        "20090124EL10.RAW",
+        "20090131EL04.RAW",
+        "20090214EL02.RAW",
+        "20090131EL17.RAW",
+        "msms.txt",
+        "20090124EL18.RAW",
+        "20090124EL05.RAW",
+        "20090214EL14.RAW",
+        "20090117EL07.RAW",
+        "summary.txt",
+        "F032659.dat"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "title": [
+          "<em>Plasmodium</em> <em>falciparum</em> <em>schizont</em> proteome"
+        ]
+      },
+      "yearly_downloads": [
+        {
+          "year": "2021",
+          "count": 48
+        },
+        {
+          "year": "2022",
+          "count": 6
+        },
+        {
+          "year": "2023",
+          "count": 676
+        },
+        {
+          "year": "2024",
+          "count": 15
+        },
+        {
+          "year": "2025",
+          "count": 4306
+        },
+        {
+          "year": "2026",
+          "count": 866
+        }
+      ],
+      "download_count": 5917,
+      "avg_downloads_per_file": 62.28421,
+      "percentile": 82,
+      "bot_count": 1685,
+      "hub_count": 4180,
+      "organic_count": 52
+    },
+    {
+      "accession": "PXD001684",
+      "title": "P. falciparum merozoites phoshoproteome",
+      "project_description": "Pathology of the most lethal form of malaria is caused by Plasmodium falciparum asexual blood stages and initiated by merozoite invasion of erythrocytes. We present a phosphoproteome analysis of extracellular merozoites revealing 1765 unique phosphorylation sites including 785 sites not previously detected in schizonts",
+      "sample_processing_protocol": "Approximately 2-3 x109 merozoites were lysed in 1 ml 2 % SDS in 50 mM Tris-HCl pH 7.3 in the presence of phosphatase and protease inhibitors. HaltTM phosphatase inhibitor cocktail and complete protease inhibitor cocktail were used to suppress phosphatase and protease enzymatic activities. The merozoite lysate was heated to 95oC for 5 min and further processed according to the FASP protocol. The lysate was divided and transferred to 12 0.5 ml Amicon Ultra 30K spin filter units (30 kDa cut-off, Millipore), each of which were washed with 0.4 ml 8 M urea in100 mM Tris-HCl pH 8.0, reduced with 10 mM DTT at room temperature (RT) for 25 min, concentrated by centrifugation at 14,000 g and alkylated in the dark with 50 mM iodoacetamide in 100 mM Tris-HCl pH 8.0 containing 8 M urea at RT for 25 min. The samples were concentrated by centrifugation and diluted 10-fold with 100 mM Tris-HCl, 8 M urea, pH 8.0. This step was repeated 6 times to fully remove SDS from the lysate solution. Then, 2.5 \u00b5g lysC protease (Wako) per sample was added in 100 mM Tris-HCl, 4 M urea, pH 8.0, and incubated overnight at room temperature. Samples were further diluted with 50 mM ammonium bicarbonate to a final concentration of 2 M urea and then incubated with 5 \u00b5g trypsin (Promega) for 18 h. The tryptic digest was acidified in 0.1 % (vol/vol) trifluoroacetic acid (TFA) and the peptides purified and desalted with C18 Hypersil 500 mg SPE columns. Peptides were eluted stepwise with Britton and Robinson buffer solutions of decreasing pH: 8.0, 6.0, 5.0, 4.0, respectively, followed by a final elution with 1 % TFA. All peptide fractions were acidified immediately with 0.1 % TFA and then the peptides were purified again using C18 Hypersil 500 mg SPE columns.  Phosphopeptide enrichment.  Peptides obtained from 2-3 x 109 purified merozoites, corresponding to 3 mg protein as determined by a micro BCA protein assay kit were incubated with Titansphere 10 \u03bcm TiO2 beads to selectively purify phosphorylated peptides, as described for the schizont phosphoproteome analysis . Prior to incubation the TiO2 beads were washed with 80% (vol/vol) acetonitrile, 0.1% TFA, re-suspended in 30 mg/ml dihydroxybenzoic acid in 80% acetonitrile, 0.1% TFA and diluted 1:4 with 0.1% TFA. Twenty microlitres of the slurry containing about 1 mg beads were added to peptide solutions in 1.5 ml tubes and incubated under continuous shaking for 1-2 h. Afterwards, the bead slurry was transferred to a micro spin column made from a 200 \u00b5l precision pipette tip with an inserted 2mm fused silica frit (50 \u00b5m internal diameter). Unbound fractions were collected following centrifugation of the spin column and reincubated with freshly prepared TiO2 bead slurry for 1-2 h. This step was performed three times leading to four micro spin columns with TiO2 beads per peptide SAX fraction. The columns were washed three times by centrifugation with 100 \u03bcl 30% acetonitrile, 3% TFA, followed by three washes with 100 \u03bcl 80% acetonitrile, 0.3% TFA. Bound phosphopeptides were eluted from the beads with 100 \u03bcl 5 % NH4OH, 5 % piperidine, and 5 % pyrrolidine. Peptide solutions were then acidified with TFA and the peptides purified with STAGE tips and dissolved in 0.1% TFA and 10 mM EDTA.",
+      "data_processing_protocol": "Mascot generic peak lists were generated by MaxQuant version 1.013.13 (http://maxquant.org//) and submitted to Mascot version 2.2 to search the P. falciparum database downloaded from http://plasmodb.org/plasmo/ and supplemented with the human International Protein Index (IPI) database (http://www.ebi.ac.uk/IPI) and frequently observed contaminants and concatenated with reversed copies of all entries. The following search parameters were applied: peptide mass 10 ppm, MSMS mass accuracy of 0.5 Da; enzyme cleavage: trypsin allowing 2 miscleavage sites; fixed modification for cysteines by carboxyamidomethylation and variable modifications to enable detection of phosphorylation at serine, threonine and tyrosine; oxidation of methionine; deamidation of glutamine and asparagine and protein N-terminal acetylation. Mascot search results were processed further by MaxQuant, where peptides were filtered; requiring a minimal Mascot peptide score of 20, a minimal charge state of 2 and no more than two variable modifications per peptide. Peptides and proteins with a false discovery rate (FDR) better than l % were accepted. A posterior error probability (PEP) of 0.025 and phosphorylation site localization probability >0.75 was set to a obtain phosphopeptide FDR of 1 %.",
+      "doi": "",
+      "submission_type": "PARTIAL",
+      "sdrf": "",
+      "submission_date": "2015-01-15",
+      "publication_date": "2015-04-23",
+      "updated_date": "2015-01-15",
+      "project_tags": [
+        "Biological"
+      ],
+      "keywords": [
+        "Merozoites; plasmodium falciparum; malaria; phosphorylation"
+      ],
+      "submitters": [
+        "Edwin Lasonder"
+      ],
+      "lab_pis": [
+        "Edwin Lasonder"
+      ],
+      "affiliations": [
+        "Scholl of Biomedical and Healthcare Science, Plymouth University (UK)"
+      ],
+      "instruments": [
+        "LTQ"
+      ],
+      "softwares": [
+        "MaxQuant",
+        "Mascot"
+      ],
+      "quantification_methods": [
+        "Peptide counting"
+      ],
+      "sample_attributes": [
+        "blood cell",
+        "Bos taurus (Bovine)",
+        "Plasmodium falciparum (isolate 3D7)",
+        "blood",
+        "Plasmodium falciparum malaria"
+      ],
+      "organisms": [
+        "Bos taurus (bovine)",
+        "Plasmodium falciparum (isolate 3d7)"
+      ],
+      "organism_parts": [
+        "Blood cell",
+        "Blood"
+      ],
+      "diseases": [
+        "Plasmodium falciparum malaria"
+      ],
+      "references": [
+        "Lasonder E, Green JL, Grainger M, Langsley G, Holder AA. Extensive differential protein phosphorylation as intraerythrocytic Plasmodium falciparum schizonts develop into extracellular invasive merozoites. Proteomics. 2015 Apr 17--pubMed:25886026--doi: 10.1002/pmic.201400508"
+      ],
+      "experiment_types": [
+        "Shotgun proteomics"
+      ],
+      "project_file_names": [
+        "20111217EL29.RAW",
+        "20111217EL11.RAW",
+        "20111207EL14.RAW",
+        "20111203EL15.RAW",
+        "F040879.dat",
+        "F040739.dat",
+        "20111217EL03.RAW",
+        "20111207EL22.RAW",
+        "20111203EL07.RAW",
+        "20111217EL02.RAW",
+        "F040738.dat",
+        "20111217EL20.RAW",
+        "F040878.dat",
+        "20111207EL05.RAW",
+        "20111207EL07.RAW",
+        "F040843.dat",
+        "20111203EL08.RAW",
+        "F040737.dat",
+        "20111217EL04.RAW",
+        "20111217EL21.RAW",
+        "F040877.dat",
+        "20111203EL16.RAW",
+        "F040838.dat",
+        "20111207EL06.RAW",
+        "20111207EL15.RAW",
+        "F040860.dat",
+        "20111217EL30.RAW",
+        "20111207EL08.RAW",
+        "20111203EL09.RAW",
+        "20111207EL12.RAW",
+        "20111217EL26.RAW",
+        "20111207EL09.RAW",
+        "F040731.dat",
+        "20111217EL09.RAW",
+        "20111217EL13.RAW",
+        "F040727.dat",
+        "20111203EL13.RAW",
+        "20111203EL14.RAW",
+        "F040730.dat",
+        "20111207EL13.RAW",
+        "20111217EL28.RAW",
+        "20111217EL31.RAW",
+        "20111217EL27.RAW",
+        "20111217EL14.RAW",
+        "F040726.dat",
+        "20111207EL19.RAW",
+        "20111203EL02.RAW",
+        "20111217EL16.RAW",
+        "F040734.dat",
+        "F040733.dat",
+        "20111217EL07.RAW",
+        "F040725.dat",
+        "20111217EL15.RAW",
+        "F040848.dat",
+        "20111207EL18.RAW",
+        "20111217EL24.RAW",
+        "20111203EL11.RAW",
+        "F040874.dat",
+        "20111217EL17.RAW",
+        "20111203EL20.RAW",
+        "20111203EL03.RAW",
+        "20111207EL10.RAW",
+        "20111207EL11.RAW",
+        "F040750.dat",
+        "20111217EL08.RAW",
+        "20111217EL25.RAW",
+        "20111203EL12.RAW",
+        "20111207EL02.RAW",
+        "20111217EL05.RAW",
+        "20111207EL20.RAW",
+        "20111203EL21.RAW",
+        "20111203EL18.RAW",
+        "20111203EL04.RAW",
+        "F040736.dat",
+        "20111217EL18.RAW",
+        "20111203EL17.RAW",
+        "20111207EL16.RAW",
+        "F040876.dat",
+        "20111203EL22.RAW",
+        "20111217EL22.RAW",
+        "F040729.dat",
+        "20111207EL03.RAW",
+        "F040735.dat",
+        "20111207EL21.RAW",
+        "20111217EL06.RAW",
+        "20111217EL19.RAW",
+        "20111203EL19.RAW",
+        "20111203EL06.RAW",
+        "20111207EL04.RAW",
+        "20111203EL05.RAW",
+        "20111217EL10.RAW",
+        "F040875.dat",
+        "20111203EL10.RAW",
+        "20111207EL17.RAW",
+        "20111217EL23.RAW"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "references": [
+          "Extensive differential protein phosphorylation as intraerythrocytic <em>Plasmodium</em> <em>falciparum</em> <em>schizonts</em> develop into extracellular invasive merozoites."
+        ]
+      },
+      "yearly_downloads": [
+        {
+          "year": "2021",
+          "count": 473
+        },
+        {
+          "year": "2022",
+          "count": 14
+        },
+        {
+          "year": "2023",
+          "count": 1366
+        },
+        {
+          "year": "2024",
+          "count": 200
+        },
+        {
+          "year": "2025",
+          "count": 5598
+        },
+        {
+          "year": "2026",
+          "count": 724
+        }
+      ],
+      "download_count": 8375,
+      "avg_downloads_per_file": 88.1579,
+      "percentile": 87,
+      "bot_count": 3742,
+      "hub_count": 4557,
+      "organic_count": 76
+    },
+    {
+      "accession": "PXD000070",
+      "title": "Plasmodium falciparum schizont phosphoproteome",
+      "project_description": "Plasmodium falciparum schizont proteins were extracted using SDS, digested with trypsin and phosphopeptides were enriched using IMAC. Phosphopeptides were analysed using either decision tree or data dependent neutral loss triggered ETD acquisition. All raw MS data files were processed and converted into MGF file format using Proteome Discoverer 1.1 (Thermo Scientific). A precursor filter of 600-10000 Da and a non-fragment filter were applied to ETD spectra to remove un-reacted precursor peaks, charge reduced precursor peaks, neutral losses from charge reduced precursors and FT Overtones using default settings. All ion trap spectra with less than 15 fragmentation peaks were removed and a signal to noise filter of 3 was applied to all spectra. All datasets were searched using Mascot v2.2 (Matrix Science) against a combined Human (IPI, 2010) and Plasmodium falciparum (GeneDB) sequence database (79,637 sequences) using the following search parameters: trypsin with a maximum of 3 missed cleavages, 10 ppm for MS mass tolerance, 0.5 Da for MS/MS mass tolerance, with Acetyl (Protein N-term), Oxidation (M), Deamidated (NQ), Carbamidomethyl (C) and Phospho ST set as variable modifications. ETD spectra were searched using c, z and\u00a0y ion series and CID data was searched using b and y ion series. \u00a0All searches used Mascot\u2019s automated decoy database searching.",
+      "sample_processing_protocol": "Not available",
+      "data_processing_protocol": "Not available",
+      "doi": "10.6019/PXD000070",
+      "submission_type": "COMPLETE",
+      "sdrf": "",
+      "submission_date": "2012-11-15",
+      "publication_date": "2014-04-24",
+      "updated_date": "2014-04-24",
+      "project_tags": [
+        "Technical"
+      ],
+      "keywords": [
+        "Plasmodium falciparum",
+        "Etd",
+        "Phosphoproteome",
+        "Cid"
+      ],
+      "submitters": [
+        "Mark Collins"
+      ],
+      "lab_pis": [
+        "Mark Collins"
+      ],
+      "affiliations": [
+        "Team 32"
+      ],
+      "instruments": [
+        "LTQ Orbitrap Velos"
+      ],
+      "softwares": [],
+      "quantification_methods": [],
+      "sample_attributes": [
+        "Plasmodium falciparum (isolate 3D7)"
+      ],
+      "organisms": [
+        "Plasmodium falciparum (isolate 3d7)"
+      ],
+      "organism_parts": [],
+      "diseases": [],
+      "references": [
+        "Collins MO, Wright JC, Jones M, Rayner JC, Choudhary JS. Confident and sensitive phosphoproteomics using combinations of collision induced dissociation and electron transfer dissociation. J Proteomics. 2014 Mar 21;103C:1-14--pubMed:24657495--doi: 10.1016/j.jprot.2014.03.010"
+      ],
+      "experiment_types": [
+        "Bottom-up proteomics"
+      ],
+      "project_file_names": [
+        "PRIDE_Exp_Complete_Ac_27925.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27917.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27920.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27916.pride.mztab.gz",
+        "OTPf-IMACDDNL_2010Mar06-02.raw",
+        "OTPf-IMACDT2010Mar10-01.raw",
+        "PRIDE_Exp_Complete_Ac_27916.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27924.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27915.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27915.pride.mztab.gz",
+        "OTPf-IMACDDNL_2010Mar9-01.raw",
+        "OTPf-IMACDDNL_2010Mar9-02.raw",
+        "PRIDE_Exp_Complete_Ac_27919.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27923.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27918.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27919.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27917.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27925.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27916.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27926.pride.mgf.gz",
+        "OTPf-IMACDT2010Mar11-01.raw",
+        "PRIDE_Exp_Complete_Ac_27918.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27922.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27917.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27921.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27918.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27915.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27924.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27921.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27923.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27925.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27919.pride.mgf.gz",
+        "PRIDE_Exp_Complete_Ac_27924.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27923.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27920.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27922.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27921.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27922.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27926.xml.gz",
+        "PRIDE_Exp_Complete_Ac_27926.pride.mztab.gz",
+        "PRIDE_Exp_Complete_Ac_27920.pride.mgf.gz",
+        "OTPf-IMACDT2010Mar11-02.raw"
+      ],
+      "other_omics_links": [],
+      "highlights": {
+        "projectDescription": [
+          "<em>Plasmodium</em> <em>falciparum</em> <em>schizont</em> proteins were extracted using SDS, digested with trypsin and phosphopeptides were enriched using IMAC."
+        ],
+        "title": [
+          "<em>Plasmodium</em> <em>falciparum</em> <em>schizont</em> phosphoproteome"
+        ]
+      },
+      "yearly_downloads": [
+        {
+          "year": "2021",
+          "count": 154
+        },
+        {
+          "year": "2022",
+          "count": 14
+        },
+        {
+          "year": "2023",
+          "count": 524
+        },
+        {
+          "year": "2024",
+          "count": 1598
+        },
+        {
+          "year": "2025",
+          "count": 2775
+        },
+        {
+          "year": "2026",
+          "count": 2061
+        }
+      ],
+      "download_count": 7126,
+      "avg_downloads_per_file": 169.66667,
+      "percentile": 85,
+      "bot_count": 2439,
+      "hub_count": 4514,
+      "organic_count": 173
+    }
+  ]
+}

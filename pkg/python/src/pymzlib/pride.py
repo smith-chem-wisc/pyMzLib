@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -27,8 +27,10 @@ from . import _bridge
 __all__ = [
     "PrideFile",
     "PrideFtpFile",
+    "PrideProjectSearchResult",
     "ProjectNotFoundError",
     "list_files",
+    "search",
     "list_ftp_files",
     "download",
     "download_files",
@@ -626,3 +628,260 @@ def approximate_total_size_bytes(files: Iterable[PrideFtpFile]) -> int:
     1.44
     """
     return sum(f.approximate_size_bytes for f in files)
+
+
+#: PRIDE answers a longer keyword with HTTP 500, which is indistinguishable from an outage, so
+#: mzLib refuses one first and so do we. Mirrors ``PrideArchiveClient.MaxKeywordLength``.
+MAX_KEYWORD_LENGTH = 1000
+
+
+def _parse_date(value: str | None) -> date | None:
+    """Convert a bare calendar date from the bridge into a :class:`datetime.date`.
+
+    Deliberately **not** :func:`_parse_timestamp`, and the distinction is the whole point. The
+    search endpoint sends a date with no time and no offset — ``"2026-08-15"`` — so mzLib types
+    these ``DateTime`` where :class:`PrideFile`'s are ``DateTimeOffset``, precisely to avoid
+    attaching an offset the wire never carried. ``datetime.fromisoformat`` on a bare date returns
+    a naive **midnight**, which is a time PRIDE never reported; a :class:`date` says exactly what
+    was sent and nothing more.
+    """
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+@dataclass(frozen=True)
+class PrideProjectSearchResult:
+    """One hit from :func:`search`.
+
+    **This is not a project's full metadata, and the two are not interchangeable.** PRIDE serves
+    search from a separate Elasticsearch projection in which every controlled-vocabulary field has
+    been **flattened to a display string**: the same project reports its instruments as
+    ``["Q Exactive"]`` here and as structured terms with accessions from the metadata endpoint,
+    contacts collapse from ten-field objects to a display name, and publications to a single
+    pre-formatted citation string. That is a property of PRIDE's wire, not a simplification chosen
+    here — the accessions are simply not sent. Follow :attr:`accession` when you need the
+    vocabulary.
+
+    **A zero or an empty list means "not reported", never a measured zero.** PRIDE omits nothing as
+    null, so absence arrives as ``0``, ``""`` or ``[]``, and several fields are genuinely sparse —
+    sampled across 1,600 hits, :attr:`project_tags` was populated on 2.6%, :attr:`sdrf` on 2.4%,
+    :attr:`other_omics_links` on 18%, and the bot/hub/organic trio on under half. Do not read a
+    ``download_count`` of 0 as "nobody downloaded it".
+
+    Attributes:
+        accession: The project accession — the key to everything else in this module. Usually a
+            ``PXD`` accession, but search also returns legacy ``PRD`` and affinity ``PAD`` ones, so
+            treat it as an opaque key rather than assuming a prefix.
+        title: The project title.
+        project_description: The submitter's free-text description.
+        sample_processing_protocol: How the sample was prepared, as free text.
+        data_processing_protocol: How the data were searched and processed, as free text.
+        doi: The dataset DOI, or ``""`` if PRIDE has not minted one.
+        submission_type: ``"COMPLETE"``, ``"PARTIAL"``, ``"AFFINITY"``, or ``"PRIDE"`` for legacy
+            submissions. Not a closed set — PRIDE has added values before.
+        sdrf: The project's SDRF metadata as a single space-joined bag of term *values*, flattened
+            by the search index. **Not a file, filename or URL** — nothing can be fetched with it
+            and the row/column structure is gone. For a real SDRF see :mod:`pymzlib.sdrf`.
+        submission_date / publication_date / updated_date: Calendar :class:`~datetime.date` values,
+            not timestamps — see :func:`_parse_date`. ``None`` when PRIDE reported none.
+        project_tags: PRIDE's coarse classification tags.
+        keywords: The submitter's free-text keywords. **May contain empty and whitespace-only
+            strings** — PRIDE ships them on roughly 9% of hits. They are passed through rather than
+            filtered, because dropping them here would make this module disagree with mzLib and with
+            the Rust and R bindings about what a project's keywords are. Filter before joining.
+        submitters / lab_pis / affiliations: Display names and affiliations, flattened from the
+            structured contact objects the metadata endpoint returns.
+        instruments / softwares / quantification_methods: Display names.
+        sample_attributes: Sample characteristics by display *value* (e.g. ``"liver"``). Flattened:
+            which characteristic each value describes is **not recoverable** from a search hit.
+        organisms / organism_parts / diseases: Display names.
+        references: Publications, each a single pre-formatted citation string. A PubMed ID or DOI
+            cannot be read out of one without parsing the string PRIDE assembled.
+        experiment_types: e.g. ``"Data-independent acquisition"``.
+        project_file_names: File *names* only — a search convenience, **not the manifest**. It
+            carries no sizes, categories or download locations. Use :func:`list_files`, or
+            :func:`list_ftp_files` for the complete list, to act on the files.
+        other_omics_links: Links to related datasets in other omics repositories.
+        highlights: Why this project matched, keyed by the field each match was found in, with the
+            matched terms wrapped in ``<em>`` markup. The keys vary per hit and per query. This is
+            the one thing search returns that the metadata endpoint cannot.
+        yearly_downloads: ``{"year", "count"}`` dicts.
+        download_count / avg_downloads_per_file / percentile: Download popularity.
+        bot_count / hub_count / organic_count: Downloads split by traffic kind.
+    """
+
+    accession: str
+    title: str = ""
+    project_description: str = ""
+    sample_processing_protocol: str = ""
+    data_processing_protocol: str = ""
+    doi: str = ""
+    submission_type: str = ""
+    sdrf: str = ""
+    submission_date: date | None = None
+    publication_date: date | None = None
+    updated_date: date | None = None
+    project_tags: list[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
+    submitters: list[str] = field(default_factory=list)
+    lab_pis: list[str] = field(default_factory=list)
+    affiliations: list[str] = field(default_factory=list)
+    instruments: list[str] = field(default_factory=list)
+    softwares: list[str] = field(default_factory=list)
+    quantification_methods: list[str] = field(default_factory=list)
+    sample_attributes: list[str] = field(default_factory=list)
+    organisms: list[str] = field(default_factory=list)
+    organism_parts: list[str] = field(default_factory=list)
+    diseases: list[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
+    experiment_types: list[str] = field(default_factory=list)
+    project_file_names: list[str] = field(default_factory=list)
+    other_omics_links: list[str] = field(default_factory=list)
+    highlights: dict[str, list[str]] = field(default_factory=dict)
+    yearly_downloads: list[dict[str, Any]] = field(default_factory=list)
+    download_count: int = 0
+    avg_downloads_per_file: float = 0.0
+    percentile: int = 0
+    bot_count: int = 0
+    hub_count: int = 0
+    organic_count: int = 0
+
+    @property
+    def matched_fields(self) -> list[str]:
+        """Which PRIDE fields the query hit, from :attr:`highlights`. Empty if PRIDE reported none."""
+        return sorted(self.highlights)
+
+    def as_dict(self) -> dict[str, Any]:
+        """Every attribute, **including the computed ones**, as a plain dict.
+
+        Use this rather than ``vars()`` when building a table: ``matched_fields`` is a property, so
+        ``dataclasses.asdict()`` silently omits it. Same reasoning as :meth:`PrideFile.as_dict`.
+        """
+        record = asdict(self)
+        record["matched_fields"] = self.matched_fields
+        return record
+
+    @classmethod
+    def _from_wire(cls, payload: dict[str, Any]) -> "PrideProjectSearchResult":
+        def strings(name: str) -> list[str]:
+            return [str(x) for x in (payload.get(name) or [])]
+
+        return cls(
+            accession=payload.get("accession", ""),
+            title=payload.get("title", ""),
+            project_description=payload.get("project_description", ""),
+            sample_processing_protocol=payload.get("sample_processing_protocol", ""),
+            data_processing_protocol=payload.get("data_processing_protocol", ""),
+            doi=payload.get("doi", ""),
+            submission_type=payload.get("submission_type", ""),
+            sdrf=payload.get("sdrf", ""),
+            submission_date=_parse_date(payload.get("submission_date")),
+            publication_date=_parse_date(payload.get("publication_date")),
+            updated_date=_parse_date(payload.get("updated_date")),
+            project_tags=strings("project_tags"),
+            keywords=strings("keywords"),
+            submitters=strings("submitters"),
+            lab_pis=strings("lab_pis"),
+            affiliations=strings("affiliations"),
+            instruments=strings("instruments"),
+            softwares=strings("softwares"),
+            quantification_methods=strings("quantification_methods"),
+            sample_attributes=strings("sample_attributes"),
+            organisms=strings("organisms"),
+            organism_parts=strings("organism_parts"),
+            diseases=strings("diseases"),
+            references=strings("references"),
+            experiment_types=strings("experiment_types"),
+            project_file_names=strings("project_file_names"),
+            other_omics_links=strings("other_omics_links"),
+            highlights={
+                str(k): [str(v) for v in (vs or [])]
+                for k, vs in (payload.get("highlights") or {}).items()
+            },
+            yearly_downloads=list(payload.get("yearly_downloads") or []),
+            download_count=int(payload.get("download_count", 0)),
+            avg_downloads_per_file=float(payload.get("avg_downloads_per_file", 0.0)),
+            percentile=int(payload.get("percentile", 0)),
+            bot_count=int(payload.get("bot_count", 0)),
+            hub_count=int(payload.get("hub_count", 0)),
+            organic_count=int(payload.get("organic_count", 0)),
+        )
+
+
+def search(
+    keyword: str,
+    page_size: int = 100,
+    timeout: float | None = 300,
+) -> list[PrideProjectSearchResult]:
+    """Find PRIDE projects by keyword.
+
+    **The discovery entry point.** Every other function here takes an accession you already have;
+    this is the one that produces them, so you can go from a subject to a dataset without leaving
+    Python.
+
+    Paging is handled for you: however many pages the result set spans, you get one list, with no
+    accession repeated.
+
+    Args:
+        keyword: What to search for, e.g. ``"phosphoproteome"``. Matched across titles,
+            descriptions, keywords, organisms and more — :attr:`~PrideProjectSearchResult.highlights`
+            on each hit says which fields actually matched.
+        page_size: How many hits to request per underlying API call. Only affects how the result
+            set is fetched, never what you get back.
+        timeout: Seconds to allow for the whole fetch.
+
+    Returns:
+        Every matching project. **An empty list is a real answer** — PRIDE reports no hits as an
+        empty result rather than an error, so unlike :func:`list_files` this does not raise
+        :class:`ProjectNotFoundError`: there is no accession here that could have been a typo.
+
+    Raises:
+        UsageError: the keyword is blank, over ``MAX_KEYWORD_LENGTH``, or begins with ``-``; or the
+            page size is not positive.
+        BridgeError: PRIDE returned an error status or was unreachable.
+
+    Note:
+        PRIDE pages a **live index** with no stable cursor, so a result set that changes during a
+        multi-page fetch shifts its own paging. A project published mid-fetch is served on two pages
+        and deduplicated, so it comes back once; a project *removed* mid-fetch can fall between two
+        pages and be missed. A search whose hits fit on one page cannot be affected.
+
+    Example:
+        >>> hits = search("plasmodium falciparum schizont")        # doctest: +SKIP
+        >>> hits[0].accession, hits[0].organisms                   # doctest: +SKIP
+        ('PXD070842', ['Homo sapiens (human)', 'Plasmodium falciparum (isolate 3d7)'])
+        >>> hits[0].matched_fields                                 # doctest: +SKIP
+        ['references', 'title']
+        >>> files = list_files(hits[0].accession)                  # doctest: +SKIP
+    """
+    if not isinstance(keyword, str) or not keyword.strip():
+        raise _bridge.UsageError("A search keyword is required, e.g. 'phosphoproteome'.")
+
+    canonical = _reject_flag_like("keyword", keyword.strip())
+    if len(canonical) > MAX_KEYWORD_LENGTH:
+        raise _bridge.UsageError(
+            f"keyword may be at most {MAX_KEYWORD_LENGTH} characters; got {len(canonical)}. "
+            "PRIDE answers a longer keyword with HTTP 500, which cannot be told apart from the "
+            "service being down."
+        )
+
+    if isinstance(page_size, bool) or not isinstance(page_size, int):
+        raise _bridge.UsageError(
+            f"page_size must be a whole number; got {type(page_size).__name__} ({page_size!r})."
+        )
+    if page_size <= 0:
+        raise _bridge.UsageError(f"page_size must be positive; got {page_size}.")
+    if page_size > 2_147_483_647:
+        raise _bridge.UsageError(f"page_size is larger than the API allows; got {page_size}.")
+
+    data = _bridge.invoke(
+        "pride", "search",
+        "--keyword", canonical,
+        "--page-size", str(page_size),
+        timeout=timeout,
+    )
+    return [PrideProjectSearchResult._from_wire(item) for item in data.get("results", [])]

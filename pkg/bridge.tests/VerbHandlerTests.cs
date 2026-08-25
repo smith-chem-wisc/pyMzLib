@@ -157,6 +157,213 @@ public class VerbHandlerTests
         });
     }
 
+    // ---- pride search --------------------------------------------------------
+    //
+    // The discovery verb (mzLib #1187). Its payload is NOT a project's metadata: PRIDE serves
+    // search from an Elasticsearch projection with every controlled-vocabulary field flattened to
+    // a display string, so these fixtures are string collections on purpose.
+
+    private static string SearchHitJson(string accession, string title = "A project") =>
+        $$"""
+        {
+          "accession": "{{accession}}",
+          "title": "{{title}}",
+          "submissionDate": "2025-11-17",
+          "publicationDate": "2026-06-01",
+          "keywords": ["phospho", "  ", ""],
+          "instruments": ["Q Exactive"],
+          "organismsPart": ["liver"],
+          "highlights": { "title": ["<em>phospho</em>proteome"] },
+          "downloadCount": 0
+        }
+        """;
+
+    [Test]
+    public async Task PrideSearch_ReturnsOneResultPerHit()
+    {
+        UseStub(_ => Json($"[{SearchHitJson("PXD000111")},{SearchHitJson("PXD000222")}]"));
+
+        JsonElement data = await InvokeAsync("pride", "search", "--keyword", "phospho");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("keyword").GetString(), Is.EqualTo("phospho"));
+            Assert.That(data.GetProperty("result_count").GetInt32(), Is.EqualTo(2));
+            Assert.That(data.GetProperty("results")[0].GetProperty("accession").GetString(),
+                Is.EqualTo("PXD000111"));
+        });
+    }
+
+    [Test]
+    public async Task PrideSearch_DatesCrossAsBareCalendarDates()
+    {
+        // The endpoint sends "2025-11-17" with no time and no offset, which is why mzLib types
+        // these DateTime rather than DateTimeOffset. Serialising the DateTime directly would emit
+        // "2025-11-17T00:00:00" -- a midnight PRIDE never sent, and exactly the fabrication that
+        // type split exists to prevent. Every binding would then inherit the invented time.
+        UseStub(_ => Json($"[{SearchHitJson("PXD000111")}]"));
+
+        JsonElement hit = (await InvokeAsync("pride", "search", "--keyword", "x"))
+            .GetProperty("results")[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hit.GetProperty("submission_date").GetString(), Is.EqualTo("2025-11-17"));
+            Assert.That(hit.GetProperty("publication_date").GetString(), Is.EqualTo("2026-06-01"));
+        });
+    }
+
+    [Test]
+    public async Task PrideSearch_ADateTheEndpointOmittedIsNullNotYearOne()
+    {
+        // The DTO's date members are non-nullable, so an omitted date deserialises to
+        // default(DateTime) -- 0001-01-01. Crossing that as a real date hands a caller a year-1
+        // value to do arithmetic on, indistinguishable from a genuine (if absurd) date.
+        UseStub(_ => Json("""[{ "accession": "PXD000111", "title": "No dates" }]"""));
+
+        JsonElement hit = (await InvokeAsync("pride", "search", "--keyword", "x"))
+            .GetProperty("results")[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hit.GetProperty("submission_date").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(hit.GetProperty("updated_date").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        });
+    }
+
+    [Test]
+    public async Task PrideSearch_HighlightKeysAreNotRewrittenIntoSnakeCase()
+    {
+        // The keys are whichever PRIDE fields the query hit -- PRIDE's names, not ours. The
+        // serializer's SnakeCaseLower policy renames PROPERTIES; DictionaryKeyPolicy is unset, so
+        // these pass through. Pinned because an options change could quietly start rewriting them,
+        // and the keys are the only thing that says why a project matched.
+        UseStub(_ => Json("""
+            [{ "accession": "PXD000111",
+               "highlights": { "projectDescription": ["a <em>hit</em>"], "organismsPart": ["liver"] } }]
+            """));
+
+        JsonElement highlights = (await InvokeAsync("pride", "search", "--keyword", "x"))
+            .GetProperty("results")[0].GetProperty("highlights");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(highlights.TryGetProperty("projectDescription", out _), Is.True,
+                "the key was rewritten; it is PRIDE's field name, not a property of ours");
+            Assert.That(highlights.TryGetProperty("organismsPart", out _), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task PrideSearch_BlankKeywordsAreCarriedRatherThanFiltered()
+    {
+        // PRIDE ships empty and whitespace-only strings inside keywords on roughly 9% of hits.
+        // Dropping them in the bridge would be a repair: every binding would then report a
+        // different keyword list than mzLib does, and none of them could tell it had happened.
+        UseStub(_ => Json($"[{SearchHitJson("PXD000111")}]"));
+
+        JsonElement keywords = (await InvokeAsync("pride", "search", "--keyword", "x"))
+            .GetProperty("results")[0].GetProperty("keywords");
+
+        Assert.That(keywords.GetArrayLength(), Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task PrideSearch_FlattenedCvFieldsKeepTheMetadataSpellingOfTheirName()
+    {
+        // PRIDE spells it "organismsPart" on search and "organismParts" on projects/{accession}.
+        // mzLib binds the search spelling onto the metadata name so the two DTOs agree about the
+        // same concept; the wire publishes the metadata name in snake_case.
+        UseStub(_ => Json($"[{SearchHitJson("PXD000111")}]"));
+
+        JsonElement hit = (await InvokeAsync("pride", "search", "--keyword", "x"))
+            .GetProperty("results")[0];
+
+        Assert.That(hit.GetProperty("organism_parts")[0].GetString(), Is.EqualTo("liver"));
+    }
+
+    [Test]
+    public async Task PrideSearch_NoHits_IsAnEmptyResultNotAnError()
+    {
+        // A keyword that matches nothing is a real answer, unlike an accession that matches
+        // nothing -- there is no typo to protect the caller from.
+        UseStub(_ => Json("[]"));
+
+        JsonElement data = await InvokeAsync("pride", "search", "--keyword", "qwertyuiop");
+
+        Assert.That(data.GetProperty("result_count").GetInt32(), Is.Zero);
+    }
+
+    [Test]
+    public void PrideSearch_AnOverLongKeyword_IsAUsageErrorNotAnOutage()
+    {
+        // PRIDE answers a very long keyword with HTTP 500, and a 5xx is the one signature the
+        // classifier reads as ServiceUnavailable -- so the caller's bug would be reported as EBI
+        // being down, and the live-test helpers would SKIP rather than fail. Refused here first.
+        string tooLong = new('x', PrideArchiveClient.MaxKeywordLength + 1);
+
+        var usage = Assert.ThrowsAsync<Program.UsageException>(
+            async () => await InvokeAsync("pride", "search", "--keyword", tooLong));
+
+        Assert.That(usage!.Message, Does.Contain("at most 1000 characters"));
+    }
+
+    [Test]
+    public void PrideSearch_WithoutAKeyword_IsAUsageError() =>
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("pride", "search"));
+
+    [Test]
+    public void PrideSearch_APageSizeOfZero_IsAUsageError() =>
+        Assert.ThrowsAsync<Program.UsageException>(
+            async () => await InvokeAsync("pride", "search", "--keyword", "x", "--page-size", "0"));
+
+    [Test]
+    public async Task PrideSearch_PageSizeAndKeywordReachTheRequestUri()
+    {
+        string? seen = null;
+        Program.PrideClientFactory = () =>
+        {
+            // AbsoluteUri, not ToString(): Uri.ToString() renders a canonical UNESCAPED form for
+            // display, so a correctly escaped query reads as though nothing was escaped at all.
+            var handler = new StubHandler(request => { seen = request.RequestUri!.AbsoluteUri; return Json("[]"); });
+            return new PrideArchiveClient(new HttpClient(handler) { BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress) });
+        };
+
+        await InvokeAsync("pride", "search", "--keyword", "phospho proteome", "--page-size", "7");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(seen, Does.Contain("search/projects"));
+            Assert.That(seen, Does.Contain("pageSize=7"));
+            Assert.That(seen, Does.Contain("keyword=phospho%20proteome"));
+        });
+    }
+
+    [Test]
+    public async Task PrideSearch_AKeywordCannotSmuggleInAQueryParameter()
+    {
+        // The one that matters. A keyword is caller-supplied text interpolated into a query string,
+        // so an unescaped '&' would let "x&pageSize=9999" silently override the paging the caller
+        // asked for -- or add a parameter PRIDE honours and nobody intended. mzLib escapes with
+        // Uri.EscapeDataString; this pins that it still does, from the far side of the wire.
+        string? seen = null;
+        Program.PrideClientFactory = () =>
+        {
+            var handler = new StubHandler(request => { seen = request.RequestUri!.AbsoluteUri; return Json("[]"); });
+            return new PrideArchiveClient(new HttpClient(handler) { BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress) });
+        };
+
+        await InvokeAsync("pride", "search", "--keyword", "liver&pageSize=9999", "--page-size", "7");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(seen, Does.Contain("keyword=liver%26pageSize%3D9999"));
+            Assert.That(seen, Does.Contain("pageSize=7"));
+            Assert.That(seen, Does.Not.Contain("pageSize=9999"),
+                "the keyword's own '&' created a second pageSize parameter");
+        });
+    }
+
     // ---- pride ftp-files -----------------------------------------------------
     //
     // The complete listing, walked from the FTP directory tree (mzLib #1121). The stub serves the

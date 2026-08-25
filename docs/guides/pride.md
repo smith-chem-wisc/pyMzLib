@@ -7,6 +7,88 @@ repository — the place most published mass-spectrometry data lives. pyMzLib ex
 Everything here goes through the same code MetaMorpheus uses in C#: the same paging, the same
 URL resolution, the same safe-download behavior.
 
+## Finding projects in the first place
+
+Everything else on this page takes an accession you already have. `search()` is the one that
+produces them, so you can go from a subject to a dataset without leaving Python:
+
+```python
+hits = pymzlib.pride.search("plasmodium falciparum schizont")
+print(len(hits))                              # 6
+print(hits[0].accession, hits[0].title)       # PXD070842 High-resolution spatial proteomics...
+print(hits[0].organisms)
+# ['Homo sapiens (human)', 'Plasmodium falciparum (isolate 3d7)']
+```
+
+Paging is handled for you here too, and no accession is repeated. From a hit, the rest of this page
+follows:
+
+```python
+files = pymzlib.pride.list_files(hits[0].accession)
+```
+
+### Why it matched
+
+`highlights` is the one thing search returns that the project metadata cannot — the snippets that
+matched, keyed by the field each was found in:
+
+```python
+hits[0].matched_fields          # ['references', 'title']
+hits[0].highlights['title']     # ['High-resolution spatial proteomics of <em>Plasmodium</em>...']
+```
+
+The keys vary per hit and per query, and the `<em>` markup is PRIDE's — strip it if the value is
+going anywhere other than a highlighted view.
+
+### A search hit is not a project's metadata
+
+!!! warning "Controlled-vocabulary fields arrive flattened to display strings"
+    PRIDE serves search from a **separate Elasticsearch projection**. The same project reports its
+    instruments as `["Q Exactive"]` here and as structured terms with accessions from the metadata
+    endpoint; contacts collapse from ten-field objects to a display name, and publications to a
+    single pre-formatted citation string.
+
+    That is a property of PRIDE's wire, not a simplification pyMzLib chose — **the accessions are
+    simply not sent.** Resolving a display name against a vocabulary to manufacture one would hand
+    you an identifier PRIDE never asserted. Follow the hit's `accession` when you need the
+    vocabulary.
+
+Two more consequences worth knowing before you index anything:
+
+- **`project_file_names` is not the manifest.** It carries names only — no sizes, categories or
+  download locations. Use `list_files()` or `list_ftp_files()` to act on files.
+- **`sdrf` is not a file.** It is the project's SDRF metadata flattened by the search index into one
+  space-joined bag of term values, with the row/column structure gone. Nothing can be fetched with
+  it. For a real SDRF, see the [SDRF guide](sdrf.md).
+
+### Zero means "not reported"
+
+PRIDE omits nothing as `null`, so an absent value arrives as `0`, `""` or `[]`. Several fields are
+genuinely sparse — across 1,600 sampled hits, `project_tags` was populated on 2.6%, `sdrf` on 2.4%,
+`other_omics_links` on 18%, and the bot/hub/organic download split on under half. **A
+`download_count` of 0 does not mean nobody downloaded it.**
+
+The same honesty applies to `keywords`: PRIDE ships empty and whitespace-only strings inside it on
+roughly 9% of hits, and pyMzLib passes them through rather than filtering. Dropping them would make
+this module disagree with mzLib — and with the Rust and R bindings — about what a project's keywords
+are. Filter before you join them:
+
+```python
+[k for k in hits[0].keywords if k.strip()]
+```
+
+### Dates here are calendar dates, not timestamps
+
+`submission_date`, `publication_date` and `updated_date` are `datetime.date`, where `PrideFile`'s
+are `datetime`. That is deliberate and follows the wire: this endpoint sends `"2025-11-17"` with no
+time and no offset, so presenting it as a timestamp would attach a midnight PRIDE never reported.
+
+!!! note "A live index has no stable cursor"
+    PRIDE pages search results from a live index. A result set that changes *during* a multi-page
+    fetch shifts its own paging: a project published mid-fetch is served on two pages and
+    deduplicated, so it comes back once, but a project *removed* mid-fetch can fall between two pages
+    and be missed. A search whose hits fit on one page cannot be affected.
+
 ## Listing a project's files
 
 ```python

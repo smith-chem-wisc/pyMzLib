@@ -44,7 +44,7 @@ Coverage is deliberately partial and grows by demand, the way
 
 | Area | Status |
 |---|---|
-| [PRIDE Archive](https://smith-chem-wisc.github.io/pyMzLib/guides/pride/) — list a project's files, filtered download | ✅ |
+| [PRIDE Archive](https://smith-chem-wisc.github.io/pyMzLib/guides/pride/) — search for projects by keyword, list a project's files, filtered download | ✅ |
 | [Peptidoforms](https://smith-chem-wisc.github.io/pyMzLib/guides/peptidoforms/) — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | [Quantification](https://smith-chem-wisc.github.io/pyMzLib/guides/flashlfq/) — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
 | [Readers](https://smith-chem-wisc.github.io/pyMzLib/guides/readers/) — identify and read all 31 file types mzLib knows, from raw spectra to search results | ✅ |

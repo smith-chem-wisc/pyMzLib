@@ -254,6 +254,7 @@ public static class Program
             "pride files" => await PrideFilesAsync(arguments).ConfigureAwait(false),
             "pride ftp-files" => await PrideFtpFilesAsync(arguments).ConfigureAwait(false),
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
+            "pride search" => await PrideSearchAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
             "quant flashlfq" => Quantification.FlashLfq(arguments),
             "quant median-polish" => Quantification.MedianPolish(arguments),
@@ -267,7 +268,7 @@ public static class Program
             "sdrf read" => Sdrf.Read(arguments),
             "sdrf pool" => Sdrf.Pool(arguments),
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra, sdrf read, sdrf pool."),
+                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, pride search, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra, sdrf read, sdrf pool."),
         };
     }
 
@@ -535,6 +536,143 @@ public static class Program
             paths,
         };
     }
+
+    /// <summary>
+    /// <c>pride search --keyword "phosphoproteome" [--page-size 100]</c> — find projects by keyword
+    /// over PRIDE's v3 <c>search/projects</c> endpoint, with paging already resolved by mzLib.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The discovery entry point. Every other PRIDE verb takes an accession the caller already has;
+    /// this is the one that produces accessions.
+    /// </para>
+    /// <para>
+    /// <b>A hit is NOT a project's metadata, and the two shapes are not interchangeable.</b> PRIDE
+    /// serves search from a separate Elasticsearch projection in which every controlled-vocabulary
+    /// field is FLATTENED TO A PLAIN STRING: the same project returns instruments as CvParam objects
+    /// from <c>projects/{accession}</c> and as <c>["Q Exactive"]</c> here, contacts collapse from
+    /// ten-field objects to a display name, and references to one pre-mangled citation string. So the
+    /// string collections below are a property of the wire, not a simplification chosen here, and
+    /// resolving a display name against a vocabulary to manufacture the missing accession would put
+    /// an identifier in a caller's hands that PRIDE never asserted.
+    /// </para>
+    /// <para>
+    /// <b>Dates cross as bare calendar dates</b> — <c>"2026-08-15"</c>, no time and no offset —
+    /// because that is what this endpoint sends. mzLib types them <see cref="DateTime"/> rather than
+    /// <see cref="DateTimeOffset"/> for exactly that reason, and the wire keeps the distinction: a
+    /// binding that widened them to a timestamp would attach a time PRIDE never reported.
+    /// </para>
+    /// </remarks>
+    private static async Task<object> PrideSearchAsync(Arguments arguments)
+    {
+        string keyword = arguments.Required("keyword");
+        int pageSize = arguments.OptionalInt("page-size", 100);
+
+        // Both limits are checked HERE as well as in mzLib, because mzLib raises ArgumentException
+        // and this boundary would classify that by its type name rather than as a usage error. The
+        // length limit especially: PRIDE answers a very long keyword with HTTP 500, which
+        // ExternalServiceTestHelper reads as "the service is down" and SKIPS — so a caller's bug
+        // would otherwise be reported as an outage, in every binding.
+        if (keyword.Length > PrideArchiveClient.MaxKeywordLength)
+            throw new UsageException(
+                $"Option --keyword may be at most {PrideArchiveClient.MaxKeywordLength} characters, " +
+                $"but this one is {keyword.Length}. PRIDE answers a longer keyword with HTTP 500, " +
+                "which cannot be told apart from the service being down.");
+        if (pageSize <= 0)
+            throw new UsageException($"Option --page-size must be greater than zero; got {pageSize}.");
+
+        using PrideArchiveClient client = PrideClientFactory();
+        List<PrideProjectSearchResult> hits = await client
+            .SearchProjectsAsync(keyword, pageSize, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        return new
+        {
+            keyword,
+            // No accession is repeated: SearchProjectsAsync deduplicates, because PRIDE serialises
+            // the dynamic `highlights` map from an unordered hash map, so two requests for the same
+            // page differ in bytes while carrying the same records.
+            result_count = hits.Count,
+            results = hits.Select(ToWireSearchResult).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Flattens a <see cref="PrideProjectSearchResult"/> onto the wire.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every field is carried. PRIDE omits nothing as null — absent values arrive as empty
+    /// collections, empty strings or zero — so a <b>zero here means "not reported", never a measured
+    /// zero</b>, and the counts are genuinely sparse: sampled across 1,600 hits on 2026-08-21,
+    /// <c>project_tags</c> was populated on 2.6%, <c>sdrf</c> on 2.4%, <c>other_omics_links</c> on
+    /// 18%, and the bot/hub/organic trio on under half. Mapping those zeros to null here would be
+    /// the bridge asserting an absence mzLib does not.
+    /// </para>
+    /// <para>
+    /// <c>highlights</c> is a dynamic map whose keys are whichever PRIDE fields the query happened to
+    /// hit, so they vary per hit and per query. They cross UNCHANGED: <c>JsonNamingPolicy</c> renames
+    /// properties, and <c>DictionaryKeyPolicy</c> is unset, which is what we want — the keys are
+    /// PRIDE's own field names and are not ours to rewrite into snake_case.
+    /// </para>
+    /// <para>
+    /// Dates are written as <c>yyyy-MM-dd</c> rather than serialised as <see cref="DateTime"/>.
+    /// System.Text.Json would emit <c>"2026-08-15T00:00:00"</c>, and that midnight is a time PRIDE
+    /// never sent — the exact fabrication mzLib's DateTime/DateTimeOffset split exists to prevent.
+    /// </para>
+    /// </remarks>
+    internal static object ToWireSearchResult(PrideProjectSearchResult hit) => new
+    {
+        accession = hit.Accession,
+        title = hit.Title,
+        project_description = hit.ProjectDescription,
+        sample_processing_protocol = hit.SampleProcessingProtocol,
+        data_processing_protocol = hit.DataProcessingProtocol,
+        doi = hit.Doi,
+        submission_type = hit.SubmissionType,
+        sdrf = hit.Sdrf,
+        submission_date = ToWireDate(hit.SubmissionDate),
+        publication_date = ToWireDate(hit.PublicationDate),
+        updated_date = ToWireDate(hit.UpdatedDate),
+        project_tags = hit.ProjectTags,
+        keywords = hit.Keywords,
+        submitters = hit.Submitters,
+        lab_pis = hit.LabPIs,
+        affiliations = hit.Affiliations,
+        instruments = hit.Instruments,
+        softwares = hit.Softwares,
+        quantification_methods = hit.QuantificationMethods,
+        sample_attributes = hit.SampleAttributes,
+        organisms = hit.Organisms,
+        organism_parts = hit.OrganismParts,
+        diseases = hit.Diseases,
+        references = hit.References,
+        experiment_types = hit.ExperimentTypes,
+        project_file_names = hit.ProjectFileNames,
+        other_omics_links = hit.OtherOmicsLinks,
+        highlights = hit.Highlights,
+        yearly_downloads = hit.YearlyDownloads
+            .Select(y => new { year = y.Year, count = y.Count }).ToList(),
+        download_count = hit.DownloadCount,
+        avg_downloads_per_file = hit.AvgDownloadsPerFile,
+        percentile = hit.Percentile,
+        bot_count = hit.BotCount,
+        hub_count = hit.HubCount,
+        organic_count = hit.OrganicCount,
+    };
+
+    /// <summary>
+    /// A bare calendar date, or null when the endpoint reported none.
+    /// </summary>
+    /// <remarks>
+    /// <c>default(DateTime)</c> is how a field PRIDE omitted arrives — the DTO's members are
+    /// non-nullable, so an absent date is 0001-01-01 rather than null. Crossing that as a real date
+    /// would hand a caller a year-1 timestamp to do arithmetic on; null says what actually happened.
+    /// </remarks>
+    private static string? ToWireDate(DateTime value) =>
+        value == default
+            ? null
+            : value.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Flattens a <see cref="PrideArchiveFile"/> into the wire shape. Controlled-vocabulary terms
