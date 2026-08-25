@@ -21,6 +21,23 @@ envelope is not a breaking change unless Python callers can see it.
   than unzipping a wheel, and the import package they look for inside a wheel is still `pymzlib/`.
 
 ### Added
+- **Find PRIDE projects by keyword**: `pymzlib.pride.search()`. Every other function in that module
+  takes an accession you already have; this is the one that produces them, so you can go from a
+  subject to a dataset without leaving Python. Paging is handled and no accession is repeated
+  (mzLib #1187).
+
+  **A hit is not a project's metadata.** PRIDE serves search from a separate Elasticsearch
+  projection in which every controlled-vocabulary field is flattened to a display string —
+  instruments come back as `["Q Exactive"]` rather than terms with accessions, contacts as display
+  names, publications as one pre-formatted citation. That is PRIDE's wire, not a simplification
+  chosen here, so `PrideProjectSearchResult` is its own type with string collections. What it adds
+  over the metadata endpoint is `highlights`: which fields matched, and with what.
+
+  Two honesty notes carried through rather than smoothed over. Dates are `datetime.date`, not
+  `datetime` as on `PrideFile`, because this endpoint sends a bare calendar date with no time or
+  offset. And a zero or an empty list means *not reported* — PRIDE omits nothing as null, and
+  several fields are sparse — so `download_count == 0` does not mean nobody downloaded it.
+
 - **SDRF-Proteomics experimental design**: `pymzlib.sdrf.read()` reads one `.sdrf.tsv`, and
   `pymzlib.sdrf.pool()` merges several into one analysis table with a `comment[source document]`
   column recording provenance. This is the first module here that answers *what was searched*

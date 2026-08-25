@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import json
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -516,3 +517,148 @@ def test_download_files_rejects_things_that_are_not_pride_files(tmp_path):
 # The live canaries now live in test_pride_live.py, where each one routes through
 # external_service() so a PRIDE outage skips with an explanatory message instead of
 # failing. Keeping them here, bare, made a red build ambiguous.
+
+
+# ---- search ----------------------------------------------------------------------------------
+#
+# The fixture is a real recorded `pride search` payload, chosen because it carries the three things
+# that are easy to get wrong and impossible to invent by hand: bare calendar dates, a `highlights`
+# map with PRIDE's own field names as keys, and a genuinely blank string inside `keywords`.
+
+SEARCH_FIXTURE = Path(__file__).parent / "fixtures" / "pride_search_plasmodium.json"
+
+
+@pytest.fixture()
+def recorded_search(monkeypatch):
+    payload = json.loads(SEARCH_FIXTURE.read_text(encoding="utf-8"))
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: payload)
+    return payload
+
+
+@pytest.fixture()
+def hits(recorded_search):
+    return pride.search("plasmodium falciparum schizont")
+
+
+def test_search_returns_one_result_per_wire_entry(hits, recorded_search):
+    assert len(hits) == recorded_search["result_count"] == 6
+    assert hits[0].accession == "PXD070842"
+
+
+def test_dates_are_calendar_dates_not_timestamps(hits):
+    """The single most important thing this projection gets right.
+
+    PRIDE's search endpoint sends "2025-11-17" — no time, no offset — which is why mzLib types
+    these `DateTime` where PrideFile's are `DateTimeOffset`. `datetime.fromisoformat` would hand
+    back a naive midnight, a time PRIDE never reported, and `pride._parse_timestamp` (used by
+    PrideFile) does exactly that. A `date` says what was sent and nothing more.
+    """
+    assert isinstance(hits[0].submission_date, date)
+    assert not isinstance(hits[0].submission_date, datetime)
+    assert hits[0].submission_date == date(2025, 11, 17)
+
+
+def test_an_absent_date_is_none_not_year_one():
+    """`default(DateTime)` is 0001-01-01, and crossing that as a real date would be a trap.
+
+    The DTO's date members are non-nullable, so a field PRIDE omitted arrives as year 1 rather than
+    null. A caller doing arithmetic on that gets a two-thousand-year interval and no warning.
+    """
+    assert pride._parse_date(None) is None
+    assert pride._parse_date("") is None
+    assert pride._parse_date("not a date") is None
+
+
+def test_highlights_keys_survive_unchanged(hits):
+    """They are PRIDE's field names, not ours, so the snake_case policy must not have touched them.
+
+    `JsonNamingPolicy.SnakeCaseLower` renames properties; `DictionaryKeyPolicy` is unset, so these
+    pass through. Pinned because a later options change could quietly start rewriting them, and the
+    keys are the only thing that says WHY a project matched.
+    """
+    assert hits[0].matched_fields == ["references", "title"]
+    assert set(hits[0].highlights) <= {"references", "title", "project_description", "keywords",
+                                       "organisms", "instruments", "sample_attributes",
+                                       "data_processing_protocol", "sample_processing_protocol",
+                                       "accession", "diseases", "organismsPart", "submitters"}
+
+
+def test_blank_keywords_are_passed_through_not_filtered(hits):
+    """PRIDE ships empty and whitespace-only keywords on ~9% of hits, and this fixture has one.
+
+    Filtering them here would be a repair on the island: pyMzLib would then disagree with mzLib,
+    and with the Rust and R bindings, about what a project's keywords are. The docstring tells the
+    caller to filter; the projection does not do it for them.
+    """
+    assert any(not k.strip() for h in hits for k in h.keywords)
+
+
+def test_a_zero_count_is_reported_as_zero_not_none(hits):
+    """Zero means "not reported", but mapping it to None would assert an absence mzLib does not."""
+    assert all(isinstance(h.download_count, int) for h in hits)
+    assert all(isinstance(h.percentile, int) for h in hits)
+
+
+def test_cv_fields_arrive_flattened_to_strings(hits):
+    """The reason this is a separate type from a project's metadata, pinned as a fact about the wire."""
+    assert hits[0].organisms == ["Homo sapiens (human)", "Plasmodium falciparum (isolate 3d7)"]
+    assert all(isinstance(x, str) for h in hits for x in h.instruments)
+
+
+def test_as_dict_carries_the_computed_property(hits):
+    """`dataclasses.asdict` skips properties — the same trap PrideFile.as_dict already documents."""
+    record = hits[0].as_dict()
+    assert record["matched_fields"] == hits[0].matched_fields
+    assert record["accession"] == "PXD070842"
+
+
+def test_search_sends_the_keyword_and_page_size(monkeypatch):
+    seen: dict = {}
+    monkeypatch.setattr(
+        _bridge, "invoke", lambda *a, **k: seen.update(args=a) or {"results": []}
+    )
+
+    pride.search("phospho", page_size=25)
+
+    assert seen["args"] == ("pride", "search", "--keyword", "phospho", "--page-size", "25")
+
+
+def test_no_hits_is_an_empty_list_not_an_error(monkeypatch):
+    """Unlike list_files, which raises: there is no accession here that could have been a typo.
+
+    PRIDE reports no matches as an empty result rather than a 404, and for a keyword that is the
+    honest answer - "nothing matched" is a real finding, not a mistake to protect the caller from.
+    """
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: {"keyword": "x", "result_count": 0,
+                                                            "results": []})
+
+    assert pride.search("qwertyuiop") == []
+
+
+@pytest.mark.parametrize("keyword", ["", "   ", None, 7])
+def test_search_requires_a_keyword(keyword):
+    with pytest.raises(pymzlib.UsageError, match="search keyword is required"):
+        pride.search(keyword)
+
+
+def test_an_over_long_keyword_is_refused_before_the_subprocess():
+    """PRIDE answers a very long keyword with HTTP 500, which reads as an outage rather than a bug.
+
+    ExternalServiceTestHelper and the bridge's own classifier both treat a 5xx as "the service is
+    down" and SKIP, so without this a caller's mistake would be reported as EBI having a bad day.
+    Refused here, before any process is spawned, and again in the bridge.
+    """
+    with pytest.raises(pymzlib.UsageError, match="at most 1000 characters"):
+        pride.search("x" * (pride.MAX_KEYWORD_LENGTH + 1))
+
+
+def test_a_keyword_that_looks_like_an_option_is_refused():
+    """The bridge parses `--a --b` as two flags, so a leading dash would discard the option."""
+    with pytest.raises(pymzlib.UsageError, match="may not begin with"):
+        pride.search("--page-size")
+
+
+@pytest.mark.parametrize("page_size", [0, -1, 2.5, "10", True])
+def test_search_rejects_a_bad_page_size(page_size):
+    with pytest.raises(pymzlib.UsageError):
+        pride.search("phospho", page_size=page_size)

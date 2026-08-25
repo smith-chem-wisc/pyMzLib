@@ -49,7 +49,7 @@ Coverage is deliberately partial and grows by demand — the same way
 
 | Area | Status |
 |---|---|
-| [PRIDE Archive](guides/pride.md) — list a project's files, filtered download | :material-check: available |
+| [PRIDE Archive](guides/pride.md) — search for projects by keyword, list a project's files, filtered download | :material-check: available |
 | [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide | :material-check: available |
 | [FlashLFQ](guides/flashlfq.md) — label-free quantification across mzML runs, with match-between-runs | :material-check: available |
 | [Readers](guides/readers.md) — identify any of 31 result-file formats and read the ones with a uniform record view | :material-check: available |
