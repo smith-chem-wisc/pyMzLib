@@ -1,9 +1,13 @@
 # Readers
 
-mzLib recognises **31 file types** written by a dozen different search and deconvolution tools —
-MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux, Casanovo, FlashDeconv, Dinosaur,
-FlashLFQ — and maintains a parser for each. pyMzLib lets you point at a file, ask what it is, and
-read it.
+**Spectra files are read here, not just search output.** [`read_spectra()`](#read_spectra-scans-and-peaks) reads
+**mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign — scan headers always, peaks on
+request.
+
+mzLib recognises **31 file types** in all: those instrument and deconvolution formats, plus the
+output of a dozen search tools — MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
+Casanovo, FlashDeconv, Dinosaur, FlashLFQ — and maintains a parser for each. pyMzLib lets you point
+at a file, ask what it is, and read it.
 
 ```python
 import pymzlib
