@@ -68,3 +68,4 @@ document and nothing may be added below it.
 | 2026-08-09 | `e3220d6a` | 1.0.584 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
 | 2026-08-15 | `5ba13155` | 1.0.585 | **#1141** moved mzLib to .NET 10, so this bump is not a pin move alone — `MzLibBridge.csproj`, its test project and `DOTNET_VERSION` move with it (an 8.0.x SDK cannot build a net10.0 project). Opened by hand rather than by `upstream-watch.yml`, because the watcher would have opened a red pull request it had no way to fix |
 | 2026-08-25 | `8f3352cc` | 1.0.586 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
+| 2026-08-31 | `1699ac4b` | 1.0.588 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
