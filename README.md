@@ -10,6 +10,10 @@ pip install mzlib
 ```python
 import pymzlib
 
+# Read a mass-spectrometry data file: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF, msalign
+scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
+print(scans.scan_count, scans.columns["selected_ion_mz"])
+
 files = pymzlib.pride.list_files("PXD000001")
 print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
 
@@ -47,7 +51,7 @@ Coverage is deliberately partial and grows by demand, the way
 | [PRIDE Archive](https://smith-chem-wisc.github.io/pyMzLib/guides/pride/) — search for projects by keyword, list a project's files, filtered download | ✅ |
 | [Peptidoforms](https://smith-chem-wisc.github.io/pyMzLib/guides/peptidoforms/) — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | [Quantification](https://smith-chem-wisc.github.io/pyMzLib/guides/flashlfq/) — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
-| [Readers](https://smith-chem-wisc.github.io/pyMzLib/guides/readers/) — identify and read all 31 file types mzLib knows, from raw spectra to search results | ✅ |
+| [Readers](https://smith-chem-wisc.github.io/pyMzLib/guides/readers/) — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 31 file types mzLib knows, search results included | ✅ |
 | [SDRF experimental design](https://smith-chem-wisc.github.io/pyMzLib/guides/sdrf/) — read an SDRF-Proteomics file, pool several experiments into one analysis table | ✅ |
 | Everything else in mzLib | not yet — [request it](https://github.com/smith-chem-wisc/pyMzLib/issues/new/choose) |
 

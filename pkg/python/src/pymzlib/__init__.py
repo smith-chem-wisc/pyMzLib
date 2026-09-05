@@ -5,9 +5,16 @@ library written in C#. pyMzLib makes its functionality callable from Python, wit
 installation and no third-party Python dependencies: everything needed ships inside the
 package.
 
-The first area covered is the PRIDE Archive::
+Read a mass-spectrometry data file - **mzML**, Thermo ``.raw``, Bruker ``.d``, timsTOF
+``.d``, MGF or msalign - with :func:`pymzlib.readers.read_spectra`::
 
     import pymzlib
+
+    scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
+    print(scans.scan_count, scans.columns["retention_time"])
+
+The same module identifies and reads all 31 file types mzLib knows, search results included.
+The PRIDE Archive is covered too::
 
     files = pymzlib.pride.list_files("PXD000001")
     print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")

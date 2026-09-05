@@ -17,6 +17,11 @@ third-party Python package to reconcile with the rest of your environment — py
 ```python
 import pymzlib
 
+# Read a mass-spectrometry data file: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF, msalign.
+# Scan headers always; peaks only when you ask, because they are thousands of times larger.
+scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
+print(scans.scan_count, scans.columns["selected_ion_mz"])
+
 # What's in a PRIDE Archive project?
 files = pymzlib.pride.list_files("PXD000001")
 print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
@@ -41,7 +46,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | PRIDE Archive — list project files, filtered download | ✅ |
 | Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
-| Readers — identify and read all 31 file types mzLib knows, from raw spectra to search results | ✅ |
+| Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 31 file types mzLib knows, search results included | ✅ |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 ## How it works, and why you probably don't care

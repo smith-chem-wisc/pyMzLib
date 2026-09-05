@@ -1,8 +1,18 @@
-"""Read proteomics result files: what a file *is*, what you can do with it, and its records.
+"""Read mass-spectrometry data files and proteomics search results: what a file *is*, what you
+can do with it, and its records.
 
-mzLib recognises 31 file types written by a dozen different search and deconvolution tools  - 
-MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux, Casanovo, FlashDeconv, Dinosaur,
-DIA-NN, FlashLFQ - and dispatches each to a parser it maintains. This module asks it what a path is::
+**Spectra files are read here too, not just search output.** :func:`read_spectra` reads
+**mzML**, Thermo ``.raw``, Bruker ``.d``, timsTOF ``.d``, MGF and msalign - scan headers always,
+peaks on request::
+
+    >>> scans = pymzlib.readers.read_spectra("run.mzML", peaks=True)   # doctest: +SKIP
+    >>> scans.scan_count, scans.columns["retention_time"][:2]          # doctest: +SKIP
+    (455, [0.0011, 0.0285])
+
+mzLib recognises 31 file types in all - the instrument and deconvolution formats above, plus the
+output of a dozen search tools: MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
+Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ - and dispatches each to a parser it maintains.
+This module asks it what a path is::
 
     >>> import pymzlib
     >>> info = pymzlib.readers.identify("psm.tsv")     # doctest: +SKIP
