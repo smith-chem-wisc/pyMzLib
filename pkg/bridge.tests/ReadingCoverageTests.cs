@@ -805,7 +805,7 @@ public class ReadingCoverageTests
             ("CasanovoMzTabRecord.cs:84", "IsDecoy"),
             ("CasanovoMzTabFile.cs:116", "OneBasedScanNumber"),
             ("CasanovoMzTabFile.cs:124", "Modification"),
-            ("Mgf.cs:236", "MzRange"),
+            ("Mgf.cs:270", "MzRange"),
             ("MsAlign.cs:526", "MzRange"),
         ];
 

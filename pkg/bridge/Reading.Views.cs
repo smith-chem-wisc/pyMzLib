@@ -316,11 +316,11 @@ internal static partial class Reading
                     "always null: the format does not record which survey scan a fragment scan came from. " +
                     "ms_order is no longer always 2. mzLib takes it from the MSLEVEL line when the writer " +
                     "supplied one, and otherwise reads a block with a precursor as MS2 and a block without " +
-                    "one as MS1 (Mgf.cs:256). Files written before MSLEVEL existed all carry PEPMASS, so " +
+                    "one as MS1 (Mgf.cs:290). Files written before MSLEVEL existed all carry PEPMASS, so " +
                     "they still read as MS2 throughout.");
                 caveats.Add(
                     "scan_window_lower_mz/_upper_mz are DERIVED, not recorded: MGF has no scan-window " +
-                    "field, so mzLib reports the first and last observed peak (Mgf.cs:236). They are " +
+                    "field, so mzLib reports the first and last observed peak (Mgf.cs:270). They are " +
                     "the fragment m/z range actually seen, which is narrower than the instrument's " +
                     "window and depends on the peak-picking threshold.");
                 break;
