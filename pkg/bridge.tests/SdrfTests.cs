@@ -17,8 +17,8 @@ namespace MzLibBridge.Tests;
 /// </para>
 /// <para>
 /// What is deliberately NOT tested here is whether a document is valid. mzLib owns that in
-/// <c>SdrfValidator</c> and <c>SdrfDriftLint</c>, both currently <c>internal</c> to its Readers
-/// assembly, so the bridge cannot reach them and must not grow its own second opinion.
+/// <c>SdrfValidator</c> and <c>SdrfDriftLint</c> (public since mzLib #1207). The bridge does not
+/// expose them yet, and it must never grow its own second opinion.
 /// </para>
 /// </remarks>
 [TestFixture]

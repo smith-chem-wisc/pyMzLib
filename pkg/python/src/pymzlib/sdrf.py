@@ -47,12 +47,13 @@ routinely carries pre-signed download URLs whose query strings contain ``Signatu
 experiment stated an absence*, which is not the same as a column the document does not have.
 ``None`` means the latter. Do not collapse the two.
 
-**What this module does not do is validate.** mzLib models SDRF's structural rules in
-``SdrfValidator`` and its vocabulary-drift rules in ``SdrfDriftLint``, but both are ``internal``
-to mzLib's Readers assembly as of the pinned commit, so the bridge cannot reach them. A second
-implementation here - and then again in the Rust and R bindings - is exactly the per-binding
-repair pyMzLib exists to avoid. The fix belongs upstream; until it lands, this module reads,
-pools and reports honestly, and makes no claim about whether a document is *correct*.
+**What this module does not do yet is validate.** mzLib models SDRF's structural rules in
+``SdrfValidator`` and its vocabulary-drift rules in ``SdrfDriftLint``. Both have been public
+since mzLib #1207, which the pinned mzLib (1.0.589) includes, so the bridge can call them. They
+are not exposed yet. When they are, the rules will be projected once, in the bridge, for all
+three bindings - a second implementation here is exactly the per-binding repair pyMzLib exists
+to avoid. Until then, this module reads, pools and reports honestly, and makes no claim about
+whether a document is *correct*.
 """
 
 from __future__ import annotations

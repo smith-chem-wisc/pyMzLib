@@ -136,14 +136,15 @@ pymzlib.sdrf.pool(docs, out="merged.sdrf.tsv", limit=5)   # 5 rows returned, all
 
 ## What this does not do
 
-**It does not validate.** mzLib models SDRF's structural rules in `SdrfValidator` and its
-vocabulary-drift rules in `SdrfDriftLint`, but both are `internal` to mzLib's Readers assembly as
-of the pinned commit, so the bridge cannot reach them. Reimplementing them here — and then again
-in the Rust and R bindings — is exactly the per-binding repair pyMzLib exists to avoid, and three
-copies of a specification's rules is how they drift apart. The fix belongs upstream. Until it
-lands, this module reads, pools and reports honestly, and makes no claim about whether a document
-is *correct*.
+**It does not validate yet.** mzLib models SDRF's structural rules in `SdrfValidator` and its
+vocabulary-drift rules in `SdrfDriftLint`. Both became public in mzLib #1207, which the pinned
+mzLib (1.0.589) includes. Until they are exposed, this module reads, pools and reports honestly,
+and makes no claim about whether a document is *correct*. When they are, they will be projected
+from mzLib, not reimplemented here: doing it again in the Rust and R bindings is exactly the
+per-binding repair pyMzLib exists to avoid, and three copies of a specification's rules is how
+they drift apart.
 
-Building an SDRF from a search (`SdrfBuilder`) and measuring how much a corpus actually says
-(`SdrfCoverage`) are both reachable and not yet exposed — see
+Validation (`SdrfValidator`, `SdrfDriftLint`), building an SDRF from a search (`SdrfBuilder`),
+and measuring how much a corpus actually says (`SdrfCoverage`) are all reachable and not yet
+exposed — see
 [Adding a capability](../contributing/adding-a-capability.md).
