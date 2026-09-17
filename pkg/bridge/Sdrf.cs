@@ -30,12 +30,12 @@ namespace MzLibBridge;
 /// would decode those. Interpretation is a projection to be layered on top, not baked in here.
 /// </para>
 /// <para>
-/// <b>What this deliberately does not do is validate.</b> mzLib models the specification's
-/// structural rules in <c>SdrfValidator</c> and its drift rules in <c>SdrfDriftLint</c>, and a
-/// second implementation here — in C#, then again in Rust and R — is exactly the per-binding
-/// repair this bridge exists to avoid. Those two entry points are <c>internal</c> to the Readers
-/// assembly as of the pinned mzLib, so the bridge cannot reach them; the fix belongs upstream, not
-/// here. See <c>bridge/UPSTREAM.md</c>.
+/// <b>What this does not do yet is validate.</b> mzLib models the specification's structural
+/// rules in <c>SdrfValidator</c> and its drift rules in <c>SdrfDriftLint</c>. Both are public as
+/// of mzLib #1207, which the pinned mzLib includes, so they can be reached from here. They are not
+/// yet exposed as verbs. When they are, the verbs must call those two entry points rather than
+/// re-derive their rules: a second implementation — in C#, then again in Rust and R — is exactly
+/// the per-binding repair this bridge exists to avoid. See <c>bridge/UPSTREAM.md</c> (U8).
 /// </para>
 /// </remarks>
 internal static class Sdrf

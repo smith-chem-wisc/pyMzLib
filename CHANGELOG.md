@@ -57,9 +57,10 @@ envelope is not a breaking change unless Python callers can see it.
   `containing-folder/file-stem`, which depends on where the files sit, so the result carries a
   caveat saying it is not reproducible elsewhere. A partially-labelled set is refused outright.
 
-  Validation is deliberately absent: mzLib's `SdrfValidator` and `SdrfDriftLint` are `internal` to
-  its Readers assembly, so the bridge cannot reach them, and reimplementing a specification's rules
-  once per binding is how three copies drift apart. That fix belongs upstream.
+  Validation is not offered yet. mzLib's `SdrfValidator` and `SdrfDriftLint` became public in
+  mzLib #1207, which mzLib 1.0.589 includes, so the bridge can call them. They will be exposed
+  from mzLib rather than reimplemented, because reimplementing a specification's rules once per
+  binding is how three copies drift apart.
 
 - **DIA-NN and SDRF are readable**, following the pin to mzLib 1.0.585. `DiaNnReport` is the
   fourth format offering the `quantifiable` view, so DIA data can now feed
