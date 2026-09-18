@@ -105,9 +105,16 @@ three PRIDE source files is 34 MB with byte-identical behavior. That's a finding
 dependency structure — every C# consumer wanting one corner of mzLib pays the same tax — and it
 belongs upstream, not worked around here.
 
-**One practical consequence.** PyPI rejects individual files over 100 MB by default. Requesting an
-increase is routine and routinely granted; it's a step on the release checklist, not a constraint
-on the design.
+**One practical consequence.** PyPI rejects individual files over 100 MiB by default. The
+wheels crossed it — 101–166 MiB by `0.1.0.dev6` — and nearly all of the excess was libtorch, the
+native half of that same TorchSharp dependency, which no bridge verb calls.
+
+**Update, 2026-09 — libtorch is out of the payload.** `MzLibBridge.csproj` drops libtorch's native
+libraries at publish; TorchSharp's managed assembly stays, so nothing changes shape. The wheels
+fell to ~56–60 MiB (Linux 165.9 → 56.4, Windows 129.4 → 59.3, macOS arm64 101.8 → 59.9) with
+byte-identical bridge output. This refines D8 rather than reversing it: no architecture or
+project reference moved, only native files nothing loads. The .NET runtime (~30 MiB) stays in
+the wheel — it is what D2 buys — for as long as the wheels fit.
 
 ---
 

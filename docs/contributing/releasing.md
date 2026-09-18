@@ -16,19 +16,18 @@
 !!! warning "PyPI publishing is off until you switch it on"
     The `publish to PyPI` job is gated on a repository variable `PYPI_PUBLISH=true` (Settings →
     Secrets and variables → Actions → Variables). It ships **disabled** on purpose, because PyPI
-    cannot accept an upload until the two one-time steps below are done — a Trusted Publisher is
-    registered and the file-size limit is granted. Until then, tagging safely builds and tests
-    wheels on every platform without publishing, and a broken first version can't be shipped and
-    locked. Turn it on only once both prerequisites are in place.
+    cannot accept an upload until a Trusted Publisher is registered. Until then, tagging safely
+    builds and tests wheels on every platform without publishing, and a broken first version can't
+    be shipped and locked. Turn it on only once the setup below is done.
 
     **One-time PyPI setup, in order:**
 
-    1. Register the Trusted Publisher: on PyPI, create/claim the `pymzlib` project, then add a
+    1. Register the Trusted Publisher: on the `mzlib` project's
+       [publishing settings](https://pypi.org/manage/project/mzlib/settings/publishing/), add a
        GitHub Actions trusted publisher — owner `smith-chem-wisc`, repo `pyMzLib`, workflow
-       `wheels.yml`, environment `pypi`. (See the file-size note below — do this together.)
-    2. Request the file-size-limit increase (below); wait for it to be granted.
-    3. Set the repository variable `PYPI_PUBLISH=true`.
-    4. Bump to a real version and tag.
+       `wheels.yml`, environment `pypi`.
+    2. Set the repository variable `PYPI_PUBLISH=true`.
+    3. Bump to a real version and tag.
 
 ## What a tag publishes
 
@@ -129,11 +128,12 @@ unless it changes what Python callers see.
 
 Trusted Publishing on a tag. Nothing to do after setup.
 
-!!! warning "The 100 MB file limit"
-    PyPI rejects files over 100 MB by default, and pyMzLib's wheels are ~115 MB. Request an
-    increase at [pypi.org/help](https://pypi.org/help/#file-size-limit) **before** the first
-    release — it's routine and routinely granted (torch and friends all have one), but it isn't
-    instant, and discovering it during a release is avoidable.
+!!! note "The 100 MiB file limit"
+    PyPI rejects files over 100 MiB by default. The wheels are ~60 MiB, and the build job fails any
+    wheel over the limit on every pull request, so a new dependency that would push one over is
+    caught long before a release. They were 101–166 MiB until libtorch — which no bridge verb
+    uses — was dropped from the payload; see
+    [D8](../design/decisions.md#d8-payload-size-is-not-a-design-constraint).
 
 ### bioconda — secondary, automatic after one-time setup
 
@@ -147,7 +147,7 @@ automatically gets a [BioContainer](https://biocontainers.pro/), so Docker distr
 !!! tip "Conda can do something pip cannot"
     conda-forge ships `dotnet-runtime` for linux-64, linux-aarch64, osx-64, osx-arm64 and win-64.
     A conda build could therefore declare `dotnet-runtime` as a dependency and ship a
-    *framework-dependent* bridge — a package of a few megabytes instead of 115, with conda
+    *framework-dependent* bridge — about 30 MB instead of 60, with conda
     installing the runtime. The user experience is identical: one command, nothing to think about.
 
     That's a second build configuration and a second thing that can break, so it's worth doing

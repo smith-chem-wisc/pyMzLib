@@ -20,6 +20,13 @@ envelope is not a breaking change unless Python callers can see it.
   This does not reach mzLibR or mzLibRust: both take the `mzlib-bridge-<rid>.tar.gz` asset rather
   than unzipping a wheel, and the import package they look for inside a wheel is still `pymzlib/`.
 
+- **The wheels are ~60 MB, down from up to 166 MB, and now fit on PyPI.** Nearly all of the old size
+  was libtorch, a machine-learning library mzLib pulls in for a retention-time predictor that no
+  pyMzLib function calls. It is no longer shipped; bridge output is byte-identical without it.
+  Linux 165.9 → 56.4 MiB, Windows 129.4 → 59.3, macOS Apple Silicon 101.8 → 59.9. The .NET runtime
+  is still inside every wheel, so there is still nothing to install. The same saving reaches
+  mzLibRust and mzLibR through the `mzlib-bridge-<rid>.tar.gz` assets.
+
 ### Added
 - **Find PRIDE projects by keyword**: `pymzlib.pride.search()`. Every other function in that module
   takes an accession you already have; this is the one that produces them, so you can go from a
