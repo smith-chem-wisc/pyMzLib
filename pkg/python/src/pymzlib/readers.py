@@ -105,6 +105,7 @@ of the rest of pyMzLib:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -674,11 +675,11 @@ class ScanRecords(_Table):
 
 def _window(
     verb: str,
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None,
     offset: int,
-    out: str | None,
+    out: str | os.PathLike[str] | None,
 ) -> list[str]:
     """The ``--path``/``--limit``/``--offset``/``--out`` argument list, validated.
 
@@ -686,10 +687,11 @@ def _window(
     check raises before the bridge is spawned: a caller who passed ``limit=-1`` wants an error, not
     a process launch.
     """
-    if not isinstance(path, str) or not path.strip():
+    path = _bridge.path_text(path)
+    if not path:
         raise _bridge.UsageError("A file path is required, e.g. 'AllPSMs.psmtsv'.")
 
-    args = ["readers", verb, "--path", path.strip()]
+    args = ["readers", verb, "--path", path]
 
     if limit is not None:
         # bool first: `isinstance(True, int)` is True in Python, so limit=True would otherwise sail
@@ -704,9 +706,10 @@ def _window(
         args += ["--offset", str(offset)]
 
     if out is not None:
-        if not isinstance(out, str) or not out.strip():
+        out = _bridge.path_text(out)
+        if not out:
             raise _bridge.UsageError("out must be a non-empty path or None.")
-        args += ["--out", out.strip()]
+        args += ["--out", out]
 
     return args
 
@@ -732,7 +735,7 @@ def formats(timeout: float | None = 60) -> list[Format]:
     return [Format._from_wire(item) for item in (data.get("formats") or [])]
 
 
-def identify(path: str, timeout: float | None = 60) -> FileInfo:
+def identify(path: str | os.PathLike[str], timeout: float | None = 60) -> FileInfo:
     """Identify a result file without parsing its contents.
 
     Cheap by design: mzLib resolves the type and stops, so identifying a million-row file costs no
@@ -757,19 +760,20 @@ def identify(path: str, timeout: float | None = 60) -> FileInfo:
         >>> info.file_type, info.is_quantifiable                   # doctest: +SKIP
         ('psmtsv', True)
     """
-    if not isinstance(path, str) or not path.strip():
+    path = _bridge.path_text(path)
+    if not path:
         raise _bridge.UsageError("A file path is required, e.g. 'AllPSMs.psmtsv'.")
 
-    data = _bridge.invoke("readers", "identify", "--path", path.strip(), timeout=timeout)
+    data = _bridge.invoke("readers", "identify", "--path", path, timeout=timeout)
     return FileInfo._from_wire(data)
 
 
 def read_results(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> ResultRecords:
     """Read a result file into the uniform record view.
@@ -816,11 +820,11 @@ def read_results(
 
 
 def read_records(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> NativeRecords:
     """Read **any** file mzLib recognises, into that format's own fields.
@@ -866,11 +870,11 @@ def read_records(
 
 
 def read_features(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> FeatureRecords:
     """Read deconvolved MS1 features, in the cross-format ``ms1_features`` view.
@@ -908,11 +912,11 @@ def read_features(
 
 
 def read_matches(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> MatchRecords:
     """Read identifications, in the cross-format ``spectral_match`` view.
@@ -948,13 +952,13 @@ def read_matches(
 
 
 def read_spectra(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
     ms_order: int | None = None,
     peaks: bool = False,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> ScanRecords:
     """Read the scans of a spectra file: headers always, peaks on request.

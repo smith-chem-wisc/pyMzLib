@@ -20,7 +20,7 @@ print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB
 # Download just its Thermo .raw file (220 MB), then read the first five MS2 scans, peaks included.
 # The same call reads mzML, Bruker .d, timsTOF .d, MGF and msalign.
 raw_files = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
-scans = pymzlib.readers.read_spectra(str(raw_files[0]), ms_order=2, limit=5, peaks=True)
+scans = pymzlib.readers.read_spectra(raw_files[0], ms_order=2, limit=5, peaks=True)
 print(scans.scan_count, scans.columns["selected_ion_mz"])
 
 # Digest an annotated UniProt protein and fragment its peptides

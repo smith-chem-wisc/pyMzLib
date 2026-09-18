@@ -122,7 +122,7 @@ def bridge_must_not_run(monkeypatch):
     monkeypatch.setattr(_bridge, "invoke", forbidden)
 
 
-@pytest.mark.parametrize("bad", ["", "   ", None, 42])
+@pytest.mark.parametrize("bad", ["", "   ", None, 42, b"run.mzML"])
 def test_a_blank_or_non_string_path_is_rejected_without_starting_a_process(bad, bridge_must_not_run):
     with pytest.raises(pymzlib.UsageError):
         readers.identify(bad)
@@ -287,6 +287,26 @@ def test_limit_and_offset_and_out_are_sent(monkeypatch):
         "readers", "read-results", "--path", "AllPSMs.psmtsv",
         "--limit", "5", "--offset", "10", "--out", "records.tsv",
     )
+
+
+def test_a_path_object_is_accepted_wherever_a_path_string_is(monkeypatch):
+    """``pride.download`` returns ``pathlib.Path`` objects; they must go straight into a reader."""
+    seen = {}
+    monkeypatch.setattr(_bridge, "invoke",
+                        lambda *a, **k: seen.update(args=a) or copy.deepcopy(READ_PAYLOAD))
+
+    readers.read_results(Path("downloads") / "AllPSMs.psmtsv", out=Path("records.tsv"))
+
+    assert seen["args"] == (
+        "readers", "read-results", "--path", str(Path("downloads") / "AllPSMs.psmtsv"),
+        "--out", "records.tsv",
+    )
+
+
+def test_identify_accepts_a_path_object(captured):
+    readers.identify(Path("run.mzML"))
+
+    assert captured["args"] == ("readers", "identify", "--path", "run.mzML")
 
 
 def test_defaults_send_no_limit_or_offset(monkeypatch):

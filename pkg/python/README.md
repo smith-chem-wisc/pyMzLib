@@ -32,7 +32,7 @@ raw_files = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
 
 # Read it: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF and msalign all work the same way.
 # Scan headers always; peaks only when you ask, because they are thousands of times larger.
-scans = pymzlib.readers.read_spectra(str(raw_files[0]), ms_order=2, limit=5, peaks=True)
+scans = pymzlib.readers.read_spectra(raw_files[0], ms_order=2, limit=5, peaks=True)
 print(scans.scan_count, scans.columns["selected_ion_mz"])
 ```
 

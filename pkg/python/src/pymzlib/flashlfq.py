@@ -45,6 +45,7 @@ spirit of the rest of pyMzLib:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence, Union
 
@@ -63,7 +64,7 @@ __all__ = [
 #: One entry in the ``spectra`` argument: either a bare mzML path, or a mapping carrying the
 #: experimental-design fields (``path`` plus any of ``condition``, ``biological_replicate``,
 #: ``technical_replicate``, ``fraction``). The mapping keys are FlashLFQ's ``SpectraFileInfo`` names.
-SpectraInput = Union[str, Mapping[str, Any]]
+SpectraInput = Union[str, "os.PathLike[str]", Mapping[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -361,8 +362,8 @@ def _spectra_stdin(spectra: Sequence[SpectraInput]) -> str:
 
     lines: list[str] = []
     for index, item in enumerate(spectra):
-        if isinstance(item, str):
-            path, design = item, {}
+        if isinstance(item, (str, os.PathLike)):
+            path, design = os.fspath(item), {}
         elif isinstance(item, Mapping):
             path = item.get("path")
             if not path:
@@ -370,7 +371,7 @@ def _spectra_stdin(spectra: Sequence[SpectraInput]) -> str:
             design = item
         else:
             raise _bridge.UsageError(
-                f"spectra[{index}] must be an mzML path string or a mapping, got {type(item).__name__}."
+                f"spectra[{index}] must be an mzML path or a mapping, got {type(item).__name__}."
             )
 
         path = str(path)
@@ -402,7 +403,7 @@ def _design_int(design: Mapping[str, Any], key: str, index: int) -> str:
 
 
 def quantify(
-    psms: str,
+    psms: str | os.PathLike[str],
     spectra: Sequence[SpectraInput],
     *,
     normalize: bool = False,
@@ -416,7 +417,7 @@ def quantify(
     bayesian_protein_quant: bool = False,
     use_pep_q_value: bool = False,
     max_threads: int = -1,
-    output_directory: str | None = None,
+    output_directory: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> FlashLfqResults:
     """Quantify a search's peptides across mzML runs with FlashLFQ.
@@ -469,7 +470,8 @@ def quantify(
             file names a run with no mzML provided.
         BridgeError: FlashLFQ itself failed.
     """
-    if not isinstance(psms, str) or not psms.strip():
+    psms = _bridge.path_text(psms)
+    if not psms:
         raise _bridge.UsageError("A PSM result file path is required, e.g. 'AllPSMs.psmtsv'.")
 
     stdin = _spectra_stdin(spectra)
@@ -495,7 +497,8 @@ def quantify(
         raise _bridge.UsageError(f"max_threads must be a whole number; got {max_threads!r}.")
     args += ["--threads", str(max_threads)]
     if output_directory is not None:
-        if not isinstance(output_directory, str) or not output_directory.strip():
+        output_directory = _bridge.path_text(output_directory)
+        if not output_directory:
             raise _bridge.UsageError("output_directory must be a non-empty path or None.")
         args += ["--out", output_directory]
 
@@ -558,11 +561,11 @@ def _design_stdin(design: Sequence[DesignInput]) -> str:
 
 
 def median_polish(
-    peptides: str,
+    peptides: str | os.PathLike[str],
     *,
     design: Sequence[DesignInput] | None = None,
     use_shared_peptides: bool = False,
-    output_directory: str | None = None,
+    output_directory: str | os.PathLike[str] | None = None,
     timeout: float | None = None,
 ) -> list[ProteinGroup]:
     """Roll a ``QuantifiedPeptides.tsv`` up to protein intensities with FlashLFQ's median polish.
@@ -624,7 +627,8 @@ def median_polish(
             ``Intensity_`` columns, or the design and the table's runs do not match.
         BridgeError: the reconstruction or quantification itself failed.
     """
-    if not isinstance(peptides, str) or not peptides.strip():
+    peptides = _bridge.path_text(peptides)
+    if not peptides:
         raise _bridge.UsageError("A quantified peptides file path is required, e.g. 'QuantifiedPeptides.tsv'.")
 
     stdin = _design_stdin(design) if design is not None else None
@@ -633,7 +637,8 @@ def median_polish(
     if use_shared_peptides:
         args.append("--shared-peptides")
     if output_directory is not None:
-        if not isinstance(output_directory, str) or not output_directory.strip():
+        output_directory = _bridge.path_text(output_directory)
+        if not output_directory:
             raise _bridge.UsageError("output_directory must be a non-empty path or None.")
         args += ["--out", output_directory]
 

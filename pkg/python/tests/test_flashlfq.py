@@ -186,6 +186,18 @@ def test_output_directory_becomes_out_flag(captured):
     assert args[args.index("--out") + 1] == "results"
 
 
+def test_path_objects_are_accepted_for_every_path_argument(captured):
+    flashlfq.quantify(
+        Path("AllPSMs.psmtsv"),
+        [Path("run_3.mzML"), {"path": Path("run_4.mzML"), "condition": "treated"}],
+        output_directory=Path("results"),
+    )
+    args = captured["args"]
+    assert args[:4] == ["quant", "flashlfq", "--psms", "AllPSMs.psmtsv"]
+    assert args[args.index("--out") + 1] == "results"
+    assert captured["stdin"] == "run_3.mzML\nrun_4.mzML\ttreated\n"
+
+
 # --------------------------------------------------------------------------- stdin rendering
 
 
