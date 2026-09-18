@@ -6,6 +6,18 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Fixed
+- **Reading a Thermo `.raw` file works.** In 0.1.0 every `.raw` read failed with
+  `BridgeError: Method invocation failed on Method[ThreadedFileFactory]`, on every platform. Thermo's
+  RawFileReader looks for its own assemblies on disk and cannot run from inside the single-file
+  bridge executable, which is where they were packed. They now ship as two loose DLLs beside it. No
+  test caught this because the bridge's C# suite runs mzLib from loose assemblies; a new test reads a
+  small `.raw` through the packaged bridge on every platform CI tests the wheel on.
+
+  mzLibR and mzLibRust run the same bridge, so they get the fix too. The `mzlib-bridge-<rid>.tar.gz`
+  asset now carries the two DLLs; extracting the whole archive, as the release docs already say to,
+  picks them up.
+
 ## [0.1.0] - 2026-09-18
 
 The first release on PyPI: `pip install mzlib`.

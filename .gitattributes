@@ -21,3 +21,4 @@
 *.whl  binary
 *.exe  binary
 *.dll  binary
+*.raw  binary

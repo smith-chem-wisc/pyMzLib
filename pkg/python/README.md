@@ -20,11 +20,6 @@ third-party Python package to reconcile with the rest of your environment — py
 ```python
 import pymzlib
 
-# Read a mass-spectrometry data file: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF, msalign.
-# Scan headers always; peaks only when you ask, because they are thousands of times larger.
-scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
-print(scans.scan_count, scans.columns["selected_ion_mz"])
-
 # What's in a PRIDE Archive project?
 files = pymzlib.pride.list_files("PXD000001")
 print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
@@ -32,8 +27,13 @@ print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB
 for f in files:
     print(f"{f.category:8s} {f.size_mb:9.1f} MB  {f.file_name}")
 
-# Pull down just the raw files.
-paths = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+# Pull down just the raw file (220 MB).
+raw_files = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+
+# Read it: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF and msalign all work the same way.
+# Scan headers always; peaks only when you ask, because they are thousands of times larger.
+scans = pymzlib.readers.read_spectra(str(raw_files[0]), ms_order=2, limit=5, peaks=True)
+print(scans.scan_count, scans.columns["selected_ion_mz"])
 ```
 
 Downloads stream to a temporary name and are moved into place only when complete, so an

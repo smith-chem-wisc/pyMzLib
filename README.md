@@ -13,14 +13,15 @@ Install it as `mzlib`, import it as `pymzlib` — the same split as `pip install
 ```python
 import pymzlib
 
-# Read a mass-spectrometry data file: mzML, Thermo .raw, Bruker .d, timsTOF .d, MGF, msalign
-scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
-print(scans.scan_count, scans.columns["selected_ion_mz"])
-
+# What's in a PRIDE Archive project?
 files = pymzlib.pride.list_files("PXD000001")
 print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
 
-pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+# Download just its Thermo .raw file (220 MB), then read the first five MS2 scans, peaks included.
+# The same call reads mzML, Bruker .d, timsTOF .d, MGF and msalign.
+raw_files = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+scans = pymzlib.readers.read_spectra(str(raw_files[0]), ms_order=2, limit=5, peaks=True)
+print(scans.scan_count, scans.columns["selected_ion_mz"])
 
 # Digest an annotated UniProt protein and fragment its peptides
 digest = pymzlib.peptidoform.fragments("P02768")
