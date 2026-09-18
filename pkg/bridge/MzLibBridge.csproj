@@ -60,4 +60,17 @@
     </ItemGroup>
   </Target>
 
+  <!-- Thermo's RawFileReader cannot run from inside a single-file bundle: RawFileReaderAdapter
+       locates its own implementation on disk, so when the ThermoFisher.CommonCore assemblies are
+       packed into mzlib-bridge they are not there and every .raw read fails with "Method invocation
+       failed on Method[ThreadedFileFactory]". Publishing them as loose files beside the executable
+       fixes it; the rest of the bridge stays single-file. -->
+  <Target Name="KeepThermoOutOfSingleFile" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Condition="$([System.String]::new('%(ResolvedFileToPublish.Filename)').StartsWith('ThermoFisher.CommonCore'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>
