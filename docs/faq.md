@@ -2,8 +2,8 @@
 
 ## Do I need .NET installed?
 
-No. The wheel contains a complete .NET runtime. That is most of why it's 115 MB, and it's the
-entire point — you should never have to know pyMzLib is C# underneath.
+No. The wheel contains a complete .NET runtime — about half of its ~60 MB, and the entire
+point: you should never have to know pyMzLib is C# underneath.
 
 ## Do I need a specific Python version?
 
@@ -25,14 +25,13 @@ dependencies, it can't disturb conda's own resolution. A native bioconda package
 
 ## Why is the wheel so large?
 
-It contains a .NET runtime plus mzLib and its dependencies. The wheel is about 115 MB and
-unpacks to roughly 133 MB on disk. For context: mzLib's own NuGet package
-is 31 MB, but a C# developer separately downloads TorchSharp and about a gigabyte of libtorch
-components — so this single file is *smaller* than what using mzLib from C# costs. On PyPI it's
-ordinary: pyOpenMS is 63 MB, torch is 502 MB.
+It contains a .NET runtime plus mzLib and its dependencies. The wheel is about 60 MB. For
+context: mzLib's own NuGet package is 31 MB, but a C# developer separately downloads TorchSharp
+and about a gigabyte of libtorch components — so this single file is far *smaller* than what using
+mzLib from C# costs. On PyPI it's ordinary: pyOpenMS is 63 MB, torch is 502 MB.
 
-Most of it genuinely is dead weight for the current feature set, for a reason that's about mzLib's
-dependency structure rather than about pyMzLib —
+It used to be up to 166 MB. Nearly all of that was libtorch, a machine-learning library mzLib
+pulls in for one retention-time predictor that pyMzLib doesn't expose, so it's no longer shipped —
 [the details](design/decisions.md#d8-payload-size-is-not-a-design-constraint).
 
 ## Is it fast?

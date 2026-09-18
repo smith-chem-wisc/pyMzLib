@@ -330,6 +330,26 @@ jobs:
             dist_untagged/*.whl
           ls -lh dist_untagged
 
+      # PyPI refuses any single file over 100 MiB unless the project has a raised limit. The wheels
+      # were 101-166 MiB until libtorch was dropped from the bridge payload (MzLibBridge.csproj,
+      # DropLibtorchNatives) and are ~60 MiB since. Fail here, on every pull request, so a new
+      # transitive dependency cannot quietly put a wheel back over the limit and surface only as a
+      # rejected upload on release day.
+      - name: Wheel fits PyPI's file-size limit
+        working-directory: pkg/python
+        shell: bash
+        run: |
+          set -euo pipefail
+          limit=$((100 * 1024 * 1024))
+          for whl in dist_untagged/*.whl; do
+            size=$(stat -c %s "$whl")
+            echo "$(basename "$whl"): $((size / 1024 / 1024)) MiB (limit 100 MiB)"
+            if [ "$size" -gt "$limit" ]; then
+              echo "::error::$(basename "$whl") is $((size / 1024 / 1024)) MiB, over PyPI's 100 MiB per-file limit."
+              exit 1
+            fi
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.rid }}
@@ -539,8 +559,8 @@ jobs:
     # Two gates, both required. The tag gate is obvious. The PYPI_PUBLISH repository-variable gate
     # is a safety switch: PyPI cannot accept an upload from this project until two one-time manual
     # steps are done off GitHub — a Trusted Publisher is registered for this workflow on PyPI, and
-    # the >100 MB file-size limit is granted (pyMzLib's wheels are ~115 MB). Until both are in
-    # place, a v* tag would fire this job only to fail — or worse, publish a broken first version
+    # every wheel fits PyPI's 100 MiB file limit (guarded in the build job since libtorch left the
+    # payload). Until both hold, a v* tag would fire this job only to fail — or worse, publish a broken first version
     # that PyPI then locks forever. So publishing stays OFF until someone sets the repository
     # variable PYPI_PUBLISH=true (Settings → Secrets and variables → Actions → Variables). Until
     # then, tagging still builds, tests, and gates wheels on every platform — it just doesn't ship.
