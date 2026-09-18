@@ -13,7 +13,7 @@ Then check it:
 ```python
 import pymzlib
 print(pymzlib.bridge_version())
-# {'bridge': '1.0.0.0', 'protocol': 1, 'runtime': '8.0.27'}
+# {'bridge': '1.0.0.0', 'protocol': 1, 'runtime': '10.0.8', 'mzlib': '1.0.0+8931f219...'}
 ```
 
 If that prints, everything works — including the .NET runtime bundled inside the package, which
