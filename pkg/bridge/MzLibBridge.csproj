@@ -44,4 +44,20 @@
     <ProjectReference Include="..\..\code\mzLib\mzLib\FlashLFQ\FlashLFQ.csproj" />
   </ItemGroup>
 
+  <!-- libtorch arrives through Proteomics -> Chromatography, which references libtorch-cpu for the
+       Chronologer retention-time predictor. No bridge verb reaches Chronologer, yet its native
+       libraries were ~110 MiB of the Linux wheel and put three of the four wheels over PyPI's
+       100 MiB file limit. This drops only the native libraries: TorchSharp's managed assembly stays,
+       so everything compiles and loads, and only an actual call into torch would fail. If a torch
+       verb is ever added, libtorch becomes an on-demand download rather than returning to the
+       payload (bridge decision BRIDGE-PAYLOAD-NO-LIBTORCH). -->
+  <Target Name="DropLibtorchNatives" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <_LibtorchNative Include="@(NativeCopyLocalItems)" Condition="$([System.String]::new('%(NativeCopyLocalItems.NuGetPackageId)').StartsWith('libtorch'))" />
+      <_LibtorchRuntimeTarget Include="@(RuntimeTargetsCopyLocalItems)" Condition="$([System.String]::new('%(RuntimeTargetsCopyLocalItems.NuGetPackageId)').StartsWith('libtorch'))" />
+      <NativeCopyLocalItems Remove="@(_LibtorchNative)" />
+      <RuntimeTargetsCopyLocalItems Remove="@(_LibtorchRuntimeTarget)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

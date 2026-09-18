@@ -44,7 +44,7 @@ system installation, and needs no configuration. Costs it does have:
   a per-spectrum loop.
 - **Serialization.** Everything crossing the boundary must be JSON-representable. Fine for
   manifests and file paths; wrong for a million-point spectrum.
-- **Size.** The wheel is about 115 MB because it contains a .NET runtime and mzLib's
+- **Size.** The wheel is about 60 MB because it contains a .NET runtime and mzLib's
   dependencies. See [design decisions](decisions.md#d8-payload-size-is-not-a-design-constraint).
 
 These costs bound where the design applies, and that boundary is honest: pyMzLib is for

@@ -34,8 +34,7 @@ print(digest.modification_census.explain())
 >
 > `pip install mzlib` today fetches a 5.2 KB placeholder that holds the name and raises on import
 > with a pointer back to that release page — deliberately, so it cannot be mistaken for a working
-> install. Real wheels land there once PyPI grants a file-size limit increase: each wheel carries a
-> self-contained .NET runtime and runs to ~100–170 MB against PyPI's default 100 MB per-file cap.
+> install. Real wheels replace it at the first PyPI release.
 
 That's the whole installation. No .NET runtime, no configuration, and **no third-party Python
 dependencies** — so pyMzLib cannot conflict with anything already in your environment.
