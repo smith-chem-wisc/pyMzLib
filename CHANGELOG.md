@@ -6,6 +6,11 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-18
+
+The first release on PyPI: `pip install mzlib`.
+
+
 ### Changed
 - **The PyPI package is now `pip install mzlib`, not `pip install pymzlib`.** The import name is
   unchanged — it is still `import pymzlib`, and the package directory is still `src/pymzlib`. A
@@ -163,4 +168,5 @@ envelope is not a breaking change unless Python callers can see it.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/commits/main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.1.0...main
+[0.1.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.0

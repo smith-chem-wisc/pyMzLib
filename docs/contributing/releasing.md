@@ -2,7 +2,8 @@
 
 ## How a release happens
 
-1. Bump the version in `pkg/python/pyproject.toml` and `pkg/python/src/pymzlib/__init__.py`.
+1. Bump `__version__` in `pkg/python/src/pymzlib/__init__.py` — the only place it lives;
+   `pyproject.toml` reads it from there.
 2. Update the changelog.
 3. Tag and push:
    ```bash
@@ -13,14 +14,17 @@
    [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — OIDC, so there are no API
    tokens stored anywhere.
 
-!!! warning "PyPI publishing is off until you switch it on"
+!!! warning "Every `v*` tag publishes to PyPI, permanently"
     The `publish to PyPI` job is gated on a repository variable `PYPI_PUBLISH=true` (Settings →
-    Secrets and variables → Actions → Variables). It ships **disabled** on purpose, because PyPI
-    cannot accept an upload until a Trusted Publisher is registered. Until then, tagging safely
-    builds and tests wheels on every platform without publishing, and a broken first version can't
-    be shipped and locked. Turn it on only once the setup below is done.
+    Secrets and variables → Actions → Variables), switched on for 0.1.0. PyPI never lets a version
+    number be reused — a broken upload can only be yanked and superseded — so a tag is a release,
+    not a rehearsal. To rehearse, set the variable to `false` first: the tag then builds, tests and
+    attaches assets without publishing.
 
-    **One-time PyPI setup, in order:**
+    Pre-release versions (`0.2.0.dev1`, `0.2.0rc1`) are skipped by a plain `pip install mzlib`,
+    which is useful for testing and wrong for a release meant to reach users.
+
+    **One-time PyPI setup, done for 0.1.0 (kept for the record):**
 
     1. Register the Trusted Publisher: on the `mzlib` project's
        [publishing settings](https://pypi.org/manage/project/mzlib/settings/publishing/), add a
@@ -45,15 +49,15 @@ GitHub Release. This is automatic; there is nothing to upload by hand.
     release first (with its notes), then push the tag. If no release exists the action creates a
     minimal one rather than failing, but you will be writing the notes afterwards.
 
-Because `PYPI_PUBLISH` is off, a `v*` tag builds, tests, and attaches without attempting to publish
-to PyPI.
+With `PYPI_PUBLISH` on, the same tag also publishes the four wheels to PyPI, once every platform's
+tests pass.
 
 ### Installing from a release
 
-No PyPI, no .NET:
+For a version that isn't on PyPI, or with no index access at all:
 
 ```bash
-pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0.dev3/<wheel-for-their-os>
+pip install https://github.com/smith-chem-wisc/pyMzLib/releases/download/v0.1.0/<wheel-for-their-os>
 ```
 
 ### Using the bridge without Python
@@ -62,7 +66,7 @@ The `.tar.gz` assets carry the same executable the wheels do, for callers that h
 install a Python package. Unpack and point `MZLIB_BRIDGE` at it:
 
 ```bash
-V=v0.1.0.dev3; RID=linux-x64
+V=v0.1.0; RID=linux-x64
 curl -sSLO https://github.com/smith-chem-wisc/pyMzLib/releases/download/$V/mzlib-bridge-$RID.tar.gz
 mkdir -p ~/.local/share/mzlib/$RID
 tar -xzf mzlib-bridge-$RID.tar.gz -C ~/.local/share/mzlib/$RID
