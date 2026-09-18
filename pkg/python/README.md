@@ -8,6 +8,9 @@ callable from Python.
 pip install mzlib
 ```
 
+Install it as `mzlib`, import it as `pymzlib` — the same split as `pip install scikit-learn` /
+`import sklearn`.
+
 That is the whole installation. There is no .NET to install, no runtime to configure, and no
 third-party Python package to reconcile with the rest of your environment — pyMzLib declares
 **zero runtime dependencies** and carries everything it needs inside the wheel.

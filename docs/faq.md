@@ -75,7 +75,7 @@ has what you need; nothing stops you using all three, since pyMzLib can't confli
 The installed package has no payload for your platform. Almost always one of:
 
 - You installed from an **sdist** instead of a wheel. An sdist can't carry a platform binary.
-  Check `pip install --only-binary=:all: pymzlib`.
+  Check `pip install --only-binary=:all: mzlib`.
 - You're running from a **source checkout** where the bridge hasn't been built. See
   [building from source](contributing/building.md).
 - Your platform isn't among the published wheels (linux-x64, win-x64, osx-x64, osx-arm64).

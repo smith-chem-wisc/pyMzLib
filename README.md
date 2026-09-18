@@ -7,6 +7,9 @@
 pip install mzlib
 ```
 
+Install it as `mzlib`, import it as `pymzlib` — the same split as `pip install scikit-learn` /
+`import sklearn`. The project and this repository are pyMzLib.
+
 ```python
 import pymzlib
 
