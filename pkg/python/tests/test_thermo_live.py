@@ -36,7 +36,7 @@ def built_bridge():
 
 
 def test_a_thermo_raw_file_reads_through_the_packaged_bridge(built_bridge):
-    scans = readers.read_spectra(str(THERMO_FIXTURE), limit=3, peaks=True)
+    scans = readers.read_spectra(THERMO_FIXTURE, limit=3, peaks=True)
 
     assert scans.file_type == "ThermoRaw"
     assert scans.scan_count == 54

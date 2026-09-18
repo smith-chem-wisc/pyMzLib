@@ -165,6 +165,20 @@ def _validate_timeout(timeout: float | None) -> None:
         raise UsageError("timeout must be finite; pass None to wait indefinitely.")
 
 
+def path_text(value: object) -> str:
+    """The text of a path argument, or ``""`` if ``value`` is not a usable path.
+
+    Accepts a ``str`` or any ``os.PathLike`` - chiefly ``pathlib.Path``, which is what
+    ``pride.download`` returns, so its result can go straight into a reader. Anything else,
+    including ``bytes`` paths, comes back blank so the caller raises its own specific message.
+    """
+    if isinstance(value, os.PathLike):
+        value = os.fspath(value)
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
 def invoke(*args: str, stdin: str | None = None, timeout: float | None = None) -> Any:
     """Run one bridge command and return the decoded ``data`` payload.
 

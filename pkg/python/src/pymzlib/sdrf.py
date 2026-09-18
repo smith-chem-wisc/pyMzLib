@@ -58,6 +58,7 @@ whether a document is *correct*.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -255,7 +256,7 @@ def _window(limit: int | None, offset: int) -> list[str]:
 
 
 def read(
-    path: str,
+    path: str | os.PathLike[str],
     *,
     limit: int | None = None,
     offset: int = 0,
@@ -282,10 +283,11 @@ def read(
         >>> doc.all("comment[modification parameters]")[0]     # doctest: +SKIP
         ['NT=Carbamidomethyl;AC=UNIMOD:4;TA=C;MT=Fixed', 'NT=Oxidation;AC=UNIMOD:35;...']
     """
-    if not isinstance(path, str) or not path.strip():
+    path = _bridge.path_text(path)
+    if not path:
         raise _bridge.UsageError("A file path is required, e.g. 'PXD000070.sdrf.tsv'.")
 
-    args = ["sdrf", "read", "--path", path.strip(), *_window(limit, offset)]
+    args = ["sdrf", "read", "--path", path, *_window(limit, offset)]
     data = _bridge.invoke(*args, timeout=timeout)
     return SdrfDocument._from_wire(data)
 
@@ -293,7 +295,7 @@ def read(
 def pool(
     documents: Sequence[str] | Mapping[str, str],
     *,
-    out: str | None = None,
+    out: str | os.PathLike[str] | None = None,
     limit: int | None = None,
     offset: int = 0,
     timeout: float | None = 60,
@@ -371,9 +373,10 @@ def pool(
 
     args = ["sdrf", "pool", *_window(limit, offset)]
     if out is not None:
-        if not isinstance(out, str) or not out.strip():
+        out = _bridge.path_text(out)
+        if not out:
             raise _bridge.UsageError("out must be a non-empty path or None.")
-        args += ["--out", out.strip()]
+        args += ["--out", out]
 
     data = _bridge.invoke(*args, stdin="\n".join(lines), timeout=timeout)
     return PooledSdrf._from_wire(data)

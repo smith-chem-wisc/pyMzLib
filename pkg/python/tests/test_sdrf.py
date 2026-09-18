@@ -217,7 +217,16 @@ def test_a_tab_in_a_label_is_refused_because_it_is_the_field_separator():
         sdrf.pool({"a.sdrf.tsv": "mal\taria"})
 
 
-@pytest.mark.parametrize("path", ["", "   ", None, 7])
+def test_read_and_pool_accept_path_objects(captured):
+    sdrf.read(Path("PXD000070.sdrf.tsv"))
+    assert captured["args"][:4] == ("sdrf", "read", "--path", "PXD000070.sdrf.tsv")
+
+    sdrf.pool([Path("a.sdrf.tsv"), Path("b.sdrf.tsv")], out=Path("pooled.tsv"))
+    assert captured["kwargs"]["stdin"] == "a.sdrf.tsv\nb.sdrf.tsv"
+    assert captured["args"][-2:] == ("--out", "pooled.tsv")
+
+
+@pytest.mark.parametrize("path", ["", "   ", None, 7, b"a.sdrf.tsv"])
 def test_read_requires_a_path(path):
     with pytest.raises(pymzlib.UsageError, match="file path is required"):
         sdrf.read(path)

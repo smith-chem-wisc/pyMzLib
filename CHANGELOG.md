@@ -6,6 +6,13 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+- **Every file-path argument accepts a `pathlib.Path` as well as a string.** `pride.download`
+  returns `Path` objects, but the readers, `sdrf` and `flashlfq` refused them with "A file path is
+  required", so its result could not go straight into `read_spectra` without wrapping it in `str()`.
+  Any `os.PathLike` now works for input files, `out=` and `output_directory=`, and in FlashLFQ's
+  `spectra` list. `bytes` paths are still refused.
+
 ### Fixed
 - **Reading a Thermo `.raw` file works.** In 0.1.0 every `.raw` read failed with
   `BridgeError: Method invocation failed on Method[ThreadedFileFactory]`, on every platform. Thermo's
