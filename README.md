@@ -27,15 +27,6 @@ digest = pymzlib.peptidoform.fragments("P02768")
 print(digest.modification_census.explain())
 ```
 
-> **Preview release — the working wheels are on GitHub, not yet on PyPI.** Download the wheel for
-> your OS from the [latest release](https://github.com/smith-chem-wisc/pyMzLib/releases/latest)
-> and `pip install` the file directly (Windows, macOS Intel / Apple Silicon, and Linux are all
-> there). The command above is what release day will look like.
->
-> `pip install mzlib` today fetches a 5.2 KB placeholder that holds the name and raises on import
-> with a pointer back to that release page — deliberately, so it cannot be mistaken for a working
-> install. Real wheels replace it at the first PyPI release.
-
 That's the whole installation. No .NET runtime, no configuration, and **no third-party Python
 dependencies** — so pyMzLib cannot conflict with anything already in your environment.
 
