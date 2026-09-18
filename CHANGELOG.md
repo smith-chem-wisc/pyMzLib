@@ -6,6 +6,10 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-18
+
+Fixes Thermo `.raw` reading, which failed on every platform in 0.1.0.
+
 ### Changed
 - **Every file-path argument accepts a `pathlib.Path` as well as a string.** `pride.download`
   returns `Path` objects, but the readers, `sdrf` and `flashlfq` refused them with "A file path is
@@ -187,5 +191,6 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.1.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.1.1...main
+[0.1.1]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.1
 [0.1.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.0
