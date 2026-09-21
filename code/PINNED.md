@@ -70,3 +70,4 @@ document and nothing may be added below it.
 | 2026-08-25 | `8f3352cc` | 1.0.586 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
 | 2026-08-31 | `1699ac4b` | 1.0.588 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
 | 2026-09-07 | `8931f219` | 1.0.589 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
+| 2026-09-21 | `45386c82` | 1.0.591 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
