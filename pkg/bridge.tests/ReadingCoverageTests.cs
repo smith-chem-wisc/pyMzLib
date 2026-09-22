@@ -71,7 +71,7 @@ public class ReadingCoverageTests
     /// member absent from mzLib's own <c>TestSupportedFileExtensions</c> cases, which is presumably
     /// how the naming slipped through. The fixture is therefore copied to a correctly-named
     /// temporary file by <see cref="FixtureFor"/> rather than skipped, so the coverage claim holds
-    /// for all thirty-one; the upstream fixture is tracked in bridge/UPSTREAM.md.
+    /// for all thirty-two; the upstream fixture is tracked in bridge/UPSTREAM.md.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
@@ -109,6 +109,8 @@ public class ReadingCoverageTests
         // The smallest of mzLib's three SDRF corpus files; the other two (PXD026824, PXD059974)
         // exercise the validator and the cross-document lint, which are not this suite's subject.
         [SupportedFileType.Sdrf] = "FileReadingTests/ExternalFileTypes/PXD000070.sdrf.tsv",
+        // mzLib's only Pytheas file is 5.5 MB; FixtureFor trims it to its head (see there).
+        [SupportedFileType.PytheasResult] = "FileReadingTests/ExternalFileTypes/match_output_Lumos_Orbi.txt",
     };
 
     /// <summary>
@@ -165,6 +167,17 @@ public class ReadingCoverageTests
             string renamed = Path.Combine(_tempDirectory, "DinoSnippet.feature.tsv");
             File.Copy(path, renamed, overwrite: true);
             return renamed;
+        }
+
+        // mzLib's Pytheas fixture is 5.5 MB, over four times the rest of the map combined. Its first
+        // 40 lines are the whole '#' parameter header plus the first several PRECURSOR_ION groups,
+        // which is every line shape the reader parses. Each match line is self-contained, so a cut
+        // between groups leaves a valid file.
+        if (fileType == SupportedFileType.PytheasResult)
+        {
+            string head = Path.Combine(_tempDirectory, "match_output_head.txt");
+            File.WriteAllLines(head, File.ReadLines(path).Take(40));
+            return head;
         }
 
         return path;
@@ -805,7 +818,9 @@ public class ReadingCoverageTests
             ("CasanovoMzTabRecord.cs:84", "IsDecoy"),
             ("CasanovoMzTabFile.cs:116", "OneBasedScanNumber"),
             ("CasanovoMzTabFile.cs:124", "Modification"),
-            ("Mgf.cs:270", "MzRange"),
+            ("Mgf.cs:297", "PRECURSORSCAN"),
+            ("Mgf.cs:346", "MzRange"),
+            ("Mgf.cs:350", "msLevel"),
             ("MsAlign.cs:526", "MzRange"),
         ];
 

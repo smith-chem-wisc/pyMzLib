@@ -1,5 +1,5 @@
 {
-  "format_count": 31,
+  "format_count": 32,
   "formats": [
     {
       "file_type": "Ms1Feature",
@@ -219,6 +219,12 @@
       "file_type": "Sdrf",
       "extension": ".sdrf.tsv",
       "reader": "SdrfDocument",
+      "views": []
+    },
+    {
+      "file_type": "PytheasResult",
+      "extension": ".txt",
+      "reader": "PytheasResultFile",
       "views": []
     }
   ]

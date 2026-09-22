@@ -9,14 +9,14 @@ namespace MzLibBridge;
 /// </summary>
 /// <remarks>
 /// <para>
-/// mzLib's <c>Readers</c> recognises 31 file types written by a dozen different search and
+/// mzLib's <c>Readers</c> recognises 32 file types written by a dozen different search and
 /// deconvolution tools, and dispatches each to a parser it maintains. That dispatch is the whole
 /// value here — the bridge adds no parsing of its own; it asks mzLib what a path is
 /// (<see cref="SupportedFileTypeExtensions.ParseFileType"/>) and reports the answer.
 /// </para>
 /// <para>
 /// The important honesty in this verb is <c>views</c>. It is tempting to describe mzLib as reading
-/// 31 formats into one uniform shape; it does not. Only four types implement
+/// 32 formats into one uniform shape; it does not. Only four types implement
 /// <see cref="IQuantifiableResultFile"/> (MetaMorpheus <c>.psmtsv</c> and <c>.osmtsv</c>,
 /// MSFragger <c>psm.tsv</c>, and DIA-NN <c>report.tsv</c>); deconvolution features have their own interface
 /// (<see cref="IMs1FeatureFile"/>); spectra files are an <see cref="MsDataFile"/>; and several

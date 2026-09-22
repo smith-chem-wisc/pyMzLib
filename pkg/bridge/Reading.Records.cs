@@ -27,7 +27,7 @@ namespace MzLibBridge;
 /// </para>
 /// <para>
 /// <b><c>read-records</c> is the exhaustive one</b>, and it is a deliberately different animal. It
-/// works on all twenty-nine, including the thirteen that belong to no cross-format interface at all
+/// works on all thirty-two, including the fifteen that belong to no cross-format interface at all
 /// (TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, …), by
 /// projecting each format's <i>own</i> record type. So its columns are <b>not</b> uniform: reading a
 /// TopPIC file gives you TopPIC's thirty-odd columns under TopPIC's own names, and reading a Crux
@@ -47,7 +47,7 @@ internal static partial class Reading
 {
     /// <summary>
     /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c> — any of the
-    /// 31 file types, as a table of its own native fields.
+    /// 32 file types, as a table of its own native fields.
     /// </summary>
     /// <remarks>
     /// The only verb here with no view requirement: if <c>readers identify</c> succeeds on a path,
