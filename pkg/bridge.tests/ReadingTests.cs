@@ -87,6 +87,9 @@ public class ReadingTests
         // directory holds: analysis.baf is a classic Bruker, analysis.tdf a timsTOF.
         "BrukerD" => BrukerDirectory("bruker.d", "analysis.baf"),
         "BrukerTimsTof" => BrukerDirectory("timstof.d", "analysis.tdf"),
+        // .txt, disambiguated by a "#theoretical_digest" line in its first five. Without it mzLib
+        // dispatches the same extension to CruxResult, which is what an empty sample.txt became.
+        "PytheasResult" => Touch("pytheas.txt", "#theoretical_digest digest.txt\n"),
         // Everything else dispatches on the name: "sample" + the type's dispatch extension lands on
         // exactly this type (e.g. sample.psmtsv, sample_prsm.tsv, samplepsm.tsv, sample_ms1.feature).
         _ => Touch("sample" + extension),
@@ -267,8 +270,8 @@ public class ReadingTests
         // comparison is tautological — it checks the output against its own source — so mzLib adding
         // a 30th type would pass it green while the guide's supported-format table silently went
         // stale. The literal is the tripwire that forces the docs to be regenerated.
-        Assert.That(formats.GetArrayLength(), Is.EqualTo(31),
-            "mzLib recognises 31 result-file types; a change here means the docs table needs regenerating");
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(32),
+            "mzLib recognises 32 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
             "every enum member must appear in the listing");
 
@@ -294,7 +297,7 @@ public class ReadingTests
     public void Formats_ExactlyFourTypesOfferTheQuantifiableView()
     {
         // The headline fact about this tranche, pinned so a change in mzLib is DETECTED rather than
-        // silently widening or narrowing what pyMzLib claims. mzLib reads 31 formats; only these
+        // silently widening or narrowing what pyMzLib claims. mzLib reads 32 formats; only these
         // four implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
         // If mzLib adds one, this test fails and the docs get updated — which is the point.
         //
@@ -318,7 +321,9 @@ public class ReadingTests
 
         // The exact count, not "more than ten": a loose bound cannot detect mzLib narrowing or
         // widening the viewless set, which is the only thing this test is for.
-        Assert.That(viewless, Is.EqualTo(14),
+        // 14 -> 15 with mzLib #1277: PytheasResult parses into its own record type and implements
+        // no cross-format interface.
+        Assert.That(viewless, Is.EqualTo(15),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
     }

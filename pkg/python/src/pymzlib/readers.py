@@ -9,7 +9,7 @@ peaks on request::
     >>> scans.scan_count, scans.columns["retention_time"][:2]          # doctest: +SKIP
     (455, [0.0011, 0.0285])
 
-mzLib recognises 31 file types in all - the instrument and deconvolution formats above, plus the
+mzLib recognises 32 file types in all - the instrument and deconvolution formats above, plus the
 output of a dozen search tools: MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ - and dispatches each to a parser it maintains.
 This module asks it what a path is::
@@ -25,9 +25,9 @@ This module asks it what a path is::
     >>> table.record_type, len(table.column_names)                # doctest: +SKIP
     ('ToppicPrsm', 36)
 
-**Every one of the 31 formats is readable** - :func:`read_records` reads any of them. What differs
+**Every one of the 32 formats is readable** - :func:`read_records` reads any of them. What differs
 between formats is not *whether* you can read them but *what the columns mean*, and that is what
-:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 31 formats into one
+:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 32 formats into one
 uniform shape; it does not. They fall into disjoint families, and several belong to no family at
 all:
 
@@ -48,11 +48,11 @@ all:
 | ``"spectra"``       | 7     | :func:`read_spectra`   | uniform: scan headers, and peaks on   |
 |                     |       |                        | request.                              |
 +---------------------+-------+------------------------+---------------------------------------+
-| *(any)*             | 31    | :func:`read_records`   | **this format's own fields**, under   |
+| *(any)*             | 32    | :func:`read_records`   | **this format's own fields**, under   |
 |                     |       |                        | mzLib's names. Not uniform.           |
 +---------------------+-------+------------------------+---------------------------------------+
 
-``views == []`` is a real and common answer - fourteen types have it. TopPIC, Crux, MSFragger's
+``views == []`` is a real and common answer - fifteen types have it. TopPIC, Crux, MSFragger's
 peptide and protein tables and the FlashDeconv formats each parse into their own record type with
 nothing in common. mzLib reads them and so does :func:`read_records`; there is simply no uniform
 view to project them onto, and inventing one here would mean publishing a schema mzLib does not
@@ -830,7 +830,7 @@ def read_records(
     """Read **any** file mzLib recognises, into that format's own fields.
 
     This is the exhaustive verb: if :func:`identify` succeeds on a path, this reads it. All
-    twenty-nine file types, including the thirteen that belong to no cross-format view at all -
+    thirty-two file types, including the fifteen that belong to no cross-format view at all -
     TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats - which no other
     function here can touch.
 

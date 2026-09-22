@@ -6,6 +6,17 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+- **The bridge is built from mzLib 1.0.591** (was the 8931f219 commit), so mzLib's fixes to MGF,
+  mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases arrive with it.
+- **`read_records()` reads Pytheas match output**, a 32nd format (mzLib #1277). It has no uniform
+  view. A `.txt` file is read as Pytheas when a `#theoretical_digest` line appears in its first five
+  lines, and as Crux otherwise.
+- **MGF: `one_based_precursor_scan_number` is no longer always null.** mzLib #1227 reads it from
+  `PRECURSORSCAN`, an mzLib extension header. It is still null on MGF files mzLib did not write. The
+  caveat now says so. It also said scan numbers came from the `TITLE` line, which was wrong: they
+  come from `SCANS`, or from file order.
+
 ## [0.1.1] - 2026-09-18
 
 Fixes Thermo `.raw` reading, which failed on every platform in 0.1.0.

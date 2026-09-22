@@ -4,7 +4,7 @@
 **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign — scan headers always, peaks on
 request.
 
-mzLib recognises **31 file types** in all: those instrument and deconvolution formats, plus the
+mzLib recognises **32 file types** in all: those instrument and deconvolution formats, plus the
 output of a dozen search tools — MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, FlashLFQ — and maintains a parser for each. pyMzLib lets you point
 at a file, ask what it is, and read it.
@@ -19,7 +19,7 @@ table = pymzlib.readers.read_records("toppic_prsm.tsv")
 print(table.record_type, len(table.column_names))    # ToppicPrsm 36
 ```
 
-**All 31 formats are readable.** What differs between them is not whether you can read them but
+**All 32 formats are readable.** What differs between them is not whether you can read them but
 what the columns mean — which is the whole subject of this page.
 
 ## Five ways to read, and how to choose
@@ -29,7 +29,7 @@ worth stating plainly before anything else:
 
 | function | reads | columns | use it when |
 |---|---|---|---|
-| [`read_records()`](#read_records-any-format-its-own-fields) | **all 31** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
+| [`read_records()`](#read_records-any-format-its-own-fields) | **all 32** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
 | [`read_results()`](#read_results-the-quantifiable-view) | 3 | uniform: sequence, RT, charge, mass, proteins | you are feeding [FlashLFQ](flashlfq.md) or comparing search results |
 | [`read_features()`](#read_features-deconvolved-ms1-features) | 2 | uniform: m/z, charge, RT range, intensity | you are working with deconvolved MS1 features |
 | [`read_matches()`](#read_matches-identifications) | 4 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT or Casanovo |
@@ -47,16 +47,16 @@ MetaMorpheus's, and no other format has them.
 
 ## Start with `views`, not with the file type
 
-It would be convenient if mzLib read all 31 formats into one uniform table. **It does not.** The
-formats fall into disjoint families, and thirteen belong to no family at all:
+It would be convenient if mzLib read all 32 formats into one uniform table. **It does not.** The
+formats fall into disjoint families, and fifteen belong to no family at all:
 
 | view | what it means | which formats |
 |---|---|---|
-| `quantifiable` | a cross-format record view — sequence, retention time, charge, mass, protein groups. What [`flashlfq.quantify()`](flashlfq.md) accepts. | **3**: MetaMorpheus `.psmtsv`/`.osmtsv`, MSFragger `psm.tsv` |
+| `quantifiable` | a cross-format record view — sequence, retention time, charge, mass, protein groups. What [`flashlfq.quantify()`](flashlfq.md) accepts. | **4**: MetaMorpheus `.psmtsv`/`.osmtsv`, MSFragger `psm.tsv`, DIA-NN `report.tsv` |
 | `ms1_features` | deconvolved MS1 features | **2**: TopFD `_ms1.feature`, Dinosaur |
 | `spectral_match` | records are identifications, but share no *file*-level interface | **4**: MsPathFinderT ×3, Casanovo |
 | `spectra` | the file is spectra, not results | **7**: `.raw`, `.mzML`, `.mgf`, `.d` ×2, msalign ×2 |
-| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **13**: TopPIC ×4, Crux, MSFragger peptide/protein, FlashDeconv, and more |
+| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **15**: TopPIC ×4, Crux, Pytheas, MSFragger peptide/protein, FlashDeconv, and more |
 
 `views == []` is a real and common answer, not an error — it is the majority answer, in fact. It
 means "mzLib reads this, but there is no uniform projection of it", and `read_records()` is exactly
@@ -397,6 +397,7 @@ reflects your installed version rather than this page's age. Every row is readab
 | `CasanovoMzTab` | `.mztab` | `spectral_match` |
 | `DiaNnReport` | `report.tsv` | `quantifiable` |
 | `Sdrf` | `.sdrf.tsv` | (none) |
+| `PytheasResult` | `.txt` | (none) |
 
 Note that **extensions are not unique**: both Bruker types are `.d` (told apart by what the
 directory contains), and several formats share `.tsv`, disambiguated by filename suffix and
@@ -404,13 +405,19 @@ sometimes by reading the first line. Renaming a file changes how it parses — w
 hypothetical: mzLib's own Dinosaur test fixture is named `.features.tsv` and cannot be dispatched
 until it is renamed to `.feature.tsv`.
 
-`DiaNnReport` is the one row where the extension column is **not** how dispatch works. mzLib
+`DiaNnReport` is one of two rows where the extension column is **not** how dispatch works. mzLib
 reports its extension as `report.tsv`, the conventional DIA-NN name, but matches on the header
 instead — a file is a DIA-NN report if its first line carries `File.Name`, `Precursor.Id` and
 `Stripped.Sequence`. That is deliberate upstream: whoever ran the search routinely renames the
 report, and `File.Name` is what separates the long-format report from the `pr_matrix` reports
 DIA-NN writes beside it, which carry the other two columns but one column per run. So a renamed
 DIA-NN report still reads, and a `report.tsv` that is not one still will not.
+
+`PytheasResult` is the other. Pytheas (RNA oligonucleotide search) writes its match output with no
+fixed name, so mzLib looks for a `#theoretical_digest` line in the first five lines of a `.txt`
+file. Only a `.txt` without one is read as a `CruxResult`. The records are
+Pytheas's own match lines, one per candidate. Charges are negative, and `molecule_location` reads
+`decoy` on decoy matches.
 
 ## What is not covered
 
