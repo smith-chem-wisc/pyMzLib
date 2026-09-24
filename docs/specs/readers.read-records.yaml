@@ -1,0 +1,121 @@
+# Written 2026-09-23 from pyMzLib pkg/bridge/Reading.Records.cs (ReadRecords, Window, RecordProjection,
+# WriteProjectedTable) on branch chore/mzlib-pin-1.0.592 (pyMzLib#61), mzLib pin 23c2490e (tag
+# 1.0.592). Every example fixture was recorded from, or diffed against, the live bridge on that branch.
+verb: readers read-records
+module: readers
+summary: >-
+  Read any file mzLib recognises into a table of that format's own record fields, naming every field
+  that could not become a column.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: FileReader.ReadResultFile, path: mzLib/Readers/FileReader.cs, pin: 23c2490e}
+  - {symbol: IResultFile.LoadResults, path: mzLib/Readers/BaseClasses/IResultFile.cs, pin: 23c2490e}
+cite: []
+
+params:
+  - name: path
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Any of the file types readers formats lists (36 at mzLib 1.0.592), including spectra files and
+      the Bruker .d directories.
+  - name: offset
+    type: int
+    required: false
+    unit: records
+    range: ">= 0"
+    default: 0
+    doc: >-
+      Skip this many records. A window, not a cursor: mzLib parses the whole file on every call, so
+      paging re-reads it. For a large file use out in one call.
+  - name: limit
+    type: int
+    required: false
+    unit: records
+    range: ">= 0"
+    default: null
+    doc: Return at most this many records. Absent means no limit; there is deliberately no default cap.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Write the selected window as a tab-separated table here instead of returning columns (header =
+      column_names). Must differ from path. Parent directories are created.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the input."}
+    - {wire: file_type, type: string, unit: null, nullable: false, null_means: null, doc: "The SupportedFileType mzLib dispatched, not a guess from the extension."}
+    - {wire: reader, type: string, unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that parsed it."}
+    - {wire: record_type, type: string, unit: null, nullable: false, null_means: null, doc: "The mzLib record class the columns are properties of (e.g. ToppicPrsm, MzIdentMLRecord, ProteinGroupFromTsv), so a column is cross-referenceable against the mzLib source."}
+    - {wire: views, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The cross-format views this file also offers; same values as readers formats."}
+    - {wire: record_count, type: int, unit: records, nullable: false, null_means: null, doc: "Records mzLib parsed from the whole file, before the window. Records, not lines: see caveats."}
+    - {wire: returned_count, type: int, unit: records, nullable: false, null_means: null, doc: "Records in columns; 0 when written to out."}
+    - {wire: offset, type: int, unit: records, nullable: false, null_means: null, doc: "The offset applied."}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever records were left out by offset or limit."}
+    - {wire: excluded_fields, type: table, unit: null, nullable: false, null_means: null, doc: "Every property of record_type that could not become a column, as {field, type, reason}: nested objects, lists of composites, and dictionaries (reason starts \"a dictionary\"). Empty when every property projects."}
+    - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "\"field: ExceptionType\" for every property that threw while being read on a returned record; those cells are null."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The record type's projectable public properties in snake_case, base class first, in declaration order."}
+    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-record values, in column_names order."}
+    - {wire: output, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given; row_count is the window written, not the whole file."}
+  # The columns are NOT a fixed set: they are record_type's own properties and differ per format, so
+  # they are reported in column_names on every response. The checker verifies each example fixture's
+  # columns against its own column_names instead of against a list here.
+  columns: per-format
+  cell_rules:
+    - "A cell is null when mzLib's value is null, when a double is NaN or infinite (JSON cannot carry it), or when the property threw (then named in failed_fields)."
+    - "-1 crosses unchanged: in a format's own columns it is often a real measurement. The one exception is retention_time and monoisotopic_mass on IQuantifiableRecord types (psmtsv, osmtsv, MsFraggerPsm, DiaNnReport), where mzLib documents -1 as absent; those are null, matching read-results."
+    - "Units are the writing tool's and are not normalised: retention time is minutes for psmtsv/osmtsv/MsFraggerPsm/DiaNnReport and undeclared for the rest. read-records carries no retention_time_unit; use a typed view when units matter."
+    - "Enums cross as their member names, dates as ISO 8601 strings, and a list of scalars as ONE ';'-joined string, on the wire and in out alike; split it yourself."
+
+errors:
+  - {kind: usage, when: "path missing or blank; file or directory not found"}
+  - {kind: usage, when: "mzLib does not recognise the file type (the message points at readers formats)"}
+  - {kind: usage, when: "offset, limit or out given with no value; offset or limit < 0; non-integer value; out resolves to the same file as path"}
+  - {kind: correctness, when: "the file is recognised but mzLib fails to parse it; the error type is mzLib's own (e.g. HeaderValidationException, MzLibException)"}
+  - {kind: correctness, when: "a vendor format that cannot load on this platform surfaces as its real failure (Bruker/timsTOF native DLLs are Windows x64 only)"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Columns are this format's own fields under mzLib's names. Two formats do not share columns, and a same-named column need not mean the same thing; use a typed view (read-results, read-features, read-matches, read-spectra) for comparable columns."
+  - "No field is silently dropped: anything that cannot be a column is in excluded_fields. At mzLib 1.0.592 that includes the most important values of three new readers, which are dictionaries: MetaMorpheusQuantifiedProteinGroups.sample_groups (per-sample intensity, spectral count, occupancy), FlashLFQQuantifiedPeptide.samples (per-run intensity, detection type, RT) and MzIdentML/MzIdentMLGz.scores (engine scores)."
+  - "record_count counts what mzLib parsed, not lines. Rows mzLib drops are not reported here: the psmtsv readers discard malformed lines (read-results reports rows_not_read; this verb does not), and the mzIdentML reader skips items it cannot represent into SkippedMatches, which the bridge does not report."
+  - "Since mzLib 1.0.592 (#1346), pro_forma on psmtsv/osmtsv from MetaMorpheus 1.1.11 or earlier is computed from full_sequence instead of null; ambiguous or unconvertible rows stay null. Measured cost: 12.9 s -> 15.6 s on a 271,551-row psmtsv."
+  - "Since mzLib 1.0.592 (#1345), mbr_score on FlashLFQQuantifiedPeak is null, not 0, when a peak has no score, and current-format peaks tables (no MBR Score column) read, with seven more columns."
+  - "offset/limit window after a full parse; memory and time scale with the file, not the window."
+
+bindings:
+  py: {name: pymzlib.readers.read_records}
+  rust: {name: "mzlib::readers::read_records_with", options: ReadOptions}
+  r: {name: readers_read_records}
+
+examples:
+  - fixture: readers_records_crux.json
+    py: "result = pymzlib.readers.read_records(path, limit=3)"
+    rust: "let result = mzlib::readers::read_records_with(path, &ReadOptions { limit: Some(3), ..Default::default() })?;"
+    r: "result <- readers_read_records(path, limit = 3)"
+  - fixture: readers_records_toppic.json
+    py: "result = pymzlib.readers.read_records(path)"
+    rust: "let result = mzlib::readers::read_records(path)?;"
+    r: "result <- readers_read_records(path)"
+  - fixture: readers_records_mzid_gz.json
+    py: "result = pymzlib.readers.read_records(path, limit=3)"
+    rust: "let result = mzlib::readers::read_records_with(path, &ReadOptions { limit: Some(3), ..Default::default() })?;"
+    r: "result <- readers_read_records(path, limit = 3)"
+  - fixture: readers_records_mm_protein_groups.json
+    py: "result = pymzlib.readers.read_records(path, limit=2)"
+    rust: "let result = mzlib::readers::read_records_with(path, &ReadOptions { limit: Some(2), ..Default::default() })?;"
+    r: "result <- readers_read_records(path, limit = 2)"
+  - fixture: readers_records_mm_peptides.json
+    py: "result = pymzlib.readers.read_records(path)"
+    rust: "let result = mzlib::readers::read_records(path)?;"
+    r: "result <- readers_read_records(path)"
+
+open_questions:
+  - "The three mzLib 1.0.592 fixtures (mzid_gz, mm_protein_groups, mm_peptides) exist only on pyMzLib#61 until it merges; mzLibRust and mzLibR have not copied them."

@@ -6,6 +6,25 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Added
+- **Reference fact tables rendered from the bridge's per-verb specs.** Parameters (with units and
+  ranges), result fields (with units and what null means), errors, caveats, the wrapped mzLib code
+  and the same verb's spelling in mzLibRust and mzLibR now come from one spec per wire verb,
+  vendored in `docs/specs/`. They are rendered into `docs/reference/`, starting with `readers
+  formats`, `read-records` and `read-spectra`. CI fails when a table is stale, or when a docstring
+  lacks a spec param or field, or its unit.
+- **The docstring examples run in CI.** Each runs against a replay bridge that answers from
+  fixtures recorded from the real bridge. Before this change none ran. Now 54 example lines run;
+  20 are still skipped, each with its reason (the network, a download, pandas, or no recording
+  yet). Running them corrected two examples: the PXD000001 total size was shown for RAW files but
+  computed over all files, and the census text had changed.
+- **A weekly external link check** (`links.yml`, lychee).
+
+### Fixed
+- **Docstring examples render as code in the API reference.** They sat under `Example:`, which
+  griffe reads as an admonition, so the site showed every `>>>` line as nested blockquotes. They are
+  now under `Examples:`, and a test keeps them there.
+
 ### Changed
 - **The bridge is built from mzLib 1.0.592** (was the 8931f219 commit, via 1.0.591), so mzLib's
   fixes to MGF, mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases

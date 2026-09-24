@@ -5,24 +5,25 @@ can do with it, and its records.
 **mzML**, Thermo ``.raw``, Bruker ``.d``, timsTOF ``.d``, MGF and msalign - scan headers always,
 peaks on request::
 
-    >>> scans = pymzlib.readers.read_spectra("run.mzML", peaks=True)   # doctest: +SKIP
-    >>> scans.scan_count, scans.columns["retention_time"][:2]          # doctest: +SKIP
-    (455, [0.0011, 0.0285])
+    >>> import pymzlib
+    >>> scans = pymzlib.readers.read_spectra("sliced_ethcd.mzML", limit=3)
+    >>> scans.scan_count, scans.columns["retention_time"][:2]
+    (6, [38.92571663975, 38.92606115255])
 
 mzLib recognises 36 file types in all - the instrument and deconvolution formats above, plus the
 output of a dozen search tools: MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ, Pytheas, and any mzIdentML writer - and
 dispatches each to a parser it maintains. This module asks it what a path is::
 
-    >>> import pymzlib
+    >>> # Not run in CI: no "readers identify" recording to replay yet.
     >>> info = pymzlib.readers.identify("psm.tsv")     # doctest: +SKIP
     >>> info.file_type, info.views                     # doctest: +SKIP
     ('MsFraggerPsm', ['quantifiable'])
 
 ...and reads it, whatever it turns out to be::
 
-    >>> table = pymzlib.readers.read_records("toppic_prsm.tsv")   # doctest: +SKIP
-    >>> table.record_type, len(table.column_names)                # doctest: +SKIP
+    >>> table = pymzlib.readers.read_records("ToppicPrsm_TopPICv1.6.2_prsm.tsv")
+    >>> table.record_type, len(table.column_names)
     ('ToppicPrsm', 36)
 
 **Every one of the 36 formats is readable** - :func:`read_records` reads any of them. What differs
@@ -400,7 +401,7 @@ class NativeRecords(_Table):
         views: The uniform views this file *also* supports, if any - see the module docstring.
         record_count: Records in the **whole file**, regardless of ``limit`` or ``offset``.
         returned_count: Records carried back in :attr:`columns`. Zero when ``out`` was given.
-        offset: The offset that was applied.
+        offset: Records skipped: the offset that was applied.
         truncated: Whether records were left behind, by either ``limit`` or ``offset``.
         excluded_fields: **Fields of the record type that could not become columns**, each with the
             reason. Nested objects and dictionaries have no faithful column shape, and inventing
@@ -615,7 +616,7 @@ class ScanRecords(_Table):
         ms_order: The MS level filtered to, or ``None`` if unfiltered.
         record_count: Scans that passed the ``ms_order`` filter.
         returned_count: Scans carried back in :attr:`columns`. Zero when ``out`` was given.
-        offset: The offset that was applied.
+        offset: Scans skipped: the offset that was applied, counted after ``ms_order``.
         truncated: Whether scans were left behind, by either ``limit`` or ``offset``.
         peaks_included: Whether ``mz`` and ``intensity`` are present. When ``False``, ``peak_count``
             still tells you how many peaks each scan has.
@@ -726,9 +727,9 @@ def formats(timeout: float | None = 60) -> list[Format]:
     Returns:
         One :class:`Format` per supported file type.
 
-    Example:
-        >>> quantifiable = [f.file_type for f in formats() if f.is_quantifiable]  # doctest: +SKIP
-        >>> quantifiable                                                          # doctest: +SKIP
+    Examples:
+        >>> quantifiable = [f.file_type for f in formats() if f.is_quantifiable]
+        >>> quantifiable
         ['psmtsv', 'osmtsv', 'MsFraggerPsm', 'DiaNnReport']
     """
     data = _bridge.invoke("readers", "formats", timeout=timeout)
@@ -755,7 +756,8 @@ def identify(path: str | os.PathLike[str], timeout: float | None = 60) -> FileIn
             mzLib has no "unknown" result - a file is dispatchable or it is an error - so use
             :func:`formats` to see what is supported, or catch this to test a file.
 
-    Example:
+    Examples:
+        >>> # Not run in CI: no "readers identify" recording to replay yet.
         >>> info = identify("AllPSMs.psmtsv")                      # doctest: +SKIP
         >>> info.file_type, info.is_quantifiable                   # doctest: +SKIP
         ('psmtsv', True)
@@ -807,7 +809,9 @@ def read_results(
     Raises:
         UsageError: the path is blank, missing, not a recognised format, or has no quantifiable view.
 
-    Example:
+    Examples:
+        >>> # Not run in CI: no "readers read-results" recording to replay yet, and pandas is
+        >>> # not a pyMzLib dependency.
         >>> r = read_results("AllPSMs.psmtsv")                       # doctest: +SKIP
         >>> r.record_count, r.truncated                              # doctest: +SKIP
         (8, False)
@@ -858,10 +862,13 @@ def read_records(
     Raises:
         UsageError: the path is blank, missing, or not a file type mzLib recognises.
 
-    Example:
-        >>> r = read_records("toppic_prsm.tsv")                    # doctest: +SKIP
-        >>> r.record_type, len(r.column_names)                     # doctest: +SKIP
-        ('ToppicPrsm', 36)
+    Examples:
+        >>> r = read_records("ToppicPrsm_TopPICv1.6.2_prsm.tsv")
+        >>> r.record_type, len(r.column_names), r.record_count
+        ('ToppicPrsm', 36, 4)
+
+        pandas is not a dependency of pyMzLib, so this line is not executed:
+
         >>> import pandas as pd                                    # doctest: +SKIP
         >>> pd.DataFrame(r.columns)[["e_value", "q_value_spectrum_level"]]   # doctest: +SKIP
     """
@@ -902,10 +909,10 @@ def read_features(
     Raises:
         UsageError: the path is blank, missing, unrecognised, or has no ``ms1_features`` view.
 
-    Example:
-        >>> f = read_features("sample_ms1.feature")                # doctest: +SKIP
-        >>> f.record_count, f.retention_time_unit                  # doctest: +SKIP
-        (25, 'unknown')
+    Examples:
+        >>> f = read_features("Ms1Feature_TopFDv1.6.2_ms1.feature", limit=5)
+        >>> f.record_count, f.returned_count, f.retention_time_unit
+        (25, 5, 'unknown')
     """
     args = _window("read-features", path, limit=limit, offset=offset, out=out)
     data = _bridge.invoke(*args, timeout=timeout)
@@ -942,10 +949,10 @@ def read_matches(
         A :class:`MatchRecords`. Read :attr:`MatchRecords.caveats` before trusting ``is_decoy`` -
         it is inferred from a name prefix for MsPathFinderT and is ``None`` for Casanovo.
 
-    Example:
-        >>> m = read_matches("results_IcTda.tsv")                  # doctest: +SKIP
-        >>> m.record_count, m.columns["modifications"]             # doctest: +SKIP
-        (6, ['', '12:Oxidation on M', '', '', '4:Acetylation on K', ''])
+    Examples:
+        >>> m = read_matches("MsPathFinderT_WithMods_IcTda.tsv")
+        >>> m.record_count, m.columns["modifications"][:3]
+        (5, ['37:Oxidation on M', '', '1:Acetylation on X;27:Acetylation on K'])
     """
     args = _window("read-matches", path, limit=limit, offset=offset, out=out)
     data = _bridge.invoke(*args, timeout=timeout)
@@ -991,12 +998,12 @@ def read_spectra(
         UsageError: the path is blank, missing, unrecognised, has no ``spectra`` view, or
             ``ms_order`` is less than 1.
 
-    Example:
-        >>> s = read_spectra("run.mzML", ms_order=2, limit=5)      # doctest: +SKIP
-        >>> s.scan_count, s.record_count                           # doctest: +SKIP
-        (14238, 11902)
-        >>> s.columns["selected_ion_mz"]                           # doctest: +SKIP
-        [447.7391, 551.2903, 638.8215, 712.3344, 805.9012]
+    Examples:
+        >>> s = read_spectra("sliced_ethcd.mzML", ms_order=2, limit=2)
+        >>> s.scan_count, s.record_count, s.returned_count
+        (6, 5, 2)
+        >>> s.columns["selected_ion_mz"]
+        [548.453918457031, 796.765197753906]
     """
     args = _window("read-spectra", path, limit=limit, offset=offset, out=out)
 

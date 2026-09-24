@@ -11,7 +11,10 @@ using the same paging, URL-resolution, and safe-download logic that mzLib uses i
     >>> files[0].file_name
     'PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz'
     >>> raw = [f for f in files if f.category == "RAW"]
-    >>> pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+    >>> [f.file_name for f in raw]
+    ['TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw']
+    >>> # Not run in CI: downloads 220 MB from EBI.
+    >>> pymzlib.pride.download("PXD000001", "downloads", category="RAW")   # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -216,7 +219,8 @@ class PrideFile:
         documentation pushes hardest, including the ``downloadable`` flag used to filter out
         files that cannot be fetched.
 
-        Example:
+        Examples:
+            >>> # Not run in CI: pandas is not a pyMzLib dependency.
             >>> import pandas as pd                                    # doctest: +SKIP
             >>> df = pd.DataFrame([f.as_dict() for f in files])        # doctest: +SKIP
         """
@@ -370,6 +374,7 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     :attr:`PrideFtpFile.approximate_size_bytes`), so :func:`approximate_total_size_bytes` is an
     estimate — but an estimate over the *whole* project, unlike :func:`total_size_bytes`.
 
+        >>> # Not run in CI: no "pride ftp-files" recording to replay yet.
         >>> ftp = pymzlib.pride.list_ftp_files("PXD000001")           # doctest: +SKIP
         >>> len(ftp)                                                  # doctest: +SKIP
         13
@@ -509,8 +514,11 @@ def download_files(
     manifest however you like — in Python, with the full expressiveness of Python — and hand the
     result straight back:
 
-        >>> files = list_files("PXD000001")                             # doctest: +SKIP
+        >>> files = list_files("PXD000001")
         >>> small = [f for f in files if f.size_mb < 5 and f.downloadable]
+        >>> len(small)
+        3
+        >>> # Not run in CI: downloads from EBI.
         >>> download_files(small, "downloads")                          # doctest: +SKIP
 
     :func:`download`'s ``category`` and ``extensions`` filters can only express what they were
@@ -605,8 +613,8 @@ def total_size_bytes(files: Iterable[PrideFile]) -> int:
     a size that covers the whole project, use :func:`approximate_total_size_bytes` over
     :func:`list_ftp_files`.
 
-    >>> files = list_files("PXD000001")           # doctest: +SKIP
-    >>> total_size_bytes(f for f in files if f.category == "RAW") / 1e9   # doctest: +SKIP
+    >>> files = list_files("PXD000001")
+    >>> round(total_size_bytes(files) / 1e9, 2)
     0.51
     """
     return sum(f.file_size_bytes for f in files)
@@ -623,6 +631,7 @@ def approximate_total_size_bytes(files: Iterable[PrideFtpFile]) -> int:
     REST manifest. When you need the exact bytes for one file, HTTP HEAD its
     :attr:`PrideFtpFile.url` and read ``Content-Length``.
 
+    >>> # Not run in CI: no "pride ftp-files" recording to replay yet.
     >>> ftp = list_ftp_files("PXD000001")                       # doctest: +SKIP
     >>> approximate_total_size_bytes(ftp) / 1e9                 # doctest: +SKIP
     1.44
@@ -850,12 +859,13 @@ def search(
         and deduplicated, so it comes back once; a project *removed* mid-fetch can fall between two
         pages and be missed. A search whose hits fit on one page cannot be affected.
 
-    Example:
-        >>> hits = search("plasmodium falciparum schizont")        # doctest: +SKIP
-        >>> hits[0].accession, hits[0].organisms                   # doctest: +SKIP
+    Examples:
+        >>> hits = search("plasmodium falciparum schizont")
+        >>> hits[0].accession, hits[0].organisms
         ('PXD070842', ['Homo sapiens (human)', 'Plasmodium falciparum (isolate 3d7)'])
-        >>> hits[0].matched_fields                                 # doctest: +SKIP
+        >>> hits[0].matched_fields
         ['references', 'title']
+        >>> # Not run in CI: no recording of this project's file list to replay.
         >>> files = list_files(hits[0].accession)                  # doctest: +SKIP
     """
     if not isinstance(keyword, str) or not keyword.strip():

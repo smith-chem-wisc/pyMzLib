@@ -4,9 +4,9 @@ The question this answers is the one a mass spectrometrist actually asks — *wh
 I see for this protein's peptides?* — in one call:
 
     >>> import pymzlib
-    >>> digest = pymzlib.peptidoform.fragments("P02768")          # doctest: +SKIP
-    >>> len(digest.peptides)                                      # doctest: +SKIP
-    303
+    >>> digest = pymzlib.peptidoform.fragments("P02768")
+    >>> digest.accession, digest.sequence_length
+    ('P02768', 609)
 
 The defaults are opinions, not placeholders. Tryptic with the proline rule, two missed cleavages,
 ETD, both termini, UniProt's annotated modifications applied. They are the choices this lab makes
@@ -352,10 +352,10 @@ def fragments(
         UsageError: the accession, protease, dissociation type or terminus is not recognised.
         ServiceUnavailableError: UniProt was unreachable.
 
-    Example:
-        >>> d = fragments("P02768")                                    # doctest: +SKIP
-        >>> print(d.modification_census.explain())                     # doctest: +SKIP
-        14 of 38 annotated modification sites were applied. Excluded: 24 × glycosylation site …
+    Examples:
+        >>> d = fragments("P02768")
+        >>> print(d.modification_census.explain())                     # doctest: +ELLIPSIS
+        14 of 38 annotated modifications were applied, across 14 residue positions. Excluded ...
     """
     if not isinstance(accession, str) or not accession.strip():
         raise _bridge.UsageError("A UniProt accession is required, e.g. 'P02768'.")

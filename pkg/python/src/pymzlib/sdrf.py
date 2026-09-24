@@ -5,20 +5,20 @@ searched* - which sample, which organism part, which replicate, which instrument
 that is the half you need to group results across experiments::
 
     >>> import pymzlib
-    >>> doc = pymzlib.sdrf.read("PXD000070.sdrf.tsv")        # doctest: +SKIP
-    >>> doc.row_count, len(doc.columns)                      # doctest: +SKIP
+    >>> doc = pymzlib.sdrf.read("PXD000070.sdrf.tsv")
+    >>> doc.row_count, len(doc.columns)
     (6, 31)
-    >>> doc.value("characteristics[organism]")               # doctest: +SKIP
+    >>> doc.value("characteristics[organism]")               # doctest: +ELLIPSIS
     ['plasmodium falciparum', 'plasmodium falciparum', ...]
 
 Pool several experiments into one analysis table, giving each a name you choose::
 
-    >>> pooled = pymzlib.sdrf.pool({                         # doctest: +SKIP
+    >>> pooled = pymzlib.sdrf.pool({
     ...     "PXD000070.sdrf.tsv": "malaria",
     ...     "PXD026824.sdrf.tsv": "colon",
-    ... })
-    >>> pooled.document_count, pooled.row_count              # doctest: +SKIP
-    (2, 24)
+    ... }, limit=4)
+    >>> pooled.document_count, pooled.row_count, pooled.labels
+    (2, 24, ['malaria', 'colon'])
 
 **This module is row-major, and every other reader here is columnar.** That is not a style
 choice. :func:`pymzlib.readers.read_records` and friends hand back ``columns``, a
@@ -136,8 +136,9 @@ class SdrfDocument:
         ``"not applicable"`` are real values that an experiment chose to write, and they come back
         as themselves.
 
-        Example:
-            >>> doc.value("characteristics[disease]")     # doctest: +SKIP
+        Examples:
+            >>> doc = read("PXD000070.sdrf.tsv")
+            >>> doc.value("characteristics[disease]")     # doctest: +ELLIPSIS
             ['not applicable', 'not applicable', ...]
         """
         i = self.index_of(column)
@@ -276,12 +277,12 @@ def read(
     Raises:
         UsageError: the path is blank, or the file is missing or unreadable as SDRF.
 
-    Example:
-        >>> doc = read("PXD000070.sdrf.tsv")                   # doctest: +SKIP
-        >>> doc.value("characteristics[organism part]")[0]     # doctest: +SKIP
+    Examples:
+        >>> doc = read("PXD000070.sdrf.tsv")
+        >>> doc.value("characteristics[organism part]")[0]
         'human erythrocytes'
-        >>> doc.all("comment[modification parameters]")[0]     # doctest: +SKIP
-        ['NT=Carbamidomethyl;AC=UNIMOD:4;TA=C;MT=Fixed', 'NT=Oxidation;AC=UNIMOD:35;...']
+        >>> doc.all("comment[modification parameters]")[0]     # doctest: +ELLIPSIS
+        ['NT=Carbamidomethyl;AC=UNIMOD:4;TA=C;MT=Fixed', 'NT=Oxidation;AC=UNIMOD:35;...]
     """
     path = _bridge.path_text(path)
     if not path:
@@ -331,10 +332,10 @@ def pool(
     Raises:
         UsageError: no documents were given, a path is missing, or a label is blank.
 
-    Example:
-        >>> pooled = pool({"a.sdrf.tsv": "malaria", "b.sdrf.tsv": "colon"})   # doctest: +SKIP
-        >>> set(pooled.source_documents())                                   # doctest: +SKIP
-        {'malaria', 'colon'}
+    Examples:
+        >>> pooled = pool({"PXD000070.sdrf.tsv": "malaria", "PXD026824.sdrf.tsv": "colon"}, limit=4)
+        >>> pooled.returned_count, pooled.truncated, set(pooled.source_documents())
+        (4, True, {'malaria'})
     """
     if isinstance(documents, Mapping):
         pairs = [(str(p), str(label)) for p, label in documents.items()]
