@@ -105,6 +105,29 @@ pyteomics is pure Python. pyMzLib brings mzLib's particular strengths — the ma
 MetaMorpheus, especially top-down and proteoform work — to the same environment. Use whichever
 has what you need; nothing stops you using all three, since pyMzLib can't conflict with them.
 
+## My SDRF passes `validate()`, but `assess()` calls it a Skeleton. Which is right?
+
+Both. [`validate()`](guides/sdrf.md#validate-a-deposit) checks **structure**, and a file whose
+sample columns all say `"not available"` is structurally perfect: reserved words are the
+specification's correct way to say there is no value. [`assess()`](guides/sdrf.md#decide-whether-an-sdrf-is-worth-using)
+asks whether the file **says anything** about its samples, and that file does not. Use `validate()`
+before you deposit and `assess()` before you rely on a file to group results by biology.
+
+## Why is the age `None` when the cell says `63`?
+
+Because `63` has no unit, and 63 years and 63 days are both plausible in one study. mzLib refuses
+to guess, and `refusal` says `"no_unit"` so you can tell this from a curator writing
+`"not available"`. The same goes for free text. Ask the data's author, or fix the cell to `63Y`;
+do not assume years. See [Parse ages safely](guides/sdrf.md#parse-ages-safely).
+
+## How do I check hundreds of SDRF files without waiting on hundreds of processes?
+
+Use the `*_many` forms — `validate_many()`, `assess_many()`, `samples_many()` — which read the
+whole list in one bridge call, with `threads=-1` for every core and `on_error="skip"` to carry on
+past a bad file. Do not wrap the single-file functions in a thread pool: each call re-pays about
+120 ms of start-up, and the thread count belongs inside the bridge, where it cannot change the
+answer. See [Many files in one call](guides/sdrf.md#many-files-in-one-call).
+
 ---
 
 ## Troubleshooting
