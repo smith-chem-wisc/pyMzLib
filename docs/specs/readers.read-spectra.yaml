@@ -66,48 +66,48 @@ params:
 
 result:
   envelope_fields:
-    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: Absolute path of the input.}
-    - {wire: file_type, type: string, unit: null, nullable: false, null_means: null, doc: mzLib SupportedFileType name.}
-    - {wire: reader, type: string, unit: null, nullable: false, null_means: null, doc: The mzLib MsDataFile class that read it.}
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the input."}
+    - {wire: file_type, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib SupportedFileType name."}
+    - {wire: reader, type: string, unit: null, nullable: false, null_means: null, doc: "The mzLib MsDataFile class that read it."}
     - {wire: scan_count, type: int, unit: scans, nullable: false, null_means: null, doc: "The file's true total, before any filter, so a filter matching nothing never looks like an empty file."}
-    - {wire: ms_order, type: int, unit: null, nullable: true, null_means: "no ms-order filter was applied", doc: The ms-order filter, echoed.}
-    - {wire: record_count, type: int, unit: scans, nullable: false, null_means: null, doc: Scans that passed the ms-order filter.}
-    - {wire: returned_count, type: int, unit: scans, nullable: false, null_means: null, doc: Scans in columns; 0 when written to out.}
-    - {wire: offset, type: int, unit: scans, nullable: false, null_means: null, doc: The offset applied.}
-    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: True whenever scans were left out by offset or limit.}
-    - {wire: peaks_included, type: bool, unit: null, nullable: false, null_means: null, doc: Whether mz and intensity columns are present.}
+    - {wire: ms_order, type: int, unit: null, nullable: true, null_means: "no ms-order filter was applied", doc: "The ms-order filter, echoed."}
+    - {wire: record_count, type: int, unit: scans, nullable: false, null_means: null, doc: "Scans that passed the ms-order filter."}
+    - {wire: returned_count, type: int, unit: scans, nullable: false, null_means: null, doc: "Scans in columns; 0 when written to out."}
+    - {wire: offset, type: int, unit: scans, nullable: false, null_means: null, doc: "The offset applied."}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever scans were left out by offset or limit."}
+    - {wire: peaks_included, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether mz and intensity columns are present."}
     - {wire: retention_time_unit, type: string, unit: null, nullable: false, null_means: null, doc: "Always \"minutes\" for this verb: every mzLib MsDataFile reader converts at the boundary."}
-    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Format-specific traps for THIS file; see caveats below.}
-    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: Column order.}
-    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: Column name to per-scan values.}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Format-specific traps for THIS file; see caveats below."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Column order."}
+    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-scan values."}
     - {wire: output, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given."}
   columns:
     - {wire: one_based_scan_number, type: int, unit: null, nullable: false, null_means: null, doc: "Scan number. For MGF it may be assigned in file order; see caveats."}
-    - {wire: ms_order, type: int, unit: null, nullable: false, null_means: null, doc: MS level (1, 2, ...).}
-    - {wire: retention_time, type: float, unit: min, nullable: false, null_means: null, doc: Retention time.}
-    - {wire: polarity, type: string, unit: null, nullable: false, null_means: null, doc: mzLib Polarity enum name.}
-    - {wire: mz_analyzer, type: string, unit: null, nullable: false, null_means: null, doc: mzLib MZAnalyzerType enum name.}
-    - {wire: is_centroid, type: bool, unit: null, nullable: false, null_means: null, doc: Whether the spectrum is centroided.}
-    - {wire: total_ion_current, type: float, unit: "intensity (instrument units)", nullable: false, null_means: null, doc: Total ion current.}
-    - {wire: injection_time, type: float, unit: ms, nullable: true, null_means: "the file did not record it", doc: Ion injection time.}
+    - {wire: ms_order, type: int, unit: null, nullable: false, null_means: null, doc: "MS level (1, 2, ...)."}
+    - {wire: retention_time, type: float, unit: min, nullable: false, null_means: null, doc: "Retention time."}
+    - {wire: polarity, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib Polarity enum name."}
+    - {wire: mz_analyzer, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib MZAnalyzerType enum name."}
+    - {wire: is_centroid, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the spectrum is centroided."}
+    - {wire: total_ion_current, type: float, unit: "intensity (instrument units)", nullable: false, null_means: null, doc: "Total ion current."}
+    - {wire: injection_time, type: float, unit: ms, nullable: true, null_means: "the file did not record it", doc: "Ion injection time."}
     - {wire: peak_count, type: int, unit: peaks, nullable: false, null_means: null, doc: "Peaks in the scan; 0 when it has no spectrum."}
     - {wire: scan_window_lower_mz, type: float, unit: m/z, nullable: true, null_means: "no scan window recorded", doc: "Lower scan-window bound. DERIVED for MGF (first observed peak)."}
     - {wire: scan_window_upper_mz, type: float, unit: m/z, nullable: true, null_means: "no scan window recorded", doc: "Upper scan-window bound. DERIVED for MGF (last observed peak)."}
-    - {wire: scan_filter, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: Vendor scan filter string.}
-    - {wire: native_id, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: Vendor native ID.}
-    - {wire: scan_description, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: Free-text scan description.}
-    - {wire: one_based_precursor_scan_number, type: int, unit: null, nullable: true, null_means: "MS1 scan, or the file does not record the survey scan (standard MGF)", doc: Survey scan this scan was selected from.}
-    - {wire: isolation_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: Isolation window centre. May be calibration-adjusted.}
-    - {wire: isolation_width, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: Isolation window width.}
-    - {wire: selected_ion_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: Selected precursor m/z. May be calibration-adjusted.}
-    - {wire: selected_ion_intensity, type: float, unit: "intensity (instrument units)", nullable: true, null_means: "MS1 scan, or not recorded", doc: Selected precursor intensity.}
-    - {wire: selected_ion_charge_state_guess, type: int, unit: charge, nullable: true, null_means: "MS1 scan, or no charge assigned", doc: Instrument or file charge-state guess.}
-    - {wire: selected_ion_monoisotopic_guess_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or no monoisotopic guess", doc: Monoisotopic precursor m/z guess.}
-    - {wire: dissociation_type, type: string, unit: null, nullable: true, null_means: "MS1 scan, or not recorded", doc: mzLib DissociationType enum name.}
+    - {wire: scan_filter, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: "Vendor scan filter string."}
+    - {wire: native_id, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: "Vendor native ID."}
+    - {wire: scan_description, type: string, unit: null, nullable: true, null_means: "the file did not record one", doc: "Free-text scan description."}
+    - {wire: one_based_precursor_scan_number, type: int, unit: null, nullable: true, null_means: "MS1 scan, or the file does not record the survey scan (standard MGF)", doc: "Survey scan this scan was selected from."}
+    - {wire: isolation_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: "Isolation window centre. May be calibration-adjusted."}
+    - {wire: isolation_width, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: "Isolation window width."}
+    - {wire: selected_ion_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or not recorded", doc: "Selected precursor m/z. May be calibration-adjusted."}
+    - {wire: selected_ion_intensity, type: float, unit: "intensity (instrument units)", nullable: true, null_means: "MS1 scan, or not recorded", doc: "Selected precursor intensity."}
+    - {wire: selected_ion_charge_state_guess, type: int, unit: charge, nullable: true, null_means: "MS1 scan, or no charge assigned", doc: "Instrument or file charge-state guess."}
+    - {wire: selected_ion_monoisotopic_guess_mz, type: float, unit: m/z, nullable: true, null_means: "MS1 scan, or no monoisotopic guess", doc: "Monoisotopic precursor m/z guess."}
+    - {wire: dissociation_type, type: string, unit: null, nullable: true, null_means: "MS1 scan, or not recorded", doc: "mzLib DissociationType enum name."}
     - {wire: hcd_energy, type: string, unit: null, nullable: true, null_means: "not HCD, or not recorded", doc: "Collision energy AS WRITTEN by the file (mzLib keeps it a string, e.g. \"35\" or \"25,30,35\"); not parsed."}
-    - {wire: compensation_voltage, type: float, unit: V, nullable: true, null_means: "no FAIMS on this instrument", doc: FAIMS compensation voltage.}
-    - {wire: mz, type: "float[]", unit: m/z, nullable: true, null_means: "scan has no spectrum", present_when: "peaks", doc: Peak m/z values.}
-    - {wire: intensity, type: "float[]", unit: "intensity (instrument units)", nullable: true, null_means: "scan has no spectrum", present_when: "peaks", doc: Peak intensities, parallel to mz.}
+    - {wire: compensation_voltage, type: float, unit: V, nullable: true, null_means: "no FAIMS on this instrument", doc: "FAIMS compensation voltage."}
+    - {wire: mz, type: "float[]", unit: m/z, nullable: true, null_means: "scan has no spectrum", present_when: "peaks", doc: "Peak m/z values."}
+    - {wire: intensity, type: "float[]", unit: "intensity (instrument units)", nullable: true, null_means: "scan has no spectrum", present_when: "peaks", doc: "Peak intensities, parallel to mz."}
 
 errors:
   - {kind: usage, when: "path missing or blank; file not found; the file is not one of the seven spectra types (the message names the views it does have)"}

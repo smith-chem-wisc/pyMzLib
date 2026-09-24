@@ -68,12 +68,7 @@ FIELD_KEYS = {
 #: Spec defects already reported to the bridge and not yet fixed there: (spec file, param or field
 #: name). Vendored specs are never hand-edited, so the fix is a re-sync. Delete an entry when the
 #: bridge fixes it; the test fails on an entry that no longer matches a defect.
-KNOWN_SPEC_DEFECTS = {
-    # Unquoted commas truncate these docs; reported to bridge 2026-09-23.
-    ("readers.read-spectra.yaml", "ms_order"),  # envelope "The ms-order filter, echoed."
-    ("readers.read-spectra.yaml", "intensity"),  # "Peak intensities, parallel to mz."
-    ("readers.read-records.yaml", "columns"),  # "..., in column_names order."
-}
+KNOWN_SPEC_DEFECTS: set[tuple[str, str]] = set()
 
 UNIT_ALIASES = {
     "min": ["minute"],

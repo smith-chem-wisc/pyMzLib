@@ -50,19 +50,19 @@ params:
 
 result:
   envelope_fields:
-    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: Absolute path of the input.}
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the input."}
     - {wire: file_type, type: string, unit: null, nullable: false, null_means: null, doc: "The SupportedFileType mzLib dispatched, not a guess from the extension."}
-    - {wire: reader, type: string, unit: null, nullable: false, null_means: null, doc: The mzLib reader class that parsed it.}
+    - {wire: reader, type: string, unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that parsed it."}
     - {wire: record_type, type: string, unit: null, nullable: false, null_means: null, doc: "The mzLib record class the columns are properties of (e.g. ToppicPrsm, MzIdentMLRecord, ProteinGroupFromTsv), so a column is cross-referenceable against the mzLib source."}
     - {wire: views, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The cross-format views this file also offers; same values as readers formats."}
     - {wire: record_count, type: int, unit: records, nullable: false, null_means: null, doc: "Records mzLib parsed from the whole file, before the window. Records, not lines: see caveats."}
-    - {wire: returned_count, type: int, unit: records, nullable: false, null_means: null, doc: Records in columns; 0 when written to out.}
-    - {wire: offset, type: int, unit: records, nullable: false, null_means: null, doc: The offset applied.}
-    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: True whenever records were left out by offset or limit.}
+    - {wire: returned_count, type: int, unit: records, nullable: false, null_means: null, doc: "Records in columns; 0 when written to out."}
+    - {wire: offset, type: int, unit: records, nullable: false, null_means: null, doc: "The offset applied."}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever records were left out by offset or limit."}
     - {wire: excluded_fields, type: table, unit: null, nullable: false, null_means: null, doc: "Every property of record_type that could not become a column, as {field, type, reason}: nested objects, lists of composites, and dictionaries (reason starts \"a dictionary\"). Empty when every property projects."}
     - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "\"field: ExceptionType\" for every property that threw while being read on a returned record; those cells are null."}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The record type's projectable public properties in snake_case, base class first, in declaration order."}
-    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: Column name to per-record values, in column_names order.}
+    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-record values, in column_names order."}
     - {wire: output, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given; row_count is the window written, not the whole file."}
   # The columns are NOT a fixed set: they are record_type's own properties and differ per format, so
   # they are reported in column_names on every response. The checker verifies each example fixture's
