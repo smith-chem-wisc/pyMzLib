@@ -6,6 +6,10 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
+Built from mzLib 1.0.592. Adds `pymzlib.proteins`, SDRF validation, and reading many files in one call.
+
 ### Added
 - **Reference fact tables rendered from the bridge's per-verb specs.** Parameters (with units and
   ranges), result fields (with units and what null means), errors, caveats, the wrapped mzLib code
@@ -83,6 +87,7 @@ envelope is not a breaking change unless Python callers can see it.
 - **Docstring examples render as code in the API reference.** They sat under `Example:`, which
   griffe reads as an admonition, so the site showed every `>>>` line as nested blockquotes. They are
   now under `Examples:`, and a test keeps them there.
+
 ### Changed
 - **The bridge is built from mzLib 1.0.592** (was the 8931f219 commit, via 1.0.591), so mzLib's
   fixes to MGF, mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases
@@ -304,6 +309,7 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.1.1...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.2.0...main
+[0.2.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.2.0
 [0.1.1]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.1
 [0.1.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.0
