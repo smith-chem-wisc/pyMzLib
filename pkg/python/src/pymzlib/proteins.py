@@ -8,10 +8,12 @@ you searched, by mzLib:
 protein - organism, NCBI taxonomy id, gene names, length, monoisotopic mass - and, on request, its
 Gene Ontology terms and Ensembl gene links as long tables::
 
-    >>> db = pymzlib.proteins.read("human.xml", tables=("proteins", "go_terms"))   # doctest: +SKIP
-    >>> db.columns["ncbi_taxonomy_id"][:2]                                         # doctest: +SKIP
-    ['9606', '9606']
-    >>> db.go_terms.columns["term_name"][:3]                                       # doctest: +SKIP
+    >>> db = pymzlib.proteins.read(
+    ...     ["human_subset.xml", "human_extra.fasta", "mouse_aifm1.fasta"],
+    ...     contaminants=["contaminants.fasta"], tables=pymzlib.proteins.TABLES)
+    >>> db.taxonomy()["Q9Z0X1"], db.organisms()["P02769"]
+    ('10090', 'Bos taurus')
+    >>> db.go_terms.columns["term_name"][:3]
     ['cytoplasm', 'cytosol', 'extracellular exosome']
 
 **Which gene is it, reproducibly?** :func:`resolve_genes` resolves every protein to a stable
@@ -20,19 +22,24 @@ and says, per protein, *how* it resolved (``resolved``, ``multi_gene``, ``off_pr
 ``not_in_source``, ...). Every row carries the sha256 of the database, the GTF and the optional
 cross-reference table it was computed from::
 
-    >>> genes = pymzlib.proteins.resolve_genes(                                    # doctest: +SKIP
-    ...     "human.xml", gtf="Homo_sapiens.GRCh38.116.gtf.gz")
-    >>> genes.outcome_counts["resolved"], genes.gene_set.release                   # doctest: +SKIP
-    (20113, '116')
+    >>> genes = pymzlib.proteins.resolve_genes(
+    ...     ["human_subset.xml", "human_extra.fasta"], contaminants=["contaminants.fasta"],
+    ...     gtf="Homo_sapiens.GRCh38.116.gtf", xref="Homo_sapiens.GRCh38.116.uniprot.tsv")
+    >>> genes.gene_set.release, genes.gene_set.genome_build, genes.outcome_counts["resolved"]
+    ('116', 'GRCh38.p14', 1)
 
 **Does this peptide identify one protein?** :func:`classify_peptides` classifies each peptide as
 ``Unique``, ``SharedWithinGene``, ``SharedAcrossGenes`` or ``NotInDatabase``, treating **I and L as
 the same residue**, because a mass spectrometer cannot tell them apart::
 
-    >>> calls = pymzlib.proteins.classify_peptides(                                # doctest: +SKIP
-    ...     ["VGVNGFGR", "YLYEIAR"], "human.xml", contaminants=["crap.fasta"])
-    >>> calls.columns["sharing"]                                                   # doctest: +SKIP
-    ['Unique', 'SharedAcrossGenes']
+    >>> calls = pymzlib.proteins.classify_peptides(
+    ...     ["VGVNGFGR", "LVLNGNPLTLFQER", "ALSEQINIFFDYSGR", "YLYEIAR", "AEFVEVTK", "PEPTIDEK"],
+    ...     ["human_subset.xml", "human_extra.fasta"], contaminants=["contaminants.fasta"])
+    >>> calls.columns["sharing"]
+    ['Unique', 'Unique', 'SharedWithinGene', 'SharedAcrossGenes', 'Unique', 'NotInDatabase']
+
+These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
+databases in ``pkg/python/tests/fixtures/proteins/``.
 
 All three take **one database or many**. Pass a list and they are read in one bridge call, in order;
 ``threads`` says how many are read at once (default 1), and the answer is identical at any value.
@@ -277,10 +284,12 @@ class ProteinDatabase(_Table):
     ======================  =============  ======================================================
 
     Attributes:
-        file_count: Databases given.
-        read_count: Databases read.
-        failed_count: Databases that failed (``on_error="skip"`` only; otherwise the call raises).
-        record_count: Proteins in the ``proteins`` table - after the accession filter.
+        file_count: Database files given.
+        read_count: Database files read.
+        failed_count: Database files that failed (``on_error="skip"`` only; otherwise the call
+            raises).
+        record_count: Proteins that passed the accession filter - the rows of the ``proteins``
+            table when it was requested.
         tables: The tables returned, in :data:`TABLES` order.
         accession_filter_count: Distinct accessions in the filter, or ``None`` with no filter.
         accessions_not_found: Filter accessions no database contained, in the order given; ``None``
@@ -326,8 +335,10 @@ class ProteinDatabase(_Table):
         Raises:
             UsageError: the ``proteins`` table was not requested.
 
-        Example:
-            >>> read("mixed.fasta").taxonomy()["Q9Z0X1"]      # doctest: +SKIP
+        Examples:
+            >>> db = read(["human_subset.xml", "human_extra.fasta", "mouse_aifm1.fasta"],
+            ...           contaminants=["contaminants.fasta"], tables=TABLES)
+            >>> db.taxonomy()["Q9Z0X1"]
             '10090'
         """
         columns = self._require_proteins()
@@ -475,11 +486,12 @@ class GeneResolutions(_Table):
     ==========================  =========  ===========================================================
 
     Attributes:
-        file_count: Databases given.
-        read_count: Databases read.
-        failed_count: Databases that failed (``on_error="skip"`` only).
+        file_count: Database files given.
+        read_count: Database files read.
+        failed_count: Database files that failed (``on_error="skip"`` only).
         protein_count: Proteins resolved.
-        record_count: Rows in the table (at least one per protein).
+        record_count: Rows in the table: at least one per protein, one per gene for
+            ``multi_gene``, plus any ``ensembl_xref`` rows.
         gene_set: The gene set and its provenance.
         xref: The xref table and its provenance, or ``None``.
         outcome_counts: Outcome -> number of **proteins** with it. Every key in :data:`OUTCOMES` is
@@ -540,11 +552,11 @@ class PeptideClassification(_Table):
     ====================  =========  ===============================================================
 
     Attributes:
-        file_count: Databases searched.
-        peptide_count: Rows - one per input peptide, duplicates included.
+        file_count: Database files searched.
+        peptide_count: Rows: peptides, one per input peptide, duplicates included.
         target_protein_count: Proteins searched. Contaminants count: they are real sequences in
             the search space.
-        decoy_proteins_ignored: Decoy entries in the databases, which are never searched.
+        decoy_proteins_ignored: Decoy proteins in the databases, which are never searched.
         i_and_l_equivalent: Always ``True``: I and L are one residue for matching. On the wire so
             that the rule travels with every result rather than living only in documentation.
         sharing_counts: Class -> peptides in it; every class present, zeros included.
@@ -566,9 +578,12 @@ class PeptideClassification(_Table):
     def sharing_of(self) -> dict[str, str]:
         """Peptide -> sharing class. A peptide given twice appears once (it classifies the same).
 
-        Example:
-            >>> classify_peptides(["VGVNGFGR"], "human.xml").sharing_of()   # doctest: +SKIP
-            {'VGVNGFGR': 'Unique'}
+        Examples:
+            >>> calls = classify_peptides(
+            ...     ["VGVNGFGR", "LVLNGNPLTLFQER", "ALSEQINIFFDYSGR", "YLYEIAR", "AEFVEVTK", "PEPTIDEK"],
+            ...     ["human_subset.xml", "human_extra.fasta"], contaminants=["contaminants.fasta"])
+            >>> calls.sharing_of()["YLYEIAR"]
+            'SharedAcrossGenes'
         """
         return dict(zip(self.columns.get("peptide", []), self.columns.get("sharing", [])))
 
@@ -729,10 +744,13 @@ def read(
             file or one that is neither XML nor FASTA by name.
         BridgeError: mzLib could not parse a database (under ``on_error="fail"``).
 
-    Example:
-        >>> db = read(["human.xml", "mouse.fasta"], accessions=["P04406", "Q9Z0X1"])   # doctest: +SKIP
-        >>> db.taxonomy()                                                               # doctest: +SKIP
-        {'P04406': '9606', 'Q9Z0X1': '10090'}
+    Examples:
+        >>> db = read(["human_subset.xml", "human_extra.fasta", "mouse_aifm1.fasta"],
+        ...           contaminants=["contaminants.fasta"], tables=TABLES)
+        >>> db.record_count, db.go_terms.row_count, db.ensembl_genes.row_count
+        (8, 47, 6)
+        >>> db.files[1].file_type, db.files[1].absent_fields
+        ('Fasta', ['go_terms', 'ensembl_genes', 'ensembl_gene_ids'])
     """
     if isinstance(tables, str):
         tables = (tables,)
@@ -810,11 +828,14 @@ def resolve_genes(
         BridgeError: a GTF gene row without ``gene_id``, an xref table with unexpected columns, or a
             database mzLib cannot parse.
 
-    Example:
-        >>> genes = resolve_genes("human.xml", gtf="Homo_sapiens.GRCh38.116.gtf.gz",   # doctest: +SKIP
-        ...                       xref="Homo_sapiens.GRCh38.116.uniprot.tsv.gz")
-        >>> genes.gene_set.release, genes.gene_set.genome_build                          # doctest: +SKIP
+    Examples:
+        >>> genes = resolve_genes(
+        ...     ["human_subset.xml", "human_extra.fasta"], contaminants=["contaminants.fasta"],
+        ...     gtf="Homo_sapiens.GRCh38.116.gtf", xref="Homo_sapiens.GRCh38.116.uniprot.tsv")
+        >>> genes.gene_set.release, genes.gene_set.genome_build
         ('116', 'GRCh38.p14')
+        >>> genes.outcome_counts["contaminant_not_mapped"]
+        1
     """
     gtf_text = _bridge.path_text(gtf) if gtf is not None else None
     set_text = _bridge.path_text(gene_set) if gene_set is not None else None
@@ -887,11 +908,12 @@ def classify_peptides(
             it), or any database problem :func:`read` would refuse.
         BridgeError: mzLib could not parse a database.
 
-    Example:
-        >>> calls = classify_peptides(["YLYEIAR"], "human.fasta",              # doctest: +SKIP
-        ...                           contaminants="bovine_albumin.fasta")
-        >>> calls.columns["sharing"], calls.columns["accessions"]             # doctest: +SKIP
-        (['SharedAcrossGenes'], [['P02768', 'P02769']])
+    Examples:
+        >>> calls = classify_peptides(
+        ...     ["VGVNGFGR", "LVLNGNPLTLFQER", "ALSEQINIFFDYSGR", "YLYEIAR", "AEFVEVTK", "PEPTIDEK"],
+        ...     ["human_subset.xml", "human_extra.fasta"], contaminants=["contaminants.fasta"])
+        >>> calls.records[3]["peptide"], calls.records[3]["sharing"], calls.records[3]["accessions"]
+        ('YLYEIAR', 'SharedAcrossGenes', ['P02768', 'P02769'])
     """
     peptide_lines = _lines(peptides, "peptides")
     if not peptide_lines:
