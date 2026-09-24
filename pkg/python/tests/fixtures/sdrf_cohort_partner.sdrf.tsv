@@ -1,0 +1,3 @@
+source name	characteristics[organism]	Characteristics[sex]	assay name	comment[data file]	comment[searched data file]	comment[label]	comment[instrument]	factor value[disease]
+P1	homo sapiens	female	run P1	s1_f1.raw	s1_f1.mzML	label free sample	NT=Exploris 480;AC=MS:1003028	normal
+P2	homo sapiens	male	run P2	P2.raw	P2.mzML	label free sample	NT=Exploris 480;AC=MS:1003028	COVID-19
