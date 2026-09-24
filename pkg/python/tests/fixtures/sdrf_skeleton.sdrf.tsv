@@ -1,0 +1,3 @@
+source name	characteristics[organism]	characteristics[organism part]	characteristics[disease]	characteristics[biological replicate]	assay name	comment[data file]
+sample 1	homo sapiens	not available	not available	1	run 1	run1.raw
+sample 2	homo sapiens	not available	not available	1	run 2	run2.raw

@@ -1,0 +1,90 @@
+{
+ "path": "sdrf_skeleton.sdrf.tsv",
+ "is_valid": false,
+ "error_count": 7,
+ "warning_count": 2,
+ "message_count": 9,
+ "row_count": 2,
+ "column_names": [
+  "severity",
+  "rule",
+  "message",
+  "row_index",
+  "line_number",
+  "column_name"
+ ],
+ "columns": {
+  "severity": [
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Warning",
+   "Warning"
+  ],
+  "rule": [
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RecommendedColumn",
+   "RecommendedColumn"
+  ],
+  "message": [
+   "Required column 'technology type' is missing.",
+   "Required column 'comment[instrument]' is missing.",
+   "Required column 'comment[label]' is missing.",
+   "Required column 'comment[cleavage agent details]' is missing.",
+   "Required column 'comment[technical replicate]' is missing.",
+   "Required column 'comment[fraction identifier]' is missing.",
+   "Required column 'comment[proteomics data acquisition method]' is missing.",
+   "Column 'characteristics[cell type]' is listed as mandatory for MS proteomics but is absent.",
+   "Column 'comment[modification parameters]' is listed as mandatory for MS proteomics but is absent."
+  ],
+  "row_index": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "line_number": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "column_name": [
+   "technology type",
+   "comment[instrument]",
+   "comment[label]",
+   "comment[cleavage agent details]",
+   "comment[technical replicate]",
+   "comment[fraction identifier]",
+   "comment[proteomics data acquisition method]",
+   "characteristics[cell type]",
+   "comment[modification parameters]"
+  ]
+ },
+ "caveats": [
+  "STRUCTURE ONLY, against SDRF-Proteomics v1.1.0: column presence, order, casing, cell shape and row-key uniqueness. Controlled-vocabulary terms are NOT resolved, so a well-formed but wrong accession passes.",
+  "is_valid means no Error. Warnings never make a document invalid: mzLib calibrated every severity against the 1,236-file curated corpus, where a rule that fired on most curated files was judged a wrong rule, not 1,236 wrong files.",
+  "row_index is 0-based over data rows; line_number is the 1-based line in the file (row_index + 2, because the header is line 1). Both are null for a document-level finding. column_name is null when the finding is not about one column.",
+  "A document full of reserved words (\"not available\") validates cleanly, because that is the specification's correct way to say nothing. Whether a document SAYS anything is sdrf assess; whether several documents agree is sdrf lint."
+ ]
+}

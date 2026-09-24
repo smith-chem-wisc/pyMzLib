@@ -3,7 +3,8 @@ using Readers;
 namespace MzLibBridge;
 
 /// <summary>
-/// SDRF-Proteomics experimental-design files: read one, or pool several into one table.
+/// SDRF-Proteomics experimental-design files: read one, or pool several into one table. The
+/// verbs that judge a document live in <c>Sdrf.Quality.cs</c> and <c>Sdrf.Samples.cs</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,15 +31,16 @@ namespace MzLibBridge;
 /// would decode those. Interpretation is a projection to be layered on top, not baked in here.
 /// </para>
 /// <para>
-/// <b>What this does not do yet is validate.</b> mzLib models the specification's structural
-/// rules in <c>SdrfValidator</c> and its drift rules in <c>SdrfDriftLint</c>. Both are public as
-/// of mzLib #1207, which the pinned mzLib includes, so they can be reached from here. They are not
-/// yet exposed as verbs. When they are, the verbs must call those two entry points rather than
-/// re-derive their rules: a second implementation — in C#, then again in Rust and R — is exactly
-/// the per-binding repair this bridge exists to avoid. See <c>bridge/UPSTREAM.md</c> (U8).
+/// <b>Judging a document is the other files' job.</b> <c>sdrf validate</c>, <c>sdrf lint</c> and
+/// <c>sdrf assess</c> (<c>Sdrf.Quality.cs</c>) call mzLib's <c>SdrfValidator</c>,
+/// <c>SdrfDriftLint</c> and <c>SdrfSampleInformativeness</c>; <c>sdrf samples</c> and
+/// <c>sdrf parse-age</c> (<c>Sdrf.Samples.cs</c>) call <c>SdrfSampleBlock</c> and <c>SdrfAge</c>.
+/// Each calls the mzLib entry point rather than re-deriving its rules: a second implementation —
+/// in C#, then again in Rust and R — is exactly the per-binding repair this bridge exists to avoid.
+/// This file stays the raw, uninterpreted half.
 /// </para>
 /// </remarks>
-internal static class Sdrf
+internal static partial class Sdrf
 {
     /// <summary>
     /// <c>sdrf read --path FILE [--limit N] [--offset N]</c> — one SDRF document as a header and
@@ -93,33 +95,7 @@ internal static class Sdrf
     /// </remarks>
     public static object Pool(Program.Arguments arguments)
     {
-        List<string> lines = Program.ReadStdinLines();
-        if (lines.Count == 0)
-            throw new Program.UsageException(
-                "No SDRF files were provided on stdin. Supply one path per line, optionally " +
-                "followed by a tab and a provenance label, e.g. 'PXD000070.sdrf.tsv'.");
-
-        var paths = new List<string>(lines.Count);
-        var labels = new List<string>(lines.Count);
-        foreach (string line in lines)
-        {
-            string[] fields = line.Split('\t');
-            string path = fields[0].Trim();
-            if (path.Length == 0)
-                throw new Program.UsageException("A stdin line has an empty file path.");
-            if (!File.Exists(path))
-                throw new Program.UsageException($"SDRF file not found: '{path}'.");
-
-            paths.Add(path);
-            if (fields.Length > 1 && fields[1].Trim().Length > 0)
-                labels.Add(fields[1].Trim());
-        }
-
-        if (labels.Count != 0 && labels.Count != paths.Count)
-            throw new Program.UsageException(
-                $"{labels.Count} of {paths.Count} stdin lines carry a label. Label every document " +
-                "or none: a partial set would stamp some rows with your name for the document and " +
-                "others with a path-derived default, and the two are not comparable.");
+        (List<string> paths, List<string> labels) = ReadLabelledDocuments();
 
         (int offset, int limit) = WindowFrom(arguments);
         string? outputPath = arguments.Optional("out");
@@ -231,6 +207,43 @@ internal static class Sdrf
         }
 
         return caveats;
+    }
+
+    /// <summary>
+    /// The <c>path[	label]</c> stdin lines <c>sdrf pool</c> and <c>sdrf lint</c> both take: every
+    /// path checked to exist, and the labels either all present or all absent.
+    /// </summary>
+    private static (List<string> Paths, List<string> Labels) ReadLabelledDocuments()
+    {
+        List<string> lines = Program.ReadStdinLines();
+        if (lines.Count == 0)
+            throw new Program.UsageException(
+                "No SDRF files were provided on stdin. Supply one path per line, optionally " +
+                "followed by a tab and a provenance label, e.g. 'PXD000070.sdrf.tsv'.");
+
+        var paths = new List<string>(lines.Count);
+        var labels = new List<string>(lines.Count);
+        foreach (string line in lines)
+        {
+            string[] fields = line.Split('	');
+            string path = fields[0].Trim();
+            if (path.Length == 0)
+                throw new Program.UsageException("A stdin line has an empty file path.");
+            if (!File.Exists(path))
+                throw new Program.UsageException($"SDRF file not found: '{path}'.");
+
+            paths.Add(path);
+            if (fields.Length > 1 && fields[1].Trim().Length > 0)
+                labels.Add(fields[1].Trim());
+        }
+
+        if (labels.Count != 0 && labels.Count != paths.Count)
+            throw new Program.UsageException(
+                $"{labels.Count} of {paths.Count} stdin lines carry a label. Label every document " +
+                "or none: a partial set would stamp some rows with your name for the document and " +
+                "others with a path-derived default, and the two are not comparable.");
+
+        return (paths, labels);
     }
 
     /// <summary>Reads and validates <c>--offset</c> and <c>--limit</c>, matching the readers verbs.</summary>

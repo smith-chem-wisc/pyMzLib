@@ -1,0 +1,68 @@
+# Written 2026-09-23 with the verb, from pyMzLib pkg/bridge/Sdrf.Samples.cs (ParseAge,
+# ReadStdinCells, AgeCells, RefusalOf) on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin
+# 23c2490e (tag 1.0.592). Example fixture recorded from the live bridge on that branch.
+verb: sdrf parse-age
+module: sdrf
+summary: >-
+  Read characteristics[age] cells into years with an honest precision, refusing any cell that would
+  need a guess.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfAge.TryParse, path: mzLib/Readers/Sdrf/SdrfAge.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics age grammar nYnMnD (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line"
+    default: null
+    doc: >-
+      One cell per line. BLANK LINES ARE KEPT (unlike every other stdin verb) so output row i is
+      line i; one trailing newline does not add a cell. A UTF-8 BOM is dropped.
+
+result:
+  envelope_fields:
+    - {wire: cell_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Cells read from stdin; the length of every column."}
+    - {wire: parsed_count, type: int, unit: cells, nullable: false, null_means: null, doc: Cells read as an age.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per input line, in order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Four static caveats.}
+  columns:
+    - {wire: cell, type: string, unit: null, nullable: false, null_means: null, doc: "The line exactly as given (mzLib's SdrfAge.Cell is the trimmed form)."}
+    - {wire: years, type: float, unit: years, nullable: true, null_means: "the cell was refused; refusal says why", doc: "The age, a range's MIDPOINT, or a bound."}
+    - {wire: min_years, type: float, unit: years, nullable: true, null_means: "refused", doc: "Youngest the cell allows; 0 for UpperBound."}
+    - {wire: max_years, type: float, unit: years, nullable: true, null_means: "refused, OR precision is LowerBound: UNBOUNDED (mzLib's +infinity, which JSON cannot carry)", doc: Oldest the cell allows.}
+    - {wire: precision, type: string, unit: null, nullable: true, null_means: "refused", doc: "Exact (incl. degenerate 40Y-40Y since #1333) | Range | LowerBound | UpperBound."}
+    - {wire: follows_specification, type: bool, unit: null, nullable: true, null_means: "refused", doc: "true for the spec grammar, false for unambiguous words (\"3 year\", \"6-8 weeks\", \"4 hour\")."}
+    - {wire: refusal, type: string, unit: null, nullable: true, null_means: "the cell was read", doc: "empty | reserved_word (any case) | no_unit (a bare number) | unreadable."}
+
+errors:
+  - {kind: usage, when: "stdin empty"}
+  - {kind: correctness, when: "never expected: TryParse does not throw"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Units are years: month 1/12, week 7/365.25, day 1/365.25, hour 1/(365.25 x 24)."
+  - "A bare number (63, 11% of real corpus age cells) is refused, never assumed to be years."
+  - "years for a wide Range is a poor stand-in for any one sample; filter on precision."
+  - "Every cell costs one line, not one process: send all cells in one call."
+
+bindings:
+  py: {name: pymzlib.sdrf.parse_ages}
+  rust: {name: "mzlib::sdrf::parse_ages"}
+  r: {name: sdrf_parse_ages}
+
+examples:
+  - fixture: sdrf_parse_age.json
+    py: "ages = pymzlib.sdrf.parse_ages(['58Y', '30Y6M', '40Y-85Y', '40Y-40Y', '>=90Y', '<1Y', '6-8 weeks', '63', 'not available', '', 'about forty'])"
+    rust: "let ages = mzlib::sdrf::parse_ages(&[\"58Y\", \"30Y6M\", \"40Y-85Y\", \"40Y-40Y\", \">=90Y\", \"<1Y\", \"6-8 weeks\", \"63\", \"not available\", \"\", \"about forty\"])?;"
+    r: "ages <- sdrf_parse_ages(c('58Y', '30Y6M', '40Y-85Y', '40Y-40Y', '>=90Y', '<1Y', '6-8 weeks', '63', 'not available', '', 'about forty'))"
+
+open_questions:
+  - "The refusal reason is a bridge-side classification of TryParse's false; see sdrf.samples.yaml. An upstream TryParse(cell, out age, out reason) would retire it."
+  - "Binding name is parse_ages (plural) for the verb parse-age (one cell per line). Kept because the function takes a list; revisit if a binding wants the wire name."
+  - "Rust and R spellings are intended, not yet ported. R: NA_character_ in the input should map to an empty line, as Python maps None."
+  - "since.pymzlib is null until released."

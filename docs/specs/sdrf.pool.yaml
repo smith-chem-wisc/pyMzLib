@@ -1,0 +1,93 @@
+# Back-filled 2026-09-23 from pyMzLib pkg/bridge/Sdrf.cs (Pool, ReadLabelledDocuments, PoolCaveats)
+# on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e (tag 1.0.592). The stdin
+# parsing moved into ReadLabelledDocuments (shared with sdrf lint) with no behaviour change; the
+# example fixture was recorded from the live bridge.
+verb: sdrf pool
+module: sdrf
+summary: >-
+  Merge several SDRF documents into one analysis table, stamping each row with the document it came
+  from.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfCollection.Merge, path: mzLib/Readers/Sdrf/SdrfCollection.cs, pin: 23c2490e}
+  - {symbol: SdrfDocument.WriteResults, path: mzLib/Readers/Sdrf/SdrfDocument.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics, the format pooled (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line"
+    default: null
+    doc: >-
+      One document per line: path, optionally a TAB and a provenance label. Label every line or
+      none; a partial set is a usage error. Blank lines are ignored.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Write the WHOLE merged document here as SDRF, whatever offset and limit are. The write is atomic
+      since mzLib 1.0.592 (#1324): a temp file moved into place.
+  - name: offset
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: 0
+    doc: Skip this many merged rows in the payload.
+  - name: limit
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: null
+    doc: Return at most this many merged rows. Absent means every row.
+
+result:
+  envelope_fields:
+    - {wire: document_count, type: int, unit: documents, nullable: false, null_means: null, doc: Documents pooled.}
+    - {wire: paths, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The paths, in stdin order."}
+    - {wire: labels, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The label stamped for each document: the one supplied, or mzLib's containing-folder/file-stem default."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The union header in SDRF block order; a repeated name at the highest multiplicity any one document used; comment[source document] added."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Merged rows before the window.}
+    - {wire: returned_count, type: int, unit: rows, nullable: false, null_means: null, doc: Rows in rows.}
+    - {wire: offset, type: int, unit: rows, nullable: false, null_means: null, doc: The offset applied.}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: True whenever rows were left out.}
+    - {wire: rows, type: "string[][]", unit: null, nullable: false, null_means: null, doc: "Row-major raw cells, as for sdrf read."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, row_count}; row_count is the whole merged document."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Four static caveats, plus a fifth when no labels were supplied."}
+  columns: []
+  cell_rules:
+    - "A cell a source document did not have is filled with the reserved word \"not available\", so fill rates over the pooled table are not those of the originals."
+    - "comment[source document] is stamped only where a document had none, so re-pooling keeps inner labels."
+    - "comment[searched data file] is carried like any other column; documents without it get \"not available\"."
+
+errors:
+  - {kind: usage, when: "stdin empty; a blank path; a file not found; some lines labelled and some not"}
+  - {kind: usage, when: "offset or limit negative or not an integer"}
+  - {kind: correctness, when: "mzLib cannot read one of the documents"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "An ANALYSIS table, not a deposit: source name + assay name + comment[label] is unique per document, not across documents. Key on comment[source document] too."
+  - "Without labels, provenance depends on where the files sit, so the table is not reproducible on another machine."
+
+bindings:
+  py: {name: pymzlib.sdrf.pool}
+  rust: {name: "mzlib::sdrf::pool_with", options: PoolOptions}
+  r: {name: sdrf_pool}
+
+examples:
+  - fixture: sdrf_pool_two.json
+    py: "pooled = pymzlib.sdrf.pool({'PXD000070.sdrf.tsv': 'malaria', 'PXD026824.sdrf.tsv': 'colon'}, limit=4)"
+    rust: "let pooled = mzlib::sdrf::pool_with(&PoolInput::labelled(&[(\"PXD000070.sdrf.tsv\", \"malaria\"), (\"PXD026824.sdrf.tsv\", \"colon\")]), &PoolOptions { limit: Some(4), ..Default::default() })?;"
+    r: "pooled <- sdrf_pool(c('PXD000070.sdrf.tsv' = 'malaria', 'PXD026824.sdrf.tsv' = 'colon'), limit = 4)"
+
+open_questions:
+  - "since.mzlibrust / since.mzlibr are null: ported and merged 2026-09-17 (mzLibRust#23, mzLibR#19), not yet in a tagged release."
+  - "The Rust example's PoolInput::labelled constructor is written from the pool_with signature, not checked against mzLibRust's source."

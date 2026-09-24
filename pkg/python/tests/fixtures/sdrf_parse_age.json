@@ -1,0 +1,112 @@
+{
+ "cell_count": 11,
+ "parsed_count": 7,
+ "column_names": [
+  "cell",
+  "years",
+  "min_years",
+  "max_years",
+  "precision",
+  "follows_specification",
+  "refusal"
+ ],
+ "columns": {
+  "cell": [
+   "58Y",
+   "30Y6M",
+   "40Y-85Y",
+   "40Y-40Y",
+   ">=90Y",
+   "<1Y",
+   "6-8 weeks",
+   "63",
+   "not available",
+   "",
+   "about forty"
+  ],
+  "years": [
+   58,
+   30.5,
+   62.5,
+   40,
+   90,
+   1,
+   0.13415468856947296,
+   null,
+   null,
+   null,
+   null
+  ],
+  "min_years": [
+   58,
+   30.5,
+   40,
+   40,
+   90,
+   0,
+   0.11498973305954825,
+   null,
+   null,
+   null,
+   null
+  ],
+  "max_years": [
+   58,
+   30.5,
+   85,
+   40,
+   null,
+   1,
+   0.15331964407939766,
+   null,
+   null,
+   null,
+   null
+  ],
+  "precision": [
+   "Exact",
+   "Exact",
+   "Range",
+   "Exact",
+   "LowerBound",
+   "UpperBound",
+   "Range",
+   null,
+   null,
+   null,
+   null
+  ],
+  "follows_specification": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   false,
+   null,
+   null,
+   null,
+   null
+  ],
+  "refusal": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   "no_unit",
+   "reserved_word",
+   "empty",
+   "unreadable"
+  ]
+ },
+ "caveats": [
+  "Every age is in YEARS: a month is 1/12 year, a week 7/365.25, a day 1/365.25, an hour 1/(365.25 x 24). years is the age itself, a range's MIDPOINT, or a bound; for a wide cohort range (40Y-85Y) the midpoint is a poor stand-in for any one sample - filter on precision.",
+  "precision: Exact (58Y, 30Y6M, and a degenerate range such as 40Y-40Y since mzLib #1333), Range (both ends), LowerBound (>=90Y, the usual de-identification cap: max_years is null, meaning UNBOUNDED, because JSON cannot carry infinity), UpperBound (<1Y: min_years is 0).",
+  "follows_specification is false for unambiguous words (\"3 year\", \"6-8 weeks\", \"4 hour\"), which are read but are not the specification's nYnMnD grammar.",
+  "A bare number (63) is REFUSED, not assumed to be years: 63 years and 63 days are both plausible in one study. So are reserved words and free text. refusal says which: empty, reserved_word, no_unit or unreadable. A refused cell has no age; never fill it with a guess."
+ ]
+}

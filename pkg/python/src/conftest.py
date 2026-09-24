@@ -46,8 +46,6 @@ REPLAY_EXTRA = {
     "quant flashlfq": ["flashlfq_small.json"],
     "quant median-polish": ["median_polish_small.json"],
     "peptidoform fragments": ["peptidoform_P02768_small.json"],
-    "sdrf read": ["sdrf_read_PXD000070.json"],
-    "sdrf pool": ["sdrf_pool_two.json"],
 }
 
 
@@ -60,10 +58,9 @@ def replay_table() -> dict:
     table: dict = {}
     for spec in spec_facts.load_specs():
         for example in spec.get("examples") or []:
-            # A --paths-stdin recording has no path to match a call against, so it would fit every
-            # single-path call; the replay bridge answers single-path calls only.
-            if example.get("shape") == "bulk":
-                continue
+            # Bulk (shape: bulk) recordings are registered too: the replay bridge answers a
+            # --paths-stdin call only from a bulk recording and a one-path call only from a
+            # one-document one, so neither can stand in for the other.
             found = spec_facts.find_fixture(example["fixture"])
             if found is None:
                 raise pytest.UsageError(

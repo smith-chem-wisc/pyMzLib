@@ -16,9 +16,9 @@ namespace MzLibBridge.Tests;
 /// different column set, which is what makes the pooled union non-trivial.
 /// </para>
 /// <para>
-/// What is deliberately NOT tested here is whether a document is valid. mzLib owns that in
-/// <c>SdrfValidator</c> and <c>SdrfDriftLint</c> (public since mzLib #1207). The bridge does not
-/// expose them yet, and it must never grow its own second opinion.
+/// What is deliberately NOT tested here is whether a document is valid: <c>read</c> and
+/// <c>pool</c> never judge. The verbs that do — validate, lint, assess, samples, parse-age — are
+/// in <see cref="SdrfAnalysisTests"/>, and each projects mzLib's answer rather than a second opinion.
 /// </para>
 /// </remarks>
 [TestFixture]

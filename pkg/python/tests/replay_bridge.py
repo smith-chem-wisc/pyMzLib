@@ -15,7 +15,9 @@ recorded for different arguments:
 * ``--path`` must name the file the fixture was recorded from (compared by file name), and any
   other ``--option value`` whose snake_case name is a top-level key of the fixture must equal it;
 * ``--limit``/``--offset`` must reproduce the fixture's ``returned_count`` from its
-  ``record_count`` (or ``row_count``), and a ``--flag`` with a ``<flag>_included`` key must match it.
+  ``record_count`` (or ``row_count``), and a ``--flag`` with a ``<flag>_included`` key must match it;
+* a ``--paths-stdin`` call fits only a bulk recording (``files`` + ``read_count``, BULK.md), and a
+  one-path call only a one-document recording.
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -78,6 +80,11 @@ def mismatch(data: dict, options: dict) -> str:
                 return f"recorded from {base(str(recorded))!r}, not {base(value)!r}"
         elif str(recorded) != value:
             return f"recorded with {key}={recorded!r}, not {value!r}"
+    # BULK.md: a --paths-stdin call has its own envelope (files[], read_count, ...). Neither shape
+    # answers for the other, or a one-path example would "fit" a bulk recording that has no path.
+    bulk_recording = isinstance(data.get("files"), list) and "read_count" in data
+    if ("paths-stdin" in options) != bulk_recording:
+        return "a bulk (--paths-stdin) recording" if bulk_recording else "a one-document recording"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"

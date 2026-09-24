@@ -280,6 +280,11 @@ public static partial class Program
             "readers read-occupancy" => Reading.ReadOccupancy(arguments),
             "sdrf read" => Sdrf.Read(arguments),
             "sdrf pool" => Sdrf.Pool(arguments),
+            "sdrf validate" => Sdrf.Validate(arguments),
+            "sdrf lint" => Sdrf.Lint(arguments),
+            "sdrf assess" => Sdrf.Assess(arguments),
+            "sdrf samples" => Sdrf.Samples(arguments),
+            "sdrf parse-age" => Sdrf.ParseAge(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the
             // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(

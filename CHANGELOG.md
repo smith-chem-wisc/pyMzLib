@@ -47,6 +47,22 @@ envelope is not a breaking change unless Python callers can see it.
 - **`bridge_version()["verbs"]`** lists every command the bridge dispatches, generated from its
   dispatch table at build time. A function newer than the bridge in use now fails with a
   `UsageError` naming the pyMzLib release it needs, instead of "Unknown command".
+- **SDRF: validate, lint, assess, samples and ages** (mzLib 1.0.592). Five functions, each one mzLib
+  type projected, and none re-deriving a rule:
+  `sdrf.validate()` (`SdrfValidator` — structural findings with severity, rule, line and column),
+  `sdrf.lint()` (`SdrfDriftLint` — concepts several files wrote differently, one row per spelling),
+  `sdrf.assess()` (`SdrfSampleInformativeness`, #1325 — `Informative`, `Partial` or `Skeleton`, with
+  the per-column counts behind it), `sdrf.samples()` (`SdrfSampleBlock`, #1334 — one row per sample
+  x column, a column the sample's rows disagree about withheld and named) and `sdrf.parse_ages()`
+  (`SdrfAge`, #1326/#1333 — ages in **years** with a precision, a bare `63` refused rather than
+  assumed). `samples()` carries the parsed age on each `characteristics[age]` row. A lower bound
+  (`>=90Y`) has no upper end: `max_years` is `None` and `precision` is `LowerBound`; a refused cell
+  names why in `refusal`. See the [SDRF guide](https://smith-chem-wisc.github.io/pyMzLib/guides/sdrf/).
+- **`validate_many()`, `assess_many()`, `samples_many()`** read a whole corpus in one bridge call,
+  with `threads` (default 1, `-1` = every core; the result is identical at any value) and
+  `on_error="fail"|"skip"`. A skipped file keeps its entry, with a `FileError`.
+- **`sdrf.lint()` ignores `comment[searched data file]`** (mzLib #1335), which `read()` and `pool()`
+  carry verbatim like any column: file names that differ between studies are data, not drift.
 
 ### Fixed
 - **Docstring examples render as code in the API reference.** They sat under `Example:`, which

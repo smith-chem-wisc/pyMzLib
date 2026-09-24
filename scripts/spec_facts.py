@@ -49,6 +49,31 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "formats() returns this list itself, as Format objects",
         },
     },
+    # SDRF cannot use the readers' ``columns`` name-to-values map (its names repeat), so a document
+    # carries its header as ``columns`` - a list - and ``column_names`` is that list.
+    "sdrf read": {
+        "field.column_names": {"python": "columns", "why": "the header list is SdrfDocument.columns"},
+    },
+    "sdrf pool": {
+        "param.stdin": {"python": "documents", "why": "the stdin lines are rendered from documents"},
+        "field.column_names": {"python": "columns", "why": "the header list is PooledSdrf.columns"},
+    },
+    "sdrf lint": {
+        "param.stdin": {"python": "documents", "why": "the stdin lines are rendered from documents"},
+    },
+    "sdrf parse-age": {
+        "param.stdin": {"python": "cells", "why": "one stdin line per element of cells"},
+    },
+    # One document and many are two functions (validate / validate_many), a cross-binding decision:
+    # the bulk options exist only on the _many form, which takes the list the wire reads on stdin.
+    **{
+        f"sdrf {verb}": {
+            "param.paths-stdin": {"python": None, "why": f"{verb}_many(paths) is the bulk form"},
+            "param.threads": {"python": None, "why": f"only {verb}_many() takes threads"},
+            "param.on-error": {"python": None, "why": f"only {verb}_many() takes on_error"},
+        }
+        for verb in ("validate", "assess", "samples")
+    },
 }
 
 

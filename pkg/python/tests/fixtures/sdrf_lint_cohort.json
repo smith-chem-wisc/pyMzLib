@@ -1,0 +1,127 @@
+{
+ "document_count": 2,
+ "paths": [
+  "sdrf_cohort.sdrf.tsv",
+  "sdrf_cohort_partner.sdrf.tsv"
+ ],
+ "labels": [
+  "cohort",
+  "partner"
+ ],
+ "finding_count": 4,
+ "column_names": [
+  "finding_index",
+  "kind",
+  "concept",
+  "column_name",
+  "variant_rank",
+  "value",
+  "occurrences",
+  "documents"
+ ],
+ "columns": {
+  "finding_index": [
+   0,
+   0,
+   1,
+   1,
+   2,
+   2,
+   3,
+   3
+  ],
+  "kind": [
+   "AccessionNameConflict",
+   "AccessionNameConflict",
+   "MixedTermAndFreeText",
+   "MixedTermAndFreeText",
+   "ColumnNameVariant",
+   "ColumnNameVariant",
+   "ValueCaseVariant",
+   "ValueCaseVariant"
+  ],
+  "concept": [
+   "MS:1003028",
+   "MS:1003028",
+   "comment[label]",
+   "comment[label]",
+   "characteristics[sex]",
+   "characteristics[sex]",
+   "homo sapiens",
+   "homo sapiens"
+  ],
+  "column_name": [
+   "comment[instrument]",
+   "comment[instrument]",
+   "comment[label]",
+   "comment[label]",
+   null,
+   null,
+   "characteristics[organism]",
+   "characteristics[organism]"
+  ],
+  "variant_rank": [
+   0,
+   1,
+   0,
+   1,
+   0,
+   1,
+   0,
+   1
+  ],
+  "value": [
+   "Exploris 480",
+   "Orbitrap Exploris 480",
+   "controlled vocabulary term",
+   "free text",
+   "Characteristics[sex]",
+   "characteristics[sex]",
+   "Homo sapiens",
+   "homo sapiens"
+  ],
+  "occurrences": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "documents": [
+   [
+    "partner"
+   ],
+   [
+    "cohort"
+   ],
+   [
+    "cohort"
+   ],
+   [
+    "partner"
+   ],
+   [
+    "partner"
+   ],
+   [
+    "cohort"
+   ],
+   [
+    "cohort"
+   ],
+   [
+    "partner"
+   ]
+  ]
+ },
+ "caveats": [
+  "variant_rank 0 is the MAJORITY spelling. That describes what these documents do; it is not advice. In the curated corpus characteristics[organism] is free text in 963 documents and a CV term in 275, so following the majority would throw the accession away.",
+  "Columns whose values are unique per row by construction are never compared: source name, assay name, comment[data file], comment[searched data file] (since mzLib 1.0.592, #1335), comment[file uri] and comment[source document]. File names that differ between documents are data, not drift.",
+  "Reserved words and empty cells are skipped: a reserved word cannot drift. A set of documents that say nothing therefore lints clean; sdrf assess is the check for that.",
+  "Findings are ordered by impact (occurrences outside the majority), then kind, column and concept, so the same documents always produce the same table and two runs can be diffed.",
+  "column_name is null for a ColumnNameVariant finding, which is about a column's NAME; there concept is the name lower-cased with runs of whitespace collapsed."
+ ]
+}

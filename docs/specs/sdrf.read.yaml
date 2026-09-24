@@ -1,0 +1,82 @@
+# Back-filled 2026-09-23 from pyMzLib pkg/bridge/Sdrf.cs (Read, ReadCaveats, WindowFrom, Slice) on
+# branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e (tag 1.0.592). The verb is
+# unchanged since pyMzLib #47; both example fixtures were recorded from the live bridge.
+verb: sdrf read
+module: sdrf
+summary: >-
+  Read one SDRF-Proteomics file as its header and rows of raw cells, keeping repeated column names
+  and ragged rows exactly as written.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfDocument.LoadResults, path: mzLib/Readers/Sdrf/SdrfDocument.cs, pin: 23c2490e}
+  - {symbol: SdrfHeader, path: mzLib/Readers/Sdrf/SdrfHeader.cs, pin: 23c2490e}
+  - {symbol: SdrfRow.Cells, path: mzLib/Readers/Sdrf/SdrfRow.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics, the format read (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: path
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: A .sdrf.tsv file.
+  - name: offset
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: 0
+    doc: Skip this many data rows. The whole file is parsed on every call.
+  - name: limit
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: null
+    doc: Return at most this many data rows. Absent means every row.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The path as given.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The header, verbatim and in order. A LIST that may repeat names (comment[modification parameters] up to eight times) and may contain empty names; a name identifies a position, not a column."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Data rows in the whole file, before the window."}
+    - {wire: returned_count, type: int, unit: rows, nullable: false, null_means: null, doc: Rows in rows.}
+    - {wire: offset, type: int, unit: rows, nullable: false, null_means: null, doc: The offset applied.}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever rows were left out by offset or limit, including an offset past the end."}
+    - {wire: rows, type: "string[][]", unit: null, nullable: false, null_means: null, doc: "One list of raw cells per row, row-major. RAGGED: a row may be shorter than column_names; a missing position is absent, not empty."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats, plus a count of short rows over the WHOLE document when any row is short."}
+  columns: []
+  cell_rules:
+    - "Row-major, not the readers' columnar map: SDRF column names are data and repeat, so a name-keyed map would silently keep one occurrence."
+    - "Cells are raw strings, never interpreted. The key=value grammar (NT=...;AC=...) is left as written: comment[file uri] cells carry pre-signed URLs with the same shape."
+    - "A reserved word (\"not available\", \"not applicable\") is a real value the curator wrote, not the same as a column the file lacks."
+    - "comment[searched data file] (written by mzLib's builder since 1.0.592, #1327) is carried verbatim like any other column."
+
+errors:
+  - {kind: usage, when: "path missing or blank; offset or limit negative or not an integer"}
+  - {kind: correctness, when: "mzLib cannot read the file (MzLibException for an empty or missing file)"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "readers read-records also opens .sdrf.tsv, but joins each row's cells with ';' into one string that cannot be split back, because the SDRF grammar is itself ';'-delimited. Use this verb for SDRF."
+  - "offset and limit window after a full parse."
+
+bindings:
+  py: {name: pymzlib.sdrf.read}
+  rust: {name: "mzlib::sdrf::read_with", options: ReadOptions}
+  r: {name: sdrf_read}
+
+examples:
+  - fixture: sdrf_read_PXD000070.json
+    py: "doc = pymzlib.sdrf.read('PXD000070.sdrf.tsv')"
+    rust: "let doc = mzlib::sdrf::read(\"PXD000070.sdrf.tsv\")?;"
+    r: "doc <- sdrf_read('PXD000070.sdrf.tsv')"
+  - fixture: sdrf_read_ragged.json
+    py: "doc = pymzlib.sdrf.read('PXD059974.sdrf.tsv')"
+    rust: "let doc = mzlib::sdrf::read(\"PXD059974.sdrf.tsv\")?;"
+    r: "doc <- sdrf_read('PXD059974.sdrf.tsv')"
+
+open_questions:
+  - "since.mzlibrust / since.mzlibr are null: the ports (mzLibRust#23, mzLibR#19) merged 2026-09-17 but neither repo has cut a release tag yet (checked with gh api .../tags, 2026-09-23)."

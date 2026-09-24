@@ -1,0 +1,93 @@
+# Written 2026-09-23 with the verb, from pyMzLib pkg/bridge/Sdrf.Samples.cs (Samples, SampleOne,
+# InDocumentOrder, AgeCells) and Sdrf.Bulk.cs on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61),
+# mzLib pin 23c2490e (tag 1.0.592). Example fixture recorded from the live bridge on that branch.
+verb: sdrf samples
+module: sdrf
+summary: >-
+  One row per sample, column and position: what each source name's rows agree on, the columns they
+  disagree about named and withheld, and characteristics[age] read into years.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfSampleBlock.BySourceName, path: mzLib/Readers/Sdrf/SdrfSampleBlock.cs, pin: 23c2490e}
+  - {symbol: SdrfAge.TryParse, path: mzLib/Readers/Sdrf/SdrfAge.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics source name, characteristics and factor value columns, and the age grammar (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - {name: path, type: path, required: false, unit: null, range: null, default: null, doc: "One .sdrf.tsv file. Exactly one of path and paths-stdin."}
+  - {name: paths-stdin, type: flag, required: false, unit: null, range: null, default: null, doc: "Many paths on stdin, as for sdrf validate."}
+  - {name: threads, type: int, required: false, unit: documents, range: ">= 1, or -1", default: 1, doc: "Documents read at once; output identical at any value."}
+  - {name: on-error, type: string, required: false, unit: null, range: "fail | skip", default: fail, doc: "As for sdrf validate."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The absolute path read.}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: Distinct source names.}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Data rows in the document.}
+    - {wire: conflict_count, type: int, unit: null, nullable: false, null_means: null, doc: "Sample x column pairs withheld as conflicting."}
+    - {wire: problems, type: "string[]", unit: null, nullable: false, null_means: null, doc: "mzLib's BySourceName problems: no source name column, or a row with a blank source name. Empty for a well-formed document."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Samples in order of first appearance in the document; within a sample: source name, characteristics, factor values (header order), then conflicting columns."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Four static caveats.}
+  columns:
+    - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based input position."}
+    - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path."}
+    - {wire: source_name, type: string, unit: null, nullable: false, null_means: null, doc: "The sample as its first row spelled it, trimmed. Matched case-insensitively (mzLib's key)."}
+    - {wire: sample_row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Rows carrying this sample.}
+    - {wire: column_name, type: string, unit: null, nullable: false, null_means: null, doc: "The header's own spelling; characteristics[age] and characteristics[Age] are two columns."}
+    - {wire: column_kind, type: string, unit: null, nullable: false, null_means: null, doc: "source_name | characteristic | factor_value."}
+    - {wire: position, type: int, unit: null, nullable: true, null_means: "status is conflicting: the column was withheld, so it has no positions", doc: "0-based occurrence of a repeated column."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "agreed | conflicting (the sample's rows disagree; mzLib withheld the column)."}
+    - {wire: value, type: string, unit: null, nullable: true, null_means: "status is conflicting (withheld, not absent)", doc: "The cell verbatim, reserved words included."}
+    - {wire: age_years, type: float, unit: years, nullable: true, null_means: "not a characteristics[age] row, or the cell was refused (age_refusal says why)", doc: "The age, a range's midpoint, or a bound."}
+    - {wire: age_min_years, type: float, unit: years, nullable: true, null_means: "as age_years", doc: "Youngest the cell allows; 0 for UpperBound."}
+    - {wire: age_max_years, type: float, unit: years, nullable: true, null_means: "not an age row; refused; OR precision is LowerBound, meaning UNBOUNDED (mzLib's +infinity, which JSON cannot carry)", doc: Oldest the cell allows.}
+    - {wire: age_precision, type: string, unit: null, nullable: true, null_means: "not an age row, or refused", doc: "Exact | Range | LowerBound | UpperBound (SdrfAgePrecision)."}
+    - {wire: age_follows_specification, type: bool, unit: null, nullable: true, null_means: "not an age row, or refused", doc: "true for nYnMnD / nW grammar, false for unambiguous words."}
+    - {wire: age_refusal, type: string, unit: null, nullable: true, null_means: "not an age row, or the cell was read", doc: "empty | reserved_word | no_unit | unreadable. Classified by the bridge; mzLib's TryParse answers only true/false."}
+
+  # The --paths-stdin shape (BULK.md): checked by check_verbs.py against examples with shape: bulk.
+  bulk:
+    envelope_fields:
+      - {wire: file_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents read."}
+      - {wire: failed_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents not read; non-zero only under --on-error skip."}
+      - {wire: record_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns over every document read (BULK.md section 2)."}
+      - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples over every document read."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: {path, sample_count, row_count, conflict_count, problems, error}; all but path and error null when unread."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-document columns."}
+      - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Rows in input order, then the order within each document, whatever --threads is."}
+      - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "As for one document."}
+
+errors:
+  - {kind: usage, when: "as for sdrf validate"}
+  - {kind: correctness, when: "mzLib cannot read a document"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A source name is unique only within a document; across a bulk result key on (source_index, source_name)."
+  - "Age units: a month is 1/12 year, a week 7/365.25, a day 1/365.25, an hour 1/(365.25 x 24)."
+  - "The age column is matched ignoring case, so characteristics[Age] is still read; sdrf validate reports the casing."
+  - "A conflicting characteristics[age] has no parsed age: the column is withheld."
+
+bindings:
+  py: {name: pymzlib.sdrf.samples, bulk: pymzlib.sdrf.samples_many}
+  rust: {name: "mzlib::sdrf::samples", bulk: "mzlib::sdrf::samples_many", options: BulkOptions}
+  r: {name: sdrf_samples, bulk: sdrf_samples_many}
+
+examples:
+  - fixture: sdrf_samples_cohort.json
+    py: "result = pymzlib.sdrf.samples('sdrf_cohort.sdrf.tsv')"
+    rust: "let result = mzlib::sdrf::samples(\"sdrf_cohort.sdrf.tsv\")?;"
+    r: "result <- sdrf_samples('sdrf_cohort.sdrf.tsv')"
+  - fixture: sdrf_samples_bulk.json
+    shape: bulk
+    py: "batch = pymzlib.sdrf.samples_many(['sdrf_cohort.sdrf.tsv', 'sdrf_cohort_partner.sdrf.tsv'])"
+    rust: "let batch = mzlib::sdrf::samples_many(&[\"sdrf_cohort.sdrf.tsv\", \"sdrf_cohort_partner.sdrf.tsv\"], &BulkOptions::default())?;"
+    r: "batch <- sdrf_samples_many(c('sdrf_cohort.sdrf.tsv', 'sdrf_cohort_partner.sdrf.tsv'))"
+
+open_questions:
+  - "The refusal classification (empty, reserved_word, no_unit, unreadable) is bridge-side. It uses mzLib's own SdrfValidator.ReservedWords, but a TryParse overload returning the reason would move it upstream where it belongs; propose to mzLib."
+  - "Sample order is first appearance in the document, recovered through BySourceName's own dictionary comparer because the dictionary's enumeration order is not contractual; an ordered return from mzLib would remove that step."
+  - "since.pymzlib is null until released; Rust and R are not yet ported."
+  - "Bulk spellings are the cross-binding decision of 2026-09-23: a separate <verb>_many in every binding (R too, not vectorisation). Rust and R names here are intended, not yet ported."

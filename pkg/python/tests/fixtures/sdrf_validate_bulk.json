@@ -1,0 +1,162 @@
+{
+ "file_count": 3,
+ "read_count": 2,
+ "failed_count": 1,
+ "valid_count": 1,
+ "message_count": 11,
+ "record_count": 11,
+ "files": [
+  {
+   "path": "sdrf_skeleton.sdrf.tsv",
+   "is_valid": false,
+   "error_count": 7,
+   "warning_count": 2,
+   "message_count": 9,
+   "row_count": 2,
+   "error": null
+  },
+  {
+   "path": "sdrf_cohort.sdrf.tsv",
+   "is_valid": true,
+   "error_count": 0,
+   "warning_count": 2,
+   "message_count": 2,
+   "row_count": 12,
+   "error": null
+  },
+  {
+   "path": "missing.sdrf.tsv",
+   "is_valid": null,
+   "error_count": null,
+   "warning_count": null,
+   "message_count": null,
+   "row_count": null,
+   "error": {
+    "kind": "usage",
+    "message": "SDRF file not found: 'missing.sdrf.tsv'."
+   }
+  }
+ ],
+ "column_names": [
+  "source_index",
+  "source_path",
+  "severity",
+  "rule",
+  "message",
+  "row_index",
+  "line_number",
+  "column_name"
+ ],
+ "columns": {
+  "source_index": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   1
+  ],
+  "source_path": [
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_skeleton.sdrf.tsv",
+   "sdrf_cohort.sdrf.tsv",
+   "sdrf_cohort.sdrf.tsv"
+  ],
+  "severity": [
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Error",
+   "Warning",
+   "Warning",
+   "Warning",
+   "Warning"
+  ],
+  "rule": [
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RequiredColumn",
+   "RecommendedColumn",
+   "RecommendedColumn",
+   "ReservedWordCase",
+   "ReservedWordCase"
+  ],
+  "message": [
+   "Required column 'technology type' is missing.",
+   "Required column 'comment[instrument]' is missing.",
+   "Required column 'comment[label]' is missing.",
+   "Required column 'comment[cleavage agent details]' is missing.",
+   "Required column 'comment[technical replicate]' is missing.",
+   "Required column 'comment[fraction identifier]' is missing.",
+   "Required column 'comment[proteomics data acquisition method]' is missing.",
+   "Column 'characteristics[cell type]' is listed as mandatory for MS proteomics but is absent.",
+   "Column 'comment[modification parameters]' is listed as mandatory for MS proteomics but is absent.",
+   "Reserved word 'Not available' should be lowercase 'not available'.",
+   "Reserved word 'Not available' should be lowercase 'not available'."
+  ],
+  "row_index": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   8,
+   9
+  ],
+  "line_number": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   10,
+   11
+  ],
+  "column_name": [
+   "technology type",
+   "comment[instrument]",
+   "comment[label]",
+   "comment[cleavage agent details]",
+   "comment[technical replicate]",
+   "comment[fraction identifier]",
+   "comment[proteomics data acquisition method]",
+   "characteristics[cell type]",
+   "comment[modification parameters]",
+   "characteristics[age]",
+   "characteristics[age]"
+  ]
+ },
+ "caveats": [
+  "STRUCTURE ONLY, against SDRF-Proteomics v1.1.0: column presence, order, casing, cell shape and row-key uniqueness. Controlled-vocabulary terms are NOT resolved, so a well-formed but wrong accession passes.",
+  "is_valid means no Error. Warnings never make a document invalid: mzLib calibrated every severity against the 1,236-file curated corpus, where a rule that fired on most curated files was judged a wrong rule, not 1,236 wrong files.",
+  "row_index is 0-based over data rows; line_number is the 1-based line in the file (row_index + 2, because the header is line 1). Both are null for a document-level finding. column_name is null when the finding is not about one column.",
+  "A document full of reserved words (\"not available\") validates cleanly, because that is the specification's correct way to say nothing. Whether a document SAYS anything is sdrf assess; whether several documents agree is sdrf lint."
+ ]
+}
