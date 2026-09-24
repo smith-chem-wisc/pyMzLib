@@ -45,14 +45,52 @@ jobs:
       - name: Build (strict — warnings are failures)
         run: mkdocs build --strict
 
+      # The build above re-renders the fact tables (scripts/mkdocs_hooks.py). If that changed a
+      # committed file, the pull request carries stale facts: fail, and say how to fix it.
+      - name: Rendered fact tables are committed
+        run: |
+          if [ -n "$(git status --porcelain -- docs/reference/_generated)" ]; then
+            git status --porcelain -- docs/reference/_generated
+            echo "::error::docs/reference/_generated is stale. Run: python scripts/render_spec_docs.py"
+            exit 1
+          fi
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
+  # The reference facts come from the per-verb specs in docs/specs/ (vendored from the bridge by
+  # scripts/sync_specs.py). This job holds the docs to them: the rendered tables must match the
+  # specs, every spec param and result field must be in the docstrings with its unit, and every
+  # docstring example must run, against recorded bridge output rather than .NET or the network.
+  # See docs/contributing/reference-facts.md.
+  reference-facts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          pip install -e "./pkg/python[dev]"
+          pip install "mkdocstrings[python]>=0.25"
+
+      - name: Fact tables match the specs
+        run: python scripts/render_spec_docs.py --check
+
+      - name: Docstrings carry every spec param and field, with units
+        run: python -m pytest pkg/python/tests/test_spec_docs.py -v
+
+      - name: Docstring examples run against the replay bridge
+        run: python -m pytest --doctest-modules pkg/python/src/pymzlib -v
+
   deploy:
     # Pull requests build the docs but do not publish them.
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: build
+    needs: [build, reference-facts]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

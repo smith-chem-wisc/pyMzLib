@@ -1,0 +1,33 @@
+# Checks every external link in the documentation, weekly.
+#
+# Deliberately NOT on pull requests: an external site being down for an afternoon is not a reason
+# to block a change, and a link that rotted last month is not the fault of the pull request that
+# happens to be open. A red run here is a to-do, not a gate. The links that matter most are the
+# ones the reference pages render from the specs: mzLib source at a pinned commit, and DOIs.
+
+name: links
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'   # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check external links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-retries 3
+            --accept 200,206,429
+            --exclude-path docs/specs
+            './docs/**/*.md' './README.md' './CONTRIBUTING.md' './pkg/python/README.md'
+          fail: true
