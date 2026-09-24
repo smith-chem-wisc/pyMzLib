@@ -96,6 +96,7 @@ nav:
       - FlashLFQ: guides/flashlfq.md
       - Readers: guides/readers.md
       - SDRF experimental design: guides/sdrf.md
+      - Protein databases: guides/proteins.md
   - API reference:
       - Python API: reference.md
       - "Wire verbs: readers": reference/readers.md
