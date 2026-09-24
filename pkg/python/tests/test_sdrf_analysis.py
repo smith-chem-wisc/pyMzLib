@@ -104,6 +104,7 @@ def test_validate_many_keeps_a_failed_file_visible(replay):
 
     assert (batch.file_count, batch.read_count, batch.failed_count) == (3, 2, 1)
     assert batch.valid_count == 1
+    assert batch.record_count == batch.message_count == len(batch.columns["rule"])
     skeleton, cohort, missing = batch.files
     assert skeleton.is_valid is False and cohort.is_valid is True
     assert missing.is_valid is None and missing.message_count is None

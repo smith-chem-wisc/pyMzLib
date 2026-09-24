@@ -107,6 +107,8 @@ internal static partial class Sdrf
             read_count = read.Count,
             failed_count = outcomes.Count - read.Count,
             sample_count = read.Sum(s => s.SampleCount),
+            // BULK.md section 2: every bulk envelope carries record_count, the rows in columns.
+            record_count = bulk.RowCount,
             files,
             column_names = bulk.Names,
             columns = bulk.Columns(),

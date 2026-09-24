@@ -3,6 +3,7 @@
  "read_count": 2,
  "failed_count": 0,
  "sample_count": 8,
+ "record_count": 62,
  "files": [
   {
    "path": "sdrf_cohort.sdrf.tsv",

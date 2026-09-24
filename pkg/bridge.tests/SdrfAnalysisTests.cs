@@ -82,6 +82,8 @@ public class SdrfAnalysisTests
         {
             Assert.That(data.GetProperty("file_count").GetInt32(), Is.EqualTo(2));
             Assert.That(data.GetProperty("valid_count").GetInt32(), Is.EqualTo(1));
+            Assert.That(data.GetProperty("record_count").GetInt32(),
+                Is.EqualTo(data.GetProperty("message_count").GetInt32()), "record_count is BULK.md's name for the same rows");
             Assert.That(sources, Is.Ordered, "rows must follow input order");
             Assert.That(sources.Distinct(), Is.EqualTo(new[] { 0, 1 }));
             Assert.That(files[0].GetProperty("is_valid").GetBoolean(), Is.False);

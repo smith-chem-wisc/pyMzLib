@@ -2,6 +2,7 @@
  "file_count": 3,
  "read_count": 3,
  "failed_count": 0,
+ "record_count": 14,
  "verdict_counts": {
   "informative": 1,
   "partial": 1,

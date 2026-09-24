@@ -676,6 +676,8 @@ class SdrfValidationBatch(_Table):
         file_count: Documents given.
         read_count: Documents validated.
         failed_count: Documents that could not be read (only non-zero under ``on_error="skip"``).
+        record_count: Rows in ``columns``, over every document read - the same count under
+            the name every bulk verb uses (BULK.md).
         valid_count: Documents read with no ``Error``.
         message_count: Findings over every document read.
         files: One :class:`ValidatedFile` per input, in input order.
@@ -687,6 +689,7 @@ class SdrfValidationBatch(_Table):
     file_count: int
     read_count: int
     failed_count: int
+    record_count: int
     valid_count: int
     message_count: int
     files: list[ValidatedFile]
@@ -706,6 +709,7 @@ class SdrfValidationBatch(_Table):
             file_count=int(data.get("file_count", 0)),
             read_count=int(data.get("read_count", 0)),
             failed_count=int(data.get("failed_count", 0)),
+            record_count=int(data.get("record_count", 0)),
             valid_count=int(data.get("valid_count", 0)),
             message_count=int(data.get("message_count", 0)),
             files=[ValidatedFile._from_wire(f) for f in (data.get("files") or [])],
@@ -989,6 +993,8 @@ class SdrfAssessmentBatch(_Table):
         file_count: Documents given.
         read_count: Documents assessed.
         failed_count: Documents that could not be read (only under ``on_error="skip"``).
+        record_count: Rows in ``columns``, over every document read - the same count under
+            the name every bulk verb uses (BULK.md).
         verdict_counts: ``{"informative": n, "partial": n, "skeleton": n}`` over the documents read.
         files: One :class:`AssessedFile` per input, in input order.
         column_names: The evidence columns of :class:`SdrfAssessment`, with ``source_index`` and
@@ -1000,6 +1006,7 @@ class SdrfAssessmentBatch(_Table):
     file_count: int
     read_count: int
     failed_count: int
+    record_count: int
     verdict_counts: dict[str, int]
     files: list[AssessedFile]
     column_names: list[str]
@@ -1028,6 +1035,7 @@ class SdrfAssessmentBatch(_Table):
             file_count=int(data.get("file_count", 0)),
             read_count=int(data.get("read_count", 0)),
             failed_count=int(data.get("failed_count", 0)),
+            record_count=int(data.get("record_count", 0)),
             verdict_counts={k: int(v) for k, v in (data.get("verdict_counts") or {}).items()},
             files=[AssessedFile._from_wire(f) for f in (data.get("files") or [])],
             column_names=names,
@@ -1218,6 +1226,8 @@ class SdrfSamplesBatch(_Table):
         file_count: Documents given.
         read_count: Documents read.
         failed_count: Documents that could not be read (only under ``on_error="skip"``).
+        record_count: Rows in ``columns``, over every document read - the same count under
+            the name every bulk verb uses (BULK.md).
         sample_count: Samples over every document read.
         files: One :class:`SampledFile` per input, in input order.
         column_names: The table's columns.
@@ -1228,6 +1238,7 @@ class SdrfSamplesBatch(_Table):
     file_count: int
     read_count: int
     failed_count: int
+    record_count: int
     sample_count: int
     files: list[SampledFile]
     column_names: list[str]
@@ -1241,6 +1252,7 @@ class SdrfSamplesBatch(_Table):
             file_count=int(data.get("file_count", 0)),
             read_count=int(data.get("read_count", 0)),
             failed_count=int(data.get("failed_count", 0)),
+            record_count=int(data.get("record_count", 0)),
             sample_count=int(data.get("sample_count", 0)),
             files=[SampledFile._from_wire(f) for f in (data.get("files") or [])],
             column_names=names,

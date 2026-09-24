@@ -96,6 +96,8 @@ internal static partial class Sdrf
             failed_count = outcomes.Count - read.Count,
             valid_count = read.Count(v => v.Result.IsValid),
             message_count = bulk.RowCount,
+            // BULK.md section 2: every bulk envelope carries record_count, the rows in columns.
+            record_count = bulk.RowCount,
             files,
             column_names = bulk.Names,
             columns = bulk.Columns(),
@@ -196,6 +198,8 @@ internal static partial class Sdrf
             file_count = outcomes.Count,
             read_count = verdicts.Count,
             failed_count = outcomes.Count - verdicts.Count,
+            // BULK.md section 2: every bulk envelope carries record_count, the rows in columns.
+            record_count = bulk.RowCount,
             verdict_counts = new
             {
                 informative = verdicts.Count(v => v == SdrfSampleVerdict.Informative),

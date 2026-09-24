@@ -4,6 +4,7 @@
  "failed_count": 1,
  "valid_count": 1,
  "message_count": 11,
+ "record_count": 11,
  "files": [
   {
    "path": "sdrf_skeleton.sdrf.tsv",
