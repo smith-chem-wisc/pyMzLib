@@ -144,6 +144,25 @@ t.failed_fields          # ['accession: IndexOutOfRangeException']  (on a non-Un
     ratio, TopPIC's `feature_score`. Nulling those would destroy data. Non-finite values (`NaN`,
     infinity) still cross as `None`, since JSON cannot carry them at all.
 
+### Values that changed with mzLib 1.0.592
+
+Two formats read differently from the same file than they did before mzLib 1.0.592:
+
+- **MetaMorpheus `.psmtsv`/`.osmtsv`: `pro_forma` is filled on older files** (mzLib #1346).
+  MetaMorpheus 1.1.11 and earlier wrote no `ProForma` column, so the column was always `None`.
+  mzLib now converts `full_sequence` to ProForma 2.0 when the file has no value, naming a
+  modification by its UNIMOD accession where it has one and by name otherwise. A row whose
+  `full_sequence` is ambiguous (`|`-joined), or which the converter cannot parse, is still `None`.
+  The conversion costs time: reading a 271,551-row, 295 MB `AllPSMs.psmtsv` went from 12.9 s to
+  15.6 s (+21%), and a 2,796-row file from 0.35 s to 0.81 s, most of that the one-time load of
+  the modification databases. `read_results()` does not carry `pro_forma` and is unaffected.
+- **FlashLFQ `QuantifiedPeaks.tsv`: `mbr_score` is `None` where it was `0`** (mzLib #1345). A peak
+  with no MBR score (every MSMS peak, and every peak in a file without the column) used to read
+  `0.0`, a number that says "scored, and scored nothing". Current FlashLFQ and MetaMorpheus 1.1.11
+  peaks tables, which have no `MBR Score` column, used to fail with `HeaderValidationException`;
+  they now read, and seven columns join the record: `organism`, `peak_fwhm`, `peak_fwhm_status`,
+  `pip_q_value`, `pip_pep`, `decoy_peptide` and `random_rt`.
+
 ## `read_results()`: the quantifiable view
 
 The four types offering `quantifiable` — MetaMorpheus `.psmtsv` and `.osmtsv`, MSFragger

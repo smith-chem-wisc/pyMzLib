@@ -521,6 +521,43 @@ public class ReadingCoverageTests
             "the quantifiable view already refuses for MSFragger.");
     }
 
+    [Test]
+    public void FlashLFQPeaks_AbsentMbrScoreIsNull_NotZero()
+    {
+        // mzLib #1345 made QuantifiedPeak.MBRScore a double?. The 1.0.549 fixture's MBR Score cells
+        // are blank on its MSMS peaks; they read 0 before, a number that says "scored, and scored
+        // nothing", and must read null now.
+        JsonElement data = Invoke("readers", "read-records",
+            "--path", FixtureFor(SupportedFileType.FlashLFQQuantifiedPeak));
+
+        foreach (JsonElement score in data.GetProperty("columns").GetProperty("mbr_score").EnumerateArray())
+            Assert.That(score.ValueKind, Is.EqualTo(JsonValueKind.Null));
+    }
+
+    [Test]
+    public void FlashLFQPeaks_CurrentFormatWithoutAnMbrScoreColumn_Reads()
+    {
+        // mzLib #1345: current FlashLFQ (and MetaMorpheus 1.1.11) peaks tables have no MBR Score
+        // column and add seven others. They threw HeaderValidationException through 1.0.591.
+        string path = Path.Combine(TestRoot(), "FileReadingTests", "ExternalFileTypes",
+            "FlashLFQ_MzLib1.0.591_QuantifiedPeaks.tsv");
+        if (!File.Exists(path))
+            Assert.Ignore($"mzLib fixture not present: {path}");
+
+        JsonElement data = Invoke("readers", "read-records", "--path", path);
+        List<string?> columns = data.GetProperty("column_names").EnumerateArray().Select(c => c.GetString()).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("record_count").GetInt32(), Is.GreaterThan(0));
+            Assert.That(columns, Is.SupersetOf(new[]
+            {
+                "organism", "peak_fwhm", "peak_fwhm_status", "pip_q_value", "pip_pep",
+                "decoy_peptide", "random_rt",
+            }));
+        });
+    }
+
     [TestCase(SupportedFileType.MzIdentML)]
     [TestCase(SupportedFileType.MzIdentMLGz)]
     public void MzIdentMLIsDecoyIsNull_AndItsCaveatsSaySo(SupportedFileType fileType)
