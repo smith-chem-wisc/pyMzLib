@@ -6,6 +6,22 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Fixed
+- **`peptidoform.fragments()`: `peptides_at_isoform_cap` counts the raw digest, as it always said
+  it did.** It was recomputed on the de-duplicated list, so a locus that mzLib truncated at the cap,
+  and that the mzLib#1108 de-duplication then dropped below it, was reported as untruncated. The
+  correct count had been computed and left unused.
+- **`pride.list_ftp_files()` raises `ProjectNotFoundError` only for a missing project.** It re-mapped
+  every mzLib error to "no such project, check for a typo", including a cyclic FTP listing that
+  exceeded the depth limit. That now stays a `BridgeError`.
+- **`pride.download_files()` accepts a selection whose first line carries a UTF-8 BOM.** The bridge
+  kept the BOM, so the first name matched nothing and failed as "not in project", after every
+  other selected file had downloaded.
+- **Stale FlashLFQ warnings.** The `max_threads` docstring still said results change with
+  threads. mzLib#1155 fixed that cause (mzLib#1111), and 1.0.592 includes it. The `median_polish`
+  docstring and the FlashLFQ guide still said `QuantifiedProteins.tsv` labels disagree until a
+  re-pin. mzLib#1129 is in the pin, so they agree; only the column order can differ.
+
 ## [0.2.0] - 2026-09-24
 
 Built from mzLib 1.0.592. Adds `pymzlib.proteins`, SDRF validation, and reading many files in one call.

@@ -236,9 +236,7 @@ internal static class Peptidoform
             terminus = terminus.ToString(),
             max_modifications = maxMods,
             max_modification_isoforms = maxIsoforms,
-            peptides_at_isoform_cap = peptides
-                .GroupBy(p => (p.OneBasedStartResidue, p.OneBasedEndResidue))
-                .Count(g => g.Count() >= maxIsoforms),
+            peptides_at_isoform_cap = peptidesAtCap,
             peptide_count = wirePeptides.Count,
             peptides = wirePeptides,
         };

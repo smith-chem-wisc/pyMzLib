@@ -449,14 +449,14 @@ def quantify(
         use_pep_q_value: Filter identifications on PEP q-value rather than q-value.
         max_threads: Worker threads; ``-1`` lets FlashLFQ choose.
 
-            **This is not only a performance knob - it changes results.** With ``-1``,
-            FlashLFQ's peptide roll-up nondeterministically drops some MBR intensities, so
-            peptide and protein numbers vary between runs on byte-identical inputs. On the
-            K562 pair, 6 peptides flip between ``0.0`` and a real intensity, which flips a
-            borderline protein group between ``None`` and a number: unquantifiable in 5 of 6
-            runs, quantified in the 6th. The peaks are stable throughout - only the roll-up
-            wobbles. **Set ``max_threads=1`` for anything you intend to publish or
-            reproduce.** See smith-chem-wisc/mzLib#1111.
+            Before mzLib 1.0.592 this changed results, not only speed: with match-between-runs
+            on and more than one thread, the peptide roll-up dropped some MBR intensities
+            nondeterministically, so identical inputs gave different peptide and protein
+            numbers (smith-chem-wisc/mzLib#1111). mzLib#1155 fixed the cause, the PEP
+            training rows being assembled in thread-completion order, and this build includes
+            it. pyMzLib has not re-measured its own K562 reproduction on this build, so
+            ``max_threads=1`` remains the conservative choice when a result must reproduce
+            exactly.
         output_directory: If given, FlashLFQ also writes ``QuantifiedPeaks.tsv``,
             ``QuantifiedPeptides.tsv`` and ``QuantifiedProteins.tsv`` there.
         timeout: Seconds to allow. Large experiments legitimately take a while; ``None`` waits
@@ -608,13 +608,12 @@ def median_polish(
         use_shared_peptides: Let peptides shared between protein groups contribute to protein quant
             (FlashLFQ's ``UseSharedPeptidesForProteinQuant``). Off by default; when off, a group with
             only shared peptides quantifies to ``0.0``.
-        output_directory: If given, also write a FlashLFQ ``QuantifiedProteins.tsv`` there. For
-            **unfractionated** data its column headers do not match the keys of the returned objects'
-            :attr:`~ProteinGroup.intensities`: FlashLFQ labels a sample by file name exactly when a
-            design *is* given, and writes ``Intensity__1`` when one is not (an inverted condition,
-            smith-chem-wisc/mzLib#1128, fixed by mzLib#1129 — the columns will agree once pyMzLib
-            re-pins). The values agree either way. The returned list is the primary result and this
-            file is a convenience.
+        output_directory: If given, also write a FlashLFQ ``QuantifiedProteins.tsv`` there. Its
+            sample labels match the keys of the returned objects' :attr:`~ProteinGroup.intensities`
+            (the inverted labelling rule of smith-chem-wisc/mzLib#1128 was fixed by mzLib#1129,
+            which this build includes), but its columns can come in a different order: the file
+            lists conditions in first-appearance order, and the returned objects sort them. The
+            returned list is the primary result and this file is a convenience.
         timeout: Seconds to allow; ``None`` waits indefinitely.
 
     Returns:

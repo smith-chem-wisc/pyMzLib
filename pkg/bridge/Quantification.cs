@@ -440,12 +440,10 @@ internal static class Quantification
         // A run's label is its own name when there is no design to label it with, and
         // "condition_biorep" once a real design groups runs.
         //
-        // NOTE: this deliberately leads mzLib. FlashLFQ's own QuantifiedProteins.tsv applies the same
-        // rule with the boolean inverted, so an unfractionated run is labelled by file name exactly
-        // when a design exists and yields "Intensity__1" when one does not — smith-chem-wisc/mzLib#1128,
-        // fixed by mzLib#1129. Until that lands and the pin moves, the labels here and the ones in a
-        // file written by --out disagree for unfractionated data. The values do not: the engine sets a
-        // sample's intensity on its first run and zeroes the rest, so both readings agree.
+        // This is the same rule FlashLFQ's own QuantifiedProteins.tsv applies since mzLib#1129 (which
+        // fixed the inverted boolean of smith-chem-wisc/mzLib#1128, and is in the pin), so the labels
+        // here and in a file written by --out agree. The column ORDER can differ: ProteinGroup groups
+        // conditions in first-appearance order, and the loop below sorts them ordinally.
         bool unfractionated = spectraFiles.Select(f => f.Fraction).Distinct().Count() == 1;
         bool conditionsUndefined = spectraFiles.All(f => f.Condition == "Default")
             || spectraFiles.All(f => string.IsNullOrWhiteSpace(f.Condition));

@@ -44,6 +44,10 @@ __all__ = [
 #: A PRIDE-style repository accession: a short letter prefix and a run of digits, e.g. PXD000001.
 _ACCESSION_PATTERN = re.compile(r"^[A-Z]{2,4}[0-9]{4,}$")
 
+#: mzLib's wording for the two MzLibExceptions that mean "no such project" (PrideArchiveClient.cs):
+#: an unknown accession, and a project with no publication date to locate its FTP directory by.
+_PROJECT_NOT_FOUND_MARKERS = ("has no project with accession", "has no publication date")
+
 
 class ProjectNotFoundError(_bridge.PyMzLibError):
     """No project with that accession exists, or it has no files.
@@ -411,7 +415,14 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
         # ProjectNotFoundError that list_files() raises so callers catch one type for "not there".
         # ServiceUnavailableError (a BridgeError subclass) has a different error_type and is left to
         # propagate — an outage is not a missing project.
-        if exc.error_type == "MzLibException":
+        #
+        # Only the two MzLibExceptions that mean "not there" are re-mapped, matched on mzLib's own
+        # wording (PrideArchiveClient.GetProjectAsync and ListFtpFilesAsync at the pin). Every other
+        # MzLibException - a cyclic FTP listing that exceeded the depth limit, for one - is a broken
+        # listing, not a missing project, and keeps its BridgeError.
+        if exc.error_type == "MzLibException" and any(
+            marker in str(exc) for marker in _PROJECT_NOT_FOUND_MARKERS
+        ):
             raise ProjectNotFoundError(
                 f"PRIDE has no project '{canonical}' (or it lacks the publication date needed to "
                 "locate its FTP directory). Check for a typo — a private project looks the same."

@@ -231,15 +231,14 @@ was not measured in that sample — including a group whose only peptides are sh
 `use_shared_peptides` is off. Pass `output_directory=...` to also write a `QuantifiedProteins.tsv`
 — the list is the primary result and that file is a convenience.
 
-!!! note "The written file's column headers differ, for now"
+!!! note "The written file's columns can come in a different order"
 
-    For unfractionated data the `QuantifiedProteins.tsv` columns do **not** match the keys of the
-    returned objects. FlashLFQ labels a sample by file name exactly when a design *is* given, and
-    writes `Intensity__1` when one is not — an inverted condition
-    ([mzLib#1128](https://github.com/smith-chem-wisc/mzLib/issues/1128), fixed by
-    [mzLib#1129](https://github.com/smith-chem-wisc/mzLib/pull/1129)). `median_polish()` uses the
-    un-inverted rule, so the two disagree until pyMzLib re-pins to a build carrying that fix. The
-    **values** agree either way; only the labels differ.
+    The `QuantifiedProteins.tsv` sample labels match the keys of the returned objects. Before
+    [mzLib#1129](https://github.com/smith-chem-wisc/mzLib/pull/1129), FlashLFQ inverted the
+    labelling rule for unfractionated data
+    ([mzLib#1128](https://github.com/smith-chem-wisc/mzLib/issues/1128)); this build includes the
+    fix. The column **order** can still differ: the file lists conditions in the order they first
+    appear, and the returned objects sort them. Look columns up by name, not by position.
 
 ## Two limits worth knowing
 

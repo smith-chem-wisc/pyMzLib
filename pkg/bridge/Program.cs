@@ -500,13 +500,10 @@ public static partial class Program
         HashSet<string>? selectedNames = null;
         if (arguments.Flag("names-from-stdin"))
         {
-            selectedNames = new HashSet<string>(StringComparer.Ordinal);
-            string? line;
-            while ((line = Console.In.ReadLine()) != null)
-            {
-                if (!string.IsNullOrWhiteSpace(line))
-                    selectedNames.Add(line.Trim());
-            }
+            // ReadStdinLines strips a UTF-8 BOM from the first line. Reading Console.In directly
+            // kept it, and Trim() does not remove U+FEFF, so the first name failed as "not in
+            // project" - after every other selected file had downloaded.
+            selectedNames = new HashSet<string>(ReadStdinLines().Select(line => line.Trim()), StringComparer.Ordinal);
 
             if (selectedNames.Count == 0)
                 throw new UsageException("--names-from-stdin was given but no file names were supplied.");

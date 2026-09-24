@@ -178,11 +178,40 @@ def test_list_ftp_files_unknown_project_raises_project_not_found(monkeypatch):
     # MzLibException. list_ftp_files re-maps that to ProjectNotFoundError — the same "no such
     # project" signal list_files raises — so a caller catches one type across both functions.
     def failing_invoke(*args, timeout=None):
-        raise _bridge.BridgeError("MzLibException", "No PRIDE project 'PXD999999'.")
+        raise _bridge.BridgeError(
+            "MzLibException", "PRIDE Archive has no project with accession 'PXD999999'."
+        )
 
     monkeypatch.setattr(_bridge, "invoke", failing_invoke)
     with pytest.raises(pride.ProjectNotFoundError):
         pride.list_ftp_files("PXD999999")  # valid form, so it reaches the bridge, then fails there
+
+
+def test_list_ftp_files_no_publication_date_raises_project_not_found(monkeypatch):
+    def failing_invoke(*args, timeout=None):
+        raise _bridge.BridgeError(
+            "MzLibException",
+            "PRIDE project 'PXD000001' has no publication date, so its FTP directory cannot be located.",
+        )
+
+    monkeypatch.setattr(_bridge, "invoke", failing_invoke)
+    with pytest.raises(pride.ProjectNotFoundError):
+        pride.list_ftp_files("PXD000001")
+
+
+def test_list_ftp_files_cyclic_listing_is_not_project_not_found(monkeypatch):
+    # Also an MzLibException, but the project exists: its listing is broken. Reporting it as
+    # "no such project, check for a typo" would send the caller looking for the wrong mistake.
+    def failing_invoke(*args, timeout=None):
+        raise _bridge.BridgeError(
+            "MzLibException",
+            "PRIDE FTP directory nesting exceeded 64 levels at 'https://x/'; the listing may be cyclic.",
+        )
+
+    monkeypatch.setattr(_bridge, "invoke", failing_invoke)
+    with pytest.raises(_bridge.BridgeError) as caught:
+        pride.list_ftp_files("PXD000001")
+    assert not isinstance(caught.value, pride.ProjectNotFoundError)
 
 
 def test_list_ftp_files_empty_listing_raises_rather_than_returning_empty(monkeypatch):
