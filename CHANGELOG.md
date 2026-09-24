@@ -63,12 +63,26 @@ envelope is not a breaking change unless Python callers can see it.
   `on_error="fail"|"skip"`. A skipped file keeps its entry, with a `FileError`.
 - **`sdrf.lint()` ignores `comment[searched data file]`** (mzLib #1335), which `read()` and `pool()`
   carry verbatim like any column: file names that differ between studies are data, not drift.
+- **`pymzlib.proteins`, a new module for protein databases** (mzLib 1.0.592). Guide:
+  [Protein databases](docs/guides/proteins.md).
+  - `read()` loads UniProt XML or FASTA (decoys off) and returns one row per protein: organism,
+    NCBI taxonomy id (XML, or FASTA `OX=`), gene names, length, monoisotopic mass (Da, unmodified
+    sequence). On request, GO terms (mzLib #1336: aspect, term, ECO evidence codes) and Ensembl
+    transcript links as long tables. Filter by accession; misses are listed.
+  - `resolve_genes()` resolves proteins to stable Ensembl gene ids with mzLib's
+    `EnsemblGeneResolver` (#1338), against a GTF you supply, with an outcome per protein and the
+    sha256 of every input on every row. Optional Ensembl xref for a second opinion.
+  - `classify_peptides()` classifies peptides as `Unique`, `SharedWithinGene`,
+    `SharedAcrossGenes` or `NotInDatabase` with mzLib's `PeptideUniquenessClassifier` (#1348),
+    I and L treated as one residue.
+  - All three read one database or many in one call (`threads`, default 1, same answer at any
+    value), with `contaminants=` marked. A FASTA's lack of GO and Ensembl data is reported in
+    `absent_fields`, not left as an empty table.
 
 ### Fixed
 - **Docstring examples render as code in the API reference.** They sat under `Example:`, which
   griffe reads as an admonition, so the site showed every `>>>` line as nested blockquotes. They are
   now under `Examples:`, and a test keeps them there.
-
 ### Changed
 - **The bridge is built from mzLib 1.0.592** (was the 8931f219 commit, via 1.0.591), so mzLib's
   fixes to MGF, mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases

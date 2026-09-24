@@ -32,7 +32,7 @@ import pymzlib
 #: The capability modules a user can reach. Anything here is a thing pyMzLib can do, so it belongs
 #: on the front page. Everything else in ``__all__`` is plumbing — errors, the bridge locator, the
 #: version — which no coverage table should list.
-CAPABILITY_MODULES = ("flashlfq", "peptidoform", "pride", "readers", "sdrf")
+CAPABILITY_MODULES = ("flashlfq", "peptidoform", "pride", "readers", "sdrf", "proteins")
 
 #: Repo-root-relative. Both are front pages; they simply face different registries.
 README_PATHS = ("README.md", "pkg/python/README.md")

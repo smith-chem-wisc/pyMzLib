@@ -1,0 +1,94 @@
+# Written 2026-09-23 from pyMzLib pkg/bridge/Proteins.cs (ResolveGenes, LoadDatabases,
+# DecompressedSha256) on branch feat/proteins-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e
+# (1.0.592). The example fixture was recorded from the live bridge through
+# pymzlib.proteins.resolve_genes, against a hand-built three-gene GTF (mzLib ships none at the pin).
+verb: genes resolve
+module: genes
+summary: >-
+  Resolve every protein in the given databases to stable Ensembl gene ids, counted against a
+  caller-supplied, release-pinned gene set, with one outcome per protein and the hash of every input.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: EnsemblGeneResolver.Resolve, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneResolver.cs, pin: 23c2490e}
+  - {symbol: GeneResolutionTsv.Schema, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneResolver.cs, pin: 23c2490e}
+  - {symbol: EnsemblGeneSet.LoadGtf, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSet.cs, pin: 23c2490e}
+  - {symbol: EnsemblGeneSetReader.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSetReader.cs, pin: 23c2490e}
+  - {symbol: EnsemblXrefTable.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblXrefTable.cs, pin: 23c2490e}
+  - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkaf1239", for: "Ensembl releases, GTFs and cross-references (Ensembl 2026, NAR)"}
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, whose XML dbReferences carry the gene links resolved (UniProt Consortium 2025, NAR)"}
+
+params:
+  - {name: path, type: path, required: false, unit: null, range: null, default: null, doc: "One search database (UniProt XML for real answers; a FASTA carries no gene links). Exactly one of path and paths-stdin."}
+  - {name: contaminant, type: flag, required: false, unit: null, range: null, default: false, doc: "Load the --path database as contaminants: every protein is contaminant_not_mapped."}
+  - {name: paths-stdin, type: flag, required: false, unit: null, range: null, default: false, doc: "Databases on stdin, one per line, optionally followed by a tab and 'contaminant' or 'target' (BULK.md §1)."}
+  - {name: gtf, type: path, required: false, unit: null, range: null, default: null, doc: "An Ensembl GTF, plain or .gz; only gene rows are read. Use the primary-assembly GTF (Species.Assembly.Release.gtf.gz) and keep Ensembl's file name, which carries the release. Exactly one of gtf and gene-set; there is no default."}
+  - {name: gene-set, type: path, required: false, unit: null, range: null, default: null, doc: "Instead of gtf: a compact gene table from mzLib's EnsemblGeneSetWriter. It carries the GTF's provenance, so rows are keyed as against the GTF (tested byte-identical)."}
+  - {name: xref, type: path, required: false, unit: null, range: null, default: null, doc: "Optional Ensembl Species.Assembly.Release.uniprot.tsv(.gz): per-row agreement, and a row per gene only Ensembl links (source ensembl_xref)."}
+  - {name: threads, type: int, required: false, unit: null, range: ">= 1, or -1 for every core", default: 1, doc: "Databases loaded (and hashed) at once. Output identical at any value."}
+  - {name: on-error, type: string, required: false, unit: null, range: "fail | skip", default: fail, doc: "As proteins read."}
+
+result:
+  envelope_fields:
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: Databases given.}
+    - {wire: read_count, type: int, unit: files, nullable: false, null_means: null, doc: Databases read.}
+    - {wire: failed_count, type: int, unit: files, nullable: false, null_means: null, doc: "Databases that failed (on-error skip only)."}
+    - {wire: protein_count, type: int, unit: proteins, nullable: false, null_means: null, doc: Proteins resolved.}
+    - {wire: record_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns: at least one per protein; one per gene for multi_gene; plus ensembl_xref rows."}
+    - {wire: gene_set, type: object, unit: null, nullable: false, null_means: null, doc: "{source_file_name, sha256 (of the file's bytes as read: compressed for .gz), release (null: not in the file name), genome_build (null: no #!genome-build header), genebuild_last_updated (null: no header), gene_count}."}
+    - {wire: xref, type: object, unit: null, nullable: true, null_means: "no --xref was given", doc: "{source_file_name, sha256, release (nullable), accession_count}."}
+    - {wire: outcome_counts, type: "map<string,int>", unit: proteins, nullable: false, null_means: null, doc: "Outcome name -> proteins with it; all six keys always present."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "FASTA proteins (all not_in_source), a GTF with no release or genome build, no xref (agreement unknown, not false)."}
+    - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "As proteins read; search_database_sha256 is set: lower-case hex sha256 of the DECOMPRESSED database, so .xml and .xml.gz agree."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then mzLib's GeneResolutionTsv.Schema headers in its order (a bridge test holds them equal)."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: Column name to per-row values.}
+  columns:
+    - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, doc: Input position.}
+    - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, doc: Input path.}
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "Verbatim, as the search reported it (a variant suffix kept)."}
+    - {wire: entry_accession, type: string, unit: null, nullable: false, null_means: null, doc: "UniProt entry or unversioned RefSeq accession; verbatim when unrecognized."}
+    - {wire: isoform, type: int, unit: null, nullable: true, null_means: "no -N isoform suffix", doc: UniProt isoform number.}
+    - {wire: namespace, type: string, unit: null, nullable: false, null_means: null, doc: "uniprot | refseq | unrecognized."}
+    - {wire: outcome, type: string, unit: null, nullable: false, null_means: null, doc: "resolved | multi_gene | off_primary_only | not_in_source | unrecognized_accession | contaminant_not_mapped (GeneResolutionTsv.OutcomeName)."}
+    - {wire: n_genes, type: int, unit: genes, nullable: false, null_means: null, doc: Genes the search database links on the gene set's assembly.}
+    - {wire: gene_id, type: string, unit: null, nullable: true, null_means: "the outcome has no gene on the assembly", doc: Stable Ensembl gene id.}
+    - {wire: versioned_gene_id, type: string, unit: null, nullable: true, null_means: "no gene on the row", doc: "As the database wrote it (e.g. ENSG00000111640.15); for an ensembl_xref row, built from the GTF's version, or null when the GTF has none."}
+    - {wire: gene_symbol, type: string, unit: null, nullable: true, null_means: "no gene on the row, or the GTF gives it no gene_name", doc: "The release's gene_name: a display label, never a key."}
+    - {wire: gene_biotype, type: string, unit: null, nullable: true, null_means: "no gene on the row", doc: "The release's gene_biotype ('unknown' when the GTF omits it)."}
+    - {wire: off_primary_genes, type: int, unit: genes, nullable: false, null_means: null, doc: "Linked genes outside the gene set (ALT haplotypes, patches, scaffolds): dropped from n_genes, counted here."}
+    - {wire: uniprot_gene_name, type: string, unit: null, nullable: true, null_means: "the entry names no primary gene", doc: "The database's primary gene name, as a label."}
+    - {wire: source, type: string, unit: null, nullable: false, null_means: null, doc: "search_database_dbreference, or ensembl_xref for a gene only Ensembl links (it carries the search database's outcome and never changes it)."}
+    - {wire: search_database_sha256, type: string, unit: null, nullable: false, null_means: null, doc: sha256 of the decompressed database.}
+    - {wire: gene_set_release, type: string, unit: null, nullable: true, null_means: "the GTF's file name carries no release", doc: Ensembl release.}
+    - {wire: gene_set_sha256, type: string, unit: null, nullable: false, null_means: null, doc: sha256 of the GTF as read.}
+    - {wire: ensembl_xref_agrees, type: bool, unit: null, nullable: true, null_means: "no gene on the row, or no --xref: unknown, not false", doc: Whether Ensembl's xref links this accession to this gene.}
+    - {wire: ensembl_xref_info_type, type: string, unit: null, nullable: true, null_means: "Ensembl's xref does not link the pair, or no --xref", doc: "Ensembl's strongest evidence: DIRECT, SEQUENCE_MATCH, INFERRED_PAIR."}
+    - {wire: ensembl_xref_sha256, type: string, unit: null, nullable: true, null_means: "no --xref was given", doc: sha256 of the xref file.}
+
+errors:
+  - {kind: usage, when: "neither or both of gtf and gene-set; a missing GTF, gene set or xref; any database-selection error proteins read raises"}
+  - {kind: correctness, when: "a GTF gene row without gene_id (InvalidDataException); an xref whose header is not Ensembl's nine columns; a compact gene table mzLib's reader refuses; a database mzLib cannot parse"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "The caller supplies and pins the gene set. Use the primary-assembly GTF, not chr_patch_hapl_scaff: counting ALT haplotypes as genes made human release 116 look 6.99% multi-gene when it is 0.36% (mzLib EnsemblGeneSet remarks)."
+  - "A FASTA carries no Ensembl links, so every FASTA protein is not_in_source regardless of biology; the result caveats count them."
+  - "Contaminants are never mapped (contaminant_not_mapped), even when they would resolve."
+  - "multi_gene is one row per gene, never a pick."
+
+bindings:
+  py: {name: pymzlib.proteins.resolve_genes}
+  rust: {name: "mzlib::proteins::resolve_genes_with", options: GeneResolveOptions}
+  r: {name: proteins_resolve_genes}
+
+examples:
+  - fixture: genes_resolve_human.json
+    py: "genes = pymzlib.proteins.resolve_genes([xml, fasta], contaminants=[bovine], gtf=gtf, xref=xref)"
+    rust: "let genes = mzlib::proteins::resolve_genes_with(&[xml, fasta], &GeneResolveOptions { gtf: Some(gtf), xref: Some(xref), contaminants: vec![bovine], ..Default::default() })?;"
+    r: "genes <- proteins_resolve_genes(c(xml, fasta), contaminants = bovine, gtf = gtf, xref = xref)"
+
+open_questions:
+  - "Rust and R spellings are intended, not yet implemented. The wire module is 'genes' but every binding projects it in its proteins module (BULK.md §6); confirm."
+  - "No verb writes the compact gene set (EnsemblGeneSetWriter); callers need mzLib or a future 'genes gene-set' verb to make one."
+  - "The example gene set is a hand-built three-gene GTF in Ensembl's layout; O43653 is off_primary_only only because PSCA is left out of it."

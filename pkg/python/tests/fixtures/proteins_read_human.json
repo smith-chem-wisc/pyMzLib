@@ -1,0 +1,957 @@
+{
+ "file_count": 4,
+ "read_count": 4,
+ "failed_count": 0,
+ "record_count": 8,
+ "tables": [
+  "proteins",
+  "go_terms",
+  "ensembl_genes"
+ ],
+ "accession_filter_count": null,
+ "accessions_not_found": null,
+ "caveats": [],
+ "files": [
+  {
+   "source_index": 0,
+   "path": "fixtures/proteins/human_subset.xml",
+   "file_type": "UniProtXml",
+   "reader": "ProteinDbLoader.LoadProteinXML",
+   "contaminant": false,
+   "protein_count": 2,
+   "decoy_count": 0,
+   "record_count": 2,
+   "search_database_sha256": null,
+   "caveats": [],
+   "absent_fields": [],
+   "error": null
+  },
+  {
+   "source_index": 1,
+   "path": "fixtures/proteins/human_extra.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 4,
+   "decoy_count": 0,
+   "record_count": 4,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 2,
+   "path": "fixtures/proteins/mouse_aifm1.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 3,
+   "path": "fixtures/proteins/contaminants.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": true,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  }
+ ],
+ "column_names": [
+  "source_index",
+  "source_path",
+  "accession",
+  "name",
+  "full_name",
+  "organism",
+  "ncbi_taxonomy_id",
+  "primary_gene_name",
+  "gene_names",
+  "length",
+  "monoisotopic_mass",
+  "is_contaminant",
+  "is_decoy",
+  "is_entrapment",
+  "ensembl_gene_ids"
+ ],
+ "columns": {
+  "source_index": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   2,
+   3
+  ],
+  "source_path": [
+   "fixtures/proteins/human_subset.xml",
+   "fixtures/proteins/human_subset.xml",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/mouse_aifm1.fasta",
+   "fixtures/proteins/contaminants.fasta"
+  ],
+  "accession": [
+   "P04406",
+   "O43653",
+   "P02768",
+   "Q13409",
+   "Q13409-2",
+   "Q13409-3",
+   "Q9Z0X1",
+   "P02769"
+  ],
+  "name": [
+   "G3P_HUMAN",
+   "PSCA_HUMAN",
+   "ALBU_HUMAN",
+   "DC1I2_HUMAN",
+   "DC1I2_HUMAN",
+   "DC1I2_HUMAN",
+   "AIFM1_MOUSE",
+   "ALBU_BOVIN"
+  ],
+  "full_name": [
+   "Glyceraldehyde-3-phosphate dehydrogenase",
+   "Prostate stem cell antigen",
+   "Albumin",
+   "Cytoplasmic dynein 1 intermediate chain 2",
+   "Isoform 2B of Cytoplasmic dynein 1 intermediate chain 2",
+   "Isoform 2C of Cytoplasmic dynein 1 intermediate chain 2",
+   "Apoptosis-inducing factor 1, mitochondrial",
+   "Albumin"
+  ],
+  "organism": [
+   "Homo sapiens",
+   "Homo sapiens",
+   "Homo sapiens",
+   "Homo sapiens",
+   "Homo sapiens",
+   "Homo sapiens",
+   "Mus musculus",
+   "Bos taurus"
+  ],
+  "ncbi_taxonomy_id": [
+   "9606",
+   "9606",
+   "9606",
+   "9606",
+   "9606",
+   "9606",
+   "10090",
+   "9913"
+  ],
+  "primary_gene_name": [
+   "GAPDH",
+   "PSCA",
+   "ALB",
+   "DYNC1I2",
+   "DYNC1I2",
+   "DYNC1I2",
+   "Aifm1",
+   "ALB"
+  ],
+  "gene_names": [
+   [
+    "GAPDH",
+    "GAPD",
+    "CDABP0047",
+    "OK/SW-cl.12"
+   ],
+   [
+    "PSCA",
+    "UNQ206/PRO232"
+   ],
+   [
+    "ALB"
+   ],
+   [
+    "DYNC1I2"
+   ],
+   [
+    "DYNC1I2"
+   ],
+   [
+    "DYNC1I2"
+   ],
+   [
+    "Aifm1"
+   ],
+   [
+    "ALB"
+   ]
+  ],
+  "length": [
+   335,
+   114,
+   609,
+   638,
+   632,
+   612,
+   612,
+   607
+  ],
+  "monoisotopic_mass": [
+   36030.397871725676,
+   11950.872673334765,
+   69321.49566311418,
+   71412.10776201895,
+   70600.75367121297,
+   68383.71984539134,
+   66723.84361594773,
+   69248.44069247418
+  ],
+  "is_contaminant": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   true
+  ],
+  "is_decoy": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "is_entrapment": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ensembl_gene_ids": [
+   [
+    "ENSG00000111640"
+   ],
+   [
+    "ENSG00000167653"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "go_terms": {
+  "row_count": 47,
+  "column_names": [
+   "source_index",
+   "source_path",
+   "accession",
+   "go_id",
+   "aspect",
+   "term_name",
+   "evidence_codes",
+   "projects"
+  ],
+  "columns": {
+   "source_index": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "source_path": [
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml"
+   ],
+   "accession": [
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653"
+   ],
+   "go_id": [
+    "GO:0005737",
+    "GO:0005829",
+    "GO:0070062",
+    "GO:0097452",
+    "GO:0043231",
+    "GO:0005811",
+    "GO:0016020",
+    "GO:0015630",
+    "GO:0031965",
+    "GO:0005634",
+    "GO:0048471",
+    "GO:0005886",
+    "GO:1990904",
+    "GO:0031982",
+    "GO:0019828",
+    "GO:0097718",
+    "GO:0004365",
+    "GO:0042802",
+    "GO:0008017",
+    "GO:0051287",
+    "GO:0050661",
+    "GO:0035605",
+    "GO:0061844",
+    "GO:0071346",
+    "GO:0050832",
+    "GO:0006006",
+    "GO:0006096",
+    "GO:0051873",
+    "GO:0031640",
+    "GO:0000226",
+    "GO:0010951",
+    "GO:0017148",
+    "GO:0051402",
+    "GO:0035606",
+    "GO:0001819",
+    "GO:0043123",
+    "GO:0032481",
+    "GO:0050821",
+    "GO:0016241",
+    "GO:0031225",
+    "GO:0070062",
+    "GO:0005576",
+    "GO:0016020",
+    "GO:0005886",
+    "GO:0033130",
+    "GO:0070373",
+    "GO:0099601"
+   ],
+   "aspect": [
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "MolecularFunction",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "BiologicalProcess",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "MolecularFunction",
+    "BiologicalProcess",
+    "BiologicalProcess"
+   ],
+   "term_name": [
+    "cytoplasm",
+    "cytosol",
+    "extracellular exosome",
+    "GAIT complex",
+    "intracellular membrane-bounded organelle",
+    "lipid droplet",
+    "membrane",
+    "microtubule cytoskeleton",
+    "nuclear membrane",
+    "nucleus",
+    "perinuclear region of cytoplasm",
+    "plasma membrane",
+    "ribonucleoprotein complex",
+    "vesicle",
+    "aspartic-type endopeptidase inhibitor activity",
+    "disordered domain specific binding",
+    "glyceraldehyde-3-phosphate dehydrogenase (NAD+) (phosphorylating) activity",
+    "identical protein binding",
+    "microtubule binding",
+    "NAD binding",
+    "NADP binding",
+    "peptidyl-cysteine S-nitrosylase activity",
+    "antimicrobial humoral immune response mediated by antimicrobial peptide",
+    "cellular response to type II interferon",
+    "defense response to fungus",
+    "glucose metabolic process",
+    "glycolytic process",
+    "killing by host of symbiont cells",
+    "killing of cells of another organism",
+    "microtubule cytoskeleton organization",
+    "negative regulation of endopeptidase activity",
+    "negative regulation of translation",
+    "neuron apoptotic process",
+    "peptidyl-cysteine S-trans-nitrosylation",
+    "positive regulation of cytokine production",
+    "positive regulation of I-kappaB kinase/NF-kappaB signaling",
+    "positive regulation of type I interferon production",
+    "protein stabilization",
+    "regulation of macroautophagy",
+    "anchored component of membrane",
+    "extracellular exosome",
+    "extracellular region",
+    "membrane",
+    "plasma membrane",
+    "acetylcholine receptor binding",
+    "negative regulation of ERK1 and ERK2 cascade",
+    "regulation of neurotransmitter receptor activity"
+   ],
+   "evidence_codes": [
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0007005"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0007005"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0007669"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0007005"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000353"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000353"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0007669"
+    ],
+    [
+     "ECO:0007669"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0007669"
+    ],
+    [
+     "ECO:0000318"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000250"
+    ],
+    [
+     "ECO:0000304"
+    ],
+    [
+     "ECO:0000501"
+    ],
+    [
+     "ECO:0007005"
+    ],
+    [
+     "ECO:0000304"
+    ],
+    [
+     "ECO:0000318"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ]
+   ],
+   "projects": [
+    [
+     "UniProtKB"
+    ],
+    [
+     "MGI"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "HPA"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "HPA"
+    ],
+    [
+     "CACAO"
+    ],
+    [
+     "UniProtKB-SubCell"
+    ],
+    [
+     "HPA"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "CAFA"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "IntAct"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "InterPro"
+    ],
+    [
+     "InterPro"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "InterPro"
+    ],
+    [
+     "GO_Central"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "ParkinsonsUK-UCL"
+    ],
+    [
+     "UniProtKB-KW"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "Reactome"
+    ],
+    [
+     "GO_Central"
+    ],
+    [
+     "HPA"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ]
+   ]
+  }
+ },
+ "ensembl_genes": {
+  "row_count": 6,
+  "column_names": [
+   "source_index",
+   "source_path",
+   "accession",
+   "transcript_id",
+   "protein_id",
+   "gene_id",
+   "versioned_gene_id",
+   "gene_version"
+  ],
+  "columns": {
+   "source_index": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "source_path": [
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml"
+   ],
+   "accession": [
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "P04406",
+    "O43653"
+   ],
+   "transcript_id": [
+    "ENST00000229239.10",
+    "ENST00000396858.5",
+    "ENST00000396859.5",
+    "ENST00000396861.5",
+    "ENST00000619601.1",
+    "ENST00000301258"
+   ],
+   "protein_id": [
+    "ENSP00000229239.5",
+    "ENSP00000380067.1",
+    "ENSP00000380068.1",
+    "ENSP00000380070.1",
+    "ENSP00000478864.1",
+    "ENSP00000301258"
+   ],
+   "gene_id": [
+    "ENSG00000111640",
+    "ENSG00000111640",
+    "ENSG00000111640",
+    "ENSG00000111640",
+    "ENSG00000111640",
+    "ENSG00000167653"
+   ],
+   "versioned_gene_id": [
+    "ENSG00000111640.15",
+    "ENSG00000111640.15",
+    "ENSG00000111640.15",
+    "ENSG00000111640.15",
+    "ENSG00000111640.15",
+    "ENSG00000167653"
+   ],
+   "gene_version": [
+    15,
+    15,
+    15,
+    15,
+    15,
+    null
+   ]
+  }
+ }
+}

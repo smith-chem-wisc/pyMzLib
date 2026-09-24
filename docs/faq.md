@@ -91,6 +91,20 @@ Only the areas on the [home page](index.md#whats-covered) are exposed so far, de
 coverage grows by demand rather than by guessing. Opening an issue is the fastest way to change
 that; the [extension recipe](contributing/adding-a-capability.md) is short.
 
+## Why are my GO terms empty, or every gene `not_in_source`?
+
+You read a FASTA. A FASTA header carries organism (`OS=`), taxonomy id (`OX=`) and gene name
+(`GN=`) and nothing else, so it has no GO terms and no Ensembl links to report. Each result says so
+in `files[i].absent_fields` rather than letting an empty table pass for "no annotation". Read the
+UniProt XML of the same proteome instead: the accessions are the same. See
+[Protein databases](guides/proteins.md#before-you-start-xml-or-fasta).
+
+## Is peptide uniqueness decided with I and L as different residues?
+
+No. `pymzlib.proteins.classify_peptides` treats I and L as one residue, because they have the same
+mass. A peptide written with L finds a protein that has I at that position. See
+[the rules](guides/proteins.md#the-rules-exactly).
+
 ## Is there an R / Rust / Julia version?
 
 Not today, but the executable pyMzLib drives has a

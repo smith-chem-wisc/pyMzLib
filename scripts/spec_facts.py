@@ -74,6 +74,65 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
         }
         for verb in ("validate", "assess", "samples")
     },
+    "proteins read": {
+        # The protein verbs take one database or a list as their first argument, and contaminant
+        # databases as a separate list, so the wire's --path / --paths-stdin / --contaminant choice
+        # is made by pymzlib.proteins from the arguments' shape rather than spelled by the caller.
+        "param.path": {
+            "python": "databases",
+            "why": "one database or a list; the list travels as --paths-stdin",
+        },
+        "param.contaminant": {
+            "python": "contaminants",
+            "why": "contaminant databases are their own list, tagged on stdin or --contaminant",
+        },
+        "param.paths-stdin": {
+            "python": None,
+            "why": "chosen automatically when more than one database is given",
+        },
+        "param.accessions-stdin": {
+            "python": "accessions",
+            "why": "the accession list itself; its presence sets the flag and fills stdin",
+        },
+    },
+    "genes resolve": {
+        # The protein verbs take one database or a list as their first argument, and contaminant
+        # databases as a separate list, so the wire's --path / --paths-stdin / --contaminant choice
+        # is made by pymzlib.proteins from the arguments' shape rather than spelled by the caller.
+        "param.path": {
+            "python": "databases",
+            "why": "one database or a list; the list travels as --paths-stdin",
+        },
+        "param.contaminant": {
+            "python": "contaminants",
+            "why": "contaminant databases are their own list, tagged on stdin or --contaminant",
+        },
+        "param.paths-stdin": {
+            "python": None,
+            "why": "chosen automatically when more than one database is given",
+        },
+    },
+    "proteins classify-peptides": {
+        # The protein verbs take one database or a list as their first argument, and contaminant
+        # databases as a separate list, so the wire's --path / --paths-stdin / --contaminant choice
+        # is made by pymzlib.proteins from the arguments' shape rather than spelled by the caller.
+        "param.path": {
+            "python": "databases",
+            "why": "one database or a list; the list travels as --paths-stdin",
+        },
+        "param.contaminant": {
+            "python": "contaminants",
+            "why": "contaminant databases are their own list, tagged on stdin or --contaminant",
+        },
+        "param.paths-stdin": {
+            "python": None,
+            "why": "chosen automatically when more than one database is given",
+        },
+        "param.on-error": {
+            "python": None,
+            "why": "the only accepted value is fail, the default; there is no skip to choose",
+        },
+    },
 }
 
 

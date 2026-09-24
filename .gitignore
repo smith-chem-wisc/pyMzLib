@@ -19,6 +19,8 @@
 /data/**/*.mzML
 # ...except the one small vendor file the tests read through the real bridge.
 !/pkg/python/tests/fixtures/*.raw
+# ...and the small protein databases the proteins tests read (a few KB each).
+!/pkg/python/tests/fixtures/proteins/*.fasta
 
 # Quarantine
 /.project/attic/

@@ -22,3 +22,9 @@
 *.exe  binary
 *.dll  binary
 *.raw  binary
+
+###############################################################################
+# Byte-exact fixtures: their sha256 is part of what the tests pin, so a CRLF
+# checkout on Windows must not change them.
+###############################################################################
+pkg/python/tests/fixtures/proteins/** -text

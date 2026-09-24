@@ -1,0 +1,302 @@
+{
+ "file_count": 3,
+ "read_count": 3,
+ "failed_count": 0,
+ "protein_count": 7,
+ "record_count": 7,
+ "gene_set": {
+  "source_file_name": "Homo_sapiens.GRCh38.116.gtf",
+  "sha256": "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+  "release": "116",
+  "genome_build": "GRCh38.p14",
+  "genebuild_last_updated": "2025-09",
+  "gene_count": 3
+ },
+ "xref": {
+  "source_file_name": "Homo_sapiens.GRCh38.116.uniprot.tsv",
+  "sha256": "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+  "release": "116",
+  "accession_count": 2
+ },
+ "outcome_counts": {
+  "resolved": 1,
+  "multi_gene": 0,
+  "off_primary_only": 1,
+  "not_in_source": 4,
+  "unrecognized_accession": 0,
+  "contaminant_not_mapped": 1
+ },
+ "caveats": [
+  "4 protein(s) came from a FASTA, which carries no Ensembl links, so each is not_in_source whatever Ensembl knows about it. Resolve against the UniProt XML of the same proteome, or pass --xref to add Ensembl's own links as ensembl_xref rows."
+ ],
+ "files": [
+  {
+   "source_index": 0,
+   "path": "fixtures/proteins/human_subset.xml",
+   "file_type": "UniProtXml",
+   "reader": "ProteinDbLoader.LoadProteinXML",
+   "contaminant": false,
+   "protein_count": 2,
+   "decoy_count": 0,
+   "record_count": 2,
+   "search_database_sha256": "6717e4ebfe0b02023a54da34a605a1d23e855bb9c27cac1f8fed94160759ffe8",
+   "caveats": [],
+   "absent_fields": [],
+   "error": null
+  },
+  {
+   "source_index": 1,
+   "path": "fixtures/proteins/human_extra.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 4,
+   "decoy_count": 0,
+   "record_count": 4,
+   "search_database_sha256": "8653f4d2c19c7941530e8a5fda6e5dcfd35d5194bf08721508ef2dbdd9d2d52b",
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 2,
+   "path": "fixtures/proteins/contaminants.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": true,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": "a42fcd8e4290c9e2be37db7cd97ff45180c1643412834830a6216e65eb5a0db3",
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  }
+ ],
+ "column_names": [
+  "source_index",
+  "source_path",
+  "accession",
+  "entry_accession",
+  "isoform",
+  "namespace",
+  "outcome",
+  "n_genes",
+  "gene_id",
+  "versioned_gene_id",
+  "gene_symbol",
+  "gene_biotype",
+  "off_primary_genes",
+  "uniprot_gene_name",
+  "source",
+  "search_database_sha256",
+  "gene_set_release",
+  "gene_set_sha256",
+  "ensembl_xref_agrees",
+  "ensembl_xref_info_type",
+  "ensembl_xref_sha256"
+ ],
+ "columns": {
+  "source_index": [
+   0,
+   0,
+   1,
+   1,
+   1,
+   1,
+   2
+  ],
+  "source_path": [
+   "fixtures/proteins/human_subset.xml",
+   "fixtures/proteins/human_subset.xml",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/human_extra.fasta",
+   "fixtures/proteins/contaminants.fasta"
+  ],
+  "accession": [
+   "P04406",
+   "O43653",
+   "P02768",
+   "Q13409",
+   "Q13409-2",
+   "Q13409-3",
+   "P02769"
+  ],
+  "entry_accession": [
+   "P04406",
+   "O43653",
+   "P02768",
+   "Q13409",
+   "Q13409",
+   "Q13409",
+   "P02769"
+  ],
+  "isoform": [
+   null,
+   null,
+   null,
+   null,
+   2,
+   3,
+   null
+  ],
+  "namespace": [
+   "uniprot",
+   "uniprot",
+   "uniprot",
+   "uniprot",
+   "uniprot",
+   "uniprot",
+   "uniprot"
+  ],
+  "outcome": [
+   "resolved",
+   "off_primary_only",
+   "not_in_source",
+   "not_in_source",
+   "not_in_source",
+   "not_in_source",
+   "contaminant_not_mapped"
+  ],
+  "n_genes": [
+   1,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "gene_id": [
+   "ENSG00000111640",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "versioned_gene_id": [
+   "ENSG00000111640.15",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "gene_symbol": [
+   "GAPDH",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "gene_biotype": [
+   "protein_coding",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "off_primary_genes": [
+   0,
+   1,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "uniprot_gene_name": [
+   "GAPDH",
+   "PSCA",
+   "ALB",
+   "DYNC1I2",
+   "DYNC1I2",
+   "DYNC1I2",
+   "ALB"
+  ],
+  "source": [
+   "search_database_dbreference",
+   "search_database_dbreference",
+   "search_database_dbreference",
+   "search_database_dbreference",
+   "search_database_dbreference",
+   "search_database_dbreference",
+   "search_database_dbreference"
+  ],
+  "search_database_sha256": [
+   "6717e4ebfe0b02023a54da34a605a1d23e855bb9c27cac1f8fed94160759ffe8",
+   "6717e4ebfe0b02023a54da34a605a1d23e855bb9c27cac1f8fed94160759ffe8",
+   "8653f4d2c19c7941530e8a5fda6e5dcfd35d5194bf08721508ef2dbdd9d2d52b",
+   "8653f4d2c19c7941530e8a5fda6e5dcfd35d5194bf08721508ef2dbdd9d2d52b",
+   "8653f4d2c19c7941530e8a5fda6e5dcfd35d5194bf08721508ef2dbdd9d2d52b",
+   "8653f4d2c19c7941530e8a5fda6e5dcfd35d5194bf08721508ef2dbdd9d2d52b",
+   "a42fcd8e4290c9e2be37db7cd97ff45180c1643412834830a6216e65eb5a0db3"
+  ],
+  "gene_set_release": [
+   "116",
+   "116",
+   "116",
+   "116",
+   "116",
+   "116",
+   "116"
+  ],
+  "gene_set_sha256": [
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6",
+   "cfe0494115dddf652f4658ebd9e89c0cb77e007d464e67c8d99a2a13cd004fd6"
+  ],
+  "ensembl_xref_agrees": [
+   true,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "ensembl_xref_info_type": [
+   "DIRECT",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "ensembl_xref_sha256": [
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4",
+   "fcd67e8bcfaf43d98b9751d6db2475580bb1104440def3700908d46b9a1cb6a4"
+  ]
+ }
+}

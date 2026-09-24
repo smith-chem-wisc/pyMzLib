@@ -1,0 +1,228 @@
+{
+ "file_count": 1,
+ "read_count": 1,
+ "failed_count": 0,
+ "record_count": 1,
+ "tables": [
+  "proteins",
+  "go_terms"
+ ],
+ "accession_filter_count": 2,
+ "accessions_not_found": [
+  "P04406-1"
+ ],
+ "caveats": [],
+ "files": [
+  {
+   "source_index": 0,
+   "path": "fixtures/proteins/human_subset.xml",
+   "file_type": "UniProtXml",
+   "reader": "ProteinDbLoader.LoadProteinXML",
+   "contaminant": false,
+   "protein_count": 2,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [],
+   "absent_fields": [],
+   "error": null
+  }
+ ],
+ "column_names": [
+  "source_index",
+  "source_path",
+  "accession",
+  "name",
+  "full_name",
+  "organism",
+  "ncbi_taxonomy_id",
+  "primary_gene_name",
+  "gene_names",
+  "length",
+  "monoisotopic_mass",
+  "is_contaminant",
+  "is_decoy",
+  "is_entrapment",
+  "ensembl_gene_ids"
+ ],
+ "columns": {
+  "source_index": [
+   0
+  ],
+  "source_path": [
+   "fixtures/proteins/human_subset.xml"
+  ],
+  "accession": [
+   "O43653"
+  ],
+  "name": [
+   "PSCA_HUMAN"
+  ],
+  "full_name": [
+   "Prostate stem cell antigen"
+  ],
+  "organism": [
+   "Homo sapiens"
+  ],
+  "ncbi_taxonomy_id": [
+   "9606"
+  ],
+  "primary_gene_name": [
+   "PSCA"
+  ],
+  "gene_names": [
+   [
+    "PSCA",
+    "UNQ206/PRO232"
+   ]
+  ],
+  "length": [
+   114
+  ],
+  "monoisotopic_mass": [
+   11950.872673334765
+  ],
+  "is_contaminant": [
+   false
+  ],
+  "is_decoy": [
+   false
+  ],
+  "is_entrapment": [
+   false
+  ],
+  "ensembl_gene_ids": [
+   [
+    "ENSG00000167653"
+   ]
+  ]
+ },
+ "go_terms": {
+  "row_count": 8,
+  "column_names": [
+   "source_index",
+   "source_path",
+   "accession",
+   "go_id",
+   "aspect",
+   "term_name",
+   "evidence_codes",
+   "projects"
+  ],
+  "columns": {
+   "source_index": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "source_path": [
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml",
+    "fixtures/proteins/human_subset.xml"
+   ],
+   "accession": [
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653",
+    "O43653"
+   ],
+   "go_id": [
+    "GO:0031225",
+    "GO:0070062",
+    "GO:0005576",
+    "GO:0016020",
+    "GO:0005886",
+    "GO:0033130",
+    "GO:0070373",
+    "GO:0099601"
+   ],
+   "aspect": [
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "CellularComponent",
+    "MolecularFunction",
+    "BiologicalProcess",
+    "BiologicalProcess"
+   ],
+   "term_name": [
+    "anchored component of membrane",
+    "extracellular exosome",
+    "extracellular region",
+    "membrane",
+    "plasma membrane",
+    "acetylcholine receptor binding",
+    "negative regulation of ERK1 and ERK2 cascade",
+    "regulation of neurotransmitter receptor activity"
+   ],
+   "evidence_codes": [
+    [
+     "ECO:0000501"
+    ],
+    [
+     "ECO:0007005"
+    ],
+    [
+     "ECO:0000304"
+    ],
+    [
+     "ECO:0000318"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ],
+    [
+     "ECO:0000314"
+    ]
+   ],
+   "projects": [
+    [
+     "UniProtKB-KW"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "Reactome"
+    ],
+    [
+     "GO_Central"
+    ],
+    [
+     "HPA"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ],
+    [
+     "UniProtKB"
+    ]
+   ]
+  }
+ },
+ "ensembl_genes": null
+}
