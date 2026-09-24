@@ -1,0 +1,44 @@
+# Written 2026-09-24 with the C1 readers batch, from pyMzLib pkg/bridge/Reading*.cs on branch
+# feat/readers-bulk-1.0.592 (stacked on pyMzLib#61/#62), mzLib pin 23c2490e (tag 1.0.592). Every
+# example fixture was recorded from the live bridge on that branch.
+verb: version
+module: version
+summary: >-
+  Report the bridge's version, its wire protocol, its .NET runtime, the mzLib it was built from, and every verb it dispatches.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: AssemblyInformationalVersionAttribute, path: mzLib/UsefulProteomicsDatabases/UsefulProteomicsDatabases.csproj, pin: 23c2490e}
+cite: []
+
+params: []
+
+result:
+  envelope_fields:
+    - {wire: bridge, type: "string", unit: null, nullable: false, null_means: null, doc: "The bridge assembly's version. Not a compatibility number: use protocol."}
+    - {wire: protocol, type: "int", unit: null, nullable: false, null_means: null, doc: "The wire-format version; a binding is compatible with a bridge by this."}
+    - {wire: runtime, type: "string", unit: null, nullable: false, null_means: null, doc: "The bundled .NET runtime version."}
+    - {wire: mzlib, type: "string", unit: null, nullable: true, null_means: "the build recorded no mzLib commit", doc: "Which mzLib the bridge links, as 1.0.0+<commit>, read from the linked assembly."}
+    - {wire: verbs, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every verb this bridge dispatches, in dispatch order, GENERATED at build time from the DispatchAsync switch (BULK.md section 5). Absent from bridges before pyMzLib 0.2.0 (optional forever). A binding calling a verb its bridge does not list raises its usage error naming the release that has it, from that verb's since, instead of spawning a process."}
+  columns: []
+
+errors:
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "verbs lists what the bridge ROUTES, not which options each verb takes: a bulk option (--paths-stdin) on an older bridge that lists the verb still fails with that bridge's usage error."
+  - "Bridges built before verbs existed omit the key; a binding must treat its absence as 'lists nothing', which correctly refuses every verb added since."
+
+bindings:
+  py: {name: pymzlib.bridge_version}
+  rust: {name: "mzlib::bridge_version"}
+  r: {name: bridge_version}
+
+examples:
+  - fixture: bridge_version.json
+    py: "info = pymzlib.bridge_version()"
+    rust: "let info = mzlib::bridge_version()?;"
+    r: "info <- bridge_version()"
+
+open_questions:
+  - "The Unknown-command message and verbs share one generated list (Program.Verbs, from the DeriveVerbList MSBuild task); check_verbs.py still parses the switch itself. Both read the same pattern, so they cannot disagree unless the switch stops being one arm per line."
+  - "pyMzLib returns version as a plain dict, typed as the TypedDict pymzlib.BridgeVersion so its keys are documented and linted; Rust and R spellings are the intended ones."

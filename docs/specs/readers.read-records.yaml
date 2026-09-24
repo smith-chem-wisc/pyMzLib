@@ -1,6 +1,8 @@
 # Written 2026-09-23 from pyMzLib pkg/bridge/Reading.Records.cs (ReadRecords, Window, RecordProjection,
 # WriteProjectedTable) on branch chore/mzlib-pin-1.0.592 (pyMzLib#61), mzLib pin 23c2490e (tag
 # 1.0.592). Every example fixture was recorded from, or diffed against, the live bridge on that branch.
+# Extended 2026-09-24 on feat/readers-bulk-1.0.592 (C1 readers batch): the per-file block (BULK.md
+# section 3), absent_fields, mzIdentML skipped items, excluded_fields verb pointers, and --paths-stdin.
 verb: readers read-records
 module: readers
 summary: >-
@@ -10,6 +12,7 @@ since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: FileReader.ReadResultFile, path: mzLib/Readers/FileReader.cs, pin: 23c2490e}
   - {symbol: IResultFile.LoadResults, path: mzLib/Readers/BaseClasses/IResultFile.cs, pin: 23c2490e}
+  - {symbol: MzIdentMLResultFile.SkippedMatches, path: mzLib/Readers/ExternalResults/ResultFiles/MzIdentMLResultFile.cs, pin: 23c2490e}
 cite: []
 
 params:
@@ -59,7 +62,14 @@ result:
     - {wire: returned_count, type: int, unit: records, nullable: false, null_means: null, doc: "Records in columns; 0 when written to out."}
     - {wire: offset, type: int, unit: records, nullable: false, null_means: null, doc: "The offset applied."}
     - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever records were left out by offset or limit."}
-    - {wire: excluded_fields, type: table, unit: null, nullable: false, null_means: null, doc: "Every property of record_type that could not become a column, as {field, type, reason}: nested objects, lists of composites, and dictionaries (reason starts \"a dictionary\"). Empty when every property projects."}
+    - {wire: excluded_fields, type: table, unit: null, nullable: false, null_means: null, doc: "Every property of record_type that could not become a column, as {field, type, reason, verb}: nested objects, lists of composites, and dictionaries (reason starts \"a dictionary\"). verb names the command that carries the field (sample_groups: readers read-protein-groups; samples: readers read-quantified-peptides; mzIdentML scores: readers read-matches) or is null. Empty when every property projects."}
+    - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "the count is not meaningful for this format (only the psmtsv family and MSFragger are one line per record)", doc: "Data rows that did not become records; mzLib drops a malformed psmtsv line silently."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: true, null_means: "always: the columns are the format's own, and several formats carry more than one time column", doc: "Always null for this verb; use a typed view when units matter."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Always empty for this verb; the static caveats below apply."}
+    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns this file's header has no column for: the record type reads them from an [Optional] CsvHelper column the file lacks, so every value is mzLib's default and crosses null (e.g. mbr_score on a current FlashLFQ peaks table, #1345; q_value and pep_q_value on an MsPathFinderT targets file). Judged from mzLib's own [Name]/[Optional] attributes against the file's header; empty means none found or no basis to judge."}
+    - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path: a file that cannot be read fails the call instead", doc: "{kind, type, message}; non-null only in a files[] entry under on-error skip."}
+    - {wire: skipped_count, type: "int", unit: "items", nullable: true, null_means: "the format keeps no skip list (every format but mzIdentML)", doc: "mzIdentML items mzLib did not represent as records (crosslinks, unresolvable modifications, substitutions; #1313)."}
+    - {wire: skipped, type: "object[]", unit: null, nullable: true, null_means: "as skipped_count", doc: "{spectrum_identification_item_id, spectrum_id, reason} per skipped item."}
     - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "\"field: ExceptionType\" for every property that threw while being read on a returned record; those cells are null."}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The record type's projectable public properties in snake_case, base class first, in declaration order."}
     - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-record values, in column_names order."}
@@ -73,6 +83,26 @@ result:
     - "-1 crosses unchanged: in a format's own columns it is often a real measurement. The one exception is retention_time and monoisotopic_mass on IQuantifiableRecord types (psmtsv, osmtsv, MsFraggerPsm, DiaNnReport), where mzLib documents -1 as absent; those are null, matching read-results."
     - "Units are the writing tool's and are not normalised: retention time is minutes for psmtsv/osmtsv/MsFraggerPsm/DiaNnReport and undeclared for the rest. read-records carries no retention_time_unit; use a typed view when units matter."
     - "Enums cross as their member names, dates as ISO 8601 strings, and a list of scalars as ONE ';'-joined string, on the wire and in out alike; split it yourself."
+    - "A column named in absent_fields is null in every row, whatever default mzLib filled in."
+  # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
+  bulk:
+    params:
+      - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Read MANY files: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset and limit are refused with it."}
+      - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Files read at once. The output is byte-identical at any value (files are emitted in input order); 1 is the default because each file in flight is held whole in memory."}
+      - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first unreadable input stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that input's files[i].error and the rest are read. skip with a single path is a usage error."}
+      - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the long table here, one file at a time in input order, so memory holds at most threads files. A batch that stops on an error deletes its partial table. Must differ from every input."}
+    envelope_fields:
+      - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files read."}
+      - {wire: failed_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files not read; non-zero only under on-error skip."}
+      - {wire: record_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records summed over the files read (BULK.md section 2)."}
+      - {wire: returned_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records returned in columns, summed over the files; 0 when written to out."}
+      - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns (more than returned_count for a long view); 0 when written to out."}
+      - {wire: on_error, type: "string", unit: null, nullable: false, null_means: null, doc: "fail or skip, as requested. --threads is deliberately not echoed: the envelope is byte-identical at every thread count."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-file columns."}
+      - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "One long table: rows grouped by input in input order, each file's rows in its own order, whatever --threads is."}
+      - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count}; written one file at a time."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: the per-file block (path, file_type, reader, record_type, views, skipped_count, skipped, record_count, rows_not_read, retention_time_unit, caveats, column_names, absent_fields, failed_fields, excluded_fields, error). An unread input has error set and every fact it could not establish null or empty."}
 
 errors:
   - {kind: usage, when: "path missing or blank; file or directory not found"}
@@ -80,20 +110,26 @@ errors:
   - {kind: usage, when: "offset, limit or out given with no value; offset or limit < 0; non-integer value; out resolves to the same file as path"}
   - {kind: correctness, when: "the file is recognised but mzLib fails to parse it; the error type is mzLib's own (e.g. HeaderValidationException, MzLibException)"}
   - {kind: correctness, when: "a vendor format that cannot load on this platform surfaces as its real failure (Bruker/timsTOF native DLLs are Windows x64 only)"}
+  - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
+  - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
+  - {kind: correctness, when: "with on-error fail, mzLib failing to parse an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
+  - {kind: usage, when: "with paths-stdin, inputs of more than one record type: refused before any file is parsed, naming the groups, whatever on-error says"}
   - {kind: service_unavailable, when: never}
 
 caveats:
   - "Columns are this format's own fields under mzLib's names. Two formats do not share columns, and a same-named column need not mean the same thing; use a typed view (read-results, read-features, read-matches, read-spectra) for comparable columns."
-  - "No field is silently dropped: anything that cannot be a column is in excluded_fields. At mzLib 1.0.592 that includes the most important values of three new readers, which are dictionaries: MetaMorpheusQuantifiedProteinGroups.sample_groups (per-sample intensity, spectral count, occupancy), FlashLFQQuantifiedPeptide.samples (per-run intensity, detection type, RT) and MzIdentML/MzIdentMLGz.scores (engine scores)."
-  - "record_count counts what mzLib parsed, not lines. Rows mzLib drops are not reported here: the psmtsv readers discard malformed lines (read-results reports rows_not_read; this verb does not), and the mzIdentML reader skips items it cannot represent into SkippedMatches, which the bridge does not report."
+  - "No field is silently dropped: anything that cannot be a column is in excluded_fields, whose verb names where it IS carried. At mzLib 1.0.592 that includes the most important values of three new readers, which are dictionaries: MetaMorpheusQuantifiedProteinGroups.sample_groups (read-protein-groups, and read-occupancy for the occupancy cells), FlashLFQQuantifiedPeptide.samples (read-quantified-peptides) and MzIdentML/MzIdentMLGz.scores (read-matches --scores)."
+  - "record_count counts what mzLib parsed, not lines. What mzLib drops is reported beside it: rows_not_read counts malformed psmtsv/MSFragger lines, and skipped_count/skipped list the mzIdentML items it could not represent."
   - "Since mzLib 1.0.592 (#1346), pro_forma on psmtsv/osmtsv from MetaMorpheus 1.1.11 or earlier is computed from full_sequence instead of null; ambiguous or unconvertible rows stay null. Measured cost: 12.9 s -> 15.6 s on a 271,551-row psmtsv."
   - "Since mzLib 1.0.592 (#1345), mbr_score on FlashLFQQuantifiedPeak is null, not 0, when a peak has no score, and current-format peaks tables (no MBR Score column) read, with seven more columns."
   - "offset/limit window after a full parse; memory and time scale with the file, not the window."
+  - "pro_forma is never absent at mzLib 1.0.592: when a psmtsv has no ProForma column it is computed from Full Sequence, which the reader REQUIRES (SpectrumMatchFromTsv.cs:194), so a file without both fails to read instead."
+  - "Many files: --paths-stdin needs every input to have the same record type (the long table has one column set); a mixed list is a usage error naming the groups. Otherwise as every bulk verb: one process, --threads at a time, output identical at any thread count."
 
 bindings:
-  py: {name: pymzlib.readers.read_records}
-  rust: {name: "mzlib::readers::read_records_with", options: ReadOptions}
-  r: {name: readers_read_records}
+  py: {name: pymzlib.readers.read_records, bulk: pymzlib.readers.read_records_many}
+  rust: {name: "mzlib::readers::read_records_with", bulk: "mzlib::readers::read_records_many", options: ReadOptions}
+  r: {name: readers_read_records, bulk: readers_read_records_many}
 
 examples:
   - fixture: readers_records_crux.json
@@ -116,6 +152,17 @@ examples:
     py: "result = pymzlib.readers.read_records(path)"
     rust: "let result = mzlib::readers::read_records(path)?;"
     r: "result <- readers_read_records(path)"
+  - fixture: readers_records_flashlfq_peaks.json
+    py: "result = pymzlib.readers.read_records('FlashLFQ_MzLib1.0.591_QuantifiedPeaks.tsv', limit=2)"
+    rust: "let result = mzlib::readers::read_records_with(path, &ReadOptions { limit: Some(2), ..Default::default() })?;"
+    r: "result <- readers_read_records(path, limit = 2)"
+  - fixture: readers_many_records_mzid.json
+    shape: bulk
+    py: "batch = pymzlib.readers.read_records_many(['PXD078927_msgf_1_1_0.mzid', 'PXD078927_msgf_1_1_0.mzid.gz'], threads=2)"
+    rust: "let batch = mzlib::readers::read_records_many(&[\"PXD078927_msgf_1_1_0.mzid\", \"PXD078927_msgf_1_1_0.mzid.gz\"], &BulkOptions { threads: 2, ..Default::default() })?;"
+    r: "batch <- readers_read_records_many(c('PXD078927_msgf_1_1_0.mzid', 'PXD078927_msgf_1_1_0.mzid.gz'), threads = 2)"
 
 open_questions:
   - "The three mzLib 1.0.592 fixtures (mzid_gz, mm_protein_groups, mm_peptides) exist only on pyMzLib#61 until it merges; mzLibRust and mzLibR have not copied them."
+  - "absent_fields for read-records is judged only for record types mapped with CsvHelper [Name] attributes (FlashLFQ peaks, MSFragger, MsPathFinderT, TopFD, the #1347 tables, ...). psmtsv/osmtsv parse their own header dictionary, so their optional columns are not judged yet; an empty list there means no basis, not nothing absent."
+  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
