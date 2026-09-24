@@ -96,8 +96,77 @@ internal static partial class Reading
     /// </remarks>
     public static object Identify(Program.Arguments arguments)
     {
-        string path = arguments.Required("path");
+        if (!IsBulk(arguments))
+        {
+            string path = arguments.Required("path");
+            ConcurrencyOptions(arguments);
+            RejectSkipWithOnePath(arguments);
+            return IdentifyOne(path);
+        }
 
+        // Many files: identify is not a table, so there is no long table and no --out, only one
+        // files[] entry per input, in input order, each shaped exactly like the single-file answer.
+        if (arguments.WasProvided("out"))
+            throw new Program.UsageException("identify returns no table, so --out has nothing to write.");
+        Batch batch = Batch.From(arguments);
+
+        var files = new List<object>(batch.Paths.Count);
+        int failed = 0;
+        foreach ((int index, Dictionary<string, object?>? block, Exception? error) in IdentifyInOrder(batch))
+        {
+            if (block is not null)
+            {
+                files.Add(block);
+                continue;
+            }
+
+            if (!batch.SkipFailures)
+                throw new Program.SourceFailure(index, batch.Paths[index], error!);
+
+            failed++;
+            files.Add(new Dictionary<string, object?>
+            {
+                ["path"] = Path.GetFullPath(batch.Paths[index]),
+                ["file_type"] = null,
+                ["extension"] = null,
+                ["reader"] = null,
+                ["views"] = new List<string>(),
+                ["error"] = ErrorOf(error!),
+            });
+        }
+
+        return new Dictionary<string, object?>
+        {
+            ["file_count"] = batch.Paths.Count,
+            ["read_count"] = batch.Paths.Count - failed,
+            ["failed_count"] = failed,
+            ["on_error"] = batch.SkipFailures ? "skip" : "fail",
+            ["files"] = files,
+        };
+    }
+
+    /// <summary>Identifies each input of a batch, <see cref="Batch.Threads"/> at a time, in input order.</summary>
+    /// <remarks>
+    /// Reuses <see cref="ReadInOrder"/> by wrapping the answer in a row-less table, so identify and
+    /// the table verbs share one ordering and one concurrency rule rather than two.
+    /// </remarks>
+    private static IEnumerable<(int Index, Dictionary<string, object?>? Block, Exception? Error)> IdentifyInOrder(Batch batch)
+    {
+        foreach ((int index, FileTable? table, Exception? error) in ReadInOrder(batch, (path, _) => new FileTable
+                 {
+                     Block = IdentifyOne(path),
+                     ColumnNames = [],
+                     RowCount = 0,
+                     Row = _ => [],
+                 }))
+        {
+            yield return (index, table?.Block, error);
+        }
+    }
+
+    /// <summary>One file's identify answer.</summary>
+    private static Dictionary<string, object?> IdentifyOne(string path)
+    {
         // Checked here rather than left to mzLib because FileReader throws a bare
         // FileNotFoundException carrying neither a message nor a file name, which would reach the
         // caller as an empty error. A missing path is the caller's mistake, so it is a usage
@@ -123,23 +192,25 @@ internal static partial class Reading
 
         Type readerType = resultFile.GetType();
 
-        return new
+        return new Dictionary<string, object?>
         {
-            path = Path.GetFullPath(path),
-            file_type = resultFile.FileType.ToString(),
-            extension = Try(() => resultFile.FileType.GetFileExtension()),
-            reader = readerType.Name,
-            views = ViewsOf(readerType),
+            ["path"] = Path.GetFullPath(path),
+            ["file_type"] = resultFile.FileType.ToString(),
+            ["extension"] = Try(() => resultFile.FileType.GetFileExtension()),
+            ["reader"] = readerType.Name,
+            ["views"] = ViewsOf(readerType),
+            ["error"] = null,
         };
     }
 
     /// <summary>
-    /// <c>readers read-results --path FILE [--limit N] [--offset N] [--out FILE]</c> — the
-    /// cross-format record view of a result file.
+    /// <c>readers read-results --path FILE [--limit N] [--offset N] [--out FILE]</c>, or
+    /// <c>--paths-stdin [--threads N] [--on-error fail|skip] [--out FILE]</c> — the cross-format
+    /// record view of one result file or many.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only the three file types offering the <c>quantifiable</c> view can be read this way; a file
+    /// Only the four file types offering the <c>quantifiable</c> view can be read this way; a file
     /// without it is rejected with a message naming the views it does have, rather than a cast
     /// failure. Use <c>readers identify</c> first to find out.
     /// </para>
@@ -158,44 +229,17 @@ internal static partial class Reading
     /// disk and returns only a summary, which is the intended path rather than an escape hatch.
     /// </para>
     /// </remarks>
-    public static object ReadResults(Program.Arguments arguments)
+    public static object ReadResults(Program.Arguments arguments) =>
+        RunTable(arguments, ResultsVerb);
+
+    private static TableVerb ResultsVerb => new(
+        "read-results", ReadResultsFile, QuantifiableView.Select(c => c.Name).ToList(), []);
+
+    /// <summary>One file through the quantifiable view.</summary>
+    private static FileTable ReadResultsFile(string path, Window window)
     {
-        string path = arguments.Required("path");
-
-        // An option written without a value lands in the flag set, not the named set, so Optional()
-        // returns null and the option is silently discarded: '--out' with no path would skip the
-        // write and serialise the whole table inline — the exact large-payload case --out exists to
-        // avoid — and '--limit' would degenerate to no limit while the caller believes they asked
-        // for a subset. This is the rule the PRIDE download verb already states: an option that was
-        // ASKED FOR but degenerates to nothing must fail, never silently widen.
-        RequireValueIfProvided(arguments, "out");
-        RequireValueIfProvided(arguments, "limit");
-        RequireValueIfProvided(arguments, "offset");
-
-        string? outputPath = arguments.Optional("out");
-
-        int offset = arguments.OptionalInt("offset", 0);
-        if (offset < 0)
-            throw new Program.UsageException($"Option --offset must be zero or greater; got {offset}.");
-
-        bool limited = arguments.WasProvided("limit");
-        int limit = arguments.OptionalInt("limit", int.MaxValue);
-        if (limited && limit < 0)
-            throw new Program.UsageException($"Option --limit must be zero or greater; got {limit}.");
-
         if (!File.Exists(path) && !Directory.Exists(path))
             throw new Program.UsageException($"File not found: '{path}'.");
-
-        // --out must not name the input. WriteTable truncates its destination unconditionally, so
-        // --out equal to --path would overwrite the caller's result file with the 10-column uniform
-        // projection and still report ok:true - losing every column the view drops (q-value, PEP,
-        // score, precursor mass). Refuse it up front, in the spirit of the "a selection that cannot
-        // be honoured is a usage error" rule the PRIDE verb already states.
-        if (outputPath is not null &&
-            string.Equals(
-                Path.GetFullPath(outputPath), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase))
-            throw new Program.UsageException(
-                $"Option --out must differ from --path: writing to '{path}' would overwrite the input file.");
 
         IQuantifiableResultFile resultFile = OpenQuantifiable(path);
 
@@ -205,51 +249,106 @@ internal static partial class Reading
         // work. Paging a large file re-reads and re-parses it once per page; --out exists so that
         // is never the right thing to do.
         List<IQuantifiableRecord> all = resultFile.GetQuantifiableResults().ToList();
-
-        // GetRange over Skip().Take().ToList(): the records are already a materialised List, so the
-        // LINQ form allocates a second full copy of what can be a million-row table purely to take
-        // a window of it. GetRange copies only the window.
-        int start = Math.Min(offset, all.Count);
-        int count = (int)Math.Min((long)limit, all.Count - start);
-        List<IQuantifiableRecord> selected = all.GetRange(start, count);
-
-        // "Were any records left behind", by either the limit or the offset. Deliberately not
-        // `offset + selected.Count < all.Count`, which reads plausibly and is wrong: an offset past
-        // the end makes the sum exceed the total and reports a complete answer for an empty one.
-        bool truncated = selected.Count < all.Count;
+        IReadOnlyList<IQuantifiableRecord> selected = window.Apply(all, out bool truncated);
 
         var columns = QuantifiableView;
-        object? written = null;
-        if (!string.IsNullOrWhiteSpace(outputPath))
-            written = WriteTable(outputPath, columns, selected);
+        List<string> names = columns.Select(c => c.Name).ToList();
 
-        return new
+        // is_decoy is ABSENT, not merely null, for a format that has no target/decoy column at
+        // all: the view defines the field and this file cannot fill it. Decided from the reader's
+        // declared record type, so an empty file answers the same way a full one does.
+        Type? recordType = RecordTypeOf(resultFile.GetType());
+        List<string> absent = recordType is not null && !DecoysAreKnownFor(recordType) ? ["is_decoy"] : [];
+
+        return new FileTable
         {
-            path = Path.GetFullPath(path),
-            file_type = resultFile.FileType.ToString(),
-            record_count = all.Count,
-            returned_count = written is null ? selected.Count : 0,
-            offset,
-            // True whenever records were left behind, whether by --limit or by --offset. A short
-            // answer and a complete one must never look alike.
-            truncated,
-            // mzLib's psmtsv reader catches a malformed line, adds it to a warnings list, and the
-            // ResultFile wrapper discards that list — so a half-corrupt file reads "successfully"
-            // with silently fewer rows. mzLib exposes no way to ask, so the rows are counted here
-            // and the difference reported. Null when the count is not meaningful for this input.
-            rows_not_read = UnreadRowCount(path, all.Count, resultFile.FileType),
-            // What the uniform view cannot be trusted to mean for THIS format. See CaveatsFor.
-            caveats = CaveatsFor(resultFile.FileType),
-            // The unit of retention_time, as a value rather than as prose. The caveats say the same
-            // thing in English, but a caller converting between formats should not have to grep a
-            // sentence for the word "SECONDS" - which is exactly what a reader did before this
-            // existed. "unknown" when mzLib gives no basis to claim one, never a guess.
-            retention_time_unit = RetentionTimeUnitOf(resultFile.FileType),
-            column_names = columns.Select(c => c.Name).ToList(),
-            // Omitted entirely when writing to disk: materialising both would defeat the point.
-            columns = written is null ? BuildColumns(columns, selected) : null,
-            output = written,
+            Block = Block(
+                path,
+                fileType: resultFile.FileType.ToString(),
+                reader: resultFile.GetType().Name,
+                recordCount: all.Count,
+                // mzLib's psmtsv reader catches a malformed line, adds it to a warnings list, and the
+                // ResultFile wrapper discards that list — so a half-corrupt file reads
+                // "successfully" with silently fewer rows. mzLib exposes no way to ask, so the rows
+                // are counted here and the difference reported. Null when the count is not
+                // meaningful for this input.
+                rowsNotRead: UnreadRowCount(path, all.Count, resultFile.FileType),
+                // The unit of retention_time, as a value rather than as prose. The caveats say the
+                // same thing in English, but a caller converting between formats should not have to
+                // grep a sentence for the word "SECONDS". "unknown" when mzLib gives no basis to
+                // claim one, never a guess.
+                retentionTimeUnit: RetentionTimeUnitOf(resultFile.FileType),
+                // What the uniform view cannot be trusted to mean for THIS format. See CaveatsFor.
+                caveats: CaveatsFor(resultFile.FileType),
+                columnNames: names,
+                absent: absent,
+                failed: FailedColumns(columns, selected),
+                excluded: []),
+            ColumnNames = names,
+            RowCount = selected.Count,
+            Row = i => Cells(columns, selected[i]),
+            Offset = window.Offset,
+            Truncated = truncated,
         };
+    }
+
+    /// <summary>One record's cells through a typed view, in wire shape.</summary>
+    /// <remarks>
+    /// A column that throws gives a null cell rather than failing the file: several of mzLib's
+    /// computed members assume a UniProt-style header (MsPathFinderT's <c>Accession</c> is
+    /// <c>ProteinName.Split('|')[1]</c>) and throw on anything else. <see cref="FailedColumns"/>
+    /// names every such column in <c>failed_fields</c>, so the null is never mistaken for absent data.
+    /// </remarks>
+    private static object?[] Cells<T>(IReadOnlyList<Column<T>> columns, T record)
+    {
+        var cells = new object?[columns.Count];
+        for (int c = 0; c < columns.Count; c++)
+        {
+            try
+            {
+                cells[c] = WireValue(columns[c].Read(record));
+            }
+            catch (Exception)
+            {
+                // Named in failed_fields by FailedColumns; see the remarks.
+                cells[c] = null;
+            }
+        }
+
+        return cells;
+    }
+
+    /// <summary>
+    /// <c>"column: ExceptionType"</c> for every typed-view column that threw on one of these records.
+    /// </summary>
+    private static List<string> FailedColumns<T>(IReadOnlyList<Column<T>> columns, IReadOnlyList<T> records)
+    {
+        var failures = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (T record in records)
+        {
+            foreach (Column<T> column in columns)
+            {
+                try
+                {
+                    column.Read(record);
+                }
+                catch (Exception exception)
+                {
+                    failures.Add($"{column.Name}: {(exception.InnerException ?? exception).GetType().Name}");
+                }
+            }
+        }
+
+        return [.. failures];
+    }
+
+    /// <summary>Refuses <c>--on-error skip</c> with a single <c>--path</c>.</summary>
+    private static void RejectSkipWithOnePath(Program.Arguments arguments)
+    {
+        if (string.Equals(arguments.Optional("on-error"), "skip", StringComparison.Ordinal))
+            throw new Program.UsageException(
+                "--on-error skip needs --paths-stdin: skipping the only file would report an empty " +
+                "success for a failed read. Give the path on stdin to read it as a batch of one.");
     }
 
     /// <summary>
@@ -374,6 +473,11 @@ internal static partial class Reading
         // this file. Defaulting to "unknown" is wrong in the harmless direction.
         record is SpectrumMatchFromTsv or LightWeightSpectralMatch;
 
+    /// <summary><see cref="DecoysAreKnown"/>, decided from a reader's declared record type.</summary>
+    private static bool DecoysAreKnownFor(Type recordType) =>
+        typeof(SpectrumMatchFromTsv).IsAssignableFrom(recordType)
+        || typeof(LightWeightSpectralMatch).IsAssignableFrom(recordType);
+
     private static string Join(
         IQuantifiableRecord record, Func<(string proteinAccessions, string geneName, string organism), string> part)
         => string.Join(";", (record.ProteinGroupInfos ?? []).Select(part));
@@ -387,22 +491,6 @@ internal static partial class Reading
         // -1 today, but a value derived rather than assigned (a subtraction, a reparse) would slip
         // a real-looking -1 past an exact check and into the caller's arithmetic.
         double.IsFinite(value) && Math.Abs(value - AbsentSentinel) > 1e-9 ? value : null;
-
-    /// <summary>Builds the columnar payload: one array per field.</summary>
-    private static Dictionary<string, List<object?>> BuildColumns<T>(
-        IReadOnlyList<Column<T>> columns, IReadOnlyList<T> records)
-    {
-        var built = new Dictionary<string, List<object?>>(columns.Count);
-        foreach (Column<T> column in columns)
-        {
-            var values = new List<object?>(records.Count);
-            foreach (T record in records)
-                values.Add(WireValue(column.Read(record)));
-            built[column.Name] = values;
-        }
-
-        return built;
-    }
 
     /// <summary>A column value in the shape the JSON envelope can carry.</summary>
     /// <remarks>
@@ -431,54 +519,16 @@ internal static partial class Reading
         _ => value,
     };
 
-    /// <summary>
-    /// Writes the selected records as a tab-separated table and reports where they went.
-    /// </summary>
+    /// <summary>A value as written text: invariant, and empty for absent.</summary>
     /// <remarks>
-    /// Tab-separated, not comma-separated, because these fields contain commas: MSFragger's mapped
-    /// proteins are a comma-separated list inside a single field, and joined accessions look the
-    /// same. Tabs do not occur in them — if one did, mzLib's own tab-splitting readers would
-    /// already be broken — so the delimiter is safe by inheritance rather than by hope. It is also
-    /// what mzLib writes everywhere (every Delimiter in Readers is a tab bar one visualization
-    /// format) and what the FlashLFQ verb already emits. Fields are still quoted when they would
+    /// The rendering behind every <c>--out</c> table (see <see cref="TsvSink"/>). Tab-separated,
+    /// not comma-separated, because these fields contain commas: MSFragger's mapped proteins are a
+    /// comma-separated list inside a single field, and joined accessions look the same. Tabs do not
+    /// occur in them — if one did, mzLib's own tab-splitting readers would already be broken — so
+    /// the delimiter is safe by inheritance rather than by hope. It is also what mzLib writes
+    /// everywhere and what the FlashLFQ verb already emits. Fields are still quoted when they would
     /// otherwise contain a delimiter or newline, so the file is lossless rather than lucky.
     /// </remarks>
-    private static object WriteTable<T>(
-        string outputPath, IReadOnlyList<Column<T>> columns, IReadOnlyList<T> records)
-    {
-        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-
-        var configuration = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            Delimiter = "\t",
-        };
-
-        using (var writer = new StreamWriter(File.Create(outputPath)))
-        using (var csv = new CsvHelper.CsvWriter(writer, configuration))
-        {
-            foreach (Column<T> column in columns)
-                csv.WriteField(column.Name);
-            csv.NextRecord();
-
-            foreach (T record in records)
-            {
-                foreach (Column<T> column in columns)
-                    csv.WriteField(Render(WireValue(column.Read(record))));
-                csv.NextRecord();
-            }
-        }
-
-        return new
-        {
-            path = Path.GetFullPath(outputPath),
-            format = "tsv",
-            row_count = records.Count,
-        };
-    }
-
-    /// <summary>A value as written text: invariant, and empty for absent.</summary>
     private static string Render(object? value) => value switch
     {
         null => string.Empty,

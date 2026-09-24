@@ -1,5 +1,8 @@
+using System.Globalization;
 using MassSpectrometry;
 using Readers;
+using Readers.ExternalResults.IndividualResultRecords;
+using Readers.ExternalResults.ResultFiles;
 
 namespace MzLibBridge;
 
@@ -152,7 +155,61 @@ internal static partial class Reading
         // renumbering it here would silently disagree with every mzLib document about the same file.
         new Column<ISpectralMatch>("modifications", FormatModifications),
         new Column<ISpectralMatch>("modification_count", m => m.AllModsOneIsNterminus?.Count ?? 0),
+        // The three confidence fields a format may record, under mzLib's names. None is on
+        // Readers.ISpectralMatch, so each is read from the record types that carry it, and a
+        // format with no source for one names it in absent_fields (MatchAbsentFields), where the
+        // engine nulls it in every row. mzIdentML's q-value is the PSM-level MS:1002354 or an
+        // engine-specific child of it, null on an item that reports none (mzLib #1306).
+        new Column<ISpectralMatch>("q_value", m => m switch
+        {
+            MzIdentMLRecord record => record.QValue,
+            MsPathFinderTResult result => result.QValue,
+            _ => null,
+        }),
+        new Column<ISpectralMatch>("rank", m => (m as MzIdentMLRecord)?.Rank),
+        new Column<ISpectralMatch>("pass_threshold", m => (m as MzIdentMLRecord)?.PassThreshold),
     };
+
+    /// <summary>
+    /// The spectral-match fields this file's format has no source for: null in every row, and
+    /// named, so a missing value is never mistaken for a measured one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>is_decoy</c> is absent for every format but MsPathFinderT (see
+    /// <see cref="DecoysAreReported"/>): Casanovo writes no label, and mzIdentML's <c>isDecoy</c>
+    /// defaults to false when a writer omits it, so mzLib cannot tell a stated false from an unstated
+    /// one (MzIdentMLResultFile.cs:173).
+    /// </para>
+    /// <para>
+    /// <c>q_value</c> is absent for Casanovo, and for an MsPathFinderT file without a
+    /// <c>QValue</c> column — the <c>_IcTarget.tsv</c> and <c>_IcDecoy.tsv</c> files, which
+    /// MSPathFinder writes before target-decoy analysis. mzLib types that property as a
+    /// non-nullable double, so it reads 0 there: a perfect q-value for every match, which is the
+    /// most dangerous number this view could hand back. <c>rank</c> and <c>pass_threshold</c> exist
+    /// only in mzIdentML.
+    /// </para>
+    /// </remarks>
+    private static List<string> MatchAbsentFields(IResultFile resultFile, string path)
+    {
+        Type? recordType = RecordTypeOf(resultFile.GetType());
+        bool msPathFinder = recordType is not null && typeof(MsPathFinderTResult).IsAssignableFrom(recordType);
+        bool mzid = resultFile is MzIdentMLResultFile;
+
+        var absent = new List<string>();
+        if (!msPathFinder)
+            absent.Add("is_decoy");
+
+        bool qValueRead = mzid
+            || (msPathFinder && !AbsentProperties(recordType, path).Contains(nameof(MsPathFinderTResult.QValue)));
+        if (!qValueRead)
+            absent.Add("q_value");
+
+        if (!mzid)
+            absent.AddRange(["rank", "pass_threshold"]);
+
+        return absent;
+    }
 
     /// <summary>Whether this record's format can report decoy status at all.</summary>
     /// <remarks>
@@ -164,6 +221,102 @@ internal static partial class Reading
     /// booleans without anyone editing this file.
     /// </remarks>
     private static bool DecoysAreReported(ISpectralMatch match) => match is MsPathFinderTResult;
+
+    /// <summary>
+    /// The <c>ms1_features</c> fields this file has no source for.
+    /// </summary>
+    /// <remarks>
+    /// <c>intensity</c> is absent when the file's header has no <c>Apex_intensity</c> column — every
+    /// FLASHDeconv/OpenMS <c>_ms1.feature</c> — because mzLib then substitutes zero for every
+    /// feature (Ms1Feature.cs:86). <c>number_of_isotopes</c> is absent for the whole
+    /// <c>_ms1.feature</c> format: the single-charge expansion never sets it (Ms1Feature.cs:91).
+    /// </remarks>
+    private static List<string> FeatureAbsentFields(IResultFile resultFile, string path)
+    {
+        var absent = new List<string>();
+        if (resultFile is Ms1FeatureFile)
+        {
+            if (AbsentProperties(typeof(Ms1Feature), path).Contains(nameof(Ms1Feature.IntensityApex)))
+                absent.Add("intensity");
+            absent.Add("number_of_isotopes");
+        }
+
+        return absent;
+    }
+
+    /// <summary>
+    /// What a spectra file says about the run: instrument, serial number, and when acquisition
+    /// started (mzLib <see cref="SourceFile"/>, #1349).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>instrument_model</c> is the model's NAME and <c>instrument_model_accession</c> its PSI-MS
+    /// accession, kept apart because the two readers that fill them do so differently: mzML carries
+    /// both, Thermo <c>.raw</c> only the name. mzLib's own rule is to match on the accession, never on
+    /// the name, so the accession is null rather than guessed when the file has none.
+    /// </para>
+    /// <para>
+    /// <c>acquisition_start_time</c> is ISO-8601. It ends in <c>Z</c> only when the source fixed the
+    /// instant (an mzML <c>startTimeStamp</c> with an offset); otherwise it is the acquisition
+    /// computer's wall-clock time with no offset, because the instant is unknown and none is
+    /// invented. <c>acquisition_start_time_is_utc</c> says which, and is always false for Thermo
+    /// <c>.raw</c>. A <c>.raw</c> and ProteoWizard's mzML of it can therefore differ by the site's UTC
+    /// offset: ProteoWizard assumes the converting machine's time zone and writes <c>Z</c>.
+    /// </para>
+    /// <para>
+    /// Null as a whole only when the reader built no source description at all; a blank field is
+    /// null individually, meaning the file does not record it.
+    /// </para>
+    /// </remarks>
+    private static object? SourceOf(MsDataFile file)
+    {
+        SourceFile? source = file.SourceFile;
+        if (source is null)
+            return null;
+
+        DateTime? started = source.AcquisitionStartTime;
+        return new
+        {
+            instrument_model = NullIfBlank(source.InstrumentModel?.Name),
+            instrument_model_accession = NullIfBlank(source.InstrumentModel?.Accession),
+            instrument_serial_number = NullIfBlank(source.InstrumentSerialNumber),
+            acquisition_start_time = started is { } moment ? IsoTimestamp(moment) : null,
+            acquisition_start_time_is_utc = started?.Kind == DateTimeKind.Utc,
+        };
+    }
+
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// ISO-8601, to the second or the microsecond, with <c>Z</c> only for a UTC instant.
+    /// </summary>
+    /// <remarks>
+    /// Never seven fractional digits (.NET's round-trip "O"), which Python before 3.11 cannot parse,
+    /// and never a fraction of zeros that no instrument recorded.
+    /// </remarks>
+    private static string IsoTimestamp(DateTime moment)
+    {
+        string format = moment.Ticks % TimeSpan.TicksPerSecond == 0
+            ? "yyyy-MM-dd'T'HH:mm:ss"
+            : "yyyy-MM-dd'T'HH:mm:ss.ffffff";
+        return moment.ToString(format, CultureInfo.InvariantCulture) + (moment.Kind == DateTimeKind.Utc ? "Z" : "");
+    }
+
+    /// <summary>
+    /// The verb that carries a field <c>read-records</c> cannot, or null when none does.
+    /// </summary>
+    /// <remarks>
+    /// So an <c>excluded_fields</c> entry is a pointer, not a dead end: the per-sample tables of the
+    /// two mzLib 1.0.592 quantification readers (#1347) and mzIdentML's engine scores (#1306) each
+    /// have a typed verb that projects them in long form.
+    /// </remarks>
+    private static string? VerbCarrying(Type recordType, string propertyName) => (recordType.Name, propertyName) switch
+    {
+        (nameof(ProteinGroupFromTsv), nameof(ProteinGroupFromTsv.SampleGroups)) => "readers read-protein-groups",
+        (nameof(QuantifiedPeptideFromTsv), nameof(QuantifiedPeptideFromTsv.Samples)) => "readers read-quantified-peptides",
+        (nameof(MzIdentMLRecord), nameof(MzIdentMLRecord.Scores)) => "readers read-matches",
+        _ => null,
+    };
 
     private static string FormatModifications(ISpectralMatch match)
     {
@@ -181,10 +334,10 @@ internal static partial class Reading
     {
         var caveats = new List<string>
         {
-            "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. " +
-            "Readers.ISpectralMatch carries identity fields only; every one of these formats records " +
-            "confidence in columns this view does not expose. read-records has them. Filter before " +
-            "you report.",
+            "NOTHING here is FDR-filtered. q_value is the only confidence field this view carries, " +
+            "and only mzIdentML and an MsPathFinderT file with a QValue column fill it (absent_fields " +
+            "says when it is empty). Every one of these formats records scores this view does not " +
+            "expose; read-records has them. Filter before you report.",
         };
 
         switch (fileType)
@@ -233,9 +386,9 @@ internal static partial class Reading
                     "read-records carries mzLib's boolean for a caller who knows the writer sets it.");
                 caveats.Add(
                     "Every SpectrumIdentificationItem is a row, not only the matches the submitter " +
-                    "accepted: lower-ranked candidates and items that fail the threshold are here too. " +
-                    "rank and pass_threshold are in read-records, not in this view " +
-                    "(MzIdentMLResultFile.cs:177). Filter on them before counting identifications.");
+                    "accepted: lower-ranked candidates and items that fail the threshold are here too " +
+                    "(MzIdentMLResultFile.cs:177). Filter on rank == 1 and pass_threshold before " +
+                    "counting identifications.");
                 caveats.Add(
                     "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:159). " +
                     "'scan=N' gives N, but 'index=N', which peak-list input carries, is a zero-based " +
@@ -244,14 +397,13 @@ internal static partial class Reading
                 caveats.Add(
                     "Items mzLib cannot represent as one linear match are skipped, not failed: " +
                     "crosslinks, modifications without a resolvable UNIMOD accession, substitutions, and " +
-                    "two modifications on one residue (MzIdentMLResultFile.cs:123). mzLib lists them in " +
-                    "SkippedMatches, which the bridge does not report yet, so record_count can be smaller " +
-                    "than the number of items in the file.");
+                    "two modifications on one residue (MzIdentMLResultFile.cs:123). They are not rows; " +
+                    "skipped_count and skipped name each one and why, so record_count plus skipped_count " +
+                    "is the number of items in the file.");
                 caveats.Add(
-                    "The engine's own scores (for example MS-GF:SpecEValue) are a dictionary " +
-                    "(MzIdentMLResultFile.cs:179), which read-records names in excluded_fields and does " +
-                    "not project. q_value is the only confidence value that crosses, and it is null when " +
-                    "the file reports none.");
+                    "The engine's own scores (for example MS-GF:SpecEValue) have no common name across " +
+                    "search engines (MzIdentMLResultFile.cs:179). Pass scores=true for them as long " +
+                    "rows, one per match and score. q_value is null on an item that reports none.");
                 caveats.Add(
                     "accession joins every protein the item's peptide evidence names with '|' " +
                     "(MzIdentMLRecord.cs:45), the same character a UniProt header uses inside one " +
