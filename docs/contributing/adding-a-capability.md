@@ -20,6 +20,29 @@ Worked end to end below with a hypothetical `pymzlib.chemistry.formula_mass()`.
 the payload. Not a blocker ([D8](../design/decisions.md#d8-payload-size-is-not-a-design-constraint)),
 but worth knowing before rather than after.
 
+## 0 · Write the spec first
+
+Every wire verb has one language-neutral spec, `<module>.<verb>.yaml`, in the bridge repository's
+`design/verbs/`. The spec holds the facts every binding must agree on:
+
+- parameters, with their units and valid ranges;
+- result fields, with their units and what null means;
+- error kinds, caveats, the mzLib code it wraps, DOIs;
+- the name in each binding, and a recorded example fixture.
+
+It lands before your handler, or in the same change, and your pull request cites it. The switch key
+in `DispatchAsync` must equal the spec's `verb`.
+
+That repository is private, so copy the spec in and render its tables:
+
+```bash
+python scripts/sync_specs.py --from ../bridge/design/verbs
+python scripts/render_spec_docs.py
+```
+
+Do not edit `docs/specs/` by hand. [How the reference facts are generated](reference-facts.md)
+explains why, and what CI then checks.
+
 ## 1 · Add the verb to the bridge
 
 In `pkg/bridge/Program.cs`, route it in `DispatchAsync` and write the handler:
@@ -131,8 +154,8 @@ def formula_mass(formula: str, timeout: float | None = 60) -> FormulaMass:
     Raises:
         UsageError: the formula is blank or cannot be parsed.
 
-    Example:
-        >>> formula_mass("H2O").monoisotopic_mass      # doctest: +SKIP
+    Examples:
+        >>> formula_mass("H2O").monoisotopic_mass
         18.01056468403
     """
     if not formula or not formula.strip():
@@ -228,9 +251,21 @@ for the full picture, including the skip-versus-fail convention for anything tou
 - Add it to the nav in `mkdocs.yml` and to the coverage table on the [home page](../index.md).
 - Add `::: pymzlib.<module>` to `docs/reference.md`. The reference is generated from your
   docstrings, but only for modules it is told about — a new module is silently absent otherwise.
+- Include the verb's rendered fact table on `docs/reference/<module>.md`, with
+  `--8<-- "docs/reference/_generated/<module>.<verb>.md"` under a heading. Create the page, and its
+  nav entry, for a new module. `test_spec_docs.py` fails for a shipped verb whose table is on no
+  page.
+- Make the docstring agree with the spec. Every spec param goes in `Args:`, and every result field
+  goes in the result class's `Attributes:`, each naming its unit. `test_spec_docs.py` checks this.
+  A deliberate rename is declared in `PYTHON_DEVIATIONS` in `scripts/spec_facts.py`.
+- Make the example run. The doctests run in CI against the spec's recorded fixture through a
+  replay bridge, so write the call the fixture was recorded with and paste what it prints. Keep
+  `# doctest: +SKIP` only for the network, a download or pandas, with a `>>> #` line above saying
+  why.
 
 ## Checklist
 
+- [ ] **Spec in the bridge, synced to `docs/specs/`, tables rendered**
 - [ ] Coarse-grained enough that per-call startup is irrelevant
 - [ ] No logic reimplemented that mzLib already has
 - [ ] Bridge verb returns an anonymous object with `snake_case` keys
@@ -241,3 +276,4 @@ for the full picture, including the skip-versus-fail convention for anything tou
 - [ ] Offline Python tests with a recorded fixture; live test for the real path
 - [ ] **C# tests for the new verb, and `check-bridge-coverage.ps1` still passes** (separate gate)
 - [ ] Guide page, nav entry, coverage table, and `reference.md` entry
+- [ ] Fact table included on `docs/reference/<module>.md`; `test_spec_docs.py` and the doctests pass
