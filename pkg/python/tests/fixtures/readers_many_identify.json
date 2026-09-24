@@ -1,0 +1,38 @@
+{
+ "file_count": 3,
+ "read_count": 2,
+ "failed_count": 1,
+ "on_error": "skip",
+ "files": [
+  {
+   "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid",
+   "file_type": "MzIdentML",
+   "extension": ".mzid",
+   "reader": "MzIdentMLResultFile",
+   "views": [
+    "spectral_match"
+   ],
+   "error": null
+  },
+  {
+   "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\no-such-run.mzML",
+   "file_type": null,
+   "extension": null,
+   "reader": null,
+   "views": [],
+   "error": {
+    "kind": "usage",
+    "type": "usage",
+    "message": "File not found: 'C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\no-such-run.mzML'."
+   }
+  },
+  {
+   "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
+   "file_type": "MetaMorpheusQuantifiedProteinGroups",
+   "extension": "QuantifiedProteinGroups.tsv",
+   "reader": "ProteinGroupFromTsvFile",
+   "views": [],
+   "error": null
+  }
+ ]
+}

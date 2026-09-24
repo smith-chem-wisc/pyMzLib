@@ -4,6 +4,8 @@ using System.Reflection;
 using Chemistry;
 using MassSpectrometry;
 using Readers;
+using Readers.ExternalResults.IndividualResultRecords;
+using Readers.ExternalResults.ResultFiles;
 
 namespace MzLibBridge;
 
@@ -47,18 +49,98 @@ namespace MzLibBridge;
 internal static partial class Reading
 {
     /// <summary>
-    /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c> — any of the
-    /// 36 file types, as a table of its own native fields.
+    /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c>, or
+    /// <c>--paths-stdin [--threads N] [--on-error fail|skip] [--out FILE]</c> — any of the 36 file
+    /// types, as a table of its own native fields.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The only verb here with no view requirement: if <c>readers identify</c> succeeds on a path,
     /// this reads it. See the class remarks for why the columns are per-format rather than uniform.
+    /// </para>
+    /// <para>
+    /// Many files at once must share one <b>record type</b>, because a long table has one set of
+    /// columns and each record type has its own. That is checked from the file types before anything
+    /// is parsed (identifying is cheap), so a mixed batch fails in milliseconds with the groups named,
+    /// rather than after reading half of it.
+    /// </para>
     /// </remarks>
     public static object ReadRecords(Program.Arguments arguments)
     {
-        Window window = Window.From(arguments);
-        string path = window.Path;
+        if (!IsBulk(arguments))
+            return RunTable(arguments, RecordsVerb);
 
+        Batch batch = Batch.From(arguments);
+        Type? shared = SharedRecordType(batch);
+        TableVerb verb = RecordsVerb with
+        {
+            // Every input is projected onto the shared type, so a file whose first record happens
+            // to be a subclass cannot give the batch a second column set.
+            Read = (path, window) => ReadRecordsFile(path, window, shared),
+            Columns = shared is null ? [] : RecordProjection.For(shared).ColumnNames,
+        };
+        return RunBulk(batch, verb, new Dictionary<string, object?>());
+    }
+
+    private static TableVerb RecordsVerb => new(
+        "read-records", (path, window) => ReadRecordsFile(path, window, null), [],
+        ["record_type", "views", "skipped_count", "skipped"]);
+
+    /// <summary>
+    /// The one record type every identifiable input of a <c>read-records</c> batch shares, or null
+    /// when none can be identified.
+    /// </summary>
+    /// <remarks>
+    /// An input that cannot even be identified is left for the read itself to report: under
+    /// <c>--on-error skip</c> it becomes that file's error, and under <c>fail</c> it stops the batch
+    /// at that input, exactly as it would have without this check.
+    /// </remarks>
+    private static Type? SharedRecordType(Batch batch)
+    {
+        var groups = new List<(Type RecordType, List<int> Inputs)>();
+        for (int i = 0; i < batch.Paths.Count; i++)
+        {
+            Type recordType;
+            try
+            {
+                IResultFile resultFile = OpenAny(batch.Paths[i]);
+                recordType = RecordTypeOf(resultFile.GetType()) ?? typeof(MsDataScan);
+            }
+            catch (Program.UsageException) when (batch.SkipFailures)
+            {
+                continue;
+            }
+            catch (Program.UsageException exception)
+            {
+                throw new Program.SourceFailure(i, batch.Paths[i], exception);
+            }
+
+            int group = groups.FindIndex(g => g.RecordType == recordType);
+            if (group < 0)
+                groups.Add((recordType, [i]));
+            else
+                groups[group].Inputs.Add(i);
+        }
+
+        if (groups.Count > 1)
+        {
+            throw new Program.UsageException(
+                "read-records reads many files into ONE table, so every file must have the same record " +
+                "type, and these have " + groups.Count + ": " +
+                string.Join("; ", groups.Select(g =>
+                    $"{g.RecordType.Name} (inputs {string.Join(", ", g.Inputs.Take(5))}{(g.Inputs.Count > 5 ? ", ..." : "")})")) +
+                ". Read each type as its own batch.");
+        }
+
+        return groups.Count == 0 ? null : groups[0].RecordType;
+    }
+
+    /// <summary>One file through <c>read-records</c>.</summary>
+    /// <param name="path">The input.</param>
+    /// <param name="window">The offset/limit window (the whole file in a batch).</param>
+    /// <param name="recordType">The record type to project; null means the file's own.</param>
+    private static FileTable ReadRecordsFile(string path, Window window, Type? recordType)
+    {
         IResultFile resultFile = OpenAny(path);
 
         // MsDataFileToResultFileAdapter.Results is a plain auto-property that stays null until
@@ -71,43 +153,75 @@ internal static partial class Reading
         IReadOnlyList<object> all = RecordsOf(resultFile);
         IReadOnlyList<object> selected = window.Apply(all, out bool truncated);
 
-        RecordProjection projection = RecordProjection.For(ElementTypeOf(resultFile, all));
+        RecordProjection projection = RecordProjection.For(recordType ?? ElementTypeOf(resultFile, all));
 
-        object? written = null;
-        if (window.OutputPath is not null)
-            written = WriteProjectedTable(window.OutputPath, projection, selected);
+        // Properties whose column this file's header does not have, as wire column names.
+        HashSet<string> absentProperties = AbsentProperties(RecordTypeOf(resultFile.GetType()), path);
+        List<string> absent = projection.ColumnNamesOf(absentProperties);
 
-        return new
+        MzIdentMLResultFile? mzid = resultFile as MzIdentMLResultFile;
+
+        return new FileTable
         {
-            path = Path.GetFullPath(path),
-            file_type = resultFile.FileType.ToString(),
-            reader = resultFile.GetType().Name,
-            // The record type's own name, e.g. "ToppicPrsm". The columns belong to THIS type, and
-            // saying which one they came from is what makes them cross-referenceable against the
-            // mzLib source rather than a bare list of strings.
-            record_type = projection.RecordTypeName,
-            views = ViewsOf(resultFile.GetType()),
-            record_count = all.Count,
-            returned_count = written is null ? selected.Count : 0,
-            offset = window.Offset,
-            truncated,
-            // Every property that exists on the record type and could NOT become a column, with the
-            // reason. A dropped field must never be indistinguishable from an absent one.
-            excluded_fields = projection.Excluded,
-            // Properties that threw when read, with the exception type. mzLib has several computed
-            // properties that assume a UniProt-style header and throw on anything else — Crux's
-            // Accession is `ProteinId.Split('|')[1]`. Those become null cells rather than a failed
-            // read of the whole file, but silence would misreport a parse failure as absent data.
-            failed_fields = projection.FailedFieldsFor(selected),
-            column_names = projection.ColumnNames,
-            columns = written is null ? projection.BuildColumns(selected) : null,
-            output = written,
+            Block = Block(
+                path,
+                fileType: resultFile.FileType.ToString(),
+                reader: resultFile.GetType().Name,
+                recordCount: all.Count,
+                rowsNotRead: UnreadRowCount(path, all.Count, resultFile.FileType),
+                // No single unit: the columns are this format's own fields, and several formats
+                // carry more than one time column. A typed view states its unit; this one cannot.
+                retentionTimeUnit: null,
+                caveats: [],
+                columnNames: projection.ColumnNames,
+                absent: absent,
+                // Properties that threw when read, with the exception type. mzLib has several
+                // computed properties that assume a UniProt-style header and throw on anything else —
+                // Crux's Accession is `ProteinId.Split('|')[1]`. Those become null cells rather than
+                // a failed read of the whole file, but silence would misreport a parse failure as
+                // absent data.
+                failed: projection.FailedFieldsFor(selected),
+                // Every property that exists on the record type and could NOT become a column, with
+                // the reason and the verb that does carry it. A dropped field must never be
+                // indistinguishable from an absent one.
+                excluded: projection.Excluded,
+                // The record type's own name, e.g. "ToppicPrsm". The columns belong to THIS type,
+                // and saying which one they came from is what makes them cross-referenceable against
+                // the mzLib source rather than a bare list of strings.
+                ("record_type", projection.RecordTypeName),
+                ("views", ViewsOf(resultFile.GetType())),
+                ("skipped_count", mzid?.SkippedMatches.Count),
+                ("skipped", mzid is null ? null : SkippedOf(mzid))),
+            ColumnNames = projection.ColumnNames,
+            RowCount = selected.Count,
+            Row = i => projection.Cells(selected[i]).ToArray(),
+            Offset = window.Offset,
+            Truncated = truncated,
         };
     }
 
     /// <summary>
-    /// <c>readers read-features --path FILE [--limit N] [--offset N] [--out FILE]</c> — the
-    /// deconvolved-MS1-feature view.
+    /// The identification items an mzIdentML reader did not turn into records, and why (mzLib #1313).
+    /// </summary>
+    /// <remarks>
+    /// mzLib skips an item it cannot represent as one linear match — a crosslink, a modification with
+    /// no resolvable UNIMOD accession, a substitution, two modifications on one residue — and lists it
+    /// in <see cref="MzIdentMLResultFile.SkippedMatches"/> instead of failing the file. Reporting that
+    /// list is what keeps <c>record_count</c> from silently meaning "items in the file".
+    /// </remarks>
+    private static List<object> SkippedOf(MzIdentMLResultFile file) =>
+        file.SkippedMatches
+            .Select(skip => (object)new
+            {
+                spectrum_identification_item_id = skip.SpectrumIdentificationItemId,
+                spectrum_id = skip.SpectrumId,
+                reason = skip.Reason,
+            })
+            .ToList();
+
+    /// <summary>
+    /// <c>readers read-features --path FILE [--limit N] [--offset N] [--out FILE]</c>, or the
+    /// <c>--paths-stdin</c> form — the deconvolved-MS1-feature view.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -124,11 +238,15 @@ internal static partial class Reading
     /// per-file rows are available through <c>read-records</c>.
     /// </para>
     /// </remarks>
-    public static object ReadFeatures(Program.Arguments arguments)
-    {
-        Window window = Window.From(arguments);
-        string path = window.Path;
+    public static object ReadFeatures(Program.Arguments arguments) =>
+        RunTable(arguments, FeaturesVerb);
 
+    private static TableVerb FeaturesVerb => new(
+        "read-features", ReadFeaturesFile, FeatureColumns.Select(c => c.Name).ToList(), []);
+
+    /// <summary>One file through the <c>ms1_features</c> view.</summary>
+    private static FileTable ReadFeaturesFile(string path, Window window)
+    {
         IResultFile resultFile = OpenAny(path);
         if (resultFile is not IMs1FeatureFile featureFile)
             throw NoSuchView(resultFile, "ms1_features", "read-features");
@@ -138,49 +256,82 @@ internal static partial class Reading
         IReadOnlyList<Feature> selected = window.Apply(all, out bool truncated);
 
         var columns = FeatureColumns;
-        object? written = null;
-        if (window.OutputPath is not null)
-            written = WriteTable(window.OutputPath, columns, selected);
+        List<string> names = columns.Select(c => c.Name).ToList();
 
-        return new
+        return new FileTable
         {
-            path = Path.GetFullPath(path),
-            file_type = resultFile.FileType.ToString(),
-            record_count = all.Count,
-            returned_count = written is null ? selected.Count : 0,
-            offset = window.Offset,
-            truncated,
-            retention_time_unit = FeatureRetentionTimeUnitOf(resultFile),
-            caveats = FeatureCaveatsFor(resultFile, all),
-            column_names = columns.Select(c => c.Name).ToList(),
-            columns = written is null ? BuildColumns(columns, selected) : null,
-            output = written,
+            Block = Block(
+                path,
+                fileType: resultFile.FileType.ToString(),
+                reader: resultFile.GetType().Name,
+                recordCount: all.Count,
+                rowsNotRead: null,
+                retentionTimeUnit: FeatureRetentionTimeUnitOf(resultFile),
+                caveats: FeatureCaveatsFor(resultFile, all),
+                columnNames: names,
+                absent: FeatureAbsentFields(resultFile, path),
+                failed: FailedColumns(columns, selected),
+                excluded: []),
+            ColumnNames = names,
+            RowCount = selected.Count,
+            Row = i => Cells(columns, selected[i]),
+            Offset = window.Offset,
+            Truncated = truncated,
         };
     }
 
     /// <summary>
-    /// <c>readers read-matches --path FILE [--limit N] [--offset N] [--out FILE]</c> — the
-    /// spectral-match view.
+    /// <c>readers read-matches --path FILE [--limit N] [--offset N] [--scores] [--out FILE]</c>, or
+    /// the <c>--paths-stdin</c> form — the spectral-match view.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The <c>spectral_match</c> view: <see cref="ISpectralMatch"/>, which MsPathFinderT's three
-    /// result types and Casanovo's <c>.mztab</c> implement on their <i>record</i> rather than on
-    /// the file — which is why <c>readers identify</c> has to look at the record type to report it.
+    /// result types, Casanovo's <c>.mztab</c> and mzIdentML implement on their <i>record</i> rather
+    /// than on the file — which is why <c>readers identify</c> has to look at the record type to
+    /// report it.
     /// </para>
     /// <para>
     /// Note that this is <b>not</b> the same interface as the identically-named
     /// <c>Omics.SpectralMatch.ISpectralMatch</c>, which carries a score and no modifications.
     /// mzLib has two unrelated types of that name and aliases them in its own source to tell them
-    /// apart. This verb projects the <c>Readers</c> one, and like <c>read-results</c> it carries no
-    /// confidence field at all — so nothing here is FDR-filtered.
+    /// apart. This verb projects the <c>Readers</c> one, and adds the three confidence fields the
+    /// formats that have them record — <c>q_value</c>, <c>rank</c>, <c>pass_threshold</c> — each
+    /// named in <c>absent_fields</c> for a format that has no source for it.
+    /// </para>
+    /// <para>
+    /// <b><c>--scores</c> makes the table long.</b> mzIdentML carries each search engine's own scores
+    /// (<c>MS-GF:SpecEValue</c>, <c>Mascot:score</c>, …) as a name-to-value map with no common key
+    /// across engines (mzLib #1306). A map has no column shape and the names differ per engine, so
+    /// instead of inventing one column per name — which a streamed multi-file table could not even
+    /// write a header for — each match becomes one row per score, with <c>score_name</c> and
+    /// <c>score_value</c>, and <c>match_index</c> saying which match the row belongs to. A match with
+    /// no scores keeps one row, with both null. <c>--offset</c> and <c>--limit</c> still count matches.
     /// </para>
     /// </remarks>
     public static object ReadMatches(Program.Arguments arguments)
     {
-        Window window = Window.From(arguments);
-        string path = window.Path;
+        bool scores = arguments.Flag("scores");
+        return RunTable(
+            arguments,
+            scores ? MatchesWithScoresVerb : MatchesVerb,
+            new Dictionary<string, object?> { ["scores_included"] = scores });
+    }
 
+    private static TableVerb MatchesVerb => new(
+        "read-matches", (path, window) => ReadMatchesFile(path, window, scores: false),
+        MatchColumns.Select(c => c.Name).ToList(), ["skipped_count", "skipped"], ReportsRows: true);
+
+    private static TableVerb MatchesWithScoresVerb => new(
+        "read-matches", (path, window) => ReadMatchesFile(path, window, scores: true),
+        [.. MatchColumns.Select(c => c.Name), .. ScoreColumnNames], ["skipped_count", "skipped"], ReportsRows: true);
+
+    /// <summary>The columns <c>--scores</c> adds to the spectral-match view.</summary>
+    private static string[] ScoreColumnNames => ["match_index", "score_name", "score_value"];
+
+    /// <summary>One file through the <c>spectral_match</c> view.</summary>
+    private static FileTable ReadMatchesFile(string path, Window window, bool scores)
+    {
         IResultFile resultFile = OpenAny(path);
         resultFile.LoadResults();
 
@@ -191,28 +342,69 @@ internal static partial class Reading
         IReadOnlyList<ISpectralMatch> selected = window.Apply(all, out bool truncated);
 
         var columns = MatchColumns;
-        object? written = null;
-        if (window.OutputPath is not null)
-            written = WriteTable(window.OutputPath, columns, selected);
+        List<string> names = columns.Select(c => c.Name).ToList();
+        if (scores)
+            names.AddRange(ScoreColumnNames);
 
-        return new
+        // One row per match, or with --scores one per (match, score), in the file's own order.
+        var rows = new List<(ISpectralMatch Match, int Index, string? ScoreName, double? ScoreValue)>(selected.Count);
+        for (int i = 0; i < selected.Count; i++)
         {
-            path = Path.GetFullPath(path),
-            file_type = resultFile.FileType.ToString(),
-            record_count = all.Count,
-            returned_count = written is null ? selected.Count : 0,
-            offset = window.Offset,
-            truncated,
-            caveats = MatchCaveatsFor(resultFile.FileType),
-            column_names = columns.Select(c => c.Name).ToList(),
-            columns = written is null ? BuildColumns(columns, selected) : null,
-            output = written,
+            ISpectralMatch match = selected[i];
+            if (scores && match is MzIdentMLRecord { Scores.Count: > 0 } record)
+            {
+                foreach ((string name, double value) in record.Scores)
+                    rows.Add((match, window.Offset + i, name, value));
+            }
+            else
+            {
+                rows.Add((match, window.Offset + i, null, null));
+            }
+        }
+
+        List<string> absent = MatchAbsentFields(resultFile, path);
+        if (scores && resultFile is not MzIdentMLResultFile)
+            absent.AddRange(["score_name", "score_value"]);
+
+        MzIdentMLResultFile? mzid = resultFile as MzIdentMLResultFile;
+
+        return new FileTable
+        {
+            Block = Block(
+                path,
+                fileType: resultFile.FileType.ToString(),
+                reader: resultFile.GetType().Name,
+                recordCount: all.Count,
+                rowsNotRead: null,
+                // No time column in this view.
+                retentionTimeUnit: null,
+                caveats: MatchCaveatsFor(resultFile.FileType),
+                columnNames: names,
+                absent: absent,
+                failed: FailedColumns(columns, selected),
+                excluded: [],
+                ("skipped_count", mzid?.SkippedMatches.Count),
+                ("skipped", mzid is null ? null : SkippedOf(mzid))),
+            ColumnNames = names,
+            RowCount = rows.Count,
+            RecordsReturned = selected.Count,
+            Row = r =>
+            {
+                (ISpectralMatch match, int index, string? scoreName, double? scoreValue) = rows[r];
+                object?[] cells = Cells(columns, match);
+                if (!scores)
+                    return cells;
+                return [.. cells, index, scoreName, WireValue(scoreValue)];
+            },
+            Offset = window.Offset,
+            Truncated = truncated,
         };
     }
 
     /// <summary>
     /// <c>readers read-spectra --path FILE [--limit N] [--offset N] [--ms-order N] [--peaks]
-    /// [--out FILE]</c> — the scan headers of a spectra file, and optionally its peaks.
+    /// [--out FILE]</c>, or the <c>--paths-stdin</c> form — the scan headers of a spectra file,
+    /// optionally its peaks, and what the file says about the instrument and the acquisition.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -236,6 +428,12 @@ internal static partial class Reading
     /// file.
     /// </para>
     /// <para>
+    /// <c>source</c> is mzLib's <see cref="SourceFile"/> description of the run: the instrument
+    /// model and serial number, and when acquisition started (mzLib #1349). Those are what a batch
+    /// or instrument confound is built from, and before this verb carried them a binding had no way
+    /// to ask.
+    /// </para>
+    /// <para>
     /// <b>Two of the seven need native code that is not in the wheel.</b> Bruker <c>.d</c> and
     /// timsTOF <c>.d</c> reach vendor DLLs (<c>baf2sql_c.dll</c>, <c>timsdata.dll</c>) through
     /// P/Invoke and are Windows-x64 only; Thermo <c>.raw</c> uses managed vendor assemblies and
@@ -245,20 +443,35 @@ internal static partial class Reading
     /// </remarks>
     public static object ReadSpectra(Program.Arguments arguments)
     {
-        Window window = Window.From(arguments);
-        string path = window.Path;
-
         RequireValueIfProvided(arguments, "ms-order");
         int? msOrder = arguments.WasProvided("ms-order") ? arguments.OptionalInt("ms-order", 0) : null;
         if (msOrder is < 1)
             throw new Program.UsageException($"Option --ms-order must be 1 or greater; got {msOrder}.");
 
         bool includePeaks = arguments.Flag("peaks");
+        var columns = includePeaks ? ScanColumnsWithPeaks : ScanColumns;
 
+        var verb = new TableVerb(
+            "read-spectra",
+            (path, window) => ReadSpectraFile(path, window, msOrder, includePeaks),
+            columns.Select(c => c.Name).ToList(),
+            ["scan_count", "source"]);
+
+        return RunTable(arguments, verb, new Dictionary<string, object?>
+        {
+            ["ms_order"] = msOrder,
+            ["peaks_included"] = includePeaks,
+        });
+    }
+
+    /// <summary>One file through the <c>spectra</c> view.</summary>
+    private static FileTable ReadSpectraFile(string path, Window window, int? msOrder, bool includePeaks)
+    {
         MsDataFile dataFile = OpenSpectra(path);
 
         // A vendor reader can hold a native handle (timsTOF is the only MsDataFile that is
-        // IDisposable), so the file is disposed even when projection throws.
+        // IDisposable), so the file is disposed even when projection throws, and otherwise only
+        // once its rows have been written.
         try
         {
             List<MsDataScan> allScans = dataFile.GetAllScansList();
@@ -269,38 +482,41 @@ internal static partial class Reading
             IReadOnlyList<MsDataScan> selected = window.Apply(filtered, out bool truncated);
 
             var columns = includePeaks ? ScanColumnsWithPeaks : ScanColumns;
-            object? written = null;
-            if (window.OutputPath is not null)
-                written = WriteTable(window.OutputPath, columns, selected);
+            List<string> names = columns.Select(c => c.Name).ToList();
 
-            return new
+            return new FileTable
             {
-                path = Path.GetFullPath(path),
-                file_type = FileTypeOf(path),
-                reader = dataFile.GetType().Name,
-                // The file's true scan count, always — so a --ms-order filter that matches nothing
-                // is visibly a filter that matched nothing, not an empty file.
-                scan_count = allScans.Count,
-                ms_order = msOrder,
-                record_count = filtered.Count,
-                returned_count = written is null ? selected.Count : 0,
-                offset = window.Offset,
-                truncated,
-                peaks_included = includePeaks,
-                // MsDataScan.RetentionTime is minutes for every MsDataFile reader in mzLib: the
-                // readers convert at the boundary rather than passing the vendor's unit through,
-                // which is exactly what the result-file readers do NOT do. Stated as a value so it
-                // reads the same way as every other retention time this bridge emits.
-                retention_time_unit = "minutes",
-                caveats = SpectraCaveatsFor(path, includePeaks),
-                column_names = columns.Select(c => c.Name).ToList(),
-                columns = written is null ? BuildColumns(columns, selected) : null,
-                output = written,
+                Block = Block(
+                    path,
+                    fileType: FileTypeOf(path),
+                    reader: dataFile.GetType().Name,
+                    recordCount: filtered.Count,
+                    rowsNotRead: null,
+                    // MsDataScan.RetentionTime is minutes for every MsDataFile reader in mzLib: the
+                    // readers convert at the boundary rather than passing the vendor's unit through,
+                    // which is exactly what the result-file readers do NOT do.
+                    retentionTimeUnit: "minutes",
+                    caveats: SpectraCaveatsFor(path, includePeaks),
+                    columnNames: names,
+                    absent: [],
+                    failed: FailedColumns(columns, selected),
+                    excluded: [],
+                    // The file's true scan count, always — so a --ms-order filter that matches
+                    // nothing is visibly a filter that matched nothing, not an empty file.
+                    ("scan_count", allScans.Count),
+                    ("source", SourceOf(dataFile))),
+                ColumnNames = names,
+                RowCount = selected.Count,
+                Row = i => Cells(columns, selected[i]),
+                Offset = window.Offset,
+                Truncated = truncated,
+                Release = () => (dataFile as IDisposable)?.Dispose(),
             };
         }
-        finally
+        catch
         {
             (dataFile as IDisposable)?.Dispose();
+            throw;
         }
     }
 
@@ -474,7 +690,7 @@ internal static partial class Reading
 
     /// <summary>
     /// The <c>--path</c>/<c>--offset</c>/<c>--limit</c>/<c>--out</c> quartet, parsed and validated
-    /// once.
+    /// once. The <c>--paths-stdin</c> form has its own, <see cref="Batch"/>.
     /// </summary>
     /// <remarks>
     /// Declared once rather than repeated per verb so the four verbs cannot drift on the rules that
@@ -484,9 +700,16 @@ internal static partial class Reading
     /// </remarks>
     private sealed record Window(string Path, int Offset, int Limit, string? OutputPath)
     {
+        /// <summary>The whole of one input of a batch: no offset, no limit, no output of its own.</summary>
+        public static Window Whole(string path) => new(path, 0, int.MaxValue, null);
+
         public static Window From(Program.Arguments arguments)
         {
             string path = arguments.Required("path");
+
+            // Validated here too, so a typo in either is an error with one file as with many.
+            ConcurrencyOptions(arguments);
+            RejectSkipWithOnePath(arguments);
 
             RequireValueIfProvided(arguments, "out");
             RequireValueIfProvided(arguments, "limit");
@@ -561,7 +784,6 @@ internal static partial class Reading
         private static readonly Dictionary<Type, RecordProjection> Cache = [];
 
         private readonly List<(string Name, PropertyInfo Property)> _fields;
-        private readonly HashSet<string> _failed = [];
         private readonly HashSet<string> _sentinelFields;
 
         public string RecordTypeName { get; }
@@ -581,7 +803,13 @@ internal static partial class Reading
                 if (why is null)
                     fields.Add((SnakeCase(property.Name), property));
                 else
-                    excluded.Add(new { field = SnakeCase(property.Name), type = FriendlyTypeName(property.PropertyType), reason = why });
+                    excluded.Add(new
+                    {
+                        field = SnakeCase(property.Name),
+                        type = FriendlyTypeName(property.PropertyType),
+                        reason = why,
+                        verb = VerbCarrying(recordType, property.Name),
+                    });
             }
 
             _fields = fields;
@@ -734,7 +962,13 @@ internal static partial class Reading
         /// entire file unreadable because of one derived field the caller may not even want; the
         /// cell becomes null and the field is named in <c>failed_fields</c>.
         /// </remarks>
-        private object? Read(PropertyInfo property, object record)
+        /// <param name="property">The property to read.</param>
+        /// <param name="record">The record to read it from.</param>
+        /// <param name="failures">Where to note a property that threw, or null to not keep count.
+        /// Passed in rather than held, because one projection is shared by every file of a batch
+        /// and read by several threads at once: a shared list would attribute one file's bad rows
+        /// to another.</param>
+        private object? Read(PropertyInfo property, object record, ISet<string>? failures)
         {
             object? value;
             try
@@ -743,8 +977,7 @@ internal static partial class Reading
             }
             catch (Exception exception)
             {
-                lock (_failed)
-                    _failed.Add($"{SnakeCase(property.Name)}: {(exception.InnerException ?? exception).GetType().Name}");
+                failures?.Add($"{SnakeCase(property.Name)}: {(exception.InnerException ?? exception).GetType().Name}");
                 return null;
             }
 
@@ -786,43 +1019,29 @@ internal static partial class Reading
             _ => value,
         };
 
-        public Dictionary<string, List<object?>> BuildColumns(IReadOnlyList<object> records)
-        {
-            var built = new Dictionary<string, List<object?>>(_fields.Count);
-            foreach ((string name, PropertyInfo property) in _fields)
-            {
-                var values = new List<object?>(records.Count);
-                foreach (object record in records)
-                    values.Add(Read(property, record));
-                built[name] = values;
-            }
-
-            return built;
-        }
-
         /// <summary>The cell values of one record, in column order.</summary>
         public IEnumerable<object?> Cells(object record) =>
-            _fields.Select(field => Read(field.Property, record));
+            _fields.Select(field => Read(field.Property, record, null));
+
+        /// <summary>The wire column names of the given properties, in column order.</summary>
+        public List<string> ColumnNamesOf(ISet<string> propertyNames) =>
+            _fields.Where(field => propertyNames.Contains(field.Property.Name)).Select(field => field.Name).ToList();
 
         /// <summary>
         /// The fields that threw while reading the given records, with the exception type.
         /// </summary>
         /// <remarks>
-        /// Reads the records first so the answer describes this call rather than a previous one:
-        /// the projection is cached per type across verbs within one process, and a stale failure
-        /// list would attribute another file's bad rows to this one.
+        /// Counted into a set local to this call, so the answer describes these records and nothing
+        /// else: the projection is cached per type and shared across every file of a batch.
         /// </remarks>
         public IReadOnlyList<string> FailedFieldsFor(IReadOnlyList<object> records)
         {
-            lock (_failed)
-                _failed.Clear();
-
+            var failures = new HashSet<string>(StringComparer.Ordinal);
             foreach ((_, PropertyInfo property) in _fields)
                 foreach (object record in records)
-                    Read(property, record);
+                    Read(property, record, failures);
 
-            lock (_failed)
-                return _failed.Order(StringComparer.Ordinal).ToList();
+            return failures.Order(StringComparer.Ordinal).ToList();
         }
 
         /// <summary>A type name a non-.NET caller can read.</summary>
@@ -891,41 +1110,5 @@ internal static partial class Reading
             && (index + 2 >= name.Length || char.IsUpper(name[index + 2]));
 
         return !pluralising;
-    }
-
-    /// <summary>Writes a reflectively-projected table, in the same shape as <see cref="WriteTable"/>.</summary>
-    private static object WriteProjectedTable(
-        string outputPath, RecordProjection projection, IReadOnlyList<object> records)
-    {
-        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-
-        var configuration = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            Delimiter = "\t",
-        };
-
-        using (var writer = new StreamWriter(File.Create(outputPath)))
-        using (var csv = new CsvHelper.CsvWriter(writer, configuration))
-        {
-            foreach (string name in projection.ColumnNames)
-                csv.WriteField(name);
-            csv.NextRecord();
-
-            foreach (object record in records)
-            {
-                foreach (object? cell in projection.Cells(record))
-                    csv.WriteField(Render(cell));
-                csv.NextRecord();
-            }
-        }
-
-        return new
-        {
-            path = Path.GetFullPath(outputPath),
-            format = "tsv",
-            row_count = records.Count,
-        };
     }
 }

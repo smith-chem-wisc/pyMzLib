@@ -22,10 +22,11 @@ print(table.record_type, len(table.column_names))    # ToppicPrsm 36
 **All 36 formats are readable.** What differs between them is not whether you can read them but
 what the columns mean — which is the whole subject of this page.
 
-## Five ways to read, and how to choose
+## Ways to read, and how to choose
 
-There is one universal function and four cross-format views. The choice is a real one, so it is
-worth stating plainly before anything else:
+There is one universal function, four cross-format views, and three functions for mzLib's
+quantification tables. The choice is a real one, so it is worth stating plainly before anything
+else:
 
 | function | reads | columns | use it when |
 |---|---|---|---|
@@ -34,6 +35,13 @@ worth stating plainly before anything else:
 | [`read_features()`](#read_features-deconvolved-ms1-features) | 2 | uniform: m/z, charge, RT range, intensity | you are working with deconvolved MS1 features |
 | [`read_matches()`](#read_matches-identifications) | 6 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT, Casanovo or mzIdentML |
 | [`read_spectra()`](#read_spectra-scans-and-peaks) | 7 | uniform: scan headers, peaks on request | the file is spectra rather than results |
+| [`read_protein_groups()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per protein group per sample group | you want MetaMorpheus's per-sample protein intensities and spectral counts |
+| [`read_quantified_peptides()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per peptide per sample | you want FlashLFQ's per-sample peptide intensities |
+| [`read_occupancy()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per modified site | you want PTM site occupancy from a MetaMorpheus protein-group table |
+
+**Every one of them has a `_many` twin** - `read_spectra_many()`, `read_records_many()`,
+`identify_many()` and so on - that reads a list of files into one table in one call. See
+[Many files at once](#many-files-at-once).
 
 The rule of thumb:
 
@@ -116,15 +124,20 @@ Some of these exclusions carry the numbers you came for. The per-sample values o
 tables are dictionaries keyed by sample, so `read_records()` names them here and does not project
 them:
 
-| file type | excluded field | what it holds |
-|---|---|---|
-| `MetaMorpheusQuantifiedProteinGroups` | `sample_groups` | per-sample intensity, spectral count and modification occupancy |
-| `FlashLFQQuantifiedPeptide` | `samples` | per-run intensity, detection type and retention time |
-| `MzIdentML`, `MzIdentMLGz` | `scores` | the search engine's own scores, e.g. `MS-GF:SpecEValue` |
+| file type | excluded field | what it holds | read it with |
+|---|---|---|---|
+| `MetaMorpheusQuantifiedProteinGroups` | `sample_groups` | per-sample intensity, spectral count and modification occupancy | [`read_protein_groups()`](#quantification-tables-protein-groups-peptides-and-occupancy), and [`read_occupancy()`](#site-occupancy) for the occupancy |
+| `FlashLFQQuantifiedPeptide` | `samples` | per-run intensity, detection type and retention time | [`read_quantified_peptides()`](#quantification-tables-protein-groups-peptides-and-occupancy) |
+| `MzIdentML`, `MzIdentMLGz` | `scores` | the search engine's own scores, e.g. `MS-GF:SpecEValue` | [`read_matches(scores=True)`](#engine-scores-as-long-rows) |
 
 Their scalar fields (protein group name, gene, organism, q-value, sequence) are columns as usual.
-Typed functions for the per-sample values are planned; until then, those values are out of reach
-from pyMzLib, and `excluded_fields` says so rather than returning a table that looks complete.
+Each `excluded_fields` entry carries a `verb` naming the bridge command that does project it, so
+the pointer is data, not only this table:
+
+```python
+{e["field"]: e["verb"] for e in t.excluded_fields}
+# {'sample_groups': 'readers read-protein-groups'}
+```
 
 `failed_fields` is the other half. Several mzLib properties are *computed* and assume a
 UniProt-style FASTA header — Crux's and MsPathFinderT's `accession` are both
@@ -143,6 +156,45 @@ t.failed_fields          # ['accession: IndexOutOfRangeException']  (on a non-Un
     format's own columns `-1` is frequently a real measurement — a mass difference, a delta, a log
     ratio, TopPIC's `feature_score`. Nulling those would destroy data. Non-finite values (`NaN`,
     infinity) still cross as `None`, since JSON cannot carry them at all.
+
+### Four ways a field can have no value
+
+A `None` in a table can mean four different things, and each is named, so you never have to guess
+which:
+
+| where it is named | what it means | what you see in the table |
+|---|---|---|
+| `absent_fields` | the function defines the field, but **this file's format has no column for it** | `None` in every row |
+| `failed_fields` | the field exists, but **reading it threw** on some rows | `None` in those rows |
+| `excluded_fields` | the field has **no column shape** (a dictionary, a nested object) | not a column at all |
+| none of them | the value is **genuinely missing for that row** - the precursor of an MS1 scan, a blank cell | `None` in that row |
+
+`absent_fields` is the one that protects numbers. When a file lacks an optional column, mzLib does
+not say so: it fills in its default, and for a number that default is usually zero. pyMzLib reads
+mzLib's own declaration of which columns are optional, checks it against the file's header, and
+reports - and blanks - every column the file does not have:
+
+```python
+peaks = pymzlib.readers.read_records("QuantifiedPeaks.tsv")          # a current FlashLFQ table
+peaks.absent_fields                                                  # ['mbr_score']  (mzLib #1345)
+
+targets = pymzlib.readers.read_matches("run_IcTarget.tsv")           # MSPathFinder, pre-FDR
+targets.absent_fields                  # ['q_value', 'rank', 'pass_threshold']
+targets.columns["q_value"][:3]         # [None, None, None] - mzLib would have said 0.0: "perfect"
+```
+
+The MSPathFinder case is the reason this exists. Its `_IcTarget.tsv` is written *before*
+target-decoy analysis and has no `QValue` column, and mzLib types that property as a plain
+`double`, so it reads **0** - a perfect q-value - for every match. Filtering on `q_value <= 0.01`
+would keep everything. A column in `absent_fields` is always `None`, whatever mzLib filled in.
+
+Every function reports all three lists, so a check can be written once:
+
+```python
+def trustworthy(result, column):
+    return column not in result.absent_fields and not any(
+        f.startswith(column + ":") for f in result.failed_fields)
+```
 
 ### Values that changed with mzLib 1.0.592
 
@@ -180,7 +232,7 @@ dict per row.
 
 ### Nothing is ever silently short
 
-There is **no default row limit**, on any of the five functions. A result file can carry a million
+There is **no default row limit**, on any of the reading functions. A result file can carry a million
 rows, and a library whose default answer is "here's some of it" is a library that eventually puts a
 truncated table in a paper. Ask for a limit and you are told when it bites:
 
@@ -239,8 +291,9 @@ intensity column too, and `read_records()` has it.
     mzLib takes the per-charge intensity from `Apex_intensity`, which is an *optional* column that
     the FLASHDeconv/OpenMS `_ms1.feature` layout does not have — and substitutes **zero** when it is
     absent. A whole column of zeros is indistinguishable from real measurements of nothing, so
-    pyMzLib crosses those as `None` and says so in `caveats`. TopFD files, which do write the
-    column, are unaffected. `read_records()` has the file's own summed `intensity` either way.
+    pyMzLib crosses those as `None`, names `intensity` in `absent_fields`, and says why in
+    `caveats`. TopFD files, which do write the column, are unaffected. `read_records()` has the
+    file's own summed `intensity` either way.
 
 ### `retention_time_unit` is `'unknown'` for `_ms1.feature`, and that is the honest answer
 
@@ -269,11 +322,16 @@ m = pymzlib.readers.read_matches("results_IcTda.tsv")
 m.columns["modifications"][0]        # '12:Oxidation on M'
 ```
 
-!!! danger "Nothing here is FDR-filtered — and there is no confidence column to filter on"
-    mzLib's `ISpectralMatch` carries identity fields only. Every one of these formats records an
-    E-value or q-value somewhere; `read_records()` will give you those columns, except mzIdentML's
-    engine scores, which are a dictionary (see above) — only its `q_value` crosses. Filter before
-    you report.
+Beside the identity fields, the view carries the three confidence fields a format may record:
+`q_value` (mzIdentML's PSM-level q-value, mzLib #1306; MSPathFinder's `QValue`), and mzIdentML's
+`rank` and `pass_threshold`. A format without one names it in `absent_fields`, and the column is
+`None` throughout.
+
+!!! danger "Nothing here is FDR-filtered"
+    Every row the file holds is a row here. Filter on `q_value` - where `absent_fields` does not
+    name it - and, for mzIdentML, on `rank == 1` and `pass_threshold`, before you count or report
+    anything. The engines' other scores are in `read_records()`, or as long rows with
+    [`scores=True`](#engine-scores-as-long-rows).
 
 Three `is_decoy` traps, all reported in `caveats`:
 
@@ -293,13 +351,39 @@ was run on an MGF the two are unrelated, so do not join on it.
 mzIdentML has three more things to know, also in `caveats`:
 
 - **Every identification item is a row**, not only the ones the submitter accepted. Lower-ranked
-  candidates and items that failed the threshold are included; `rank` and `pass_threshold` are in
-  `read_records()`.
+  candidates and items that failed the threshold are included; filter on `rank` and
+  `pass_threshold`.
 - **Some items are skipped, not read**: crosslinks, modifications without a resolvable UNIMOD
-  accession, substitutions, and two modifications on one residue. mzLib keeps a list of them that
-  pyMzLib does not report yet, so `record_count` can be smaller than the file's item count.
+  accession, substitutions, and two modifications on one residue (mzLib #1313). They are reported:
+  `skipped_count` says how many, and `skipped` lists each with its reason, so `record_count +
+  skipped_count` is the number of items in the file.
+
+  ```python
+  m = pymzlib.readers.read_matches("xlink_search.mzid")
+  m.record_count, m.skipped_count      # (0, 16) - a crosslink search: nothing is a linear match
+  m.skipped[0].reason                  # 'crosslink identification'
+  ```
 - **Scan numbers come from the nativeID.** `scan=N` gives N, but `index=N` (peak-list input) is a
   zero-based position and gives N + 1, which is not an instrument scan number.
+
+### Engine scores as long rows
+
+mzIdentML carries each search engine's own scores - `MS-GF:SpecEValue`, `Mascot:score`,
+`Scaffold:Peptide Probability` - and no two engines share a name. There is no fixed set of columns
+to put them in, so `scores=True` makes the table **long** instead: one row per match *and* score,
+with `match_index` (the match's position in its file), `score_name` and `score_value`.
+
+```python
+s = pymzlib.readers.read_matches("search.mzid.gz", scores=True)
+s.returned_count, s.row_count     # (12, 84): 12 matches, 7 scores each
+frame = pd.DataFrame(s.columns)
+scores = frame.pivot(index="match_index", columns="score_name", values="score_value")
+scores["MS-GF:SpecEValue"].lt(1e-10).sum()
+```
+
+`returned_count` still counts matches - the unit `limit` and `offset` count in - and `row_count`
+counts rows. A format with no engine scores keeps one row per match and names `score_name` and
+`score_value` in `absent_fields`.
 
 ## `read_spectra()`: scans and peaks
 
@@ -330,11 +414,187 @@ ion = s.columns["intensity"][0]
 
 Without `peaks=True`, `peak_count` still tells you how many peaks each scan has.
 
+### What the file says about the run
+
+Every spectra read reports what the file records about where and when it was acquired, from mzLib's
+`SourceFile` (mzLib #1349):
+
+```python
+s = pymzlib.readers.read_spectra("run.raw", limit=0)
+s.source.instrument_model               # 'Orbitrap Fusion Lumos'
+s.source.instrument_serial_number       # 'EXRFSN20410'
+s.source.acquisition_start_time         # '2023-10-25T10:40:10.188556'
+s.source.acquisition_start_time_is_utc  # False - the instrument PC's clock
+s.source.acquired_at                    # datetime(2023, 10, 25, 10, 40, 10, 188556), naive
+```
+
+These are what a batch or instrument confound is built from - which unit of a model, and in what
+order the runs were acquired. Three things to know:
+
+- **Match instruments on the accession, not the name.** mzML carries both the model's name and its
+  PSI-MS accession (`instrument_model_accession`, e.g. `MS:1002416`); Thermo `.raw` records only
+  the name, so the accession is `None` there rather than looked up.
+- **A time is UTC only when it says so.** `acquisition_start_time` ends in `Z`, and
+  `acquisition_start_time_is_utc` is true, only when the file fixed the instant. A Thermo `.raw`
+  records the acquisition computer's local clock with no offset; `acquired_at` then returns a
+  *naive* `datetime` rather than inventing a time zone. A `.raw` and ProteoWizard's mzML of it can
+  disagree by the site's UTC offset, because ProteoWizard converts using the *converting*
+  machine's time zone and writes `Z`.
+- **MGF and msalign record none of it**: every field is `None`.
+
 !!! info "Two of the seven need Windows"
     Bruker `.d` and timsTOF `.d` are read through vendor native libraries (`baf2sql`, `timsdata`)
     and are **Windows-x64 only**. Thermo `.raw` uses managed vendor assemblies and works
     everywhere. msalign files hold **deconvolved neutral masses**, not raw m/z — do not
     re-deconvolve them.
+
+## Quantification tables: protein groups, peptides and occupancy
+
+MetaMorpheus and FlashLFQ write their quantification as wide tables, one column per sample:
+`Intensity_QE-002106_GM1_a-calib`, `SpectralCount_QE-002106_GM1_a-calib`, ... mzLib 1.0.592 reads
+them (mzLib #1347), and pyMzLib returns them **long** - one row per record per sample, with the
+sample in a column:
+
+| function | reads | one row per | per-sample columns |
+|---|---|---|---|
+| `read_protein_groups()` | MetaMorpheus `AllQuantifiedProteinGroups.tsv` | protein group x sample group | `spectral_count`, `intensity` |
+| `read_quantified_peptides()` | FlashLFQ `QuantifiedPeptides.tsv`, MetaMorpheus `AllQuantifiedPeptides.tsv` | peptide x sample | `intensity`, `detection_type`, `retention_time` (IsoTracker only) |
+| `read_occupancy()` | MetaMorpheus `AllQuantifiedProteinGroups.tsv` | group x sample group x basis x modified site | `fraction`, `numerator`, `denominator` |
+
+**Why long.** A wide table's column names would be made up from your sample labels, so they would
+differ in every experiment and could not be documented, checked or shared across files - and two
+searches with different samples could not be read into one table. A long table has the same
+columns every time, it is what pandas, polars and every plotting library want, and the wide matrix
+is one `pivot` away:
+
+```python
+import pandas as pd
+
+g = pymzlib.readers.read_protein_groups("AllQuantifiedProteinGroups.tsv")
+g.record_count, g.returned_count, g.row_count      # (6, 6, 108): 6 groups x 18 sample groups
+df = pd.DataFrame(g.columns)
+
+# The table is UNFILTERED, as MetaMorpheus writes it: filter before anything else.
+confident = df[(df.q_value <= 0.01) & (df.decoy_contaminant_target == "T")]
+
+matrix = confident.pivot(index="protein_group_name", columns="sample_label", values="intensity")
+```
+
+`record_count` and `returned_count` count **groups** (or peptides) - the unit `limit` and `offset`
+count in - and `row_count` counts rows. The group's other fields - coverage, masses, member
+counts - are in `read_records()` on the same file; join on `protein_group_name`.
+
+Four things these tables will not do for you:
+
+- **Filter.** Decoys, contaminants and groups above 1% FDR are all rows; see above.
+- **Tell a blank from a zero - unless you look.** A protein-group intensity that was not measured
+  is a blank cell and arrives `None`. FlashLFQ's peptide table is different: it writes a literal
+  **0** for a peptide it did not quantify, and mzLib keeps it. `detection_type` (`MSMS`, `MBR`,
+  `NotDetected`, ...) is what separates a measurement from a missing value; filter on it before a
+  mean or a log.
+- **Know your design.** `sample_label` is the header label verbatim. Condition, replicate and
+  channel cannot be recovered from it - map it yourself, from an [SDRF](sdrf.md) or a sample sheet.
+- **Name a leading protein.** `protein_group_name` lists the members sorted by accession, so the
+  first is only the one that sorts first.
+
+### Site occupancy
+
+MetaMorpheus writes two occupancy cells per group per sample group - one from PSM counts, one from
+intensities - each a list of modified sites encoded as text. `read_occupancy()` returns one row per
+site, with `basis` saying which cell it came from:
+
+```python
+o = pymzlib.readers.read_occupancy("AllQuantifiedProteinGroups.tsv")
+sites = pd.DataFrame(o.columns)
+
+by_count = sites[sites.basis == "count"].assign(occupancy=lambda d: d.numerator / d.denominator)
+by_intensity = sites[sites.basis == "intensity"]            # use `fraction` here
+```
+
+The two bases round differently, so trust the ratio of the counts on `count` rows and `fraction`
+on `intensity` rows. `position` counts 0 as the protein N-terminus and residues from 1. A cell the
+writer cut short keeps its complete sites with `cell_is_truncated` set, and `truncated_cell_count`
+counts every cut cell - including those with no complete site left to show - so a short table is
+never mistaken for a complete one. A cell that is not an occupancy cell at all is refused, named
+in `failed_fields`, and gives no rows.
+
+## Many files at once
+
+Every reading function has a `_many` twin that takes a list of paths and returns **one** long
+table: `read_spectra_many()`, `read_records_many()`, `read_results_many()`,
+`read_features_many()`, `read_matches_many()`, `read_protein_groups_many()`,
+`read_quantified_peptides_many()`, `read_occupancy_many()`, and `identify_many()`.
+
+```python
+from pathlib import Path
+import pandas as pd
+
+runs = sorted(Path("raw").glob("*.raw"))
+batch = pymzlib.readers.read_spectra_many(runs, ms_order=1, threads=4)
+
+scans = pd.DataFrame(batch.columns)          # source_index, source_path, then read_spectra's columns
+runs_meta = pd.DataFrame([
+    {"source_index": i, "instrument": f.source.instrument_serial_number, "started": f.source.acquired_at}
+    for i, f in enumerate(batch.files)
+])
+scans = scans.merge(runs_meta, on="source_index")
+```
+
+**When to use it.** Whenever you would otherwise write a loop over files. The list goes to one
+bridge process, so the .NET start-up (about 120 ms) and the JIT warm-up are paid once rather than
+once per file, and mzLib reads `threads` files at a time. For two hundred small files that is the
+difference between most of a minute of start-up and none. pyMzLib has no thread or process pool of
+its own, deliberately: the bridge is the one place that can count every thread in use.
+
+**The table.** Its first two columns are `source_index` - the file's position in your list - and
+`source_path`. Rows are grouped by file in list order, and within a file in the file's own order.
+`batch.files[i]` is a `FileReport` with everything a single-file read would have told you about
+file `i`: its `file_type`, `record_count`, `caveats`, `absent_fields`, `source`, `skipped`, and so
+on. `batch.record_count` and `batch.row_count` are summed over the files.
+
+**`threads`.** The result is **byte-identical at any `threads`** - that is tested - so it only
+trades memory for speed, never changes an answer. It defaults to 1 because every mzLib reader
+holds a whole file in memory while it works, so `threads=8` can mean eight whole files at once.
+Some guidance:
+
+- Many small files (search results, feature tables, MGFs): `threads` near your core count, or
+  `-1` for one per core.
+- Large spectra files: mzLib's mzML and Thermo readers already parallelise *inside* one file, so
+  extra files in flight add memory faster than speed. Start at 2 and watch memory.
+- Hundreds of files, or peaks: add `out=` - see below.
+
+**`on_error`.** By default the first file that cannot be read stops the batch and raises, with a
+message starting `Input <i> ('<path>')`. With `on_error="skip"` it is recorded instead, and the
+rest are read:
+
+```python
+batch = pymzlib.readers.read_matches_many(paths, on_error="skip")
+for f in batch.failed_files:
+    print(f.path, f.error.kind, f.error.message)   # kind: 'usage' (missing, not this view) or 'correctness'
+```
+
+A failed file keeps its `files` entry - with `record_count` `None`, not zero, because nothing was
+counted - and contributes no rows.
+
+**`out=`: hundreds of files in bounded memory.** With `out`, the table is written to a
+tab-separated file **one file at a time, in order**, so memory holds at most `threads` files
+however long the list is. The result carries `output` and the per-file facts, and `columns` is
+`None`. A batch that stops on an error deletes its partial table rather than leave one that looks
+complete.
+
+```python
+batch = pymzlib.readers.read_records_many(mzid_paths, out="all_matches.tsv", threads=4)
+table = pd.read_csv(batch.output.path, sep="\t")
+```
+
+Three rules, each an error rather than a surprise:
+
+- **`read_records_many()` needs one record type.** Its columns are the format's own, so a list
+  mixing, say, mzIdentML and TopPIC files is refused before anything is parsed, naming the groups.
+  The typed views mix formats freely.
+- **No `limit` or `offset`.** They window one file; read that file on its own to window it.
+- **A path may appear once.** A repeated path is almost always a mistake in how the list was built,
+  and reading it twice would double its rows in every total.
 
 ## The numbers do not mean the same thing across formats
 
@@ -391,6 +651,9 @@ dispatchable or it is a `UsageError`:
 | Extension mzLib does not recognise | `UsageError` pointing at `formats()` |
 | Recognised, but lacks the view a verb needs | `UsageError` naming the views it *does* have, **and pointing at `read_records()`** |
 | An option given without a value | `UsageError` — never a silent default |
+| A list given to a single-file function | `UsageError` pointing at its `_many` twin |
+| A `_many` call's file cannot be read (default `on_error="fail"`) | that file's own error, its message starting `Input <i> ('<path>')` |
+| A quantification function on a bridge that predates it (`PYMZLIB_BRIDGE` pointing at an old build) | `UsageError` naming the pyMzLib release it needs, before any process starts |
 | `out=` equal to the input path | `UsageError` — a read must not overwrite what it is reading |
 
 ```python
@@ -475,18 +738,16 @@ Pytheas's own match lines, one per candidate. Charges are negative, and `molecul
 The two MetaMorpheus quantification tables dispatch on a filename suffix:
 `AllQuantifiedProteinGroups.tsv` (or any name ending `QuantifiedProteinGroups.tsv`) and
 `AllQuantifiedPeptides.tsv` (any name ending `QuantifiedPeptides.tsv`, which is also what FlashLFQ
-writes). Their per-sample values are excluded dictionaries; see
-[Nothing is silently dropped](#nothing-is-silently-dropped).
+writes). Their per-sample values are read by [their own functions](#quantification-tables-protein-groups-peptides-and-occupancy).
 
 ## What is not covered
 
-- **Confidence in the typed views.** `read_results()` and `read_matches()` expose no q-value, PEP or
-  score, because the mzLib interfaces they project do not carry one. `read_records()` does — those
-  columns exist in every one of these formats, though mzIdentML's engine scores are an excluded
-  dictionary and only its `q_value` crosses. **Nothing from a typed view is FDR-filtered.**
-- **Per-sample values of the MetaMorpheus protein-group and peptide tables**, and mzIdentML's
-  engine scores. They are dictionaries, named in `excluded_fields`; typed functions for them are
-  planned.
+- **Confidence in `read_results()`.** The quantifiable view exposes no q-value, PEP or score,
+  because the mzLib interface it projects carries none; `read_records()` has those columns.
+  `read_matches()` carries `q_value` (and mzIdentML's `rank` and `pass_threshold`) where the
+  format records one. **Nothing from a typed view is FDR-filtered.**
+- **Peptide-level occupancy.** mzLib 1.0.592 parses occupancy cells for protein groups only; its
+  peptide-table reader exposes none, so `read_occupancy()` reads protein-group tables.
 - **Format conversion.** mzLib can write most formats, but the psmtsv family throws
   `NotImplementedException`, so a general read-A-write-B is not offered.
 - **The ion-mobility axis.** timsTOF data is read with its mobility dimension collapsed into scans;

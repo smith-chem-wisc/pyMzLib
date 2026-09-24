@@ -54,3 +54,4 @@ Everything pyMzLib raises inherits from `PyMzLibError`, so a single `except` cat
         - BridgeNotFoundError
         - bridge_path
         - bridge_version
+        - BridgeVersion

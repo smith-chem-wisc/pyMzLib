@@ -1,0 +1,52 @@
+# Written 2026-09-24 with the C1 readers batch, from pyMzLib pkg/bridge/Reading*.cs on branch
+# feat/readers-bulk-1.0.592 (stacked on pyMzLib#61/#62), mzLib pin 23c2490e (tag 1.0.592). Every
+# example fixture was recorded from the live bridge on that branch.
+verb: readers identify
+module: readers
+summary: >-
+  Say what kind of file a path is - the mzLib file type, its extension, its reader and the cross-format views it offers - without parsing its contents.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: FileReader.ReadResultFile, path: mzLib/Readers/FileReader.cs, pin: 23c2490e}
+  - {symbol: SupportedFileTypeExtensions.ParseFileType, path: mzLib/Readers/Util/SupportedFileTypes.cs, pin: 23c2490e}
+cite: []
+
+params:
+  - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "Any file (or Bruker .d directory). For many paths see the caveat on --paths-stdin."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: "string", unit: null, nullable: false, null_means: null, doc: "Absolute path identified."}
+    - {wire: file_type, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib SupportedFileType."}
+    - {wire: extension, type: "string", unit: null, nullable: true, null_means: "mzLib maps no extension to this type", doc: "The extension mzLib dispatched on."}
+    - {wire: reader, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that would parse it."}
+    - {wire: views, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The cross-format views it offers; often empty."}
+    - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path; in a paths-stdin entry, the path was identified", doc: "{kind, type, message} for a path that failed under on-error skip."}
+  columns: []
+
+errors:
+  - {kind: usage, when: "path missing, blank or not found; mzLib does not recognise the file type"}
+  - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
+  - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
+  - {kind: usage, when: "out with paths-stdin: identify returns no table"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Cheap but not pure: mzLib reads a bare .tsv's first line, a .mztab's first five and a .d directory's listing to dispatch them."
+  - "No software field: mzLib's Software property is Unspecified for everything its factory builds; file_type already names the tool."
+  - "Many paths: --paths-stdin (newline-delimited paths on stdin) with --threads N (default 1, -1 = one per core; the answer is identical at any value) and --on-error fail|skip answers {file_count, read_count, failed_count, on_error, files}, files[i] being path i's answer in input order with error set when it could not be identified under skip (readers_many_identify.json). There is no table and no --out."
+
+bindings:
+  py: {name: pymzlib.readers.identify, bulk: pymzlib.readers.identify_many}
+  rust: {name: "mzlib::readers::identify", bulk: "mzlib::readers::identify_many"}
+  r: {name: readers_identify, bulk: readers_identify_many}
+
+examples:
+  - fixture: readers_identify_mzid.json
+    py: "result = pymzlib.readers.identify('PXD078927_msgf_1_1_0.mzid')"
+    rust: "let result = mzlib::readers::identify(\"PXD078927_msgf_1_1_0.mzid\")?;"
+    r: "result <- readers_identify('PXD078927_msgf_1_1_0.mzid')"
+
+open_questions:
+  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
+  - "The --paths-stdin answer is not declared as result.bulk because check_verbs.py requires a record_count there (BULK.md section 2), which has no meaning for identify. Its shape is in the caveats and in readers_many_identify.json until the checker allows a table-less bulk verb."

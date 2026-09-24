@@ -1,17 +1,19 @@
 {
- "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid",
  "file_type": "MzIdentML",
+ "reader": "MzIdentMLResultFile",
+ "skipped_count": 0,
+ "skipped": [],
  "record_count": 12,
- "returned_count": 3,
- "offset": 0,
- "truncated": true,
+ "rows_not_read": null,
+ "retention_time_unit": null,
  "caveats": [
-  "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. Readers.ISpectralMatch carries identity fields only; every one of these formats records confidence in columns this view does not expose. read-records has them. Filter before you report.",
+  "NOTHING here is FDR-filtered. q_value is the only confidence field this view carries, and only mzIdentML and an MsPathFinderT file with a QValue column fill it (absent_fields says when it is empty). Every one of these formats records scores this view does not expose; read-records has them. Filter before you report.",
   "is_decoy is null for this format. mzIdentML's isDecoy attribute is optional and defaults to false, and mzLib reports a decoy only when every peptide evidence says so (MzIdentMLResultFile.cs:173), so false cannot be told apart from 'not stated'. read-records carries mzLib's boolean for a caller who knows the writer sets it.",
-  "Every SpectrumIdentificationItem is a row, not only the matches the submitter accepted: lower-ranked candidates and items that fail the threshold are here too. rank and pass_threshold are in read-records, not in this view (MzIdentMLResultFile.cs:177). Filter on them before counting identifications.",
+  "Every SpectrumIdentificationItem is a row, not only the matches the submitter accepted: lower-ranked candidates and items that fail the threshold are here too (MzIdentMLResultFile.cs:177). Filter on rank == 1 and pass_threshold before counting identifications.",
   "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:159). 'scan=N' gives N, but 'index=N', which peak-list input carries, is a zero-based position in the file and gives N + 1, not an instrument scan number. -1 means the nativeID had neither.",
-  "Items mzLib cannot represent as one linear match are skipped, not failed: crosslinks, modifications without a resolvable UNIMOD accession, substitutions, and two modifications on one residue (MzIdentMLResultFile.cs:123). mzLib lists them in SkippedMatches, which the bridge does not report yet, so record_count can be smaller than the number of items in the file.",
-  "The engine's own scores (for example MS-GF:SpecEValue) are a dictionary (MzIdentMLResultFile.cs:179), which read-records names in excluded_fields and does not project. q_value is the only confidence value that crosses, and it is null when the file reports none.",
+  "Items mzLib cannot represent as one linear match are skipped, not failed: crosslinks, modifications without a resolvable UNIMOD accession, substitutions, and two modifications on one residue (MzIdentMLResultFile.cs:123). They are not rows; skipped_count and skipped name each one and why, so record_count plus skipped_count is the number of items in the file.",
+  "The engine's own scores (for example MS-GF:SpecEValue) have no common name across search engines (MzIdentMLResultFile.cs:179). Pass scores=true for them as long rows, one per match and score. q_value is null on an item that reports none.",
   "accession joins every protein the item's peptide evidence names with '|' (MzIdentMLRecord.cs:45), the same character a UniProt header uses inside one accession, so the cell cannot be split back into proteins reliably."
  ],
  "column_names": [
@@ -22,8 +24,22 @@
   "accession",
   "is_decoy",
   "modifications",
-  "modification_count"
+  "modification_count",
+  "q_value",
+  "rank",
+  "pass_threshold"
  ],
+ "absent_fields": [
+  "is_decoy"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "scores_included": false,
+ "returned_count": 3,
+ "row_count": 3,
+ "offset": 0,
+ "truncated": true,
  "columns": {
   "file_name_without_extension": [
    "MHC1_Pep",
@@ -64,6 +80,21 @@
    0,
    0,
    0
+  ],
+  "q_value": [
+   0,
+   0.6588785,
+   0.73832303
+  ],
+  "rank": [
+   1,
+   2,
+   3
+  ],
+  "pass_threshold": [
+   true,
+   true,
+   true
   ]
  },
  "output": null

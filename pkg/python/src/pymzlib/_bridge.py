@@ -17,7 +17,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 __all__ = [
     "PyMzLibError",
@@ -26,8 +26,10 @@ __all__ = [
     "BridgeTimeoutError",
     "UsageError",
     "BridgeNotFoundError",
+    "BridgeVersion",
     "bridge_path",
     "invoke",
+    "require_verb",
 ]
 
 #: Wire-format version this Python package understands. The bridge reports its own; a
@@ -259,29 +261,50 @@ def invoke(*args: str, stdin: str | None = None, timeout: float | None = None) -
     raise BridgeError(error_type, message)
 
 
-def bridge_version() -> dict[str, Any]:
+class BridgeVersion(TypedDict, total=False):
+    """What :func:`bridge_version` returns: a plain ``dict`` with these keys.
+
+    A ``TypedDict`` only so its keys are documented and type-checkable; at runtime it is the
+    ``dict`` it always was. ``mzlib`` and ``verbs`` are absent from bridges built before they were
+    added, so read them with ``.get("mzlib")`` and ``.get("verbs")`` rather than indexing.
+
+    Attributes:
+        bridge: The bridge assembly's own version string.
+        protocol: The wire-format version. This - not the mzLib version - is the compatibility
+            contract: a binding is compatible with a *bridge* by protocol.
+        runtime: The bundled .NET runtime's version string.
+        mzlib: Which mzLib this bridge was built against, as ``1.0.0+<commit>``; absent (or
+            ``None``) when the build recorded no commit. It answers "which mzLib am I actually
+            running?" for someone holding a wheel with no access to the repository's pin file. It
+            is deliberately *not* a version to compare against: use ``protocol`` for that.
+        verbs: Every command this bridge dispatches, e.g. ``"readers read-protein-groups"``,
+            generated from the bridge's own dispatch table when it was built, so it cannot list
+            one it lacks. pyMzLib checks it before calling a command newer than the bridge it may
+            be paired with (see :func:`require_verb`), so an old bridge is reported as old instead
+            of answering "Unknown command". Absent from bridges before pyMzLib 0.2.0.
+    """
+
+    bridge: str
+    protocol: int
+    runtime: str
+    mzlib: "str | None"
+    verbs: "list[str]"
+
+
+def bridge_version() -> BridgeVersion:
     """Return the bridge's own version information, and check protocol compatibility.
 
-    The payload carries:
-
-    ``bridge``
-        The bridge assembly's own version.
-    ``protocol``
-        The wire-format version. This — not the mzLib version — is the compatibility
-        contract: a binding is compatible with a *bridge* by protocol.
-    ``runtime``
-        The bundled .NET runtime.
-    ``mzlib``
-        Which mzLib this bridge was built against, as ``1.0.0+<commit>``, or absent when
-        the build recorded no commit. It answers "which mzLib am I actually running?" for
-        someone holding a wheel who has no access to the repository's pin file. It is
-        deliberately *not* a version to compare against: use ``protocol`` for that.
-
-    Because ``mzlib`` is absent from bridges built before it was added, read it with
-    ``.get("mzlib")`` rather than indexing.
+    Returns:
+        A :class:`BridgeVersion` - a ``dict`` with ``bridge``, ``protocol``, ``runtime``,
+        ``mzlib`` and ``verbs``.
 
     Raises:
         PyMzLibError: if the bridge speaks a different wire format than this package.
+
+    Examples:
+        >>> info = pymzlib.bridge_version()
+        >>> info["protocol"], "readers read-protein-groups" in info["verbs"]
+        (1, True)
     """
     info = invoke("version", timeout=60)
     reported = info.get("protocol")
@@ -291,3 +314,41 @@ def bridge_version() -> dict[str, Any]:
             "The Python package and the bridge were built from different sources."
         )
     return info
+
+
+#: The ``verbs`` each bridge reported, keyed by where the bridge comes from, so the check below
+#: costs one ``version`` call per process rather than one per read.
+_VERBS_SEEN: dict[str, "frozenset[str] | None"] = {}
+
+
+def require_verb(verb: str, *, since: str) -> None:
+    """Raise :class:`UsageError` unless the bridge in use dispatches ``verb``.
+
+    The bundled bridge always matches this package, so this only ever fires when
+    ``PYMZLIB_BRIDGE`` points at a bridge built from an older pyMzLib. Without it, that pairing
+    would spawn a process only to be told ``Unknown command``; with it, the error says which
+    pyMzLib the command needs. The answer is cached per bridge for the life of the process.
+
+    Args:
+        verb: The wire command, e.g. ``"readers read-protein-groups"``.
+        since: The first pyMzLib release whose bridge has it, from the command's spec
+            (``since.pymzlib``), e.g. ``"0.2.0"``.
+
+    Raises:
+        UsageError: the bridge does not list ``verb`` - including a bridge from before commands
+            were listed at all, which by definition predates every command that is checked.
+    """
+    key = os.environ.get(BRIDGE_ENV_VAR) or "(bundled)"
+    if key not in _VERBS_SEEN:
+        info = invoke("version", timeout=60)
+        listed = info.get("verbs") if isinstance(info, dict) else None
+        _VERBS_SEEN[key] = frozenset(listed) if isinstance(listed, list) else None
+
+    verbs = _VERBS_SEEN[key]
+    if verbs is None or verb not in verbs:
+        where = "the bundled bridge" if key == "(bundled)" else f"the bridge at '{key}' ({BRIDGE_ENV_VAR})"
+        raise UsageError(
+            f"'{verb}' needs the bridge from pyMzLib {since} or later, and {where} does not "
+            "have it. Rebuild that bridge from this pyMzLib, or unset "
+            f"{BRIDGE_ENV_VAR} to use the one bundled with it."
+        )

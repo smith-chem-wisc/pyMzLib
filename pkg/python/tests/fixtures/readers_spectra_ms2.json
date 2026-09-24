@@ -1,14 +1,17 @@
 {
- "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\DataFiles\\sliced_ethcd.mzML",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\DataFiles\\sliced_ethcd.mzML",
  "file_type": "MzML",
  "reader": "Mzml",
  "scan_count": 6,
- "ms_order": 2,
+ "source": {
+  "instrument_model": "Orbitrap Fusion",
+  "instrument_model_accession": "MS:1002416",
+  "instrument_serial_number": "FSN10189",
+  "acquisition_start_time": "2021-03-16T17:09:07Z",
+  "acquisition_start_time_is_utc": true
+ },
  "record_count": 5,
- "returned_count": 2,
- "offset": 0,
- "truncated": true,
- "peaks_included": false,
+ "rows_not_read": null,
  "retention_time_unit": "minutes",
  "caveats": [
   "Peaks are not included. This is scan HEADERS only; peak_count reports how many peaks each scan has but not what they are. Pass peaks=true to include the mz and intensity arrays, and expect the payload to grow by roughly the size of the file."
@@ -39,6 +42,15 @@
   "hcd_energy",
   "compensation_voltage"
  ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "ms_order": 2,
+ "peaks_included": false,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
  "columns": {
   "one_based_scan_number": [
    2,

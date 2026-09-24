@@ -1,0 +1,172 @@
+{
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\FlashLFQ_MzLib1.0.591_QuantifiedPeaks.tsv",
+ "file_type": "FlashLFQQuantifiedPeak",
+ "reader": "QuantifiedPeakFile",
+ "record_type": "QuantifiedPeak",
+ "views": [],
+ "skipped_count": null,
+ "skipped": null,
+ "record_count": 5,
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [],
+ "column_names": [
+  "file_name",
+  "base_sequence",
+  "full_sequence",
+  "protein_group",
+  "organism",
+  "peptide_monoisotopic_mass",
+  "ms2_retention_time",
+  "precursor_charge",
+  "theoretical_mz",
+  "peak_intensity",
+  "peak_rt_start",
+  "peak_rt_apex",
+  "peak_rt_end",
+  "peak_fwhm",
+  "peak_fwhm_status",
+  "peak_mz",
+  "peak_charge",
+  "num_charge_states_observed",
+  "peak_detection_type",
+  "mbr_score",
+  "pip_q_value",
+  "pip_pep",
+  "psms_mapped",
+  "base_sequences_mapped",
+  "full_sequences_mapped",
+  "peak_split_valley_rt",
+  "peak_apex_mass_error",
+  "decoy_peptide",
+  "random_rt"
+ ],
+ "absent_fields": [
+  "mbr_score"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
+ "columns": {
+  "file_name": [
+   "20161028_AWH_ColID_236_ProjectID_240_Deniz_Kurian_ctrl1-calib",
+   "20161028_AWH_ColID_236_ProjectID_240_Deniz_Kurian_ctrl1-calib"
+  ],
+  "base_sequence": [
+   "VATVSLPR",
+   "IKPVLMMNK"
+  ],
+  "full_sequence": [
+   "VATVSLPR",
+   "IKPVLMM[Common Variable:Oxidation on M]NK"
+  ],
+  "protein_group": [
+   "P00761",
+   "P13639"
+  ],
+  "organism": [
+   "Sus scrofa",
+   "Homo sapiens"
+  ],
+  "peptide_monoisotopic_mass": [
+   841.502152023,
+   1088.608608673
+  ],
+  "ms2_retention_time": [
+   27.071499,
+   null
+  ],
+  "precursor_charge": [
+   2,
+   3
+  ],
+  "theoretical_mz": [
+   421.758352478379,
+   363.8768126912123
+  ],
+  "peak_intensity": [
+   2441141840,
+   936191904
+  ],
+  "peak_rt_start": [
+   27.037271,
+   21.917852
+  ],
+  "peak_rt_apex": [
+   27.202465,
+   21.972858
+  ],
+  "peak_rt_end": [
+   28.056227,
+   22.22058
+  ],
+  "peak_fwhm": [
+   0.17232151774795668,
+   0.08436667803384879
+  ],
+  "peak_fwhm_status": [
+   "Measured",
+   "Measured"
+  ],
+  "peak_mz": [
+   421.7581,
+   363.87695
+  ],
+  "peak_charge": [
+   2,
+   3
+  ],
+  "num_charge_states_observed": [
+   2,
+   1
+  ],
+  "peak_detection_type": [
+   "MSMS",
+   "MBR"
+  ],
+  "mbr_score": [
+   null,
+   null
+  ],
+  "pip_q_value": [
+   null,
+   0.081486
+  ],
+  "pip_pep": [
+   null,
+   0.9995839595794678
+  ],
+  "psms_mapped": [
+   3,
+   1
+  ],
+  "base_sequences_mapped": [
+   1,
+   1
+  ],
+  "full_sequences_mapped": [
+   1,
+   1
+  ],
+  "peak_split_valley_rt": [
+   27.009756088256836,
+   0
+  ],
+  "peak_apex_mass_error": [
+   -0.630587040611585,
+   0.38700903127122543
+  ],
+  "decoy_peptide": [
+   false,
+   false
+  ],
+  "random_rt": [
+   false,
+   false
+  ]
+ },
+ "output": null
+}

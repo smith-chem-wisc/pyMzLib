@@ -1,0 +1,102 @@
+# Written 2026-09-24 with the C1 readers batch, from pyMzLib pkg/bridge/Reading*.cs on branch
+# feat/readers-bulk-1.0.592 (stacked on pyMzLib#61/#62), mzLib pin 23c2490e (tag 1.0.592). Every
+# example fixture was recorded from the live bridge on that branch.
+verb: readers read-results
+module: readers
+summary: >-
+  Read a result file through the cross-format quantifiable view: sequence, retention time, charge, theoretical mass, decoy flag and protein groups, the same columns for every format that offers it.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: FileReader.ReadQuantifiableResultFile, path: mzLib/Readers/FileReader.cs, pin: 23c2490e}
+  - {symbol: IQuantifiableRecord, path: mzLib/Readers/BaseClasses/IQuantifiableRecord.cs, pin: 23c2490e}
+cite: []
+
+params:
+  - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "A MetaMorpheus .psmtsv/.osmtsv, an MSFragger psm.tsv or a DIA-NN report.tsv."}
+  - {name: offset, type: "int", required: false, unit: "records", range: ">= 0", default: 0, doc: "Skip this many records. A window, not a cursor: mzLib parses the whole file on every call, so paging re-reads it."}
+  - {name: limit, type: "int", required: false, unit: "records", range: ">= 0", default: null, doc: "Return at most this many records. Absent means no limit; there is deliberately no default cap."}
+  - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: "string", unit: null, nullable: false, null_means: null, doc: "Absolute path of the input."}
+    - {wire: file_type, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib SupportedFileType that was dispatched."}
+    - {wire: reader, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that parsed the file."}
+    - {wire: record_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records in the whole file, before the window."}
+    - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "the count is not meaningful for this format (only the psmtsv family and MSFragger are one line per record)", doc: "Data rows that did not become records: mzLib drops a malformed line silently."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: false, null_means: null, doc: "The unit of retention_time for THIS format: minutes for all four at mzLib 1.0.592, unknown when mzLib gives no basis."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What this view cannot be trusted to mean for THIS file, each citing the mzLib source."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Column order."}
+    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns the view defines that this file's format has no column or source for; null in every row (BULK.md section 4). Empty when every column has a source."}
+    - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "'field: ExceptionType' for each column whose read threw on some returned rows; those cells are null."}
+    - {wire: excluded_fields, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{field, type, reason, verb} for each field with no column shape; verb names the command that carries it, or null."}
+    - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path: a file that cannot be read fails the call instead", doc: "{kind, type, message}; non-null only in a files[] entry under on-error skip."}
+    - {wire: returned_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records returned in columns (the unit offset and limit count in); 0 when written to out."}
+    - {wire: offset, type: "int", unit: "records", nullable: false, null_means: null, doc: "The offset applied, in records."}
+    - {wire: truncated, type: "bool", unit: null, nullable: false, null_means: null, doc: "True whenever records were left out by offset or limit."}
+    - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-row values, in column_names order."}
+    - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given."}
+  columns:
+    - {wire: source_index, type: "int", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based position of the row's input in the stdin list."}
+    - {wire: source_path, type: "string", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path of the row's input."}
+    - {wire: file_name, type: "string", unit: null, nullable: false, null_means: null, doc: "The spectra file the record came from, as the format writes it (not a join key across formats)."}
+    - {wire: base_sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "Unmodified sequence."}
+    - {wire: full_sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "Modified sequence; on an ambiguous psmtsv row every candidate '|'-joined."}
+    - {wire: retention_time, type: "float", unit: "min", nullable: true, null_means: "mzLib's -1 'absent' sentinel, or a non-finite value", doc: "Retention time, in retention_time_unit."}
+    - {wire: charge_state, type: "int", unit: "charge", nullable: false, null_means: null, doc: "Precursor charge."}
+    - {wire: monoisotopic_mass, type: "float", unit: "Da", nullable: true, null_means: "mzLib's -1 'absent' sentinel", doc: "THEORETICAL peptide mass, not the observed precursor."}
+    - {wire: is_decoy, type: "bool", unit: null, nullable: true, null_means: "the format cannot report decoys: MSFragger and DIA-NN, where is_decoy is also in absent_fields", doc: "Decoy flag where the format carries one."}
+    - {wire: protein_accessions, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined accessions."}
+    - {wire: gene_name, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined gene names."}
+    - {wire: organism, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined organisms."}
+  # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
+  bulk:
+    params:
+      - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Read MANY files: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset and limit are refused with it."}
+      - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Files read at once. The output is byte-identical at any value (files are emitted in input order); 1 is the default because each file in flight is held whole in memory."}
+      - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first unreadable input stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that input's files[i].error and the rest are read. skip with a single path is a usage error."}
+      - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the long table here, one file at a time in input order, so memory holds at most threads files. A batch that stops on an error deletes its partial table. Must differ from every input."}
+    envelope_fields:
+      - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files read."}
+      - {wire: failed_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files not read; non-zero only under on-error skip."}
+      - {wire: record_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records summed over the files read (BULK.md section 2)."}
+      - {wire: returned_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records returned in columns, summed over the files; 0 when written to out."}
+      - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns (more than returned_count for a long view); 0 when written to out."}
+      - {wire: on_error, type: "string", unit: null, nullable: false, null_means: null, doc: "fail or skip, as requested. --threads is deliberately not echoed: the envelope is byte-identical at every thread count."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-file columns."}
+      - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "One long table: rows grouped by input in input order, each file's rows in its own order, whatever --threads is."}
+      - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count}; written one file at a time."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: the per-file block (path, file_type, reader, record_count, rows_not_read, retention_time_unit, caveats, column_names, absent_fields, failed_fields, excluded_fields, error). An unread input has error set and every fact it could not establish null or empty."}
+
+errors:
+  - {kind: usage, when: "path missing or blank; file or directory not found; mzLib does not recognise the file type (the message points at readers formats)"}
+  - {kind: usage, when: "offset, limit or out given with no value; offset or limit < 0; non-integer value; out resolves to the same file as path"}
+  - {kind: usage, when: "the file has no quantifiable view (the message names the views it does have)"}
+  - {kind: correctness, when: "mzLib recognises the file and fails to parse it"}
+  - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
+  - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
+  - {kind: correctness, when: "with on-error fail, mzLib failing to parse an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "No q-value, PEP or score: nothing here is FDR-filtered."
+  - "is_decoy is absent for MSFragger and DIA-NN, which write no target/decoy label; null there means unknown, not target."
+  - "monoisotopic_mass is the theoretical mass in every format; the observed precursor is not in this view."
+  - "psmtsv: monoisotopic_mass keeps the first candidate of an ambiguous row while full_sequence keeps them all (SpectrumMatchFromTsv.cs:119, :194)."
+  - "A malformed psmtsv row is dropped silently by mzLib; rows_not_read counts them."
+  - "Many files: --paths-stdin reads the list in ONE process, --threads at a time, into one long table with source_index and source_path first. The output does not depend on --threads (a tested property); the default of 1 is a memory choice, since every reader materialises the whole file."
+
+bindings:
+  py: {name: pymzlib.readers.read_results, bulk: pymzlib.readers.read_results_many}
+  rust: {name: "mzlib::readers::read_results_with", bulk: "mzlib::readers::read_results_many", options: ReadOptions}
+  r: {name: readers_read_results, bulk: readers_read_results_many}
+
+examples:
+  - fixture: readers_results_fragger.json
+    py: "result = pymzlib.readers.read_results('FraggerPsm_FragPipev21.1_psm.tsv', limit=2)"
+    rust: "let result = mzlib::readers::read_results_with(path, &ReadOptions { limit: Some(2), ..Default::default() })?;"
+    r: "result <- readers_read_results(path, limit = 2)"
+
+open_questions:
+  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."

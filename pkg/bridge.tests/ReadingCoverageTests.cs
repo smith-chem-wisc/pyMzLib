@@ -573,9 +573,11 @@ public class ReadingCoverageTests
             foreach (JsonElement flag in data.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
                 Assert.That(flag.ValueKind, Is.EqualTo(JsonValueKind.Null));
             Assert.That(caveats, Has.Some.StartsWith("is_decoy is null for this format. mzIdentML"));
-            Assert.That(caveats, Has.Some.Contains("SkippedMatches"),
-                "mzLib drops items it cannot represent into a list the bridge does not report; " +
-                "until it does, the caveat is the only place a caller learns rows can be missing.");
+            Assert.That(caveats, Has.Some.Contains("skipped_count"),
+                "mzLib drops items it cannot represent; the caveat must point at where they are reported.");
+            Assert.That(data.GetProperty("absent_fields").EnumerateArray().Select(f => f.GetString()),
+                Does.Contain("is_decoy"),
+                "A null the format cannot fill is absent, and must be named as such.");
         });
     }
 

@@ -1,12 +1,14 @@
 {
- "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MsPathFinderT_WithMods_IcTda.tsv",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MsPathFinderT_WithMods_IcTda.tsv",
  "file_type": "MsPathFinderTAllResults",
+ "reader": "MsPathFinderTResultFile",
+ "skipped_count": null,
+ "skipped": null,
  "record_count": 5,
- "returned_count": 5,
- "offset": 0,
- "truncated": false,
+ "rows_not_read": null,
+ "retention_time_unit": null,
  "caveats": [
-  "There is no score, E-value or q-value in this view, so NOTHING here is FDR-filtered. Readers.ISpectralMatch carries identity fields only; every one of these formats records confidence in columns this view does not expose. read-records has them. Filter before you report.",
+  "NOTHING here is FDR-filtered. q_value is the only confidence field this view carries, and only mzIdentML and an MsPathFinderT file with a QValue column fill it (absent_fields says when it is empty). Every one of these formats records scores this view does not expose; read-records has them. Filter before you report.",
   "is_decoy is derived from the protein NAME, not from a column: mzLib reports a decoy when ProteinName starts with 'XXX' (MsPathFinderTResult.cs:92). A database whose decoys carry a different prefix reads entirely as targets.",
   "accession is ProteinName split on '|' taking the second field (MsPathFinderTResult.cs:89), which assumes a UniProt-style header. A FASTA with plain headers makes that property throw, and the cell arrives null with the field named in failed_fields rather than the whole file failing to read.",
   "modifications are resolved by a FUZZY match against mzLib's modification dictionary (ModificationConverter.GetClosestMod), not by an exact identifier, so a name here can differ from the one the search engine wrote."
@@ -19,8 +21,24 @@
   "accession",
   "is_decoy",
   "modifications",
-  "modification_count"
+  "modification_count",
+  "q_value",
+  "rank",
+  "pass_threshold"
  ],
+ "absent_fields": [
+  "q_value",
+  "rank",
+  "pass_threshold"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "scores_included": false,
+ "returned_count": 5,
+ "row_count": 5,
+ "offset": 0,
+ "truncated": false,
  "columns": {
   "file_name_without_extension": [
    "MsPathFinderT_WithMods",
@@ -77,6 +95,27 @@
    2,
    2,
    2
+  ],
+  "q_value": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "rank": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "pass_threshold": [
+   null,
+   null,
+   null,
+   null,
+   null
   ]
  },
  "output": null

@@ -1,0 +1,175 @@
+{
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid",
+ "file_type": "MzIdentML",
+ "reader": "MzIdentMLResultFile",
+ "skipped_count": 0,
+ "skipped": [],
+ "record_count": 12,
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [
+  "NOTHING here is FDR-filtered. q_value is the only confidence field this view carries, and only mzIdentML and an MsPathFinderT file with a QValue column fill it (absent_fields says when it is empty). Every one of these formats records scores this view does not expose; read-records has them. Filter before you report.",
+  "is_decoy is null for this format. mzIdentML's isDecoy attribute is optional and defaults to false, and mzLib reports a decoy only when every peptide evidence says so (MzIdentMLResultFile.cs:173), so false cannot be told apart from 'not stated'. read-records carries mzLib's boolean for a caller who knows the writer sets it.",
+  "Every SpectrumIdentificationItem is a row, not only the matches the submitter accepted: lower-ranked candidates and items that fail the threshold are here too (MzIdentMLResultFile.cs:177). Filter on rank == 1 and pass_threshold before counting identifications.",
+  "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:159). 'scan=N' gives N, but 'index=N', which peak-list input carries, is a zero-based position in the file and gives N + 1, not an instrument scan number. -1 means the nativeID had neither.",
+  "Items mzLib cannot represent as one linear match are skipped, not failed: crosslinks, modifications without a resolvable UNIMOD accession, substitutions, and two modifications on one residue (MzIdentMLResultFile.cs:123). They are not rows; skipped_count and skipped name each one and why, so record_count plus skipped_count is the number of items in the file.",
+  "The engine's own scores (for example MS-GF:SpecEValue) have no common name across search engines (MzIdentMLResultFile.cs:179). Pass scores=true for them as long rows, one per match and score. q_value is null on an item that reports none.",
+  "accession joins every protein the item's peptide evidence names with '|' (MzIdentMLRecord.cs:45), the same character a UniProt header uses inside one accession, so the cell cannot be split back into proteins reliably."
+ ],
+ "column_names": [
+  "file_name_without_extension",
+  "one_based_scan_number",
+  "base_sequence",
+  "full_sequence",
+  "accession",
+  "is_decoy",
+  "modifications",
+  "modification_count",
+  "q_value",
+  "rank",
+  "pass_threshold",
+  "match_index",
+  "score_name",
+  "score_value"
+ ],
+ "absent_fields": [
+  "is_decoy"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "scores_included": true,
+ "returned_count": 1,
+ "row_count": 7,
+ "offset": 0,
+ "truncated": true,
+ "columns": {
+  "file_name_without_extension": [
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep"
+  ],
+  "one_based_scan_number": [
+   14316,
+   14316,
+   14316,
+   14316,
+   14316,
+   14316,
+   14316
+  ],
+  "base_sequence": [
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT"
+  ],
+  "full_sequence": [
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT"
+  ],
+  "accession": [
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2"
+  ],
+  "is_decoy": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "modifications": [
+   "",
+   "",
+   "",
+   "",
+   "",
+   "",
+   ""
+  ],
+  "modification_count": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "q_value": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "rank": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "pass_threshold": [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "match_index": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "score_name": [
+   "MS-GF:RawScore",
+   "MS-GF:DeNovoScore",
+   "MS-GF:SpecEValue",
+   "MS-GF:EValue",
+   "MS-GF:QValue",
+   "MS-GF:PepQValue",
+   "IsotopeError"
+  ],
+  "score_value": [
+   115,
+   123,
+   3.041116e-14,
+   8.39348e-12,
+   0,
+   0,
+   1
+  ]
+ },
+ "output": null
+}

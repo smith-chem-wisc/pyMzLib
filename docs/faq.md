@@ -45,6 +45,46 @@ needs a different transport underneath, which the
 [architecture](design/architecture.md#the-two-load-bearing-properties) deliberately leaves room
 for.
 
+## How do I read a hundred files? Should I use a thread pool?
+
+Use the function's `_many` twin - `read_spectra_many(paths)`, `read_records_many(paths)`, and so
+on - and let it do the parallel work:
+
+```python
+batch = pymzlib.readers.read_spectra_many(paths, threads=4)
+```
+
+Do not wrap the single-file function in a `ThreadPoolExecutor` or a `multiprocessing.Pool`. It
+works, but each call starts its own bridge process, so a hundred files pay the ~120 ms start-up a
+hundred times, and nobody is counting threads: eight Python workers each driving a bridge that
+already reads on every core is eight times more threads than cores. A `_many` call is one process
+that reads `threads` files at a time and hands back one table. See
+[Many files at once](guides/readers.md#many-files-at-once).
+
+## Why is `threads` 1 by default?
+
+Because it costs memory, not correctness. Every mzLib reader holds a whole file in memory while it
+works, so `threads=8` can mean eight whole files at once - fine for search results, a lot for
+multi-gigabyte `.raw` files. The answer never depends on it: the table is byte-identical at any
+thread count, because files are always returned in the order you listed them. So the default is
+the setting that cannot run you out of memory, and raising it is only a speed decision. For many
+small files use your core count (or `-1`); for large spectra files start at 2, since mzLib's mzML
+and Thermo readers already parallelise inside each file.
+
+That is different from FlashLFQ's `max_threads`, where the thread count can change the numbers
+themselves; see the [FlashLFQ guide](guides/flashlfq.md).
+
+## Why is a whole column `None`?
+
+Look at the result's `absent_fields`. A column named there is one the function defines but **this
+file's format has no column for** - MBR Score in a current FlashLFQ peaks table, `q_value` in an
+MSPathFinder targets file, apex intensity in a FLASHDeconv feature file - so every value is `None`
+rather than the default mzLib would have filled in (often a zero that looks like a measurement).
+`failed_fields` names columns whose read threw on some rows, and `excluded_fields` names fields
+that have no column shape at all. The
+[readers guide](guides/readers.md#four-ways-a-field-can-have-no-value) sets the four cases side
+by side.
+
 ## Can I use mzLib feature X?
 
 Only the areas on the [home page](index.md#whats-covered) are exposed so far, deliberately —
@@ -116,6 +156,14 @@ downloadable = [f for f in files if f.downloadable]
 The Python package and the executable came from different builds. Reinstall the wheel; if you're
 working from source, re-run `publish-bridge.ps1` and check `PYMZLIB_BRIDGE` isn't pointing at a
 stale executable.
+
+### `UsageError: 'readers read-…' needs the bridge from pyMzLib 0.2.0 or later`
+
+`PYMZLIB_BRIDGE` points at a bridge built from an older pyMzLib, which does not have the function
+you called. pyMzLib asks the bridge which commands it has before calling a new one, so this is
+raised before anything runs. Rebuild the bridge from this source tree (`publish-bridge.ps1`), or
+unset `PYMZLIB_BRIDGE` to use the one in the wheel. `pymzlib.bridge_version()["verbs"]` lists what
+the bridge in use can do.
 
 ### It hangs
 

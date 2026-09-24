@@ -1,15 +1,15 @@
 {
- "path": "E:\\CodeReview\\pymzlib-readers-wt\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\crux.txt",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\crux.txt",
  "file_type": "CruxResult",
  "reader": "CruxResultFile",
  "record_type": "CruxResult",
  "views": [],
+ "skipped_count": null,
+ "skipped": null,
  "record_count": 14,
- "returned_count": 3,
- "offset": 0,
- "truncated": true,
- "excluded_fields": [],
- "failed_fields": [],
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [],
  "column_names": [
   "file_path",
   "one_based_scan_number",
@@ -35,6 +35,13 @@
   "file_name_without_extension",
   "accession"
  ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "returned_count": 3,
+ "offset": 0,
+ "truncated": true,
  "columns": {
   "file_path": [
    "/hdd/data/PXD005590/B02_21_161103_D4_HCD_OT_4ul.raw.mzXML",

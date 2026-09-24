@@ -29,7 +29,7 @@ namespace MzLibBridge;
 /// parse it without stripping log lines.
 /// </para>
 /// </remarks>
-public static class Program
+public static partial class Program
 {
     /// <summary>The wire-format version. Bumped when the JSON envelope's shape changes incompatibly.</summary>
     private const int ProtocolVersion = 1;
@@ -78,6 +78,9 @@ public static class Program
 
         return cause switch
         {
+            // One file of a multi-file read: classified by what went wrong with that file, so a
+            // missing path is still a usage failure and a parse failure keeps mzLib's own type.
+            SourceFailure failure => ClassifyError(failure.InnerException!),
             TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
             SocketException => ServiceUnavailableType,
             HttpRequestException http => ClassifyHttpFailure(http),
@@ -217,6 +220,13 @@ public static class Program
             WriteError("usage", ex.Message);
             return 2;
         }
+        catch (SourceFailure failure) when (Unwrap(failure.InnerException!) is UsageException)
+        {
+            // A multi-file read that stopped on one bad input. Its message names the input, and
+            // the exit code still says whose mistake it was.
+            WriteError("usage", failure.Message);
+            return 2;
+        }
         catch (AggregateException ex) when (Unwrap(ex) is UsageException usage)
         {
             // A usage failure raised inside mzLib's parallel readers arrives wrapped, and must
@@ -265,10 +275,15 @@ public static class Program
             "readers read-features" => Reading.ReadFeatures(arguments),
             "readers read-matches" => Reading.ReadMatches(arguments),
             "readers read-spectra" => Reading.ReadSpectra(arguments),
+            "readers read-protein-groups" => Reading.ReadProteinGroups(arguments),
+            "readers read-quantified-peptides" => Reading.ReadQuantifiedPeptides(arguments),
+            "readers read-occupancy" => Reading.ReadOccupancy(arguments),
             "sdrf read" => Sdrf.Read(arguments),
             "sdrf pool" => Sdrf.Pool(arguments),
+            // The list is Verbs, generated from this switch's own keys at build time (see the
+            // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(
-                $"Unknown command '{arguments.Verb}'. Known commands: version, pride files, pride ftp-files, pride download, pride search, peptidoform fragments, quant flashlfq, quant median-polish, readers formats, readers identify, readers read-results, readers read-records, readers read-features, readers read-matches, readers read-spectra, sdrf read, sdrf pool."),
+                $"Unknown command '{arguments.Verb}'. Known commands: {string.Join(", ", Verbs)}."),
         };
     }
 
@@ -323,12 +338,20 @@ public static class Program
 
 
     /// <summary>Reports the bridge and protocol versions so a caller can check compatibility.</summary>
+    /// <remarks>
+    /// <c>verbs</c> is every verb this bridge dispatches (bridge design/BULK.md section 5). A binding
+    /// newer than its bridge checks it before calling a verb, and raises its own usage error naming
+    /// the version it needs, instead of spawning a process only to be told "Unknown command". It is
+    /// generated from the dispatch switch, so it lists exactly what <see cref="DispatchAsync"/>
+    /// routes and nothing a hand-kept list forgot.
+    /// </remarks>
     private static object VersionInfo() => new
     {
         bridge = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0",
         protocol = ProtocolVersion,
         runtime = Environment.Version.ToString(),
         mzlib = MzLibVersion(),
+        verbs = Verbs,
     };
 
     /// <summary>
@@ -737,6 +760,26 @@ public static class Program
 
     /// <summary>Signals malformed or missing command-line input (exit code 2), not a runtime failure.</summary>
     internal sealed class UsageException(string message) : Exception(message);
+
+    /// <summary>
+    /// One input of a multi-file read failed, and the read was told to stop (<c>--on-error fail</c>).
+    /// </summary>
+    /// <remarks>
+    /// Carries the input's position and path into the message, because the underlying exception
+    /// often names neither: mzLib's parse failures describe a line, not a file, and in a batch of
+    /// two hundred runs "Could not parse header" is not an answer. The error type crossing the wire
+    /// is still the underlying one (see <see cref="ClassifyError"/>), so a caller keying off it
+    /// sees the same type whether it read one file or many.
+    /// </remarks>
+    internal sealed class SourceFailure(int index, string path, Exception inner)
+        : Exception($"Input {index} ('{path}'): {Unwrap(inner).Message}", inner)
+    {
+        /// <summary>The 0-based position of the failing input in the list given on stdin.</summary>
+        public int Index { get; } = index;
+
+        /// <summary>The failing input, as given.</summary>
+        public string SourcePath { get; } = path;
+    }
 
     /// <summary>
     /// A minimal parser for <c>&lt;verb…&gt; --name value --flag</c>. Deliberately hand-rolled: the

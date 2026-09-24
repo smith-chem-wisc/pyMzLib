@@ -1,21 +1,15 @@
 {
- "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
  "file_type": "MetaMorpheusQuantifiedProteinGroups",
  "reader": "ProteinGroupFromTsvFile",
  "record_type": "ProteinGroupFromTsv",
  "views": [],
+ "skipped_count": null,
+ "skipped": null,
  "record_count": 6,
- "returned_count": 2,
- "offset": 0,
- "truncated": true,
- "excluded_fields": [
-  {
-   "field": "sample_groups",
-   "type": "IReadOnlyDictionary<String, SampleGroupMeasurement>",
-   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
-  }
- ],
- "failed_fields": [],
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [],
  "column_names": [
   "protein_group_name",
   "gene",
@@ -44,6 +38,20 @@
   "is_contaminant",
   "is_entrapment"
  ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [
+  {
+   "field": "sample_groups",
+   "type": "IReadOnlyDictionary<String, SampleGroupMeasurement>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly",
+   "verb": "readers read-protein-groups"
+  }
+ ],
+ "error": null,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
  "columns": {
   "protein_group_name": [
    "P68363",

@@ -1,0 +1,104 @@
+# Written 2026-09-24 with the C1 readers batch, from pyMzLib pkg/bridge/Reading*.cs on branch
+# feat/readers-bulk-1.0.592 (stacked on pyMzLib#61/#62), mzLib pin 23c2490e (tag 1.0.592). Every
+# example fixture was recorded from the live bridge on that branch.
+verb: readers read-quantified-peptides
+module: readers
+summary: >-
+  Read a FlashLFQ QuantifiedPeptides.tsv (or MetaMorpheus AllQuantifiedPeptides.tsv) as one row per peptide per sample, with the sample's intensity and detection type as columns.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: QuantifiedPeptideFile.LoadResults, path: mzLib/Readers/InternalResults/ResultFiles/QuantifiedPeptideFile.cs, pin: 23c2490e}
+  - {symbol: QuantifiedPeptideFromTsv.Samples, path: mzLib/Readers/InternalResults/IndividualResultRecords/QuantifiedPeptideFromTsv.cs, pin: 23c2490e}
+cite: []
+
+params:
+  - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "A FlashLFQ QuantifiedPeptides.tsv or MetaMorpheus AllQuantifiedPeptides.tsv (readers identify reports FlashLFQQuantifiedPeptide)."}
+  - {name: offset, type: "int", required: false, unit: "peptides", range: ">= 0", default: 0, doc: "Skip this many peptides (each gives one row per sample). A window, not a cursor: mzLib parses the whole file on every call, so paging re-reads it."}
+  - {name: limit, type: "int", required: false, unit: "peptides", range: ">= 0", default: null, doc: "Return at most this many peptides (each gives one row per sample). Absent means no limit; there is deliberately no default cap."}
+  - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: "string", unit: null, nullable: false, null_means: null, doc: "Absolute path of the input."}
+    - {wire: file_type, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib SupportedFileType that was dispatched."}
+    - {wire: reader, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that parsed the file."}
+    - {wire: sample_labels, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The file's sample labels in header order, verbatim."}
+    - {wire: record_count, type: "int", unit: "peptides", nullable: false, null_means: null, doc: "Peptides in the whole file, before the window."}
+    - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "not counted for this table", doc: "Data rows that did not become records."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: false, null_means: null, doc: "Always \"minutes\": the per-sample header is RetentionTime (min)_."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What this view cannot be trusted to mean for THIS file, each citing the mzLib source."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Column order."}
+    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns the view defines that this file's format has no column or source for; null in every row (BULK.md section 4). Empty when every column has a source."}
+    - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "'field: ExceptionType' for each column whose read threw on some returned rows; those cells are null."}
+    - {wire: excluded_fields, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{field, type, reason, verb} for each field with no column shape; verb names the command that carries it, or null."}
+    - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path: a file that cannot be read fails the call instead", doc: "{kind, type, message}; non-null only in a files[] entry under on-error skip."}
+    - {wire: returned_count, type: "int", unit: "peptides", nullable: false, null_means: null, doc: "Peptides returned in columns (the unit offset and limit count in); 0 when written to out."}
+    - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns: more than returned_count in a long table, where one record gives several rows; 0 when written to out."}
+    - {wire: offset, type: "int", unit: "peptides", nullable: false, null_means: null, doc: "The offset applied, in peptides."}
+    - {wire: truncated, type: "bool", unit: null, nullable: false, null_means: null, doc: "True whenever records were left out by offset or limit."}
+    - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-row values, in column_names order."}
+    - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given."}
+  columns:
+    - {wire: source_index, type: "int", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based position of the row's input in the stdin list."}
+    - {wire: source_path, type: "string", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path of the row's input."}
+    - {wire: sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "Full sequence with modifications (QuantifiedPeptideFromTsv.Sequence)."}
+    - {wire: base_sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "Unmodified sequence."}
+    - {wire: peak_order, type: "int", unit: null, nullable: true, null_means: "not IsoTracker output: no Peak Order column (then in absent_fields)", doc: "IsoTracker's peak order."}
+    - {wire: protein_groups, type: "string", unit: null, nullable: true, null_means: "no Protein Groups column, or a blank cell", doc: "Protein groups the peptide maps to, ';'-joined as written."}
+    - {wire: gene_names, type: "string", unit: null, nullable: true, null_means: "no Gene Names column, or a blank cell", doc: "Gene names as written."}
+    - {wire: organism, type: "string", unit: null, nullable: true, null_means: "no Organism column, or a blank cell", doc: "Organism as written."}
+    - {wire: sample_label, type: "string", unit: null, nullable: true, null_means: "the file has no per-sample columns (then in absent_fields)", doc: "The sample this row measures."}
+    - {wire: intensity, type: "float", unit: "intensity (instrument units)", nullable: true, null_means: "the cell was blank", doc: "Intensity_ as written. FlashLFQ writes 0 for a peptide it did not quantify, and 0 crosses as 0: read detection_type."}
+    - {wire: detection_type, type: "string", unit: null, nullable: true, null_means: "the cell was blank", doc: "MSMS, MBR, NotDetected, ... verbatim (Detection Type_)."}
+    - {wire: retention_time, type: "float", unit: "min", nullable: true, null_means: "not IsoTracker output (then in absent_fields) or a blank cell", doc: "RetentionTime (min)_ for this sample."}
+  # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
+  bulk:
+    params:
+      - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Read MANY files: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset and limit are refused with it."}
+      - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Files read at once. The output is byte-identical at any value (files are emitted in input order); 1 is the default because each file in flight is held whole in memory."}
+      - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first unreadable input stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that input's files[i].error and the rest are read. skip with a single path is a usage error."}
+      - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the long table here, one file at a time in input order, so memory holds at most threads files. A batch that stops on an error deletes its partial table. Must differ from every input."}
+    envelope_fields:
+      - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files read."}
+      - {wire: failed_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files not read; non-zero only under on-error skip."}
+      - {wire: record_count, type: "int", unit: "peptides", nullable: false, null_means: null, doc: "Peptides summed over the files read (BULK.md section 2)."}
+      - {wire: returned_count, type: "int", unit: "peptides", nullable: false, null_means: null, doc: "Peptides returned in columns, summed over the files; 0 when written to out."}
+      - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns (more than returned_count for a long view); 0 when written to out."}
+      - {wire: on_error, type: "string", unit: null, nullable: false, null_means: null, doc: "fail or skip, as requested. --threads is deliberately not echoed: the envelope is byte-identical at every thread count."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-file columns."}
+      - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "One long table: rows grouped by input in input order, each file's rows in its own order, whatever --threads is."}
+      - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count}; written one file at a time."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: the per-file block (path, file_type, reader, sample_labels, record_count, rows_not_read, retention_time_unit, caveats, column_names, absent_fields, failed_fields, excluded_fields, error). An unread input has error set and every fact it could not establish null or empty."}
+
+errors:
+  - {kind: usage, when: "path missing or blank; file or directory not found; mzLib does not recognise the file type (the message points at readers formats)"}
+  - {kind: usage, when: "offset, limit or out given with no value; offset or limit < 0; non-integer value; out resolves to the same file as path"}
+  - {kind: usage, when: "the file is not a FlashLFQ peptide table"}
+  - {kind: correctness, when: "mzLib cannot parse the table (MzLibException)"}
+  - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
+  - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
+  - {kind: correctness, when: "with on-error fail, mzLib failing to parse an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "intensity 0 is NOT a measured zero: FlashLFQ writes a literal 0 for a peptide it did not quantify in a sample, and mzLib keeps it (QuantifiedPeptideFromTsv.cs:14). Filter on detection_type before a mean or a log."
+  - "retention_time is IsoTracker output only (QuantifiedPeptideFromTsv.cs:61); plain FlashLFQ and MetaMorpheus tables name it in absent_fields, and peak_order likewise."
+  - "Long format: offset and limit count PEPTIDES, and returned_count counts rows."
+  - "Many files: --paths-stdin reads the list in ONE process, --threads at a time, into one long table with source_index and source_path first. The output does not depend on --threads (a tested property); the default of 1 is a memory choice, since every reader materialises the whole file."
+
+bindings:
+  py: {name: pymzlib.readers.read_quantified_peptides, bulk: pymzlib.readers.read_quantified_peptides_many}
+  rust: {name: "mzlib::readers::read_quantified_peptides_with", bulk: "mzlib::readers::read_quantified_peptides_many", options: ReadOptions}
+  r: {name: readers_read_quantified_peptides, bulk: readers_read_quantified_peptides_many}
+
+examples:
+  - fixture: readers_quantified_peptides.json
+    py: "result = pymzlib.readers.read_quantified_peptides('MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv', limit=1)"
+    rust: "let result = mzlib::readers::read_quantified_peptides_with(path, &ReadOptions { limit: Some(1), ..Default::default() })?;"
+    r: "result <- readers_read_quantified_peptides(path, limit = 1)"
+
+open_questions:
+  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
+  - "quant median-polish still parses QuantifiedPeptides.tsv with a private reader (Quantification.cs); switching it to mzLib's QuantifiedPeptideFile is out of this verb's scope."
+  - "No IsoTracker fixture exists, so retention_time and peak_order have only been seen absent."
