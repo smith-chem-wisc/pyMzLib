@@ -49,7 +49,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | PRIDE Archive — list project files, filtered download | ✅ |
 | Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
-| Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 36 file types mzLib knows, search results included | ✅ |
+| Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 36 file types mzLib knows, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables | ✅ |
 | SDRF experimental design — read an SDRF-Proteomics file, pool several experiments into one analysis table | ✅ |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 

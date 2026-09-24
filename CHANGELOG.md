@@ -19,6 +19,34 @@ envelope is not a breaking change unless Python callers can see it.
   yet). Running them corrected two examples: the PXD000001 total size was shown for RAW files but
   computed over all files, and the census text had changed.
 - **A weekly external link check** (`links.yml`, lychee).
+- **Read many files in one call** (bridge `design/BULK.md`). Every reader has a `_many` twin -
+  `read_spectra_many()`, `read_records_many()`, `read_results_many()`, `read_features_many()`,
+  `read_matches_many()`, `identify_many()`, and the three below - that takes a list of paths and
+  returns one long table (`ReadBatch`) whose first columns are `source_index` and `source_path`,
+  with each file's facts in `.files`. One bridge process reads the whole list, `threads` files at a
+  time; the table is byte-identical at any `threads`, which defaults to 1 because each file in
+  flight is held whole in memory. `on_error="skip"` records an unreadable file in its `FileReport`
+  and reads the rest; `out=` streams the table to disk one file at a time. pyMzLib deliberately
+  has no thread pool of its own.
+- **`read_protein_groups()`, `read_quantified_peptides()` and `read_occupancy()`** (mzLib #1347):
+  MetaMorpheus's `AllQuantifiedProteinGroups.tsv` as one row per group per sample group (spectral
+  count, intensity), FlashLFQ's `QuantifiedPeptides.tsv` as one row per peptide per sample
+  (intensity, detection type), and the protein-group table's PTM site occupancy as one row per
+  site. Long rather than wide, so the columns are the same in every experiment.
+- **`absent_fields` on every reader result**: the columns this file's format has no source for.
+  Each is `None` in every row, whatever default mzLib filled in: `mbr_score` on a current FlashLFQ
+  peaks table (#1345), `q_value` on an MSPathFinder targets file (where mzLib reads a "perfect" 0),
+  apex `intensity` on a FLASHDeconv feature file. Every result also now carries `reader`,
+  `failed_fields` and `excluded_fields`, and each `excluded_fields` entry names the `verb` that
+  does carry the field.
+- **`read_spectra()` reports the run**: `source` has the instrument model and its accession, the
+  serial number, and the acquisition start time with whether it is UTC (mzLib #1349).
+- **mzIdentML confidence in `read_matches()`**: `q_value`, `rank` and `pass_threshold` columns
+  (#1306), `scores=True` for each engine's scores as long rows, and `skipped_count`/`skipped` for
+  the items mzLib could not represent (#1313).
+- **`bridge_version()["verbs"]`** lists every command the bridge dispatches, generated from its
+  dispatch table at build time. A function newer than the bridge in use now fails with a
+  `UsageError` naming the pyMzLib release it needs, instead of "Unknown command".
 
 ### Fixed
 - **Docstring examples render as code in the API reference.** They sat under `Example:`, which
@@ -35,12 +63,11 @@ envelope is not a breaking change unless Python callers can see it.
   (#1347). Each was "file type not supported" before. mzIdentML also offers the `spectral_match`
   view, so `read_matches()` reads it; the two quantification tables have no uniform view. Their
   per-sample values (`sample_groups`, `samples`) and mzIdentML's engine `scores` are dictionaries,
-  which `read_records()` names in `excluded_fields` and does not project. Typed functions for them
-  are planned.
+  which `read_records()` names in `excluded_fields`; the functions above project them.
 - **`read_matches()` on mzIdentML carries its own caveats**: `is_decoy` is `None` because the
   file's `isDecoy` attribute defaults to false when a writer omits it; every identification item
   is a row, not only accepted ones; items mzLib cannot represent (crosslinks, unresolvable
-  modifications, substitutions) are skipped, and pyMzLib does not report which yet.
+  modifications, substitutions) are skipped, and `skipped` lists each with its reason.
 - **`excluded_fields` names a read-only dictionary as a dictionary.** It said "a list of composite
   values" for any `IReadOnlyDictionary`, which described the new readers' per-sample fields wrongly.
 - **`read_records()` on an older MetaMorpheus `.psmtsv`/`.osmtsv` now fills `pro_forma`** (mzLib

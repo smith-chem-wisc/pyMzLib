@@ -275,6 +275,9 @@ public static partial class Program
             "readers read-features" => Reading.ReadFeatures(arguments),
             "readers read-matches" => Reading.ReadMatches(arguments),
             "readers read-spectra" => Reading.ReadSpectra(arguments),
+            "readers read-protein-groups" => Reading.ReadProteinGroups(arguments),
+            "readers read-quantified-peptides" => Reading.ReadQuantifiedPeptides(arguments),
+            "readers read-occupancy" => Reading.ReadOccupancy(arguments),
             "sdrf read" => Sdrf.Read(arguments),
             "sdrf pool" => Sdrf.Pool(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the

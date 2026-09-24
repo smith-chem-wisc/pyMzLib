@@ -33,6 +33,7 @@ from ._bridge import (
     UsageError,
     bridge_path,
     bridge_version,
+    BridgeVersion,
 )
 
 __version__ = "0.1.1"
@@ -52,5 +53,6 @@ __all__ = [
     "UsageError",
     "bridge_path",
     "bridge_version",
+    "BridgeVersion",
     "__version__",
 ]
