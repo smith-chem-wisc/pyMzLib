@@ -877,9 +877,10 @@ def lint(
 
     Example:
         >>> drift = lint({"a.sdrf.tsv": "cohort", "b.sdrf.tsv": "partner"})   # doctest: +SKIP
-        >>> for variants in drift.findings():                                  # doctest: +SKIP
-        ...     print(variants[0]["kind"], [v["value"] for v in variants])
-        ValueCaseVariant ['Homo sapiens', 'homo sapiens']
+        >>> drift.finding_count                                                # doctest: +SKIP
+        4
+        >>> sorted(set(drift.columns["kind"]))                                 # doctest: +SKIP
+        ['AccessionNameConflict', 'ColumnNameVariant', 'MixedTermAndFreeText', 'ValueCaseVariant']
     """
     lines = _document_lines(documents, verb="lint")
     data = _bridge.invoke("sdrf", "lint", stdin="\n".join(lines), timeout=timeout)
@@ -1271,8 +1272,9 @@ def samples(path: str | os.PathLike[str], *, timeout: float | None = 60) -> Sdrf
         >>> s = samples("cohort.sdrf.tsv")                                     # doctest: +SKIP
         >>> s.sample_count, s.conflicts()                                      # doctest: +SKIP
         (6, [('S6', 'characteristics[disease]')])
-        >>> [(a["source_name"], a["age_years"]) for a in s.ages()][:3]         # doctest: +SKIP
-        [('S1', 58), ('S2', 62.5), ('S3', 90)]
+        >>> age = s.ages()[1]                                                  # doctest: +SKIP
+        >>> age["source_name"], age["age_years"], age["age_precision"]         # doctest: +SKIP
+        ('S2', 62.5, 'Range')
     """
     data = _bridge.invoke("sdrf", "samples", "--path", _one_path(path), timeout=timeout)
     return SdrfSamples._from_wire(data)
