@@ -4,13 +4,13 @@ The question this answers is the one a quant workflow actually asks — *given t
 and these runs, how much of each peptide and protein is in each run?* — in one call:
 
     >>> import pymzlib
-    >>> result = pymzlib.flashlfq.quantify(                          # doctest: +SKIP
+    >>> result = pymzlib.flashlfq.quantify(
     ...     psms="AllPSMs.psmtsv",
     ...     spectra=["run_3.mzML", "run_4.mzML"],
     ...     match_between_runs=True,
     ... )
-    >>> result.peptide_count, result.protein_count                   # doctest: +SKIP
-    (354, 943)
+    >>> result.peptide_count, result.protein_count
+    (2, 2)
 
 The whole pipeline is mzLib's: the result file is read by mzLib's ``Readers``, turned into FlashLFQ
 identifications by mzLib's own converter, and quantified by ``FlashLfqEngine``. MetaMorpheus is not
@@ -578,14 +578,14 @@ def median_polish(
     without paying for peak-finding again::
 
         >>> import pymzlib
-        >>> proteins = pymzlib.flashlfq.median_polish(                    # doctest: +SKIP
+        >>> proteins = pymzlib.flashlfq.median_polish(
         ...     "QuantifiedPeptides.tsv",
         ...     design=[
         ...         {"file_name": "run_3", "condition": "control", "biological_replicate": 0},
         ...         {"file_name": "run_4", "condition": "treated", "biological_replicate": 0},
         ...     ],
         ... )
-        >>> proteins[0].intensity("control_1")                           # doctest: +SKIP
+        >>> proteins[0].intensity("control_1")
         3005.6
 
     The returned objects are ordinary :class:`ProteinGroup`\\ s, so their intensity semantics are the
