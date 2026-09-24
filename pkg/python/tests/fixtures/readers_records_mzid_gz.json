@@ -1,33 +1,17 @@
 {
- "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid.gz",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\DataFiles\\PXD078927_msgf_1_1_0.mzid.gz",
  "file_type": "MzIdentMLGz",
  "reader": "MzIdentMLResultFile",
  "record_type": "MzIdentMLRecord",
  "views": [
   "spectral_match"
  ],
+ "skipped_count": 0,
+ "skipped": [],
  "record_count": 12,
- "returned_count": 3,
- "offset": 0,
- "truncated": true,
- "excluded_fields": [
-  {
-   "field": "match",
-   "type": "MzidSpectrumMatch",
-   "reason": "a composite value; flattening it here would invent column names mzLib does not publish"
-  },
-  {
-   "field": "all_mods_one_is_nterminus",
-   "type": "Dictionary<Int32, Modification>",
-   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
-  },
-  {
-   "field": "scores",
-   "type": "IReadOnlyDictionary<String, Double>",
-   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
-  }
- ],
- "failed_fields": [],
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [],
  "column_names": [
   "one_based_scan_number",
   "spectrum_id",
@@ -45,6 +29,32 @@
   "pass_threshold",
   "q_value"
  ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [
+  {
+   "field": "match",
+   "type": "MzidSpectrumMatch",
+   "reason": "a composite value; flattening it here would invent column names mzLib does not publish",
+   "verb": null
+  },
+  {
+   "field": "all_mods_one_is_nterminus",
+   "type": "Dictionary<Int32, Modification>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly",
+   "verb": null
+  },
+  {
+   "field": "scores",
+   "type": "IReadOnlyDictionary<String, Double>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly",
+   "verb": "readers read-matches"
+  }
+ ],
+ "error": null,
+ "returned_count": 3,
+ "offset": 0,
+ "truncated": true,
  "columns": {
   "one_based_scan_number": [
    14316,

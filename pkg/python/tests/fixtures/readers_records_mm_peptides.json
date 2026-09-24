@@ -1,21 +1,15 @@
 {
- "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
  "file_type": "FlashLFQQuantifiedPeptide",
  "reader": "QuantifiedPeptideFile",
  "record_type": "QuantifiedPeptideFromTsv",
  "views": [],
+ "skipped_count": null,
+ "skipped": null,
  "record_count": 3,
- "returned_count": 3,
- "offset": 0,
- "truncated": false,
- "excluded_fields": [
-  {
-   "field": "samples",
-   "type": "IReadOnlyDictionary<String, QuantifiedPeptideSample>",
-   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
-  }
- ],
- "failed_fields": [],
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [],
  "column_names": [
   "sequence",
   "base_sequence",
@@ -24,6 +18,22 @@
   "gene_names",
   "organism"
  ],
+ "absent_fields": [
+  "peak_order"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [
+  {
+   "field": "samples",
+   "type": "IReadOnlyDictionary<String, QuantifiedPeptideSample>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly",
+   "verb": "readers read-quantified-peptides"
+  }
+ ],
+ "error": null,
+ "returned_count": 3,
+ "offset": 0,
+ "truncated": false,
  "columns": {
   "sequence": [
    "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",

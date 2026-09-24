@@ -27,7 +27,10 @@
   "modification_count",
   "q_value",
   "rank",
-  "pass_threshold"
+  "pass_threshold",
+  "match_index",
+  "score_name",
+  "score_value"
  ],
  "absent_fields": [
   "is_decoy"
@@ -35,13 +38,17 @@
  "failed_fields": [],
  "excluded_fields": [],
  "error": null,
- "scores_included": false,
- "returned_count": 3,
- "row_count": 3,
+ "scores_included": true,
+ "returned_count": 1,
+ "row_count": 7,
  "offset": 0,
  "truncated": true,
  "columns": {
   "file_name_without_extension": [
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
+   "MHC1_Pep",
    "MHC1_Pep",
    "MHC1_Pep",
    "MHC1_Pep"
@@ -49,24 +56,44 @@
   "one_based_scan_number": [
    14316,
    14316,
+   14316,
+   14316,
+   14316,
+   14316,
    14316
   ],
   "base_sequence": [
    "HSNLNDATYQRT",
-   "KASAGQISVQPTFS",
-   "TRQYTADNLNSH"
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT"
   ],
   "full_sequence": [
    "HSNLNDATYQRT",
-   "KASAGQISVQPTFS",
-   "TRQYTADNLNSH"
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT",
+   "HSNLNDATYQRT"
   ],
   "accession": [
    "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
-   "sp|P3_H1N1|Antigen_P3_H1N1",
-   "XXX_sp|P2_H1N1|Antigen_P2_H1N1|XXX_sp|P5_H3N2|Antigen_P5_H3N2"
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2",
+   "sp|P2_H1N1|Antigen_P2_H1N1|sp|P5_H3N2|Antigen_P5_H3N2"
   ],
   "is_decoy": [
+   null,
+   null,
+   null,
+   null,
    null,
    null,
    null
@@ -74,27 +101,74 @@
   "modifications": [
    "",
    "",
+   "",
+   "",
+   "",
+   "",
    ""
   ],
   "modification_count": [
+   0,
+   0,
+   0,
+   0,
    0,
    0,
    0
   ],
   "q_value": [
    0,
-   0.6588785,
-   0.73832303
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
   ],
   "rank": [
    1,
-   2,
-   3
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
   ],
   "pass_threshold": [
    true,
    true,
+   true,
+   true,
+   true,
+   true,
    true
+  ],
+  "match_index": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "score_name": [
+   "MS-GF:RawScore",
+   "MS-GF:DeNovoScore",
+   "MS-GF:SpecEValue",
+   "MS-GF:EValue",
+   "MS-GF:QValue",
+   "MS-GF:PepQValue",
+   "IsotopeError"
+  ],
+  "score_value": [
+   115,
+   123,
+   3.041116e-14,
+   8.39348e-12,
+   0,
+   0,
+   1
   ]
  },
  "output": null

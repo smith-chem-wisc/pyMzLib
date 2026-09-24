@@ -1,0 +1,28 @@
+{
+ "bridge": "1.0.0.0",
+ "protocol": 1,
+ "runtime": "10.0.8",
+ "mzlib": "1.0.0+23c2490e10d3ccce71c941bca31610725826ba83",
+ "verbs": [
+  "version",
+  "pride files",
+  "pride ftp-files",
+  "pride download",
+  "pride search",
+  "peptidoform fragments",
+  "quant flashlfq",
+  "quant median-polish",
+  "readers formats",
+  "readers identify",
+  "readers read-results",
+  "readers read-records",
+  "readers read-features",
+  "readers read-matches",
+  "readers read-spectra",
+  "readers read-protein-groups",
+  "readers read-quantified-peptides",
+  "readers read-occupancy",
+  "sdrf read",
+  "sdrf pool"
+ ]
+}

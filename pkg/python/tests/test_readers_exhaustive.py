@@ -242,8 +242,11 @@ def test_mzidentml_is_decoy_is_none_and_its_caveats_say_why(recorded):
     assert result.file_type == "MzIdentML"
     assert set(result.columns["is_decoy"]) == {None}
     assert any("isDecoy attribute is optional" in caveat for caveat in result.caveats)
-    # mzLib skips items it cannot represent into a list the bridge does not report yet.
-    assert any("SkippedMatches" in caveat for caveat in result.caveats)
+    # A null the format cannot fill is absent, and named as such.
+    assert "is_decoy" in result.absent_fields
+    # mzLib skips items it cannot represent; the caveat points at where they are now reported.
+    assert any("skipped_count" in caveat for caveat in result.caveats)
+    assert result.skipped_count == 0 and result.skipped == []
 
 
 def test_mspathfindert_reports_real_decoy_flags(recorded):

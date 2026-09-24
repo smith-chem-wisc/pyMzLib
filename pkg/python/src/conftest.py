@@ -36,7 +36,11 @@ REPLAY_EXTRA = {
         "readers_matches_casanovo.json",
         "readers_matches_mspathfinder.json",
         "readers_matches_mzid.json",
+        # --scores: check_verbs.py cannot hold a present_when column to a spec example yet.
+        "readers_matches_mzid_scores.json",
     ],
+    # The verb guard (pymzlib._bridge.require_verb) asks the bridge which verbs it has.
+    "version": ["bridge_version.json"],
     "pride files": ["pride_PXD000001_files.json"],
     "pride search": ["pride_search_plasmodium.json"],
     "quant flashlfq": ["flashlfq_small.json"],
@@ -56,6 +60,10 @@ def replay_table() -> dict:
     table: dict = {}
     for spec in spec_facts.load_specs():
         for example in spec.get("examples") or []:
+            # A --paths-stdin recording has no path to match a call against, so it would fit every
+            # single-path call; the replay bridge answers single-path calls only.
+            if example.get("shape") == "bulk":
+                continue
             found = spec_facts.find_fixture(example["fixture"])
             if found is None:
                 raise pytest.UsageError(

@@ -1,0 +1,77 @@
+{
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_c1\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\FraggerPsm_FragPipev21.1_psm.tsv",
+ "file_type": "MsFraggerPsm",
+ "reader": "MsFraggerPsmFile",
+ "record_count": 5,
+ "rows_not_read": 0,
+ "retention_time_unit": "minutes",
+ "caveats": [
+  "is_decoy is null for this format: MSFragger's psm.tsv carries no target/decoy column, so mzLib cannot report decoy status (MsFraggerPsm.cs:231) and the field crosses as null. Null means 'unknown', not 'target' - do not filter this format on is_decoy == false.",
+  "monoisotopic_mass is the THEORETICAL peptide mass (MsFraggerPsm.cs:233, CalculatedPeptideMass), not the observed precursor mass. The psmtsv formats report the theoretical mass here too, so the two are consistent - but neither is what the instrument measured.",
+  "file_name is the full 'Spectrum File' path including its .pep.xml extension, whereas the psmtsv formats report a bare base name. The field is not a join key across formats."
+ ],
+ "column_names": [
+  "file_name",
+  "base_sequence",
+  "full_sequence",
+  "retention_time",
+  "charge_state",
+  "monoisotopic_mass",
+  "is_decoy",
+  "protein_accessions",
+  "gene_name",
+  "organism"
+ ],
+ "absent_fields": [
+  "is_decoy"
+ ],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
+ "columns": {
+  "file_name": [
+   "D:\\Projects\\Chimeras\\Mann_11cell_analysis\\Hela\\MsFragger\\Hela_1_1\\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml",
+   "D:\\Projects\\Chimeras\\Mann_11cell_analysis\\Hela\\MsFragger\\Hela_1_1\\interact-20100611_Velos1_TaGe_SA_Hela_1.pep.xml"
+  ],
+  "base_sequence": [
+   "KPVGAAK",
+   "KPAAAAGAK"
+  ],
+  "full_sequence": [
+   "KPVGAAK",
+   "KPAAAAGAK"
+  ],
+  "retention_time": [
+   0.03233,
+   0.049076666666666664
+  ],
+  "charge_state": [
+   2,
+   2
+  ],
+  "monoisotopic_mass": [
+   669.4173,
+   783.4603
+  ],
+  "is_decoy": [
+   null,
+   null
+  ],
+  "protein_accessions": [
+   "P16403",
+   "P10412"
+  ],
+  "gene_name": [
+   "H12",
+   "H14"
+  ],
+  "organism": [
+   "HUMAN",
+   "HUMAN"
+  ]
+ },
+ "output": null
+}
