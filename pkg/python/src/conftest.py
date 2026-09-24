@@ -46,8 +46,6 @@ REPLAY_EXTRA = {
     "quant flashlfq": ["flashlfq_small.json"],
     "quant median-polish": ["median_polish_small.json"],
     "peptidoform fragments": ["peptidoform_P02768_small.json"],
-    "sdrf read": ["sdrf_read_PXD000070.json"],
-    "sdrf pool": ["sdrf_pool_two.json"],
 }
 
 

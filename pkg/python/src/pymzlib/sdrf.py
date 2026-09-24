@@ -144,7 +144,7 @@ class SdrfDocument:
         rows: One list of cells per row. **Ragged**: a row may be shorter than ``columns``.
         row_count: Rows in the **whole document**, regardless of ``limit`` or ``offset``.
         returned_count: Rows actually carried back in :attr:`rows`.
-        offset: The offset that was applied.
+        offset: The offset that was applied, in rows.
         truncated: Whether rows were left behind, by either ``limit`` or ``offset``. A short answer
             and a complete one must never look alike, so check this rather than assuming.
         caveats: What this document's data cannot tell you about itself - raggedness, repeated
@@ -248,6 +248,17 @@ class PooledSdrf(SdrfDocument):
     a pooled table is not a file that was read.
 
     Attributes:
+        columns: The merged header, a list that may repeat names: the union of every document's
+            columns in SDRF block order, a repeated name at the highest multiplicity any one
+            document used, and ``comment[source document]`` added.
+        rows: One list of raw cells per returned row. A cell a document did not have is
+            ``"not available"``.
+        row_count: Merged rows in the **whole** pooled table, regardless of ``limit`` or ``offset``.
+        returned_count: Rows actually carried back in :attr:`rows`.
+        offset: The offset that was applied, in rows.
+        truncated: Whether rows were left behind by ``limit`` or ``offset``.
+        caveats: What a pooled table cannot tell you about itself - including, when no labels
+            were given, that its provenance depends on where the files sat.
         document_count: How many documents were pooled.
         paths: The paths pooled, in the order given.
         labels: The provenance label used for each, in the same order - either what you supplied
@@ -738,12 +749,17 @@ def validate(path: str | os.PathLike[str], *, timeout: float | None = 60) -> Sdr
         UsageError: the path is blank or the file does not exist.
         BridgeError: mzLib could not read the file at all (for example, it is empty).
 
-    Example:
-        >>> result = validate("PXD000070.sdrf.tsv")            # doctest: +SKIP
-        >>> result.is_valid, result.error_count                # doctest: +SKIP
-        (True, 0)
-        >>> for m in result.warnings:                          # doctest: +SKIP
+    Examples:
+        >>> result = validate("sdrf_cohort.sdrf.tsv")
+        >>> result.is_valid, result.error_count, result.warning_count
+        (True, 0, 2)
+        >>> for m in result.warnings:
         ...     print(m.line_number, m.rule, m.column_name)
+        10 ReservedWordCase characteristics[age]
+        11 ReservedWordCase characteristics[age]
+        >>> skeleton = validate("sdrf_skeleton.sdrf.tsv")
+        >>> skeleton.is_valid, skeleton.errors[0].rule, skeleton.errors[0].line_number
+        (False, 'RequiredColumn', None)
     """
     data = _bridge.invoke("sdrf", "validate", "--path", _one_path(path), timeout=timeout)
     return SdrfValidation._from_wire(data)
@@ -779,10 +795,17 @@ def validate_many(
             under ``"fail"`` - a file that does not exist.
         BridgeError: under ``"fail"``, mzLib could not read one of the files.
 
-    Example:
-        >>> paths = sorted(Path("corpus").glob("*.sdrf.tsv"))                 # doctest: +SKIP
-        >>> batch = validate_many(paths, threads=-1, on_error="skip")          # doctest: +SKIP
-        >>> batch.valid_count, batch.read_count                                # doctest: +SKIP
+    Examples:
+        >>> batch = validate_many(
+        ...     ["sdrf_skeleton.sdrf.tsv", "sdrf_cohort.sdrf.tsv", "missing.sdrf.tsv"],
+        ...     on_error="skip",
+        ... )
+        >>> batch.file_count, batch.read_count, batch.valid_count
+        (3, 2, 1)
+        >>> [f.is_valid for f in batch.files]
+        [False, True, None]
+        >>> batch.files[2].error.kind
+        'usage'
     """
     args, stdin = _bulk_args(paths, threads, on_error, verb="validate")
     data = _bridge.invoke("sdrf", "validate", *args, stdin=stdin, timeout=timeout)
@@ -879,12 +902,16 @@ def lint(
     Raises:
         UsageError: no documents, a missing file, or a blank label.
 
-    Example:
-        >>> drift = lint({"a.sdrf.tsv": "cohort", "b.sdrf.tsv": "partner"})   # doctest: +SKIP
-        >>> drift.finding_count                                                # doctest: +SKIP
+    Examples:
+        >>> drift = lint({"sdrf_cohort.sdrf.tsv": "cohort", "sdrf_cohort_partner.sdrf.tsv": "partner"})
+        >>> drift.finding_count
         4
-        >>> sorted(set(drift.columns["kind"]))                                 # doctest: +SKIP
-        ['AccessionNameConflict', 'ColumnNameVariant', 'MixedTermAndFreeText', 'ValueCaseVariant']
+        >>> for variants in drift.findings():
+        ...     print(variants[0]["kind"], [v["value"] for v in variants])
+        AccessionNameConflict ['Exploris 480', 'Orbitrap Exploris 480']
+        MixedTermAndFreeText ['controlled vocabulary term', 'free text']
+        ColumnNameVariant ['Characteristics[sex]', 'characteristics[sex]']
+        ValueCaseVariant ['Homo sapiens', 'homo sapiens']
     """
     lines = _document_lines(documents, verb="lint")
     data = _bridge.invoke("sdrf", "lint", stdin="\n".join(lines), timeout=timeout)
@@ -1020,8 +1047,12 @@ class SdrfAssessmentBatch(_Table):
             UsageError: a verdict that is not one of :data:`VERDICTS` - a typo would otherwise
                 silently select nothing.
 
-        Example:
-            >>> keep = batch.paths_with("Informative", "Partial")   # doctest: +SKIP
+        Examples:
+            >>> batch = assess_many(
+            ...     ["sdrf_cohort.sdrf.tsv", "sdrf_skeleton.sdrf.tsv", "PXD000070.sdrf.tsv"]
+            ... )
+            >>> [os.path.basename(p) for p in batch.paths_with("Informative", "Partial")]
+            ['sdrf_cohort.sdrf.tsv', 'PXD000070.sdrf.tsv']
         """
         unknown = [v for v in verdicts if v not in VERDICTS]
         if unknown:
@@ -1063,10 +1094,12 @@ def assess(path: str | os.PathLike[str], *, timeout: float | None = 60) -> SdrfA
         UsageError: the path is blank or the file does not exist.
         BridgeError: mzLib could not read the file.
 
-    Example:
-        >>> a = assess("PXD000070.sdrf.tsv")                                   # doctest: +SKIP
-        >>> a.verdict, a.factor_value_varies, a.sample_is_described            # doctest: +SKIP
-        ('Partial', False, True)
+    Examples:
+        >>> a = assess("sdrf_cohort.sdrf.tsv")
+        >>> a.verdict, a.factor_value_varies, a.sample_is_described, a.biological_replicate_varies
+        ('Informative', True, True, True)
+        >>> a.columns["column_name"][0], a.columns["distinct_values"][0]
+        ('factor value[disease]', 2)
     """
     data = _bridge.invoke("sdrf", "assess", "--path", _one_path(path), timeout=timeout)
     return SdrfAssessment._from_wire(data)
@@ -1095,11 +1128,14 @@ def assess_many(
         UsageError: as for :func:`validate_many`.
         BridgeError: under ``"fail"``, mzLib could not read one of the files.
 
-    Example:
-        >>> batch = assess_many(paths, threads=-1, on_error="skip")   # doctest: +SKIP
-        >>> batch.verdict_counts                                      # doctest: +SKIP
+    Examples:
+        >>> batch = assess_many(
+        ...     ["sdrf_cohort.sdrf.tsv", "sdrf_skeleton.sdrf.tsv", "PXD000070.sdrf.tsv"]
+        ... )
+        >>> batch.verdict_counts
         {'informative': 1, 'partial': 1, 'skeleton': 1}
-        >>> usable = batch.paths_with("Informative")                  # doctest: +SKIP
+        >>> [f.verdict for f in batch.files]
+        ['Informative', 'Skeleton', 'Partial']
     """
     args, stdin = _bulk_args(paths, threads, on_error, verb="assess")
     data = _bridge.invoke("sdrf", "assess", *args, stdin=stdin, timeout=timeout)
@@ -1280,13 +1316,18 @@ def samples(path: str | os.PathLike[str], *, timeout: float | None = 60) -> Sdrf
         UsageError: the path is blank or the file does not exist.
         BridgeError: mzLib could not read the file.
 
-    Example:
-        >>> s = samples("cohort.sdrf.tsv")                                     # doctest: +SKIP
-        >>> s.sample_count, s.conflicts()                                      # doctest: +SKIP
+    Examples:
+        >>> s = samples("sdrf_cohort.sdrf.tsv")
+        >>> s.sample_count, s.conflicts()
         (6, [('S6', 'characteristics[disease]')])
-        >>> age = s.ages()[1]                                                  # doctest: +SKIP
-        >>> age["source_name"], age["age_years"], age["age_precision"]         # doctest: +SKIP
-        ('S2', 62.5, 'Range')
+        >>> for a in s.ages():
+        ...     print(a["source_name"], a["value"], a["age_years"], a["age_precision"], a["age_refusal"])
+        S1 58Y 58 Exact None
+        S2 40Y-85Y 62.5 Range None
+        S3 >=90Y 90 LowerBound None
+        S4 63 None None no_unit
+        S5 Not available None None reserved_word
+        S6 40Y-40Y 40 Exact None
     """
     data = _bridge.invoke("sdrf", "samples", "--path", _one_path(path), timeout=timeout)
     return SdrfSamples._from_wire(data)
@@ -1314,6 +1355,11 @@ def samples_many(
     Raises:
         UsageError: as for :func:`validate_many`.
         BridgeError: under ``"fail"``, mzLib could not read one of the files.
+
+    Examples:
+        >>> batch = samples_many(["sdrf_cohort.sdrf.tsv", "sdrf_cohort_partner.sdrf.tsv"])
+        >>> batch.sample_count, [f.sample_count for f in batch.files]
+        (8, [6, 2])
     """
     args, stdin = _bulk_args(paths, threads, on_error, verb="samples")
     data = _bridge.invoke("sdrf", "samples", *args, stdin=stdin, timeout=timeout)
@@ -1393,10 +1439,20 @@ def parse_ages(cells: Sequence[str | None], *, timeout: float | None = 60) -> Pa
         UsageError: ``cells`` is a bare string or empty, or a cell is not a string or contains a
             newline.
 
-    Example:
-        >>> ages = parse_ages(["58Y", "40Y-85Y", ">=90Y", "63"])            # doctest: +SKIP
-        >>> ages.columns["years"], ages.columns["refusal"]                 # doctest: +SKIP
-        ([58, 62.5, 90, None], [None, None, None, 'no_unit'])
+    Examples:
+        >>> ages = parse_ages(["58Y", "30Y6M", "40Y-85Y", "40Y-40Y", ">=90Y", "<1Y", "6-8 weeks",
+        ...                    "63", "not available", "", "about forty"])
+        >>> ages.parsed_count, ages.cell_count
+        (7, 11)
+        >>> for row in ages.records[:5]:
+        ...     print(row["cell"], row["years"], row["min_years"], row["max_years"], row["precision"])
+        58Y 58 58 58 Exact
+        30Y6M 30.5 30.5 30.5 Exact
+        40Y-85Y 62.5 40 85 Range
+        40Y-40Y 40 40 40 Exact
+        >=90Y 90 90 None LowerBound
+        >>> ages.columns["refusal"][7:]
+        ['no_unit', 'reserved_word', 'empty', 'unreadable']
     """
     if isinstance(cells, str):
         raise _bridge.UsageError(
