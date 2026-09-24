@@ -1,0 +1,145 @@
+{
+ "file_count": 3,
+ "peptide_count": 6,
+ "target_protein_count": 7,
+ "decoy_proteins_ignored": 0,
+ "i_and_l_equivalent": true,
+ "sharing_counts": {
+  "NotInDatabase": 1,
+  "Unique": 3,
+  "SharedWithinGene": 1,
+  "SharedAcrossGenes": 1
+ },
+ "files": [
+  {
+   "source_index": 0,
+   "path": "fixtures/proteins/human_subset.xml",
+   "file_type": "UniProtXml",
+   "reader": "ProteinDbLoader.LoadProteinXML",
+   "contaminant": false,
+   "protein_count": 2,
+   "decoy_count": 0,
+   "record_count": 2,
+   "search_database_sha256": null,
+   "caveats": [],
+   "absent_fields": [],
+   "error": null
+  },
+  {
+   "source_index": 1,
+   "path": "fixtures/proteins/human_extra.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 4,
+   "decoy_count": 0,
+   "record_count": 4,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 2,
+   "path": "fixtures/proteins/contaminants.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": true,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  }
+ ],
+ "column_names": [
+  "peptide",
+  "sharing",
+  "accession_count",
+  "accessions",
+  "shared_gene_keys"
+ ],
+ "columns": {
+  "peptide": [
+   "VGVNGFGR",
+   "LVLNGNPLTLFQER",
+   "ALSEQINIFFDYSGR",
+   "YLYEIAR",
+   "AEFVEVTK",
+   "PEPTIDEK"
+  ],
+  "sharing": [
+   "Unique",
+   "Unique",
+   "SharedWithinGene",
+   "SharedAcrossGenes",
+   "Unique",
+   "NotInDatabase"
+  ],
+  "accession_count": [
+   1,
+   1,
+   3,
+   2,
+   1,
+   0
+  ],
+  "accessions": [
+   [
+    "P04406"
+   ],
+   [
+    "P04406"
+   ],
+   [
+    "Q13409",
+    "Q13409-2",
+    "Q13409-3"
+   ],
+   [
+    "P02768",
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   []
+  ],
+  "shared_gene_keys": [
+   [
+    "ensembl:ENSG00000111640",
+    "entry:P04406",
+    "gene:Homo sapiens:GAPDH"
+   ],
+   [
+    "ensembl:ENSG00000111640",
+    "entry:P04406",
+    "gene:Homo sapiens:GAPDH"
+   ],
+   [
+    "entry:Q13409",
+    "gene:Homo sapiens:DYNC1I2"
+   ],
+   [],
+   [
+    "entry:P02769",
+    "gene:Bos taurus:ALB"
+   ],
+   []
+  ]
+ }
+}
