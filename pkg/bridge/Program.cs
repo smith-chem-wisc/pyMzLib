@@ -285,6 +285,9 @@ public static partial class Program
             "sdrf assess" => Sdrf.Assess(arguments),
             "sdrf samples" => Sdrf.Samples(arguments),
             "sdrf parse-age" => Sdrf.ParseAge(arguments),
+            "proteins read" => Proteins.Read(arguments),
+            "proteins classify-peptides" => Proteins.ClassifyPeptides(arguments),
+            "genes resolve" => Proteins.ResolveGenes(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the
             // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(
