@@ -700,6 +700,20 @@ public class VerbHandlerTests
     }
 
     [Test]
+    public async Task AUtf8BomOnTheFirstSelectedNameIsStripped()
+    {
+        // A BOM (Windows PowerShell 5.1 pipes one) must not turn "a.raw" into "﻿a.raw", which
+        // matches nothing and fails as "not in project" after every other file has downloaded.
+        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")}]"));
+        Console.SetIn(new StringReader("﻿a.raw\nb.raw\n"));
+
+        JsonElement data = await InvokeAsync(
+            "pride", "download", "--accession", "PXD012345", "--dest", "out", "--names-from-stdin");
+
+        Assert.That(data.GetProperty("downloaded_count").GetInt32(), Is.EqualTo(2));
+    }
+
+    [Test]
     public void ARequestedNameThatIsNotInTheProjectIsReported()
     {
         // Silently downloading fewer files than asked for is the failure mode this whole change
