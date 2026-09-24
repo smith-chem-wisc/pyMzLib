@@ -1,0 +1,9 @@
+#!genome-build GRCh38.p14
+#!genome-version GRCh38
+#!genome-date 2013-12
+#!genome-build-accession GCA_000001405.29
+#!genebuild-last-updated 2025-09
+X	ensembl_havana	gene	1	100	.	+	.	gene_id "ENSG00000000003"; gene_version "16"; gene_name "TSPAN6"; gene_source "ensembl_havana"; gene_biotype "protein_coding";
+X	ensembl_havana	gene	1	100	.	+	.	gene_id "ENSG00000089289"; gene_version "16"; gene_name "IGBP1"; gene_source "ensembl_havana"; gene_biotype "protein_coding";
+12	ensembl_havana	gene	1	100	.	+	.	gene_id "ENSG00000111640"; gene_version "15"; gene_name "GAPDH"; gene_source "ensembl_havana"; gene_biotype "protein_coding";
+12	ensembl_havana	transcript	1	100	.	+	.	gene_id "ENSG00000111640"; gene_version "15"; transcript_id "ENST00000229239"; transcript_version "10";
