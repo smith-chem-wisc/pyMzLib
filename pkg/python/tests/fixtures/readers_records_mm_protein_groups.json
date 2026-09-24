@@ -1,0 +1,154 @@
+{
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
+ "file_type": "MetaMorpheusQuantifiedProteinGroups",
+ "reader": "ProteinGroupFromTsvFile",
+ "record_type": "ProteinGroupFromTsv",
+ "views": [],
+ "record_count": 6,
+ "returned_count": 2,
+ "offset": 0,
+ "truncated": true,
+ "excluded_fields": [
+  {
+   "field": "sample_groups",
+   "type": "IReadOnlyDictionary<String, SampleGroupMeasurement>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
+  }
+ ],
+ "failed_fields": [],
+ "column_names": [
+  "protein_group_name",
+  "gene",
+  "organism",
+  "full_name",
+  "unmodified_mass",
+  "number_of_members",
+  "unique_sequences",
+  "shared_sequences",
+  "number_of_sequences",
+  "number_of_unique_sequences",
+  "sequence_coverage_fraction",
+  "sequence_coverage",
+  "sequence_coverage_with_mods",
+  "fragment_sequence_coverage",
+  "number_of_psms",
+  "decoy_contaminant_target",
+  "cumulative_target",
+  "cumulative_decoy",
+  "q_value",
+  "best_score",
+  "best_notch_q_value",
+  "best_pep",
+  "accessions",
+  "is_decoy",
+  "is_contaminant",
+  "is_entrapment"
+ ],
+ "columns": {
+  "protein_group_name": [
+   "P68363",
+   "P05141"
+  ],
+  "gene": [
+   "TUBA1B",
+   "SLC25A5"
+  ],
+  "organism": [
+   "Homo sapiens",
+   "Homo sapiens"
+  ],
+  "full_name": [
+   "Tubulin alpha-1B chain",
+   "ADP/ATP translocase 2"
+  ],
+  "unmodified_mass": [
+   "50119.60461928454",
+   "32831.15093151244"
+  ],
+  "number_of_members": [
+   1,
+   1
+  ],
+  "unique_sequences": [
+   "",
+   "TDAAVSFAK|AAYFGIYDTAK|QIFLGGVDKR|DFLAGGVAAAISK"
+  ],
+  "shared_sequences": [
+   "KLADQCTGLQGFLVFHSFGGGTGSGFTSLLMER|LADQCTGLQGFLVFHSFGGGTGSGFTSLLMER|FDGALNVDLTEFQTNLVPYPR|AVFVDLEPTVIDEVR|VGINYQPPTVVPGGDLAK|IHFPLATYAPVISAEK|ECISIHVGQAGVQIGNACWELYCLEHGIQPDGQMPSDK|NLDIERPTYTNLNR|AVCMLSNTTAIAEAWAR|SIQFVDWCPTGFK|DVNAAIATIK|MRECISIHVGQAGVQIGNACWELYCLEHGIQPDGQMPSDK|LDHKFDLMYAK|AFVHWYVGEGMEEGEFSEAREDMAALEK|YMACCLLYR|TIGGGDDSFNTFFSETGAGK|LISQIVSSITASLR|QLFHPEQLITGKEDAANNYAR|EIIDLVLDR|EDAANNYAR|GHYTIGK|LSVDYGKK|FDLMYAK|LSVDYGK|EDMAALEK|AYHEQLSVAEITNACFEPANQMVK|QLFHPEQLITGK",
+   "GMLPDPKNTHIVISWMIAQTVTAVAGLTSYPFDTVR|NTHIVISWMIAQTVTAVAGLTSYPFDTVR|TAVAPIER|YFPTQALNFAFK|EQGVLSFWR|QYKGIIDCVVR|QIFLGGVDK|GNLANVIR|GAWSNVLR|MMMQSGR|GLGDCLVK|LLLQVQHASK|GMLPDPK"
+  ],
+  "number_of_sequences": [
+   27,
+   17
+  ],
+  "number_of_unique_sequences": [
+   0,
+   4
+  ],
+  "sequence_coverage_fraction": [
+   "0.72727",
+   "0.53691"
+  ],
+  "sequence_coverage": [
+   "MRECISIHVGQAGVQIGNACWELYCLEHGIQPDGQMPSDKTIGGGDDSFNTFFSETGAGKhvprAVFVDLEPTVIDEVRtgtyrQLFHPEQLITGKEDAANNYARGHYTIGKEIIDLVLDRirKLADQCTGLQGFLVFHSFGGGTGSGFTSLLMERLSVDYGKKsklefsiypapqvstavvepynsiltthttlehsdcafmvdneaiydicrrNLDIERPTYTNLNRLISQIVSSITASLRFDGALNVDLTEFQTNLVPYPRIHFPLATYAPVISAEKAYHEQLSVAEITNACFEPANQMVKcdprhgkymaccllyrgdvvpkDVNAAIATIKtkrSIQFVDWCPTGFKVGINYQPPTVVPGGDLAKvqrAVCMLSNTTAIAEAWARldhkfdlmyakrAFVHWYVGEGMEEGEFSEAREDMAALEKdyeevgvdsvegegeeegeey",
+   "mTDAAVSFAKDFLAGGVAAAISKTAVAPIERvkLLLQVQHASKqitadkQYKGIIDCVVRipkEQGVLSFWRGNLANVIRYFPTQALNFAFKdkykQIFLGGVDKRtqfwlyfagnlasggaagatslcfvypldfartrlaadvgkagaerefrGLGDCLVKiyksdgikglyqgfnvsvqgiiiyrAAYFGIYDTAKGMLPDPKNTHIVISWMIAQTVTAVAGLTSYPFDTVRrrMMMQSGRkgtdimytgtldcwrkiardeggkaffkGAWSNVLRgmggafvlvlydeikkyt"
+  ],
+  "sequence_coverage_with_mods": [
+   "MRECISIHVGQAGVQIGNACWELYCLEHGIQPDGQMPSDKTIGGGDDSFNTFFSETGAGKhvprAVFVDLEPTVIDEVRtgtyrQLFHPEQLITGKEDAANNYARGHYTIGKEIIDLVLDRirKLADQCTGLQGFLVFHSFGGGTGSGFTSLLMERLSVDYGKKsklefsiypapqvstavvepynsiltthttlehsdcafmvdneaiydicrrNLDIERPTYTNLNRLISQIVSSITASLRFDGALNVDLTEFQTNLVPYPRIHFPLATYAPVISAEKAYHEQLSVAEITNACFEPANQMVKcdprhgkymaccllyrgdvvpkDVN[Deamidation on N]AAIATIKtkrSIQFVDWCPTGFKVGINYQPPTVVPGGDLAKvqrAVCMLSNTTAIAEAWARldhkfdlmyakrAFVHWYVGEGMEEGEFSEAREDMAALEKdyeevgvdsvegegeeegeey",
+   "[N-acetylthreonine on T]-mTDAAVSFAKDFLAGGVAAAISKTAVAPIERvkLLLQVQHASKqitadkQYK[N6,N6,N6-trimethyllysine on K]GIIDCVVRipkEQGVLSFWRGNLANVIRYFPTQALNFAFKdkykQIFLGGVDKRtqfwlyfagnlasggaagatslcfvypldfartrlaadvgkagaerefrGLGDCLVKiyksdgikglyqgfnvsvqgiiiyrAAYFGIYDTAKGMLPDPKNTHIVISWMIAQ[Deamidation on Q]TVTAVAGLTSYPFDTVRrrMMMQSGRkgtdimytgtldcwrkiardeggkaffkGAWSNVLRgmggafvlvlydeikkyt"
+  ],
+  "fragment_sequence_coverage": [
+   "mrecisiHVgqAGVQignacwelyclEHgiqpdgqMPsdktigggddsfntFFSETGAgkhvpravFVDLEPTVIDEVRtgtyrqlFHpeqlITGKEDAANNYARghYTIGKeiIDLVLDRirklADQCTgLQGFLVFHSFGGGTGSGFTSLLMerLSVDYGKKsklefsiypapqvstavvepynsiltthttlehsdcafmvdneaiydicrrNLDIERPTYTNLNRlisqIVSSITaslRfdGALNVDLTEFQTNLVPYPRihFPLATYAPVISAEKayheqLsvaeitnacfepanqmvkcdprhgkYMACCLLYRgdvvpkdvNAAIATIKtkrsiQFVDWCPTGFKvgINYQPPTVVPGGDLAKvqravCMLSNTTAIAEAWARldHKFDLMYAKrafvhWYVgegmeegefsearEdMAALEKdyeevgvdsvegegeeegeey",
+   "mTDAAVSFAKdfLAggvaaaIskTAVAPIERvkllLQVQHASKqitadkQykgIIDCVVRipkeqGVLSFWRgnLANVIRyfPTQALNFAFKdkykQIFLGGVDKRtqfwlyfagnlasggaagatslcfvypldfartrlaadvgkagaerefrglGDCLVKiyksdgikglyqgfnvsvqgiiiyraaYFGIYDTAKgmLPDPKNTHIVISWMIAQTVTAVAGLTSYPFDTvrrrMMMQSGRkgtdimytgtldcwrkiardeggkaffkgaWSNVLRgmggafvlvlydeikkyt"
+  ],
+  "number_of_psms": [
+   268,
+   168
+  ],
+  "decoy_contaminant_target": [
+   "T",
+   "T"
+  ],
+  "cumulative_target": [
+   1,
+   3
+  ],
+  "cumulative_decoy": [
+   0,
+   0
+  ],
+  "q_value": [
+   0,
+   0
+  ],
+  "best_score": [
+   30.218930121043165,
+   27.301506261213547
+  ],
+  "best_notch_q_value": [
+   0.00037803610244778376,
+   0.00037803610244778376
+  ],
+  "best_pep": [
+   0,
+   0
+  ],
+  "accessions": [
+   "P68363",
+   "P05141"
+  ],
+  "is_decoy": [
+   false,
+   false
+  ],
+  "is_contaminant": [
+   false,
+   false
+  ],
+  "is_entrapment": [
+   false,
+   false
+  ]
+ },
+ "output": null
+}

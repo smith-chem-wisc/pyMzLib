@@ -4,10 +4,10 @@
 **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign — scan headers always, peaks on
 request.
 
-mzLib recognises **32 file types** in all: those instrument and deconvolution formats, plus the
+mzLib recognises **36 file types** in all: those instrument and deconvolution formats, plus the
 output of a dozen search tools — MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
-Casanovo, FlashDeconv, Dinosaur, FlashLFQ — and maintains a parser for each. pyMzLib lets you point
-at a file, ask what it is, and read it.
+Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ, Pytheas, and any mzIdentML writer — and
+maintains a parser for each. pyMzLib lets you point at a file, ask what it is, and read it.
 
 ```python
 import pymzlib
@@ -19,7 +19,7 @@ table = pymzlib.readers.read_records("toppic_prsm.tsv")
 print(table.record_type, len(table.column_names))    # ToppicPrsm 36
 ```
 
-**All 32 formats are readable.** What differs between them is not whether you can read them but
+**All 36 formats are readable.** What differs between them is not whether you can read them but
 what the columns mean — which is the whole subject of this page.
 
 ## Five ways to read, and how to choose
@@ -29,10 +29,10 @@ worth stating plainly before anything else:
 
 | function | reads | columns | use it when |
 |---|---|---|---|
-| [`read_records()`](#read_records-any-format-its-own-fields) | **all 32** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
-| [`read_results()`](#read_results-the-quantifiable-view) | 3 | uniform: sequence, RT, charge, mass, proteins | you are feeding [FlashLFQ](flashlfq.md) or comparing search results |
+| [`read_records()`](#read_records-any-format-its-own-fields) | **all 36** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
+| [`read_results()`](#read_results-the-quantifiable-view) | 4 | uniform: sequence, RT, charge, mass, proteins | you are feeding [FlashLFQ](flashlfq.md) or comparing search results |
 | [`read_features()`](#read_features-deconvolved-ms1-features) | 2 | uniform: m/z, charge, RT range, intensity | you are working with deconvolved MS1 features |
-| [`read_matches()`](#read_matches-identifications) | 4 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT or Casanovo |
+| [`read_matches()`](#read_matches-identifications) | 6 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT, Casanovo or mzIdentML |
 | [`read_spectra()`](#read_spectra-scans-and-peaks) | 7 | uniform: scan headers, peaks on request | the file is spectra rather than results |
 
 The rule of thumb:
@@ -47,18 +47,18 @@ MetaMorpheus's, and no other format has them.
 
 ## Start with `views`, not with the file type
 
-It would be convenient if mzLib read all 32 formats into one uniform table. **It does not.** The
-formats fall into disjoint families, and fifteen belong to no family at all:
+It would be convenient if mzLib read all 36 formats into one uniform table. **It does not.** The
+formats fall into disjoint families, and seventeen belong to no family at all:
 
 | view | what it means | which formats |
 |---|---|---|
 | `quantifiable` | a cross-format record view — sequence, retention time, charge, mass, protein groups. What [`flashlfq.quantify()`](flashlfq.md) accepts. | **4**: MetaMorpheus `.psmtsv`/`.osmtsv`, MSFragger `psm.tsv`, DIA-NN `report.tsv` |
 | `ms1_features` | deconvolved MS1 features | **2**: TopFD `_ms1.feature`, Dinosaur |
-| `spectral_match` | records are identifications, but share no *file*-level interface | **4**: MsPathFinderT ×3, Casanovo |
+| `spectral_match` | records are identifications, but share no *file*-level interface | **6**: MsPathFinderT ×3, Casanovo, mzIdentML `.mzid`/`.mzid.gz` |
 | `spectra` | the file is spectra, not results | **7**: `.raw`, `.mzML`, `.mgf`, `.d` ×2, msalign ×2 |
-| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **15**: TopPIC ×4, Crux, Pytheas, MSFragger peptide/protein, FlashDeconv, and more |
+| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **17**: TopPIC ×4, Crux, Pytheas, MSFragger peptide/protein, FlashDeconv, MetaMorpheus protein groups and peptides, and more |
 
-`views == []` is a real and common answer, not an error — it is the majority answer, in fact. It
+`views == []` is a real and common answer, not an error — it is the commonest answer, in fact. It
 means "mzLib reads this, but there is no uniform projection of it", and `read_records()` is exactly
 the function for that case.
 
@@ -111,6 +111,20 @@ for field in t.excluded_fields:
 ```
 alternative_identifications — a list of composite values has no faithful column shape
 ```
+
+Some of these exclusions carry the numbers you came for. The per-sample values of mzLib's newer
+tables are dictionaries keyed by sample, so `read_records()` names them here and does not project
+them:
+
+| file type | excluded field | what it holds |
+|---|---|---|
+| `MetaMorpheusQuantifiedProteinGroups` | `sample_groups` | per-sample intensity, spectral count and modification occupancy |
+| `FlashLFQQuantifiedPeptide` | `samples` | per-run intensity, detection type and retention time |
+| `MzIdentML`, `MzIdentMLGz` | `scores` | the search engine's own scores, e.g. `MS-GF:SpecEValue` |
+
+Their scalar fields (protein group name, gene, organism, q-value, sequence) are columns as usual.
+Typed functions for the per-sample values are planned; until then, those values are out of reach
+from pyMzLib, and `excluded_fields` says so rather than returning a table that looks complete.
 
 `failed_fields` is the other half. Several mzLib properties are *computed* and assume a
 UniProt-style FASTA header — Crux's and MsPathFinderT's `accession` are both
@@ -226,9 +240,10 @@ Dinosaur reports `'minutes'` and converts without complaint.
 
 ## `read_matches()`: identifications
 
-Four formats offer the `spectral_match` view: MsPathFinderT's targets, decoys and combined results,
-and Casanovo's `.mztab`. These are the identification formats that share no *file*-level interface,
-so `read_results()` cannot reach them.
+Six formats offer the `spectral_match` view: MsPathFinderT's targets, decoys and combined results,
+Casanovo's `.mztab`, and mzIdentML (`.mzid`, and `.mzid.gz` read without unpacking it). These are
+the identification formats that share no *file*-level interface, so `read_results()` cannot reach
+them.
 
 ```python
 m = pymzlib.readers.read_matches("results_IcTda.tsv")
@@ -237,10 +252,11 @@ m.columns["modifications"][0]        # '12:Oxidation on M'
 
 !!! danger "Nothing here is FDR-filtered — and there is no confidence column to filter on"
     mzLib's `ISpectralMatch` carries identity fields only. Every one of these formats records an
-    E-value or q-value somewhere; `read_records()` will give you those columns. Filter before you
-    report.
+    E-value or q-value somewhere; `read_records()` will give you those columns, except mzIdentML's
+    engine scores, which are a dictionary (see above) — only its `q_value` crosses. Filter before
+    you report.
 
-Two `is_decoy` traps, both reported in `caveats`:
+Three `is_decoy` traps, all reported in `caveats`:
 
 - **MsPathFinderT** infers decoys from the protein *name* — mzLib reports a decoy when
   `ProteinName` starts with `XXX`. A database whose decoys carry a different prefix reads
@@ -248,9 +264,23 @@ Two `is_decoy` traps, both reported in `caveats`:
 - **Casanovo** is de novo and writes no target/decoy label at all. mzLib's record leaves the field
   at its default `False` and never assigns it, so `False` would mean *unknown*. pyMzLib crosses it
   as `None` instead — the same rule `read_results()` already applies to MSFragger.
+- **mzIdentML**'s `isDecoy` attribute is optional and defaults to false, so a writer that omits it
+  reads as a target. `read_matches()` crosses `None`; `read_records()` carries mzLib's own boolean
+  for when you know your writer sets it.
 
 Casanovo also numbers scans by mzTab **index**, not by the instrument's scan number; when Casanovo
 was run on an MGF the two are unrelated, so do not join on it.
+
+mzIdentML has three more things to know, also in `caveats`:
+
+- **Every identification item is a row**, not only the ones the submitter accepted. Lower-ranked
+  candidates and items that failed the threshold are included; `rank` and `pass_threshold` are in
+  `read_records()`.
+- **Some items are skipped, not read**: crosslinks, modifications without a resolvable UNIMOD
+  accession, substitutions, and two modifications on one residue. mzLib keeps a list of them that
+  pyMzLib does not report yet, so `record_count` can be smaller than the file's item count.
+- **Scan numbers come from the nativeID.** `scan=N` gives N, but `index=N` (peak-list input) is a
+  zero-based position and gives N + 1, which is not an instrument scan number.
 
 ## `read_spectra()`: scans and peaks
 
@@ -398,6 +428,10 @@ reflects your installed version rather than this page's age. Every row is readab
 | `DiaNnReport` | `report.tsv` | `quantifiable` |
 | `Sdrf` | `.sdrf.tsv` | (none) |
 | `PytheasResult` | `.txt` | (none) |
+| `MzIdentML` | `.mzid` | `spectral_match` |
+| `MzIdentMLGz` | `.mzid.gz` | `spectral_match` |
+| `MetaMorpheusQuantifiedProteinGroups` | `QuantifiedProteinGroups.tsv` | (none) |
+| `FlashLFQQuantifiedPeptide` | `QuantifiedPeptides.tsv` | (none) |
 
 Note that **extensions are not unique**: both Bruker types are `.d` (told apart by what the
 directory contains), and several formats share `.tsv`, disambiguated by filename suffix and
@@ -419,11 +453,21 @@ file. Only a `.txt` without one is read as a `CruxResult`. The records are
 Pytheas's own match lines, one per candidate. Charges are negative, and `molecule_location` reads
 `decoy` on decoy matches.
 
+The two MetaMorpheus quantification tables dispatch on a filename suffix:
+`AllQuantifiedProteinGroups.tsv` (or any name ending `QuantifiedProteinGroups.tsv`) and
+`AllQuantifiedPeptides.tsv` (any name ending `QuantifiedPeptides.tsv`, which is also what FlashLFQ
+writes). Their per-sample values are excluded dictionaries; see
+[Nothing is silently dropped](#nothing-is-silently-dropped).
+
 ## What is not covered
 
 - **Confidence in the typed views.** `read_results()` and `read_matches()` expose no q-value, PEP or
   score, because the mzLib interfaces they project do not carry one. `read_records()` does — those
-  columns exist in every one of these formats. **Nothing from a typed view is FDR-filtered.**
+  columns exist in every one of these formats, though mzIdentML's engine scores are an excluded
+  dictionary and only its `q_value` crosses. **Nothing from a typed view is FDR-filtered.**
+- **Per-sample values of the MetaMorpheus protein-group and peptide tables**, and mzIdentML's
+  engine scores. They are dictionaries, named in `excluded_fields`; typed functions for them are
+  planned.
 - **Format conversion.** mzLib can write most formats, but the psmtsv family throws
   `NotImplementedException`, so a general read-A-write-B is not offered.
 - **The ion-mobility axis.** timsTOF data is read with its mobility dimension collapsed into scans;

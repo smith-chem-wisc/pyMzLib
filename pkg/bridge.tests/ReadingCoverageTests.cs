@@ -71,7 +71,7 @@ public class ReadingCoverageTests
     /// member absent from mzLib's own <c>TestSupportedFileExtensions</c> cases, which is presumably
     /// how the naming slipped through. The fixture is therefore copied to a correctly-named
     /// temporary file by <see cref="FixtureFor"/> rather than skipped, so the coverage claim holds
-    /// for all thirty-two; the upstream fixture is tracked in bridge/UPSTREAM.md.
+    /// for all thirty-six; the upstream fixture is tracked in bridge/UPSTREAM.md.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
@@ -111,6 +111,14 @@ public class ReadingCoverageTests
         [SupportedFileType.Sdrf] = "FileReadingTests/ExternalFileTypes/PXD000070.sdrf.tsv",
         // mzLib's only Pytheas file is 5.5 MB; FixtureFor trims it to its head (see there).
         [SupportedFileType.PytheasResult] = "FileReadingTests/ExternalFileTypes/match_output_Lumos_Orbi.txt",
+        // mzLib #1313. The same MS-GF+ PRIDE cut in both forms, so the two types are compared on the
+        // same records; the .gz is 3 KB. MS-GF+ is the writer whose scores and q-value the reader
+        // maps (#1306).
+        [SupportedFileType.MzIdentML] = "DataFiles/PXD078927_msgf_1_1_0.mzid",
+        [SupportedFileType.MzIdentMLGz] = "DataFiles/PXD078927_msgf_1_1_0.mzid.gz",
+        // mzLib #1347. MetaMorpheus 1.1.11 output, the only version mzLib ships a fixture for.
+        [SupportedFileType.MetaMorpheusQuantifiedProteinGroups] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
+        [SupportedFileType.FlashLFQQuantifiedPeptide] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
     };
 
     /// <summary>
@@ -267,6 +275,27 @@ public class ReadingCoverageTests
         Assert.That(
             data.GetProperty("excluded_fields")[0].GetProperty("reason").GetString(),
             Is.Not.Empty, "Every exclusion carries the reason for it.");
+    }
+
+    [TestCase(SupportedFileType.MetaMorpheusQuantifiedProteinGroups, "sample_groups")]
+    [TestCase(SupportedFileType.FlashLFQQuantifiedPeptide, "samples")]
+    [TestCase(SupportedFileType.MzIdentML, "scores")]
+    public void DictionaryFieldsAreExcludedAsDictionaries(SupportedFileType fileType, string field)
+    {
+        // mzLib 1.0.592's new readers keep their most important values in read-only dictionaries:
+        // per-sample intensity, spectral count and occupancy for a protein group (#1347), per-run
+        // intensity for a peptide (#1347), and the engine's scores for an mzIdentML match (#1313).
+        // read-records cannot project them, so it must say so, and say it is a dictionary:
+        // IReadOnlyDictionary<K, V> is not a non-generic IDictionary, and before the generic check
+        // these were excluded as "a list of composite values", which misdescribes them.
+        JsonElement data = Invoke("readers", "read-records", "--path", FixtureFor(fileType), "--limit", "1");
+
+        JsonElement? exclusion = data.GetProperty("excluded_fields").EnumerateArray()
+            .Cast<JsonElement?>()
+            .FirstOrDefault(e => e!.Value.GetProperty("field").GetString() == field);
+
+        Assert.That(exclusion, Is.Not.Null, $"{fileType}.{field} must be named in excluded_fields");
+        Assert.That(exclusion!.Value.GetProperty("reason").GetString(), Does.StartWith("a dictionary"));
     }
 
     [Test]
@@ -490,6 +519,27 @@ public class ReadingCoverageTests
             "mzLib leaves Casanovo's IsDecoy at its default false and never assigns it, so false " +
             "would mean 'unknown' and let a caller filter on a fabricated column — the same trap " +
             "the quantifiable view already refuses for MSFragger.");
+    }
+
+    [TestCase(SupportedFileType.MzIdentML)]
+    [TestCase(SupportedFileType.MzIdentMLGz)]
+    public void MzIdentMLIsDecoyIsNull_AndItsCaveatsSaySo(SupportedFileType fileType)
+    {
+        // mzIdentML's isDecoy attribute is optional and defaults to false, so a writer that omits it
+        // reads as a target. Kept off the DecoysAreReported allowlist for the same reason as
+        // Casanovo; read-records still carries mzLib's own boolean.
+        JsonElement data = Invoke("readers", "read-matches", "--path", FixtureFor(fileType), "--limit", "2");
+
+        List<string> caveats = data.GetProperty("caveats").EnumerateArray().Select(c => c.GetString()!).ToList();
+        Assert.Multiple(() =>
+        {
+            foreach (JsonElement flag in data.GetProperty("columns").GetProperty("is_decoy").EnumerateArray())
+                Assert.That(flag.ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(caveats, Has.Some.StartsWith("is_decoy is null for this format. mzIdentML"));
+            Assert.That(caveats, Has.Some.Contains("SkippedMatches"),
+                "mzLib drops items it cannot represent into a list the bridge does not report; " +
+                "until it does, the caveat is the only place a caller learns rows can be missing.");
+        });
     }
 
     [Test]
@@ -804,8 +854,8 @@ public class ReadingCoverageTests
         [
             ("MsFraggerPsm.cs:231", "IsDecoy"),
             ("MsFraggerPsm.cs:233", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:89", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:162", "FullSequence"),
+            ("SpectrumMatchFromTsv.cs:119", "MonoisotopicMass"),
+            ("SpectrumMatchFromTsv.cs:194", "FullSequence"),
             ("SpectrumMatchTsvReader.cs:71", "catch"),
             ("PsmFromTsvFile.cs:17", "warnings"),
             ("Ms1Feature.cs:84", "ChargeState"),
@@ -822,6 +872,12 @@ public class ReadingCoverageTests
             ("Mgf.cs:346", "MzRange"),
             ("Mgf.cs:350", "msLevel"),
             ("MsAlign.cs:526", "MzRange"),
+            ("MzIdentMLResultFile.cs:123", "skipped"),
+            ("MzIdentMLResultFile.cs:159", "OneBasedScanNumber"),
+            ("MzIdentMLResultFile.cs:173", "IsDecoy"),
+            ("MzIdentMLResultFile.cs:177", "Rank"),
+            ("MzIdentMLResultFile.cs:179", "Scores"),
+            ("MzIdentMLRecord.cs:45", "Accession"),
         ];
 
         var wrong = new List<string>();

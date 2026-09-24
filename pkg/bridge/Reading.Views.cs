@@ -223,6 +223,40 @@ internal static partial class Reading
                     "the peptide is unmodified, but a populated one is mzLib's interpretation of a " +
                     "mass, not the search engine's own call.");
                 break;
+
+            case SupportedFileType.MzIdentML:
+            case SupportedFileType.MzIdentMLGz:
+                caveats.Add(
+                    "is_decoy is null for this format. mzIdentML's isDecoy attribute is optional and " +
+                    "defaults to false, and mzLib reports a decoy only when every peptide evidence says " +
+                    "so (MzIdentMLResultFile.cs:173), so false cannot be told apart from 'not stated'. " +
+                    "read-records carries mzLib's boolean for a caller who knows the writer sets it.");
+                caveats.Add(
+                    "Every SpectrumIdentificationItem is a row, not only the matches the submitter " +
+                    "accepted: lower-ranked candidates and items that fail the threshold are here too. " +
+                    "rank and pass_threshold are in read-records, not in this view " +
+                    "(MzIdentMLResultFile.cs:177). Filter on them before counting identifications.");
+                caveats.Add(
+                    "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:159). " +
+                    "'scan=N' gives N, but 'index=N', which peak-list input carries, is a zero-based " +
+                    "position in the file and gives N + 1, not an instrument scan number. -1 means the " +
+                    "nativeID had neither.");
+                caveats.Add(
+                    "Items mzLib cannot represent as one linear match are skipped, not failed: " +
+                    "crosslinks, modifications without a resolvable UNIMOD accession, substitutions, and " +
+                    "two modifications on one residue (MzIdentMLResultFile.cs:123). mzLib lists them in " +
+                    "SkippedMatches, which the bridge does not report yet, so record_count can be smaller " +
+                    "than the number of items in the file.");
+                caveats.Add(
+                    "The engine's own scores (for example MS-GF:SpecEValue) are a dictionary " +
+                    "(MzIdentMLResultFile.cs:179), which read-records names in excluded_fields and does " +
+                    "not project. q_value is the only confidence value that crosses, and it is null when " +
+                    "the file reports none.");
+                caveats.Add(
+                    "accession joins every protein the item's peptide evidence names with '|' " +
+                    "(MzIdentMLRecord.cs:45), the same character a UniProt header uses inside one " +
+                    "accession, so the cell cannot be split back into proteins reliably.");
+                break;
         }
 
         return caveats;
