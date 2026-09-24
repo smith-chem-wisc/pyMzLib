@@ -13,28 +13,29 @@ namespace MzLibBridge;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Reading.ReadResults"/> reads the <c>quantifiable</c> view, which exactly three of
-/// mzLib's twenty-nine file types implement. That is a real and useful view — it is what FlashLFQ
-/// consumes — but it left twenty-six formats readable by mzLib and unreachable from a binding. The
+/// <see cref="Reading.ReadResults"/> reads the <c>quantifiable</c> view, which four of mzLib's
+/// thirty-six file types implement. That is a real and useful view — it is what FlashLFQ
+/// consumes — but it leaves thirty-two formats readable by mzLib and unreachable from a binding. The
 /// verbs here close that gap, in two different ways, because the gap has two different shapes.
 /// </para>
 /// <para>
 /// <b>The typed views</b> — <c>read-features</c> (<see cref="IMs1FeatureFile"/>) and
 /// <c>read-matches</c> (<see cref="ISpectralMatch"/>) and <c>read-spectra</c>
 /// (<see cref="MsDataFile"/>) — are cross-format like <c>read-results</c>: a fixed column set, the
-/// same for every format that offers the view, safe to compare between files. They add nine of the
-/// twenty-six.
+/// same for every format that offers the view, safe to compare between files. They add fifteen of
+/// the thirty-two.
 /// </para>
 /// <para>
 /// <b><c>read-records</c> is the exhaustive one</b>, and it is a deliberately different animal. It
-/// works on all thirty-two, including the fifteen that belong to no cross-format interface at all
-/// (TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, …), by
-/// projecting each format's <i>own</i> record type. So its columns are <b>not</b> uniform: reading a
-/// TopPIC file gives you TopPIC's thirty-odd columns under TopPIC's own names, and reading a Crux
-/// file gives you Crux's. That is the honest shape of the data — mzLib does not normalise these
-/// formats onto a common record, and inventing a normalisation here would be the bridge answering a
-/// question mzLib cannot. The column names are therefore reported in every response, and a caller
-/// who wants comparable numbers across formats wants a typed view, not this verb.
+/// works on all thirty-six, including the seventeen that belong to no cross-format interface at all
+/// (TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, MetaMorpheus's
+/// protein-group and peptide tables, …), by projecting each format's <i>own</i> record type. So its
+/// columns are <b>not</b> uniform: reading a TopPIC file gives you TopPIC's thirty-odd columns under
+/// TopPIC's own names, and reading a Crux file gives you Crux's. That is the honest shape of the
+/// data — mzLib does not normalise these formats onto a common record, and inventing a
+/// normalisation here would be the bridge answering a question mzLib cannot. The column names are
+/// therefore reported in every response, and a caller who wants comparable numbers across formats
+/// wants a typed view, not this verb.
 /// </para>
 /// <para>
 /// What <c>read-records</c> buys, in exchange for giving up uniformity, is that <b>no field is
@@ -47,7 +48,7 @@ internal static partial class Reading
 {
     /// <summary>
     /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c> — any of the
-    /// 32 file types, as a table of its own native fields.
+    /// 36 file types, as a table of its own native fields.
     /// </summary>
     /// <remarks>
     /// The only verb here with no view requirement: if <c>readers identify</c> succeeds on a path,
@@ -599,8 +600,8 @@ internal static partial class Reading
         /// <c>feature_score</c>. That rule has exactly one documented exception, and it is not
         /// optional: <see cref="IQuantifiableRecord.RetentionTime"/> and
         /// <see cref="IQuantifiableRecord.MonoisotopicMass"/> are typed as non-nullable doubles, so
-        /// mzLib assigns literal <c>-1</c> when the column is missing (SpectrumMatchFromTsv.cs:198,
-        /// :89).
+        /// mzLib assigns literal <c>-1</c> when the column is missing (SpectrumMatchFromTsv.cs:234,
+        /// :119).
         /// </para>
         /// <para>
         /// Those two members are projected by <c>read-results</c> as null, and
@@ -679,7 +680,11 @@ internal static partial class Reading
             if (SequenceElementOf(type) is Type element && IsScalar(Nullable.GetUnderlyingType(element) ?? element))
                 return null;
 
-            if (typeof(IDictionary).IsAssignableFrom(type))
+            // The generic check matters: IReadOnlyDictionary<K, V> does not implement the
+            // non-generic IDictionary, so without it mzLib 1.0.592's per-sample tables
+            // (ProteinGroupFromTsv.SampleGroups, QuantifiedPeptideFromTsv.Samples) and
+            // MzIdentMLRecord.Scores fell through to the list branch and were excluded as "a list".
+            if (typeof(IDictionary).IsAssignableFrom(type) || IsGenericDictionary(type))
                 return "a dictionary has no faithful column shape; read it through the typed view or mzLib directly";
 
             if (SequenceElementOf(type) is not null)
@@ -694,6 +699,12 @@ internal static partial class Reading
             || type == typeof(string) || type == typeof(decimal)
             || type == typeof(DateTime) || type == typeof(DateTimeOffset)
             || type == typeof(TimeSpan) || type == typeof(Guid);
+
+        /// <summary>A type that is, or implements, <c>IDictionary&lt;K, V&gt;</c> or <c>IReadOnlyDictionary&lt;K, V&gt;</c>.</summary>
+        private static bool IsGenericDictionary(Type type) =>
+            type.GetInterfaces().Prepend(type).Any(contract => contract.IsGenericType
+                && (contract.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                    || contract.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>)));
 
         /// <summary>The element type of a non-string sequence, or null if it is not one.</summary>
         private static Type? SequenceElementOf(Type type)

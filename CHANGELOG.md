@@ -7,8 +7,34 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Changed
-- **The bridge is built from mzLib 1.0.591** (was the 8931f219 commit), so mzLib's fixes to MGF,
-  mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases arrive with it.
+- **The bridge is built from mzLib 1.0.592** (was the 8931f219 commit, via 1.0.591), so mzLib's
+  fixes to MGF, mzML and mzIdentML reading and writing, semi-specific digestion and RNA databases
+  arrive with it.
+- **Four more formats: 36, up from 32** (mzLib 1.0.592). `read_records()` and `identify()` now take
+  mzIdentML (`.mzid`, and `.mzid.gz` read without unpacking it, mzLib #1313), MetaMorpheus's
+  `AllQuantifiedProteinGroups.tsv` and its `AllQuantifiedPeptides.tsv`, which FlashLFQ also writes
+  (#1347). Each was "file type not supported" before. mzIdentML also offers the `spectral_match`
+  view, so `read_matches()` reads it; the two quantification tables have no uniform view. Their
+  per-sample values (`sample_groups`, `samples`) and mzIdentML's engine `scores` are dictionaries,
+  which `read_records()` names in `excluded_fields` and does not project. Typed functions for them
+  are planned.
+- **`read_matches()` on mzIdentML carries its own caveats**: `is_decoy` is `None` because the
+  file's `isDecoy` attribute defaults to false when a writer omits it; every identification item
+  is a row, not only accepted ones; items mzLib cannot represent (crosslinks, unresolvable
+  modifications, substitutions) are skipped, and pyMzLib does not report which yet.
+- **`excluded_fields` names a read-only dictionary as a dictionary.** It said "a list of composite
+  values" for any `IReadOnlyDictionary`, which described the new readers' per-sample fields wrongly.
+- **`read_records()` on an older MetaMorpheus `.psmtsv`/`.osmtsv` now fills `pro_forma`** (mzLib
+  #1346). Files from MetaMorpheus 1.1.11 and earlier have no ProForma column, so it was always
+  `None`; mzLib now converts `full_sequence`. Ambiguous (`|`-joined) or unconvertible rows are still
+  `None`. It costs time: a 271,551-row, 295 MB file read in 15.6 s, up from 12.9 s (+21%).
+- **`read_records()` on a FlashLFQ `QuantifiedPeaks.tsv`: `mbr_score` is `None` where it was `0`**
+  (mzLib #1345), for every peak without a score. Current FlashLFQ and MetaMorpheus 1.1.11 peaks
+  tables, which have no `MBR Score` column, read now instead of failing with
+  `HeaderValidationException`, and seven columns join the record: `organism`, `peak_fwhm`,
+  `peak_fwhm_status`, `pip_q_value`, `pip_pep`, `decoy_peptide` and `random_rt`.
+- **The psmtsv caveat's line citations moved** to `SpectrumMatchFromTsv.cs:119` and `:194`, where
+  mzLib #1346 left the lines they describe. The claims themselves are unchanged.
 - **`read_records()` reads Pytheas match output**, a 32nd format (mzLib #1277). It has no uniform
   view. A `.txt` file is read as Pytheas when a `#theoretical_digest` line appears in its first five
   lines, and as Crux otherwise.

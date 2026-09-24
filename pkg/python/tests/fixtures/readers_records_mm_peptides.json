@@ -1,0 +1,60 @@
+{
+ "path": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\eebe6abc-2c7e-4422-9d4e-f0aaa03b3152\\scratchpad\\wt_pymzlib_pin\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\ExternalFileTypes\\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
+ "file_type": "FlashLFQQuantifiedPeptide",
+ "reader": "QuantifiedPeptideFile",
+ "record_type": "QuantifiedPeptideFromTsv",
+ "views": [],
+ "record_count": 3,
+ "returned_count": 3,
+ "offset": 0,
+ "truncated": false,
+ "excluded_fields": [
+  {
+   "field": "samples",
+   "type": "IReadOnlyDictionary<String, QuantifiedPeptideSample>",
+   "reason": "a dictionary has no faithful column shape; read it through the typed view or mzLib directly"
+  }
+ ],
+ "failed_fields": [],
+ "column_names": [
+  "sequence",
+  "base_sequence",
+  "peak_order",
+  "protein_groups",
+  "gene_names",
+  "organism"
+ ],
+ "columns": {
+  "sequence": [
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK"
+  ],
+  "base_sequence": [
+   "CACASHVAK",
+   "CAILTTLIHLVQGLGADSK",
+   "CCAADDKEACFAVEGPK"
+  ],
+  "peak_order": [
+   null,
+   null,
+   null
+  ],
+  "protein_groups": [
+   "Q16643",
+   "Q9UI26",
+   "P02769"
+  ],
+  "gene_names": [
+   "DBN1",
+   "IPO11",
+   "ALB"
+  ],
+  "organism": [
+   "Homo sapiens",
+   "Homo sapiens",
+   "Bos taurus"
+  ]
+ },
+ "output": null
+}

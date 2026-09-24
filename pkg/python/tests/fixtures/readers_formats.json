@@ -1,5 +1,5 @@
 {
-  "format_count": 32,
+  "format_count": 36,
   "formats": [
     {
       "file_type": "Ms1Feature",
@@ -225,6 +225,34 @@
       "file_type": "PytheasResult",
       "extension": ".txt",
       "reader": "PytheasResultFile",
+      "views": []
+    },
+    {
+      "file_type": "MzIdentML",
+      "extension": ".mzid",
+      "reader": "MzIdentMLResultFile",
+      "views": [
+        "spectral_match"
+      ]
+    },
+    {
+      "file_type": "MzIdentMLGz",
+      "extension": ".mzid.gz",
+      "reader": "MzIdentMLResultFile",
+      "views": [
+        "spectral_match"
+      ]
+    },
+    {
+      "file_type": "MetaMorpheusQuantifiedProteinGroups",
+      "extension": "QuantifiedProteinGroups.tsv",
+      "reader": "ProteinGroupFromTsvFile",
+      "views": []
+    },
+    {
+      "file_type": "FlashLFQQuantifiedPeptide",
+      "extension": "QuantifiedPeptides.tsv",
+      "reader": "QuantifiedPeptideFile",
       "views": []
     }
   ]

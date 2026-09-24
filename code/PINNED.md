@@ -71,3 +71,4 @@ document and nothing may be added below it.
 | 2026-08-31 | `1699ac4b` | 1.0.588 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
 | 2026-09-07 | `8931f219` | 1.0.589 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
 | 2026-09-21 | `45386c82` | 1.0.591 | tracked automatically by `upstream-watch.yml`; see the pull request for the commits it brought in |
+| 2026-09-24 | `23c2490e` | 1.0.592 | **#1313** (mzIdentML reader, two new file types) and **#1347** (MetaMorpheus protein-group and FlashLFQ peptide tables, two more) take `readers formats` from 32 to 36; **#1345** (FlashLFQ peaks: `mbr_score` null when absent, seven new columns, current-format files read) and **#1346** (`pro_forma` computed for older psmtsv) change values on `read-records`; **#1335** changes `sdrf pool` drift findings. Opened by hand so the tripwires land with the bump |

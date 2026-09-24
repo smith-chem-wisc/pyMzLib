@@ -174,6 +174,33 @@ public class ReadingTests
         Assert.That(ViewsOf(result), Is.EqualTo(new[] { "spectral_match" }));
     }
 
+    [TestCase("run.mzid", "MzIdentML")]
+    [TestCase("run.mzid.gz", "MzIdentMLGz")]
+    public void Identify_MzIdentML_ReportsSpectralMatchView(string name, string fileType)
+    {
+        // mzLib #1313: both forms parse into MzIdentMLRecord, which implements ISpectralMatch, so
+        // they arrive with read-matches already working rather than as two more viewless formats.
+        JsonElement result = Run("readers", "identify", "--path", Touch(name));
+
+        Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo(fileType));
+        Assert.That(result.GetProperty("reader").GetString(), Is.EqualTo("MzIdentMLResultFile"));
+        Assert.That(ViewsOf(result), Is.EqualTo(new[] { "spectral_match" }));
+    }
+
+    [TestCase("AllQuantifiedProteinGroups.tsv", "MetaMorpheusQuantifiedProteinGroups", "ProteinGroupFromTsvFile")]
+    [TestCase("AllQuantifiedPeptides.tsv", "FlashLFQQuantifiedPeptide", "QuantifiedPeptideFile")]
+    public void Identify_QuantifiedTables_ReportNoView(string name, string fileType, string reader)
+    {
+        // mzLib #1347: each table parses into its own record type and shares no cross-format
+        // interface, so read-records is the only way in. Their per-sample values are dictionaries,
+        // which read-records names in excluded_fields rather than projecting.
+        JsonElement result = Run("readers", "identify", "--path", Touch(name));
+
+        Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo(fileType));
+        Assert.That(result.GetProperty("reader").GetString(), Is.EqualTo(reader));
+        Assert.That(ViewsOf(result), Is.Empty);
+    }
+
     [Test]
     public void Identify_BareTsv_DispatchedOnItsFirstLine_ReportsFlashDeconv()
     {
@@ -270,8 +297,8 @@ public class ReadingTests
         // comparison is tautological — it checks the output against its own source — so mzLib adding
         // a 30th type would pass it green while the guide's supported-format table silently went
         // stale. The literal is the tripwire that forces the docs to be regenerated.
-        Assert.That(formats.GetArrayLength(), Is.EqualTo(32),
-            "mzLib recognises 32 result-file types; a change here means the docs table needs regenerating");
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(36),
+            "mzLib recognises 36 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
             "every enum member must appear in the listing");
 
@@ -297,7 +324,7 @@ public class ReadingTests
     public void Formats_ExactlyFourTypesOfferTheQuantifiableView()
     {
         // The headline fact about this tranche, pinned so a change in mzLib is DETECTED rather than
-        // silently widening or narrowing what pyMzLib claims. mzLib reads 32 formats; only these
+        // silently widening or narrowing what pyMzLib claims. mzLib reads 36 formats; only these
         // four implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
         // If mzLib adds one, this test fails and the docs get updated — which is the point.
         //
@@ -314,7 +341,7 @@ public class ReadingTests
     }
 
     [Test]
-    public void Formats_MostTypesHaveNoUniformViewAtAll()
+    public void Formats_NoViewIsTheCommonestAnswer()
     {
         int viewless = Run("readers", "formats").GetProperty("formats").EnumerateArray()
             .Count(f => ViewsOf(f).Length == 0);
@@ -323,7 +350,10 @@ public class ReadingTests
         // widening the viewless set, which is the only thing this test is for.
         // 14 -> 15 with mzLib #1277: PytheasResult parses into its own record type and implements
         // no cross-format interface.
-        Assert.That(viewless, Is.EqualTo(15),
+        // 15 -> 17 with mzLib 1.0.592: #1347's MetaMorpheus protein-group and FlashLFQ peptide
+        // tables each parse into their own record type. #1313's two mzIdentML types do NOT join
+        // them: MzIdentMLRecord implements ISpectralMatch, so both offer spectral_match.
+        Assert.That(viewless, Is.EqualTo(17),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
     }

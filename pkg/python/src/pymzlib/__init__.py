@@ -13,7 +13,7 @@ Read a mass-spectrometry data file - **mzML**, Thermo ``.raw``, Bruker ``.d``, t
     scans = pymzlib.readers.read_spectra("run.mzML", ms_order=2, limit=5, peaks=True)
     print(scans.scan_count, scans.columns["retention_time"])
 
-The same module identifies and reads all 32 file types mzLib knows, search results included.
+The same module identifies and reads all 36 file types mzLib knows, search results included.
 The PRIDE Archive is covered too::
 
     files = pymzlib.pride.list_files("PXD000001")

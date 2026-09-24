@@ -1,6 +1,6 @@
 """Tests for the four verbs that make readers coverage exhaustive.
 
-``read_results`` reaches three of mzLib's twenty-nine file types. These four reach the rest:
+``read_results`` reaches four of mzLib's thirty-six file types. These four reach the rest:
 ``read_records`` reads any of them into that format's own fields, and ``read_features``,
 ``read_matches`` and ``read_spectra`` project the three typed views that ``read_results`` is not.
 
@@ -9,7 +9,7 @@ rather than hand-written, so a wire-shape change shows up here as a parse failur
 fixture that agrees with a Python file and with nothing else. What is under test is only the
 Python layer's job: assemble the arguments, parse the payload into typed objects, and refuse a bad
 argument before spawning anything. The reading itself is mzLib's, and the bridge's C# suite proves
-all twenty-nine types are reachable.
+all thirty-six types are reachable.
 """
 
 from __future__ import annotations
@@ -115,6 +115,46 @@ def test_read_records_rows_view_matches_the_columns(recorded):
     assert list(rows[0]) == [n for n in result.column_names if n in result.columns]
 
 
+@pytest.mark.parametrize(
+    ("fixture", "file_type", "record_type", "dictionary", "scalar"),
+    [
+        # mzLib 1.0.592 (#1347): the per-sample values of both MetaMorpheus quantification tables
+        # are dictionaries keyed by sample, so read_records names them rather than projecting them.
+        ("readers_records_mm_protein_groups.json", "MetaMorpheusQuantifiedProteinGroups",
+         "ProteinGroupFromTsv", "sample_groups", "protein_group_name"),
+        ("readers_records_mm_peptides.json", "FlashLFQQuantifiedPeptide",
+         "QuantifiedPeptideFromTsv", "samples", "base_sequence"),
+        # mzLib 1.0.592 (#1313): the engine's scores are a dictionary keyed by score name.
+        ("readers_records_mzid_gz.json", "MzIdentMLGz", "MzIdentMLRecord", "scores", "q_value"),
+    ],
+)
+def test_read_records_names_the_new_readers_dictionaries_as_excluded(
+    fixture, file_type, record_type, dictionary, scalar, recorded
+):
+    recorded(fixture)
+
+    result = readers.read_records("file")
+
+    assert result.file_type == file_type
+    assert result.record_type == record_type
+    assert scalar in result.column_names
+    assert dictionary not in result.column_names
+    excluded = {entry["field"]: entry["reason"] for entry in result.excluded_fields}
+    # Named, and named as what it is: before the bridge checked the generic dictionary
+    # interfaces, these were excluded as "a list of composite values".
+    assert excluded[dictionary].startswith("a dictionary")
+
+
+def test_read_records_carries_the_mzidentml_fields_the_match_view_does_not(recorded):
+    recorded("readers_records_mzid_gz.json")
+
+    result = readers.read_records("run.mzid.gz")
+
+    # Every identification item is a row, so rank and pass_threshold are what a caller filters on.
+    assert result.views == ["spectral_match"]
+    assert {"rank", "pass_threshold", "q_value", "is_decoy"} <= set(result.column_names)
+
+
 def test_read_records_sends_the_expected_verb_and_options(captured):
     readers.read_records("  a.tsv  ", limit=5, offset=2, out=" out.tsv ")
 
@@ -190,6 +230,20 @@ def test_casanovo_is_decoy_is_none_not_false(recorded):
     # fabricated column - the same trap read_results already refuses for MSFragger.
     assert set(result.columns["is_decoy"]) == {None}
     assert any("de novo" in caveat for caveat in result.caveats)
+
+
+def test_mzidentml_is_decoy_is_none_and_its_caveats_say_why(recorded):
+    recorded("readers_matches_mzid.json")
+
+    result = readers.read_matches("run.mzid")
+
+    # mzIdentML's isDecoy attribute is optional and defaults to false, so false cannot be told
+    # apart from "not stated". The same rule as Casanovo.
+    assert result.file_type == "MzIdentML"
+    assert set(result.columns["is_decoy"]) == {None}
+    assert any("isDecoy attribute is optional" in caveat for caveat in result.caveats)
+    # mzLib skips items it cannot represent into a list the bridge does not report yet.
+    assert any("SkippedMatches" in caveat for caveat in result.caveats)
 
 
 def test_mspathfindert_reports_real_decoy_flags(recorded):

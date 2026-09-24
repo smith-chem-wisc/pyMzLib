@@ -136,14 +136,14 @@ def test_formats_parses_every_entry(recorded_formats):
 
     # An explicit, non-vacuous count first: the all(...) checks below are trivially true over an
     # empty sequence, so without this a parser that returned nothing would pass this test outright.
-    assert len(formats) == 32
+    assert len(formats) == 36
     assert len(formats) == recorded_formats["format_count"]
     assert all(isinstance(f, readers.Format) for f in formats)
     assert all(f.file_type for f in formats)
 
 
 def test_exactly_four_formats_offer_the_quantifiable_view(recorded_formats):
-    # The headline fact about this module, pinned on the Python side too: mzLib reads 32 formats
+    # The headline fact about this module, pinned on the Python side too: mzLib reads 36 formats
     # and only these four can feed flashlfq.quantify(). Documented in the module docstring, so if
     # mzLib widens the set this test fails and the docs get corrected rather than quietly lying.
     # It just did: mzLib #1120 added DiaNnReport, which is how DIA data reaches quantify() at all.
@@ -152,13 +152,15 @@ def test_exactly_four_formats_offer_the_quantifiable_view(recorded_formats):
     assert sorted(quantifiable) == sorted(["psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport"])
 
 
-def test_most_formats_have_no_uniform_view(recorded_formats):
+def test_no_view_is_the_commonest_answer(recorded_formats):
     viewless = [f for f in readers.formats() if not f.views]
 
     # The exact count, not "more than ten": a loose bound cannot detect mzLib narrowing or widening
     # the viewless set, which is the only thing this test is for. The C# sibling
-    # Formats_MostTypesHaveNoUniformViewAtAll pins 15 and documents why a loose bound is inadequate.
-    assert len(viewless) == 15, "an empty view list is the common case; a change here means mzLib " \
+    # Formats_NoViewIsTheCommonestAnswer pins 17 and documents why a loose bound is inadequate.
+    # 15 -> 17 with mzLib 1.0.592 (#1347's protein-group and peptide tables); #1313's mzIdentML
+    # types offer spectral_match instead.
+    assert len(viewless) == 17, "an empty view list is the common case; a change here means mzLib " \
         "changed which formats implement a shared interface and the docs table needs regenerating"
 
 
@@ -428,7 +430,7 @@ def test_docstrings_are_ascii_so_help_is_readable_on_a_windows_console():
 def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
     """The recording must not drift from what the bridge actually emits.
 
-    Without this the Python 4-of-32 tests are pinned to a frozen JSON file, so mzLib could add a
+    Without this the Python 4-of-36 tests are pinned to a frozen JSON file, so mzLib could add a
     fifth quantifiable type - or the wire shape could change - and they would keep passing against
     a stale recording while claiming to guard the contract. The C# side pins the live value; this
     is what makes the Python side a real second pin rather than an echo of a file on disk.
