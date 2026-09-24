@@ -102,6 +102,7 @@ nav:
       - "Wire verbs: readers": reference/readers.md
       - "Wire verbs: bridge": reference/bridge.md
       - "Wire verbs: sdrf": reference/sdrf.md
+      - "Wire verbs: proteins": reference/proteins.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

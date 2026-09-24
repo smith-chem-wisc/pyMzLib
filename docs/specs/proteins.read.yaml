@@ -1,0 +1,116 @@
+# Written 2026-09-23 from pyMzLib pkg/bridge/Proteins.cs (Read, LoadDatabases, InputsFrom) on branch
+# feat/proteins-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e (1.0.592). The example fixture was
+# recorded from the live bridge through pymzlib.proteins.read. Answers pyMzLib PYMZ-B3 item 7
+# (accession -> organism, NcbiTaxonomyId) and BULK.md §6 (#1336 GO terms, #1338 Ensembl links).
+verb: proteins read
+module: proteins
+summary: >-
+  Read protein databases (UniProt XML or FASTA) into one row per protein, with GO terms and Ensembl
+  gene links as long tables on request.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+  - {symbol: ProteinDbLoader.LoadProteinFasta, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+  - {symbol: Protein.NcbiTaxonomyId, path: mzLib/Proteomics/Protein/Protein.cs, pin: 23c2490e}
+  - {symbol: Protein.GoTerms, path: mzLib/Proteomics/Protein/GoTerm.cs, pin: 23c2490e}
+  - {symbol: Protein.EnsemblGeneReferences, path: mzLib/Proteomics/Protein/EnsemblGeneReference.cs, pin: 23c2490e}
+  - {symbol: Peptide.MonoisotopicMass, path: mzLib/Proteomics/AminoAcidPolymer/AminoAcidPolymer.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/75556", for: "The Gene Ontology and its three aspects (Ashburner et al. 2000, Nature Genetics)"}
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, the source of the XML's organism, taxonomy, GO and Ensembl cross-references (UniProt Consortium 2025, NAR)"}
+  - {doi: "10.1093/nar/gkaf1239", for: "Ensembl, whose transcript and gene ids the ensembl_genes table carries (Ensembl 2026, NAR)"}
+
+params:
+  - {name: path, type: path, required: false, unit: null, range: null, default: null, doc: "One database: UniProt XML (.xml) or FASTA (.fasta, .fa, .faa, .fas), each optionally .gz. Exactly one of path and paths-stdin."}
+  - {name: contaminant, type: flag, required: false, unit: null, range: null, default: false, doc: "Load the --path database as contaminants (mzLib isContaminant). Usage error with paths-stdin."}
+  - {name: paths-stdin, type: flag, required: false, unit: null, range: null, default: false, doc: "Databases on stdin, one per line, each optionally followed by a tab and 'contaminant' or 'target'. Blank lines ignored; a repeated path is a usage error (BULK.md §1)."}
+  - {name: accessions-stdin, type: flag, required: false, unit: null, range: null, default: false, doc: "Keep only proteins whose accession exactly equals one read from stdin (one per line). With paths-stdin, stdin holds the paths, then a line holding only '--', then the accessions. Applies to every table."}
+  - {name: tables, type: "string[]", required: false, unit: null, range: "subset of proteins, go_terms, ensembl_genes", default: "proteins", doc: "Comma list of the tables to return. A table not asked for is null."}
+  - {name: sequences, type: flag, required: false, unit: null, range: null, default: false, doc: Add a sequence column to the proteins table.}
+  - {name: threads, type: int, required: false, unit: null, range: ">= 1, or -1 for every core", default: 1, doc: "Databases loaded at once. Output is byte-identical at any value (tested at 1 and 4). mzLib's own maxThreads is pinned to 1 per load, so the degree is owned here alone."}
+  - {name: on-error, type: string, required: false, unit: null, range: "fail | skip", default: fail, doc: "fail raises the failure of the LOWEST failing input index; skip records it in files[i].error and reads the rest."}
+
+result:
+  envelope_fields:
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: Databases given.}
+    - {wire: read_count, type: int, unit: files, nullable: false, null_means: null, doc: Databases read.}
+    - {wire: failed_count, type: int, unit: files, nullable: false, null_means: null, doc: "Databases that failed (on-error skip only)."}
+    - {wire: record_count, type: int, unit: proteins, nullable: false, null_means: null, doc: Proteins that passed the accession filter (rows of the proteins table when requested).}
+    - {wire: tables, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The tables returned, in the order proteins, go_terms, ensembl_genes."}
+    - {wire: accession_filter_count, type: int, unit: accessions, nullable: true, null_means: "no accession filter was given", doc: Distinct accessions in the filter.}
+    - {wire: accessions_not_found, type: "string[]", unit: null, nullable: true, null_means: "no accession filter was given", doc: "Filter accessions no database contained, in the order given. Matching is exact: P04406-1 does not find P04406."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Whole-result traps, e.g. proteins with no computable mass."}
+    - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input in input order (BULK.md §3): source_index, path (absolute), file_type (UniProtXml | Fasta | null if it failed first), reader, contaminant, protein_count, decoy_count, record_count, search_database_sha256 (null here), caveats, absent_fields, error (null or {kind: usage|correctness, type, message}). Present with --path too, so one shape serves both."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: true, null_means: "the proteins table was not requested", doc: Column order of the proteins table.}
+    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the proteins table was not requested", doc: Column name to per-protein values.}
+    - {wire: go_terms, type: object, unit: null, nullable: true, null_means: "go_terms was not requested", doc: "{row_count, column_names, columns}: one row per (protein, GO id), with columns source_index, source_path, accession, go_id, aspect, term_name, evidence_codes, projects (typed under result.tables.go_terms in this spec)."}
+    - {wire: ensembl_genes, type: object, unit: null, nullable: true, null_means: "ensembl_genes was not requested", doc: "{row_count, column_names, columns}: one row per (protein, Ensembl transcript), with columns source_index, source_path, accession, transcript_id, protein_id, gene_id, versioned_gene_id, gene_version (typed under result.tables.ensembl_genes in this spec)."}
+  columns:
+    - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, doc: "Position of the input in files (paths first, in order)."}
+    - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, doc: Absolute path of that input.}
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "As the database wrote it. A FASTA with a repeated accession gets _2, _3 appended by mzLib; an XML entry with an applied genotype variant gets a variant suffix (see caveats)."}
+    - {wire: name, type: string, unit: null, nullable: true, null_means: "the database records no entry name", doc: "Entry name, e.g. G3P_HUMAN."}
+    - {wire: full_name, type: string, unit: null, nullable: true, null_means: "the database records no protein name", doc: Recommended protein name.}
+    - {wire: organism, type: string, unit: null, nullable: true, null_means: "the database records no organism", doc: "Scientific name (the XML organism element, FASTA OS=)."}
+    - {wire: ncbi_taxonomy_id, type: string, unit: null, nullable: true, null_means: "the entry records no taxonomy id (a FASTA header without OX=)", doc: "NCBI taxon, e.g. \"9606\". A string because it is an identifier."}
+    - {wire: primary_gene_name, type: string, unit: null, nullable: true, null_means: "the entry names no primary gene", doc: "Primary gene name (the XML gene name of type primary, FASTA GN=)."}
+    - {wire: gene_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every gene name the entry gives, in file order (primary, synonyms, ORF, locus). May be empty; may repeat when the file repeats."}
+    - {wire: length, type: int, unit: residues, nullable: false, null_means: null, doc: Sequence length.}
+    - {wire: monoisotopic_mass, type: float, unit: Da, nullable: true, null_means: "the sequence holds a letter with no defined residue mass (X, B, Z, J)", doc: "Monoisotopic mass of the unmodified sequence as written plus one water: the precursor, initiator Met and signal peptide included."}
+    - {wire: is_contaminant, type: bool, unit: null, nullable: false, null_means: null, doc: Loaded from a database marked contaminant.}
+    - {wire: is_decoy, type: bool, unit: null, nullable: false, null_means: null, doc: "The file marks it a decoy (accession prefix DECOY). None are generated."}
+    - {wire: is_entrapment, type: bool, unit: null, nullable: false, null_means: null, doc: "mzLib's entrapment flag (FASTA accession containing 'Random', case-insensitive)."}
+    - {wire: ensembl_gene_ids, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Distinct stable Ensembl gene ids (Protein.EnsemblGeneIds), ordinal order. Empty for a FASTA: see absent_fields."}
+    - {wire: sequence, type: string, unit: null, nullable: false, null_means: null, present_when: sequences, doc: The base sequence.}
+  tables:
+    go_terms:
+      - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, doc: Input position.}
+      - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, doc: Input path.}
+      - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: The protein.}
+      - {wire: go_id, type: string, unit: null, nullable: false, null_means: null, doc: "GO accession, e.g. GO:0005737. Unique per protein."}
+      - {wire: aspect, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib GoAspect name: BiologicalProcess, CellularComponent, MolecularFunction, or Unknown when UniProt gave no C:/F:/P: prefix (never inferred)."}
+      - {wire: term_name, type: string, unit: null, nullable: true, null_means: "the reference carried no term property", doc: Term name with the aspect prefix removed.}
+      - {wire: evidence_codes, type: "string[]", unit: null, nullable: false, null_means: null, doc: "ECO ids unioned over UniProt's repeats of this GO id, sorted ordinal. Empty is normal."}
+      - {wire: projects, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Annotating projects (UniProtKB, MGI, HPA, ...), unioned, sorted."}
+    ensembl_genes:
+      - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, doc: Input position.}
+      - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, doc: Input path.}
+      - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: The protein.}
+      - {wire: transcript_id, type: string, unit: null, nullable: true, null_means: "the reference named no transcript", doc: "Ensembl transcript as UniProt wrote it, versioned."}
+      - {wire: protein_id, type: string, unit: null, nullable: true, null_means: "UniProt gave no Ensembl protein id", doc: Ensembl protein id as written.}
+      - {wire: gene_id, type: string, unit: null, nullable: false, null_means: null, doc: "Stable gene id, e.g. ENSG00000111640: the one to join on."}
+      - {wire: versioned_gene_id, type: string, unit: null, nullable: false, null_means: null, doc: "As UniProt wrote it, e.g. ENSG00000111640.15; equal to gene_id when unversioned."}
+      - {wire: gene_version, type: int, unit: null, nullable: true, null_means: "the id carried no numeric version (absent is not 0)", doc: The gene version.}
+
+errors:
+  - {kind: usage, when: "neither or both of path and paths-stdin; contaminant with paths-stdin; no paths on stdin; a blank or repeated path; a role other than target/contaminant; accessions-stdin with no accessions; paths-stdin with accessions-stdin but no '--' line"}
+  - {kind: usage, when: "tables names something else; threads 0 or < -1; on-error not fail/skip; an option given without a value"}
+  - {kind: usage, when: "a database not named .xml or a FASTA extension; a missing database (under skip: recorded in files[i].error with kind usage)"}
+  - {kind: correctness, when: "mzLib cannot parse a database (malformed XML); under skip, recorded with kind correctness"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A FASTA carries no GO or Ensembl cross-references: its files[i].absent_fields is [go_terms, ensembl_genes, ensembl_gene_ids] and it contributes no rows to either table. Empty there means the format is silent, not that no annotation exists."
+  - "Decoys are not generated (DecoyType.None), but decoys already in the file are kept with is_decoy true."
+  - "Sequence variants are not expanded (maxHeterozygousVariants 0), except that mzLib still applies variants a VCF-annotated XML records a genotype for; such proteins carry a variant accession suffix, and the file's caveats count them."
+  - "GO terms are the terms as annotated, not propagated up the GO graph."
+  - "Parallel XML loads share ProteinDbLoader's static modification state; it affects only modification resolution, which this verb does not report, and output was byte-identical at threads 1 and 4."
+
+bindings:
+  py: {name: pymzlib.proteins.read}
+  rust: {name: "mzlib::proteins::read_with", options: ProteinReadOptions}
+  r: {name: proteins_read}
+
+examples:
+  - fixture: proteins_read_human.json
+    py: "db = pymzlib.proteins.read([xml, fasta, mouse], contaminants=[bovine], tables=pymzlib.proteins.TABLES)"
+    rust: "let db = mzlib::proteins::read_with(&[xml, fasta, mouse], &ProteinReadOptions { contaminants: vec![bovine], tables: vec![Table::Proteins, Table::GoTerms, Table::EnsemblGenes], ..Default::default() })?;"
+    r: "db <- proteins_read(c(xml, fasta, mouse), contaminants = bovine, tables = c(\"proteins\", \"go_terms\", \"ensembl_genes\"))"
+
+open_questions:
+  - "Rust (mzlib::proteins::read_with + ProteinReadOptions, Table enum) and R (proteins_read) spellings are intended, not yet implemented; the checker cannot verify them."
+  - "files[] is always present, with --path too, instead of BULK.md §3's flattened single-file block: a new verb has no pre-existing single-file shape to preserve, and one shape is simpler for every binding. Confirm or amend BULK.md."
+  - "Two lists sharing stdin, separated by a line holding only '--', is new wire grammar (also used by proteins classify-peptides). It belongs in CONTRACT.md or BULK.md if adopted."
+  - "result.tables (go_terms, ensembl_genes) is not validated by tools/check_verbs.py, which checks only 'columns'; the pyMzLib tests pin them."
+  - "No --out TSV mode yet (BULK.md §2 mentions one): multi-table output is JSON only, since three tables would need three files."
+  - "proteins_read_filtered.json (an accession-filtered read) is a second recording used by the pyMzLib tests; it is not listed as an example because the doctest replay bridge cannot tell two recordings of one verb apart by stdin."

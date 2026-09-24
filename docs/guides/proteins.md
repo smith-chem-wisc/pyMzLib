@@ -316,6 +316,9 @@ read in one bridge process, in order: `databases` first, then `contaminants`, an
 | `threads` | `1` | Databases read at once; `-1` means every core. The result is **byte-identical** at any value - this is a memory choice, since each database is read whole. |
 | `on_error` | `"fail"` | `"fail"` raises on the first unreadable database in input order; `"skip"` records it in `files[i].error` and reads the rest (`read` and `resolve_genes` only). |
 
+Results come back as JSON tables only: `read` has no `out=` option, because its three tables
+would need three files.
+
 mzLib's loader reads each database exactly as a search would, except that **no decoys are
 generated**. A decoy already in the file (an accession starting `DECOY`) is kept, with
 `is_decoy == True`. A UniProt XML that records a **genotype** (a Spritz-style variant database) still
@@ -341,7 +344,8 @@ and mass; that file's `caveats` say how many.
 
 The same three verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
 `proteins read`, `genes resolve` and `proteins classify-peptides`. See the
-[API reference](../reference.md#pymzlibproteins) for every field.
+[wire-verb reference](../reference/proteins.md) for every parameter and field with its unit, and the
+[API reference](../reference.md#pymzlibproteins) for the Python classes.
 
 [1336]: https://github.com/smith-chem-wisc/mzLib/pull/1336
 [1338]: https://github.com/smith-chem-wisc/mzLib/pull/1338

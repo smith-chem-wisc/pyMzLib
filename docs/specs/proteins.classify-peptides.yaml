@@ -1,0 +1,71 @@
+# Written 2026-09-23 from pyMzLib pkg/bridge/Proteins.cs (ClassifyPeptides, LoadDatabases,
+# InputsFrom) on branch feat/proteins-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e (1.0.592).
+# The example fixture was recorded from the live bridge through pymzlib.proteins.classify_peptides.
+verb: proteins classify-peptides
+module: proteins
+summary: >-
+  Classify peptides as unique to one sequence, shared within a gene, shared across genes, or not in
+  the databases, treating I and L as the same residue.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: PeptideUniquenessClassifier.Classify, path: mzLib/Proteomics/Protein/PeptideUniqueness.cs, pin: 23c2490e}
+  - {symbol: PeptideUniquenessClassifier.DefaultGeneKeys, path: mzLib/Proteomics/Protein/PeptideUniqueness.cs, pin: 23c2490e}
+  - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+  - {symbol: ProteinDbLoader.LoadProteinFasta, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, the entries and gene names the gene keys come from (UniProt Consortium 2025, NAR)"}
+  - {doi: "10.1093/nar/gkaf1239", for: "Ensembl gene ids, the first gene key (Ensembl 2026, NAR)"}
+
+params:
+  - {name: path, type: path, required: false, unit: null, range: null, default: null, doc: "One database. Exactly one of path and paths-stdin. With path, all of stdin is peptides."}
+  - {name: contaminant, type: flag, required: false, unit: null, range: null, default: false, doc: Load the --path database as contaminants (they are still searched).}
+  - {name: paths-stdin, type: flag, required: false, unit: null, range: null, default: false, doc: "stdin holds database paths (each optionally tab 'contaminant'), then a line holding only '--', then the peptides."}
+  - {name: threads, type: int, required: false, unit: null, range: ">= 1, or -1 for every core", default: 1, doc: "Databases loaded at once. mzLib's classifier has no thread knob of its own; it is one pass. Output identical at any value."}
+  - {name: on-error, type: string, required: false, unit: null, range: "fail", default: fail, doc: "Only 'fail' is accepted: every database is one search space, and skipping one would report the peptides it holds as unique."}
+  - {name: peptides, type: "string[]", required: true, unit: null, range: "non-empty, letters A-Z only", default: null, doc: "Read from stdin (not an option). Unmodified base sequences, upper case, one per line; blank lines ignored. One result per peptide, in order, duplicates included."}
+
+result:
+  envelope_fields:
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: Databases searched.}
+    - {wire: peptide_count, type: int, unit: peptides, nullable: false, null_means: null, doc: Rows (input peptides).}
+    - {wire: target_protein_count, type: int, unit: proteins, nullable: false, null_means: null, doc: "Non-decoy proteins searched, contaminants included."}
+    - {wire: decoy_proteins_ignored, type: int, unit: proteins, nullable: false, null_means: null, doc: Decoy entries present in the files and never searched.}
+    - {wire: i_and_l_equivalent, type: bool, unit: null, nullable: false, null_means: null, doc: "Always true: I and L are one residue for matching. On the wire so the rule travels with the result."}
+    - {wire: sharing_counts, type: "map<string,int>", unit: peptides, nullable: false, null_means: null, doc: "Class -> peptides; all four keys always present."}
+    - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "As proteins read; record_count is the target proteins searched from that file."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: Column order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: Column name to per-peptide values.}
+  columns:
+    - {wire: peptide, type: string, unit: null, nullable: false, null_means: null, doc: "Exactly as given (not I/L-folded)."}
+    - {wire: sharing, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib PeptideSharing name: NotInDatabase | Unique (every containing protein has one sequence) | SharedWithinGene (several sequences sharing a gene key) | SharedAcrossGenes."}
+    - {wire: accession_count, type: int, unit: proteins, nullable: false, null_means: null, doc: Target proteins containing the peptide.}
+    - {wire: accessions, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Those proteins, distinct, ordinal order; empty for NotInDatabase."}
+    - {wire: shared_gene_keys, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Gene keys common to all of them (ensembl:ENSG..., gene:ORGANISM:PRIMARY_NAME, entry:UNIPROT_ENTRY), ordinal order. Empty for NotInDatabase and SharedAcrossGenes."}
+
+errors:
+  - {kind: usage, when: "no peptides; a peptide that is not non-empty A-Z (mzLib's ArgumentException, reclassified; the message names the peptide) - lower case and bracketed modifications included"}
+  - {kind: usage, when: "on-error other than fail; any database-selection error proteins read raises; paths-stdin without the '--' line"}
+  - {kind: correctness, when: "a database mzLib cannot parse"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Containment, not digestion: a protein contains a peptide if its sequence contains it anywhere, whatever the protease. Deliberately conservative."
+  - "Identical sequences under different accessions are one sequence: the peptide is Unique and lists both accessions."
+  - "Contaminants are searched; leaving the contaminant database out can turn a SharedAcrossGenes peptide (YLYEIAR, human and bovine albumin) into Unique."
+  - "A FASTA protein has no ensembl: key, so gene sharing for it rests on organism + primary gene name and the UniProt entry."
+
+bindings:
+  py: {name: pymzlib.proteins.classify_peptides}
+  rust: {name: "mzlib::proteins::classify_peptides_with", options: ClassifyOptions}
+  r: {name: proteins_classify_peptides}
+
+examples:
+  - fixture: proteins_classify_peptides.json
+    py: "calls = pymzlib.proteins.classify_peptides([\"VGVNGFGR\", \"LVLNGNPLTLFQER\", \"ALSEQINIFFDYSGR\", \"YLYEIAR\", \"AEFVEVTK\", \"PEPTIDEK\"], [xml, fasta], contaminants=[bovine])"
+    rust: "let calls = mzlib::proteins::classify_peptides_with(&peptides, &[xml, fasta], &ClassifyOptions { contaminants: vec![bovine], ..Default::default() })?;"
+    r: "calls <- proteins_classify_peptides(peptides, c(xml, fasta), contaminants = bovine)"
+
+open_questions:
+  - "Rust and R spellings are intended, not yet implemented."
+  - "The gene-key function is mzLib's DefaultGeneKeys and is not selectable on the wire."
+  - "The peptides param travels on stdin, not as an option; the spec format has no stdin field yet, so its doc says so."
