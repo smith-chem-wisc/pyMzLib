@@ -82,7 +82,15 @@ def mismatch(data: dict, options: dict) -> str:
             return f"recorded with {key}={recorded!r}, not {value!r}"
     # BULK.md: a --paths-stdin call has its own envelope (files[], read_count, ...). Neither shape
     # answers for the other, or a one-path example would "fit" a bulk recording that has no path.
-    bulk_recording = isinstance(data.get("files"), list) and "read_count" in data
+    # A recording is bulk when it carries BULK.md's per-input files[] (entries with a path) and no
+    # top-level path. read_count is not required: a verb that refuses on_error="skip" (proteins
+    # classify-peptides) has nothing to count. pride files also has a files list, of PRIDE files.
+    files = data.get("files")
+    bulk_recording = (
+        isinstance(files, list)
+        and all(isinstance(f, dict) and "path" in f for f in files)
+        and "path" not in data
+    )
     if ("paths-stdin" in options) != bulk_recording:
         return "a bulk (--paths-stdin) recording" if bulk_recording else "a one-document recording"
     # A filter the recording applied that the call did not ask for.
