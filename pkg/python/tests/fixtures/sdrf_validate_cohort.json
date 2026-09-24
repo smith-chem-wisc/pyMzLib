@@ -1,0 +1,48 @@
+{
+ "path": "sdrf_cohort.sdrf.tsv",
+ "is_valid": true,
+ "error_count": 0,
+ "warning_count": 2,
+ "message_count": 2,
+ "row_count": 12,
+ "column_names": [
+  "severity",
+  "rule",
+  "message",
+  "row_index",
+  "line_number",
+  "column_name"
+ ],
+ "columns": {
+  "severity": [
+   "Warning",
+   "Warning"
+  ],
+  "rule": [
+   "ReservedWordCase",
+   "ReservedWordCase"
+  ],
+  "message": [
+   "Reserved word 'Not available' should be lowercase 'not available'.",
+   "Reserved word 'Not available' should be lowercase 'not available'."
+  ],
+  "row_index": [
+   8,
+   9
+  ],
+  "line_number": [
+   10,
+   11
+  ],
+  "column_name": [
+   "characteristics[age]",
+   "characteristics[age]"
+  ]
+ },
+ "caveats": [
+  "STRUCTURE ONLY, against SDRF-Proteomics v1.1.0: column presence, order, casing, cell shape and row-key uniqueness. Controlled-vocabulary terms are NOT resolved, so a well-formed but wrong accession passes.",
+  "is_valid means no Error. Warnings never make a document invalid: mzLib calibrated every severity against the 1,236-file curated corpus, where a rule that fired on most curated files was judged a wrong rule, not 1,236 wrong files.",
+  "row_index is 0-based over data rows; line_number is the 1-based line in the file (row_index + 2, because the header is line 1). Both are null for a document-level finding. column_name is null when the finding is not about one column.",
+  "A document full of reserved words (\"not available\") validates cleanly, because that is the specification's correct way to say nothing. Whether a document SAYS anything is sdrf assess; whether several documents agree is sdrf lint."
+ ]
+}

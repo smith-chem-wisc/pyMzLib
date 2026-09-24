@@ -1,0 +1,88 @@
+{
+ "path": "sdrf_cohort.sdrf.tsv",
+ "verdict": "Informative",
+ "factor_value_varies": true,
+ "sample_is_described": true,
+ "biological_replicate_varies": true,
+ "row_count": 12,
+ "column_names": [
+  "role",
+  "column_name",
+  "rows",
+  "filled",
+  "absent",
+  "distinct_values",
+  "fill_rate"
+ ],
+ "columns": {
+  "role": [
+   "factor_value",
+   "sample_characteristic",
+   "sample_characteristic",
+   "sample_characteristic",
+   "sample_characteristic",
+   "sample_characteristic",
+   "biological_replicate"
+  ],
+  "column_name": [
+   "factor value[disease]",
+   "characteristics[age]",
+   "characteristics[cell type]",
+   "characteristics[disease]",
+   "characteristics[organism part]",
+   "characteristics[sex]",
+   "characteristics[biological replicate]"
+  ],
+  "rows": [
+   12,
+   12,
+   12,
+   12,
+   12,
+   12,
+   12
+  ],
+  "filled": [
+   12,
+   10,
+   0,
+   12,
+   12,
+   12,
+   12
+  ],
+  "absent": [
+   0,
+   2,
+   12,
+   0,
+   0,
+   0,
+   0
+  ],
+  "distinct_values": [
+   2,
+   5,
+   0,
+   2,
+   1,
+   2,
+   6
+  ],
+  "fill_rate": [
+   1,
+   0.8333333333333334,
+   0,
+   1,
+   1,
+   1,
+   1
+  ]
+ },
+ "caveats": [
+  "Informative = all three checks pass (a factor value varies, a sample characteristic other than organism and biological replicate is filled, the biological replicates differ); Skeleton = none pass; Partial = anything between. On the 1,236-file bigbio curated corpus mzLib measured 300 Informative, 742 Partial and 194 Skeleton.",
+  "Partial is often legitimate: a single-condition study has no factor to vary. Whether Partial is good enough is the caller's decision; the three booleans say which check failed.",
+  "A reserved word (\"not available\", \"not applicable\", \"anonymized\", \"pooled\") and an empty cell both count as ABSENT, so they neither fill a column nor add a distinct value. Distinct values are compared case-insensitively after trimming: \"liver\" and \"Liver\" are one.",
+  "Rows are counted once per row per column NAME, so a repeated column does not inflate them. This verb looks only at the sample half; it says nothing about structure (sdrf validate) or agreement across documents (sdrf lint)."
+ ]
+}
