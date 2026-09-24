@@ -1,0 +1,87 @@
+# Written 2026-09-23 with the verb, from pyMzLib pkg/bridge/Sdrf.Quality.cs (Assess, EvidenceRows)
+# and Sdrf.Bulk.cs on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e (tag
+# 1.0.592). Example fixture recorded from the live bridge on that branch.
+verb: sdrf assess
+module: sdrf
+summary: >-
+  Decide whether each SDRF file's sample half describes an experimental design - Informative, Partial
+  or Skeleton - with the per-column counts behind the verdict.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfSampleInformativeness.Assess, path: mzLib/Readers/Sdrf/SdrfSampleInformativeness.cs, pin: 23c2490e}
+  - {symbol: SdrfColumnCoverage, path: mzLib/Readers/Sdrf/SdrfCoverage.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics sample columns (characteristics, factor value) (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - {name: path, type: path, required: false, unit: null, range: null, default: null, doc: "One .sdrf.tsv file. Exactly one of path and paths-stdin."}
+  - {name: paths-stdin, type: flag, required: false, unit: null, range: null, default: null, doc: "Many paths on stdin, as for sdrf validate."}
+  - {name: threads, type: int, required: false, unit: documents, range: ">= 1, or -1", default: 1, doc: "Documents assessed at once; output identical at any value."}
+  - {name: on-error, type: string, required: false, unit: null, range: "fail | skip", default: fail, doc: "As for sdrf validate."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The absolute path assessed.}
+    - {wire: verdict, type: string, unit: null, nullable: false, null_means: null, doc: "Informative (all three checks pass), Skeleton (none), Partial (between). mzLib's SdrfSampleVerdict member name."}
+    - {wire: factor_value_varies, type: bool, unit: null, nullable: false, null_means: null, doc: "Some factor value[...] column holds >= 2 distinct real answers."}
+    - {wire: sample_is_described, type: bool, unit: null, nullable: false, null_means: null, doc: "Some characteristics[...] column other than organism and biological replicate holds a real answer."}
+    - {wire: biological_replicate_varies, type: bool, unit: null, nullable: false, null_means: null, doc: "characteristics[biological replicate] holds >= 2 distinct real answers; false when the column is missing."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Data rows in the document.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The evidence table's columns.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per column a check read: factor values, then sample characteristics, then biological replicate, each in mzLib's (ordinal) order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Four static caveats.}
+  columns:
+    - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based input position."}
+    - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path."}
+    - {wire: role, type: string, unit: null, nullable: false, null_means: null, doc: "factor_value | sample_characteristic | biological_replicate: which check read this column."}
+    - {wire: column_name, type: string, unit: null, nullable: false, null_means: null, doc: The column as the header spells it.}
+    - {wire: rows, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows, counted once per row per column NAME (a repeated column does not inflate it)."}
+    - {wire: filled, type: int, unit: rows, nullable: false, null_means: null, doc: Rows with a real answer in at least one of the column's cells.}
+    - {wire: absent, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows that are empty or a reserved word (any case): rows - filled."}
+    - {wire: distinct_values, type: int, unit: values, nullable: false, null_means: null, doc: "Different real answers, compared case-insensitively after trimming."}
+    - {wire: fill_rate, type: float, unit: "fraction (0-1)", nullable: false, null_means: null, doc: "filled / rows; 0 when rows is 0. May cross as an integer 0 or 1."}
+
+  # The --paths-stdin shape (BULK.md): checked by check_verbs.py against examples with shape: bulk.
+  bulk:
+    envelope_fields:
+      - {wire: file_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents read."}
+      - {wire: failed_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents not read; non-zero only under --on-error skip."}
+      - {wire: record_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns over every document read (BULK.md section 2)."}
+      - {wire: verdict_counts, type: object, unit: documents, nullable: false, null_means: null, doc: "{informative, partial, skeleton} over the documents read."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: {path, verdict, factor_value_varies, sample_is_described, biological_replicate_varies, row_count, error}; all but path and error null when unread."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-document columns."}
+      - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Rows in input order, then the order within each document, whatever --threads is."}
+      - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "As for one document."}
+
+errors:
+  - {kind: usage, when: "as for sdrf validate (path / paths-stdin / threads / on-error rules, missing or repeated files)"}
+  - {kind: correctness, when: "mzLib cannot read a document"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Partial is often legitimate (a single-condition study has nothing to vary); the booleans say which check failed and the caller decides."
+  - "On the 1,236-file bigbio curated corpus at 4f823dcd mzLib measured 300 Informative, 742 Partial, 194 Skeleton."
+  - "Organism is excluded from sample_is_described because a search can fill it without a human describing the samples."
+  - "Looks only at the sample half; says nothing about structure (sdrf validate) or cross-file agreement (sdrf lint)."
+
+bindings:
+  py: {name: pymzlib.sdrf.assess, bulk: pymzlib.sdrf.assess_many}
+  rust: {name: "mzlib::sdrf::assess", bulk: "mzlib::sdrf::assess_many", options: BulkOptions}
+  r: {name: sdrf_assess, bulk: sdrf_assess_many}
+
+examples:
+  - fixture: sdrf_assess_cohort.json
+    py: "result = pymzlib.sdrf.assess('sdrf_cohort.sdrf.tsv')"
+    rust: "let result = mzlib::sdrf::assess(\"sdrf_cohort.sdrf.tsv\")?;"
+    r: "result <- sdrf_assess('sdrf_cohort.sdrf.tsv')"
+  - fixture: sdrf_assess_bulk.json
+    shape: bulk
+    py: "batch = pymzlib.sdrf.assess_many(['sdrf_cohort.sdrf.tsv', 'sdrf_skeleton.sdrf.tsv', 'PXD000070.sdrf.tsv'])"
+    rust: "let batch = mzlib::sdrf::assess_many(&[\"sdrf_cohort.sdrf.tsv\", \"sdrf_skeleton.sdrf.tsv\", \"PXD000070.sdrf.tsv\"], &BulkOptions::default())?;"
+    r: "batch <- sdrf_assess_many(c('sdrf_cohort.sdrf.tsv', 'sdrf_skeleton.sdrf.tsv', 'PXD000070.sdrf.tsv'))"
+
+open_questions:
+  - "fill_rate is a C# double that serialises 1.0 as 1; bindings must read it as a float."
+  - "since.pymzlib is null until released; Rust and R are not yet ported."
+  - "Bulk spellings are the cross-binding decision of 2026-09-23: a separate <verb>_many in every binding (R too, not vectorisation). Rust and R names here are intended, not yet ported."

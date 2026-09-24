@@ -100,6 +100,7 @@ nav:
       - Python API: reference.md
       - "Wire verbs: readers": reference/readers.md
       - "Wire verbs: bridge": reference/bridge.md
+      - "Wire verbs: sdrf": reference/sdrf.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

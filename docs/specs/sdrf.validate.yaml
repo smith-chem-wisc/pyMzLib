@@ -1,0 +1,120 @@
+# Written 2026-09-23 with the verb, from pyMzLib pkg/bridge/Sdrf.Quality.cs (Validate) and
+# Sdrf.Bulk.cs (BulkFrom, RunEach) on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin
+# 23c2490e (tag 1.0.592). Example fixtures recorded from the live bridge on that branch.
+verb: sdrf validate
+module: sdrf
+summary: >-
+  Check SDRF-Proteomics files against the specification's structural rules, one row per finding.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfValidator.Validate, path: mzLib/Readers/Sdrf/SdrfValidator.cs, pin: 23c2490e}
+  - {symbol: SdrfValidationResult, path: mzLib/Readers/Sdrf/SdrfValidation.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics; mzLib validates against specification v1.1.0 (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: path
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: One .sdrf.tsv file. Exactly one of path and paths-stdin is required.
+  - name: paths-stdin
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Read many paths from stdin, one per line (BULK.md section 1). Blank lines are ignored; a
+      repeated path is a usage error. Switches the result to the bulk shape below.
+  - name: threads
+    type: int
+    required: false
+    unit: documents
+    range: ">= 1, or -1"
+    default: 1
+    doc: >-
+      Documents validated at once; -1 is every core. The output is byte-identical at any value
+      (tested at 1, 4 and -1).
+  - name: on-error
+    type: string
+    required: false
+    unit: null
+    range: "fail | skip"
+    default: fail
+    doc: >-
+      fail: the first failure IN INPUT ORDER aborts the call. skip: recorded in files[i].error and
+      the batch carries on. skip with path is a usage error.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The absolute path validated.}
+    - {wire: is_valid, type: bool, unit: null, nullable: false, null_means: null, doc: "No Error findings. Warnings never make a document invalid."}
+    - {wire: error_count, type: int, unit: findings, nullable: false, null_means: null, doc: Findings of severity Error.}
+    - {wire: warning_count, type: int, unit: findings, nullable: false, null_means: null, doc: Findings of severity Warning.}
+    - {wire: message_count, type: int, unit: findings, nullable: false, null_means: null, doc: "All findings; the length of every column."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Data rows in the document.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per finding, in mzLib's order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Four static caveats.}
+  columns:
+    - {wire: source_index, type: int, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based position of the document in the stdin list."}
+    - {wire: source_path, type: string, unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path of the document."}
+    - {wire: severity, type: string, unit: null, nullable: false, null_means: null, doc: "Error (cannot be reliably consumed) or Warning (deviates, still joinable). mzLib's SdrfValidationSeverity member name."}
+    - {wire: rule, type: string, unit: null, nullable: false, null_means: null, doc: "Stable rule id: EmptyHeader, RequiredColumn, RecommendedColumn, EmptyColumnName, ColumnNameCase, MalformedColumnName, ColumnOrdering, NoRows, RowWidth, EmptyCell, ReservedWordCase, NonIntegerValue, RowKeyUniqueness (at 23c2490e)."}
+    - {wire: message, type: string, unit: null, nullable: false, null_means: null, doc: "Human-readable, including the offending value."}
+    - {wire: row_index, type: int, unit: null, nullable: true, null_means: "the finding is about the whole document (a missing column, an empty header, no rows), not one row", doc: "0-based index into the data rows."}
+    - {wire: line_number, type: int, unit: null, nullable: true, null_means: "same as row_index: a document-level finding", doc: "1-based line in the file: row_index + 2, because the header is line 1."}
+    - {wire: column_name, type: string, unit: null, nullable: true, null_means: "the finding is not about one column (RowWidth, RowKeyUniqueness, NoRows, EmptyHeader)", doc: "The column involved; for a ragged row's extra cells, \"(column N)\"."}
+
+  # The --paths-stdin shape (BULK.md): checked by check_verbs.py against examples with shape: bulk.
+  bulk:
+    envelope_fields:
+      - {wire: file_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents read."}
+      - {wire: failed_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents not read; non-zero only under --on-error skip."}
+      - {wire: record_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns over every document read (BULK.md section 2)."}
+      - {wire: valid_count, type: int, unit: documents, nullable: false, null_means: null, doc: "Documents read with no Error."}
+      - {wire: message_count, type: int, unit: findings, nullable: false, null_means: null, doc: "Findings over every document read; equals record_count."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: {path, is_valid, error_count, warning_count, message_count, row_count, error}. All but path and error are null when the document was not read; error is null when it was, else {kind: usage | correctness, message}."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-document columns."}
+      - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Rows in input order, then the order within each document, whatever --threads is."}
+      - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "As for one document."}
+
+errors:
+  - {kind: usage, when: "neither or both of path and paths-stdin; stdin empty under paths-stdin; a repeated path"}
+  - {kind: usage, when: "a file not found (under fail, checked before any document is read)"}
+  - {kind: usage, when: "threads 0 or below -1 or not an integer; on-error not fail or skip, or given without a value; on-error skip with path"}
+  - {kind: correctness, when: "mzLib cannot read a document (MzLibException for an empty file); under fail, the lowest input position's failure is raised"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "STRUCTURE ONLY: column presence, order, casing, cell shape and row-key uniqueness against v1.1.0. Controlled-vocabulary accessions are not resolved."
+  - "Severities were calibrated by mzLib against the 1,236-file bigbio curated corpus; a rule that fired on most curated files was demoted, not the files condemned."
+  - "A document of reserved words validates cleanly. Use sdrf assess for whether it says anything, sdrf lint for whether several agree."
+
+bindings:
+  py: {name: pymzlib.sdrf.validate, bulk: pymzlib.sdrf.validate_many}
+  rust: {name: "mzlib::sdrf::validate", bulk: "mzlib::sdrf::validate_many", options: BulkOptions}
+  r: {name: sdrf_validate, bulk: sdrf_validate_many}
+
+examples:
+  - fixture: sdrf_validate_cohort.json
+    py: "result = pymzlib.sdrf.validate('sdrf_cohort.sdrf.tsv')"
+    rust: "let result = mzlib::sdrf::validate(\"sdrf_cohort.sdrf.tsv\")?;"
+    r: "result <- sdrf_validate('sdrf_cohort.sdrf.tsv')"
+  - fixture: sdrf_validate_skeleton.json
+    py: "result = pymzlib.sdrf.validate('sdrf_skeleton.sdrf.tsv')"
+    rust: "let result = mzlib::sdrf::validate(\"sdrf_skeleton.sdrf.tsv\")?;"
+    r: "result <- sdrf_validate('sdrf_skeleton.sdrf.tsv')"
+  - fixture: sdrf_validate_bulk.json
+    shape: bulk
+    py: "batch = pymzlib.sdrf.validate_many(['sdrf_skeleton.sdrf.tsv', 'sdrf_cohort.sdrf.tsv', 'missing.sdrf.tsv'], on_error='skip')"
+    rust: "let batch = mzlib::sdrf::validate_many(&[\"sdrf_skeleton.sdrf.tsv\", \"sdrf_cohort.sdrf.tsv\", \"missing.sdrf.tsv\"], &BulkOptions { on_error: OnError::Skip, ..Default::default() })?;"
+    r: "batch <- sdrf_validate_many(c('sdrf_skeleton.sdrf.tsv', 'sdrf_cohort.sdrf.tsv', 'missing.sdrf.tsv'), on_error = 'skip')"
+
+open_questions:
+  - "since.pymzlib is null until the pyMzLib release carrying feat/sdrf-1.0.592 is tagged; Rust and R are not yet ported."
+  - "Bulk spellings are the cross-binding decision of 2026-09-23: a separate <verb>_many in every binding (R too, not vectorisation). Rust and R names here are intended, not yet ported."

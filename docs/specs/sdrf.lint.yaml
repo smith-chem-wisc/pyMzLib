@@ -1,0 +1,70 @@
+# Written 2026-09-23 with the verb, from pyMzLib pkg/bridge/Sdrf.Quality.cs (Lint, LintCaveats) and
+# Sdrf.cs (ReadLabelledDocuments) on branch feat/sdrf-1.0.592 (stacked on pyMzLib#61), mzLib pin
+# 23c2490e (tag 1.0.592). Example fixture recorded from the live bridge on that branch.
+verb: sdrf lint
+module: sdrf
+summary: >-
+  Find the concepts a set of SDRF documents wrote inconsistently, one row per finding and spelling.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfDriftLint.Analyze, path: mzLib/Readers/Sdrf/SdrfDriftLint.cs, pin: 23c2490e}
+  - {symbol: SdrfCollection, path: mzLib/Readers/Sdrf/SdrfCollection.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics and its controlled-vocabulary key=value cells (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line"
+    default: null
+    doc: >-
+      Exactly as sdrf pool: one document per line, path then optionally a TAB and a label; label all
+      or none. Labels are how the documents column names each file.
+
+result:
+  envelope_fields:
+    - {wire: document_count, type: int, unit: documents, nullable: false, null_means: null, doc: Documents linted.}
+    - {wire: paths, type: "string[]", unit: null, nullable: false, null_means: null, doc: The paths in stdin order.}
+    - {wire: labels, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Each document's label: supplied, or mzLib's containing-folder/file-stem default."}
+    - {wire: finding_count, type: int, unit: findings, nullable: false, null_means: null, doc: "Distinct findings (not rows)."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per finding x variant, findings in mzLib's impact order, variants majority first."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Five static caveats, plus one when no labels were supplied."}
+  columns:
+    - {wire: finding_index, type: int, unit: null, nullable: false, null_means: null, doc: "0-based finding; rows of one finding share it."}
+    - {wire: kind, type: string, unit: null, nullable: false, null_means: null, doc: "AccessionNameConflict | NameAccessionConflict | MixedTermAndFreeText | ColumnNameVariant | ValueCaseVariant (SdrfDriftKind member names)."}
+    - {wire: concept, type: string, unit: null, nullable: false, null_means: null, doc: "What was written inconsistently: an accession, a term name, a normalised free-text value, or a normalised column name (lower-cased, whitespace runs collapsed), by kind."}
+    - {wire: column_name, type: string, unit: null, nullable: true, null_means: "a ColumnNameVariant finding, which is about a column's NAME rather than its values", doc: The column whose values drift.}
+    - {wire: variant_rank, type: int, unit: null, nullable: false, null_means: null, doc: "0 = the majority spelling, then by frequency. Descriptive, not advice."}
+    - {wire: value, type: string, unit: null, nullable: false, null_means: null, doc: "This spelling as written; for MixedTermAndFreeText, \"controlled vocabulary term\" or \"free text\"."}
+    - {wire: occurrences, type: int, unit: documents, nullable: false, null_means: null, doc: "How widely this spelling was used. At 23c2490e every kind counts documents."}
+    - {wire: documents, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Labels of the documents that used this spelling, a list cell (labels are caller text, so no delimiter could be undone)."}
+
+errors:
+  - {kind: usage, when: "stdin empty; a blank path; a file not found; some lines labelled and some not"}
+  - {kind: correctness, when: "mzLib cannot read one of the documents"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "The majority spelling describes what the documents do; it is not advice (organism is free text in 963 curated documents and a CV term in 275)."
+  - "Never compared, being unique per row by construction: source name, assay name, comment[data file], comment[searched data file] (mzLib 1.0.592, #1335), comment[file uri], comment[source document]."
+  - "Reserved words and empty cells are skipped, so documents that say nothing lint clean; see sdrf assess."
+  - "No --threads: SdrfDriftLint.Analyze is one call over the whole collection and does not parallelise."
+
+bindings:
+  py: {name: pymzlib.sdrf.lint}
+  rust: {name: "mzlib::sdrf::lint_labelled"}
+  r: {name: sdrf_lint}
+
+examples:
+  - fixture: sdrf_lint_cohort.json
+    py: "drift = pymzlib.sdrf.lint({'sdrf_cohort.sdrf.tsv': 'cohort', 'sdrf_cohort_partner.sdrf.tsv': 'partner'})"
+    rust: "let drift = mzlib::sdrf::lint_labelled(&[(\"sdrf_cohort.sdrf.tsv\", \"cohort\"), (\"sdrf_cohort_partner.sdrf.tsv\", \"partner\")])?;"
+    r: "drift <- sdrf_lint(c('sdrf_cohort.sdrf.tsv' = 'cohort', 'sdrf_cohort_partner.sdrf.tsv' = 'partner'))"
+
+open_questions:
+  - "Rust and R spellings are the intended ones, mirroring pool / pool_labelled and sdrf_pool; not yet ported."
+  - "documents is the first list-valued cell in a columnar table on the wire. R will need a list column; confirm mzLibR's table projection accepts one before porting."
+  - "since.pymzlib is null until released."
