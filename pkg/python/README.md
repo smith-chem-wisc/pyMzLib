@@ -50,6 +50,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
 | Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 36 file types mzLib knows, search results included | ✅ |
+| SDRF experimental design — read an SDRF-Proteomics file, pool several experiments into one analysis table | ✅ |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 ## How it works, and why you probably don't care
