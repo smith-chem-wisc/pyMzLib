@@ -50,7 +50,7 @@ Coverage is deliberately partial and grows by demand — the same way
 | [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide | :material-check: available |
 | [FlashLFQ](guides/flashlfq.md) — label-free quantification across mzML runs, with match-between-runs | :material-check: available |
 | [Readers](guides/readers.md) — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify any of 36 formats and read them, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables | :material-check: available |
-| [SDRF experimental design](guides/sdrf.md) — read an SDRF-Proteomics file, pool several into one analysis table | :material-check: available |
+| [SDRF experimental design](guides/sdrf.md) — read an SDRF-Proteomics file, pool several into one analysis table; validate, lint and assess them; one row per sample with ages in years | :material-check: available |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 If there is something in mzLib you want from Python, opening an issue is genuinely the fastest
