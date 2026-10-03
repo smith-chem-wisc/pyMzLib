@@ -1,0 +1,35 @@
+{
+ "line_count": 8,
+ "tested_count": 6,
+ "row_count": 8,
+ "column_names": [
+  "p_value",
+  "bh_adjusted"
+ ],
+ "columns": {
+  "p_value": [
+   0.0002,
+   0.004,
+   0.019,
+   null,
+   0.031,
+   0.2,
+   null,
+   0.74
+  ],
+  "bh_adjusted": [
+   0.0012000000000000001,
+   0.012,
+   0.038,
+   null,
+   0.0465,
+   0.24000000000000005,
+   null,
+   0.7399999999999999
+  ]
+ },
+ "caveats": [
+  "Benjamini-Hochberg adjusts a family of p-values for the false discovery rate among the features tested. It is not a target-decoy q-value for identifications.",
+  "m, the family size, is the number of finite p-values: a blank or NA line is not tested and does not count."
+ ]
+}

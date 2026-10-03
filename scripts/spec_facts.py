@@ -149,6 +149,15 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "the only accepted value is fail, the default; there is no skip to choose",
         },
     },
+    "stats fit": {
+        "param.stdin": {"python": "coefficients", "why": "one stdin line per coefficient to test"},
+    },
+    "stats adjust": {
+        "param.stdin": {"python": "p_values", "why": "one stdin line per p-value; None is a blank line"},
+    },
+    "stats meta": {
+        "param.stdin": {"python": "studies", "why": "one stdin line per (feature, estimate, standard_error)"},
+    },
 }
 
 

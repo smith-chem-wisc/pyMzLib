@@ -256,7 +256,7 @@ internal static partial class Sdrf
     }
 
     /// <summary>stdin split into lines with blank lines preserved; a UTF-8 BOM is dropped.</summary>
-    private static List<string> ReadStdinCells()
+    internal static List<string> ReadStdinCells()
     {
         string text = Console.In.ReadToEnd().TrimStart('﻿');
         if (text.Length == 0)

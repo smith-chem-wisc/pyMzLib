@@ -20,9 +20,15 @@ The PRIDE Archive is covered too::
     print(f"{len(files)} files, {pymzlib.pride.total_size_bytes(files) / 1e9:.2f} GB")
 
     pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+
+And a differential-abundance test is limma's moderated t, with no R, in
+:func:`pymzlib.stats.fit`::
+
+    fit = pymzlib.stats.fit("log2_intensities.tsv", "design.tsv", ["treated"])
+    print(fit.status_counts, fit.rows("treated")[0]["bh_adjusted"])
 """
 
-from . import flashlfq, isobaric, peptidoform, pride, proteins, readers, sdrf
+from . import flashlfq, isobaric, peptidoform, pride, proteins, readers, sdrf, stats
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -46,6 +52,7 @@ __all__ = [
     "proteins",
     "readers",
     "sdrf",
+    "stats",
     "PyMzLibError",
     "BridgeError",
     "ServiceUnavailableError",

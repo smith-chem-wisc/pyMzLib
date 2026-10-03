@@ -35,6 +35,9 @@
   "proteins classify-peptides",
   "proteins annotate-go",
   "proteins update-go",
-  "genes resolve"
+  "genes resolve",
+  "stats fit",
+  "stats adjust",
+  "stats meta"
  ]
 }

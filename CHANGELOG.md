@@ -40,6 +40,20 @@ Built from mzLib 1.0.593.
 - **Guide examples run in CI.** A `>>>` session in `docs/guides/*.md` is now executed against the
   replay bridge, as docstring examples already were. The Gene Ontology section of the protein
   guide is the first.
+- **`pymzlib.stats`: differential abundance with no R** (mzLib 1.0.593, #1341 and #1357). Three
+  functions over mzLib's new `StatisticalModels`:
+  - `fit(responses, design, coefficients)`: one linear model per feature, then limma's
+    empirical-Bayes moderated t for each named coefficient, Benjamini-Hochberg adjusted. It is
+    limma's `lmFit` + `eBayes(legacy = TRUE)`, which mzLib reproduces to 1e-8 relative, and
+    `ModeratedFit.residual_df_differ` says when default limma (`legacy = FALSE`) would differ.
+    Missing values are omitted per feature, never imputed; features that cannot be fitted are
+    reported with their reason, not dropped. `trend=True` gives limma's intensity trend.
+  - `adjust(p_values)`: Benjamini-Hochberg over any list, with `None` for untested entries.
+  - `meta(studies)`: DerSimonian-Laird random-effects pooling per feature, with heterogeneity,
+    direction agreement and the largest leave-one-out change; matches metafor to 1e-8.
+  - The new [Differential abundance guide](https://smith-chem-wisc.github.io/pyMzLib/guides/stats/)
+    checks the agreement with limma on limma's own reference output, and analyses a real dilution
+    series with a known answer from mzLib's RNA test data. Every code block on it runs in CI.
 - **RNA quantification tables** (mzLib 1.0.593, #1388). An RNA search's
   `AllQuantifiedTranscriptGroups.tsv` reads through `read_protein_groups()` and `read_occupancy()`,
   and its `AllQuantifiedOligos.tsv` through `read_quantified_peptides()`. mzLib reads them with

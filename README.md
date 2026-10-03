@@ -49,6 +49,7 @@ Coverage is deliberately partial and grows by demand, the way
 | [SDRF experimental design](https://smith-chem-wisc.github.io/pyMzLib/guides/sdrf/) — read an SDRF-Proteomics file, pool several experiments into one analysis table; validate, lint and assess them; one row per sample with ages in years; the label-free design FlashLFQ and MetaMorpheus take, or every reason it was refused | ✅ |
 | [Protein databases](https://smith-chem-wisc.github.io/pyMzLib/guides/proteins/) — organism, taxon, GO terms and Ensembl genes per accession from a UniProt XML or FASTA; resolve proteins to Ensembl genes against a pinned release; peptide uniqueness with I = L; Gene Ontology on MetaMorpheus protein groups, every member kept, against a pinned GO release (`proteins`) | ✅ |
 | [Isobaric kits](https://smith-chem-wisc.github.io/pyMzLib/guides/isobaric/) — every TMT, TMTpro, iTRAQ and DiLeu channel with its reporter-ion m/z and matching window, as MetaMorpheus quantifies them (`isobaric`) | ✅ |
+| [Differential abundance](https://smith-chem-wisc.github.io/pyMzLib/guides/stats/) — limma's moderated t-test (checked against limma to 1e-8), Benjamini-Hochberg, and random-effects meta-analysis across studies, with no R (`stats`) | ✅ |
 | Everything else in mzLib | not yet — [request it](https://github.com/smith-chem-wisc/pyMzLib/issues/new/choose) |
 
 If there's something in mzLib you want from Python, opening an issue is genuinely the fastest

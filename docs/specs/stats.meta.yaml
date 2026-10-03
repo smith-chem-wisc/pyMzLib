@@ -1,0 +1,77 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Statistics.cs (Meta) on branch
+# feat/stats-module (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). Example fixture
+# recorded from the live bridge on that branch over mzLib's metafor reference inputs; agreement with
+# metafor is held by StatisticsTests.Meta_ReproducesMetaforDerSimonianLaird.
+verb: stats meta
+module: stats
+summary: >-
+  Pool one effect size per study into a random-effects estimate per feature (DerSimonian-Laird),
+  with heterogeneity, direction agreement and the largest leave-one-out change.
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: RandomEffectsMeta.Pool, path: mzLib/StatisticalModels/RandomEffectsMeta.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1016/0197-2456(86)90046-2", for: "the moment estimator of the between-study variance (DerSimonian and Laird, Control Clin Trials 7:177, 1986)"}
+  - {doi: "10.18637/jss.v036.i03", for: "metafor, whose rma(method = 'DL') mzLib reproduces to 1e-8 relative (Viechtbauer, J Stat Softw 36(3), 2010)"}
+
+params:
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line"
+    default: null
+    doc: >-
+      One study per line, tab-separated: feature, estimate, standard_error. No header. A feature's
+      lines need not be adjacent; features are reported in order of first appearance. The estimate
+      must be finite and the standard error finite and positive. Blank lines are skipped.
+  - {name: confidence, type: float, required: false, unit: "fraction (0 to 1)", range: "(0, 1)", default: 0.95, doc: "Coverage of the reported interval, as a fraction."}
+
+result:
+  envelope_fields:
+    - {wire: study_count, type: int, unit: studies, nullable: false, null_means: null, doc: "Study lines read, over every feature."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Distinct features; the table's row count."}
+    - {wire: confidence, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The coverage used, as a fraction."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Equal to feature_count."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per feature."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "As given on stdin."}
+    - {wire: studies, type: int, unit: studies, nullable: false, null_means: null, doc: "Studies pooled for this feature."}
+    - {wire: estimate, type: float, unit: "units of the study estimates", nullable: false, null_means: null, doc: "Random-effects pooled estimate."}
+    - {wire: standard_error, type: float, unit: "units of the study estimates", nullable: false, null_means: null, doc: "Standard error of the pooled estimate."}
+    - {wire: confidence_low, type: float, unit: "units of the study estimates", nullable: false, null_means: null, doc: "Lower bound of the interval: estimate - z standard_error."}
+    - {wire: confidence_high, type: float, unit: "units of the study estimates", nullable: false, null_means: null, doc: "Upper bound of the interval."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "Two-sided p-value of the pooled estimate against 0, normal reference. Not adjusted across features."}
+    - {wire: tau2, type: float, unit: "squared units of the study estimates", nullable: false, null_means: null, doc: "Between-study variance (DerSimonian-Laird); 0 for one study, and exactly 0 whenever q <= studies - 1."}
+    - {wire: q, type: float, unit: "chi-square statistic (studies - 1 degrees of freedom)", nullable: true, null_means: "one study: no heterogeneity to measure", doc: "Cochran's Q."}
+    - {wire: i_squared, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "one study", doc: "Share of the variation attributed to heterogeneity, as a fraction in [0, 1]."}
+    - {wire: direction_agree, type: int, unit: studies, nullable: false, null_means: null, doc: "Studies whose estimate has the pooled estimate's sign (a 0 estimate counts for neither)."}
+    - {wire: direction_disagree, type: int, unit: studies, nullable: false, null_means: null, doc: "Studies with the opposite sign."}
+    - {wire: leave_one_out_max_delta, type: float, unit: "units of the study estimates", nullable: true, null_means: "one study", doc: "Largest absolute change in the pooled estimate from dropping any one study."}
+
+errors:
+  - {kind: usage, when: "stdin empty; a line without exactly 3 tab-separated fields; an empty feature name; an estimate that is not a finite number; a standard error that is not finite and positive (mzLib's refusal, reclassified, naming the feature); --confidence not strictly between 0 and 1, or given without a value"}
+  - {kind: correctness, when: never expected}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "DerSimonian-Laird with a normal reference: the interval and p-value do not widen for few studies (no Hartung-Knapp adjustment), so treat a pooled estimate from two or three studies with care."
+  - "A feature with one study is reported with tau2 = 0 and q, i_squared and leave_one_out_max_delta null."
+  - "Each feature is pooled on its own and p_value is not adjusted across features; send the p_value column to stats adjust."
+
+bindings:
+  py: {name: pymzlib.stats.meta}
+  rust: {name: "mzlib::stats::meta_with", options: MetaOptions, note: "planned; not yet shipped"}
+  r: {name: stats_meta, note: "planned; not yet shipped. Takes a data.frame with feature, estimate and standard_error columns."}
+
+examples:
+  - fixture: stats_meta_metafor.json
+    py: "pooled = pymzlib.stats.meta(studies)"
+    rust: "let pooled = mzlib::stats::meta_with(&studies, &MetaOptions::default())?;"
+    r: "pooled <- stats_meta(studies)"
+
+open_questions:
+  - "Rust and R spellings are proposals until those bindings ship the verb."
+  - "The example's studies are mzLib's metafor reference cases (Test/StatisticalModels/ReferenceData/dl_inputs.tsv), copied verbatim to pkg/python/tests/fixtures/stats/metafor_dl_inputs.tsv. They are constructed cases, not proteomics data."

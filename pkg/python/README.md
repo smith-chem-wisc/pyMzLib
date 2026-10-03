@@ -53,6 +53,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | SDRF experimental design — read an SDRF-Proteomics file, pool several experiments into one analysis table; validate, lint and assess them; one row per sample with ages in years; the label-free design FlashLFQ and MetaMorpheus take, or every reason it was refused | ✅ |
 | Protein databases (`proteins`) — organism, taxon, GO terms and Ensembl genes per accession; resolve proteins to Ensembl genes against a pinned release; peptide uniqueness with I = L; Gene Ontology on protein groups, every member kept | ✅ |
 | Isobaric kits (`isobaric`) — every TMT, TMTpro, iTRAQ and DiLeu channel with its reporter-ion m/z and matching window, as MetaMorpheus quantifies them | ✅ |
+| Differential abundance (`stats`) — limma's moderated t-test (checked against limma to 1e-8), Benjamini-Hochberg, and random-effects meta-analysis across studies, with no R | ✅ |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 ## How it works, and why you probably don't care

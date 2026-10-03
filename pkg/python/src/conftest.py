@@ -115,4 +115,19 @@ def _doctests_use_the_replay_bridge(_replay_bridge, doctest_namespace, tmp_path,
     doctest_namespace["pymzlib"] = pymzlib
     # Examples that write files (out=, output_directory=) write into a scratch directory.
     monkeypatch.chdir(tmp_path)
+    copy_example_inputs(tmp_path)
     assert os.environ["PYMZLIB_BRIDGE"]
+
+
+#: Folders of small input files an example reads itself (not through the bridge), copied into the
+#: example's working directory so it can open them by bare name, as a reader would.
+EXAMPLE_INPUTS = [FIXTURES / "stats"]
+
+
+def copy_example_inputs(directory: Path) -> None:
+    import shutil
+
+    for folder in EXAMPLE_INPUTS:
+        for source in folder.iterdir():
+            if source.is_file():
+                shutil.copyfile(source, directory / source.name)
