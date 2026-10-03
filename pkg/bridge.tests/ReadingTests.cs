@@ -189,11 +189,20 @@ public class ReadingTests
 
     [TestCase("AllQuantifiedProteinGroups.tsv", "MetaMorpheusQuantifiedProteinGroups", "ProteinGroupFromTsvFile")]
     [TestCase("AllQuantifiedPeptides.tsv", "FlashLFQQuantifiedPeptide", "QuantifiedPeptideFile")]
+    // mzLib #1365: the two other names MetaMorpheus writes the protein-group table under (no
+    // label-free quantification, and each file's individual results) used to throw.
+    [TestCase("AllProteinGroups.tsv", "MetaMorpheusQuantifiedProteinGroups", "ProteinGroupFromTsvFile")]
+    [TestCase("Sample1_ProteinGroups.tsv", "MetaMorpheusQuantifiedProteinGroups", "ProteinGroupFromTsvFile")]
+    // mzLib #1388: an RNA search's tables, read by subclasses of the two readers above.
+    [TestCase("AllQuantifiedTranscriptGroups.tsv", "MetaMorpheusQuantifiedTranscriptGroups", "TranscriptGroupFromTsvFile")]
+    [TestCase("AllTranscriptGroups.tsv", "MetaMorpheusQuantifiedTranscriptGroups", "TranscriptGroupFromTsvFile")]
+    [TestCase("AllQuantifiedOligos.tsv", "FlashLFQQuantifiedOligo", "QuantifiedOligoFile")]
     public void Identify_QuantifiedTables_ReportNoView(string name, string fileType, string reader)
     {
         // mzLib #1347: each table parses into its own record type and shares no cross-format
         // interface, so read-records is the only way in. Their per-sample values are dictionaries,
-        // which read-records names in excluded_fields rather than projecting.
+        // which read-records names in excluded_fields rather than projecting. The typed quant verbs
+        // (read-protein-groups, read-quantified-peptides, read-occupancy) are the other way in.
         JsonElement result = Run("readers", "identify", "--path", Touch(name));
 
         Assert.That(result.GetProperty("file_type").GetString(), Is.EqualTo(fileType));
@@ -297,8 +306,8 @@ public class ReadingTests
         // comparison is tautological — it checks the output against its own source — so mzLib adding
         // a 30th type would pass it green while the guide's supported-format table silently went
         // stale. The literal is the tripwire that forces the docs to be regenerated.
-        Assert.That(formats.GetArrayLength(), Is.EqualTo(36),
-            "mzLib recognises 36 result-file types; a change here means the docs table needs regenerating");
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(38),
+            "mzLib recognises 38 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
             "every enum member must appear in the listing");
 
@@ -324,7 +333,7 @@ public class ReadingTests
     public void Formats_ExactlyFourTypesOfferTheQuantifiableView()
     {
         // The headline fact about this tranche, pinned so a change in mzLib is DETECTED rather than
-        // silently widening or narrowing what pyMzLib claims. mzLib reads 36 formats; only these
+        // silently widening or narrowing what pyMzLib claims. mzLib reads 38 formats; only these
         // four implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
         // If mzLib adds one, this test fails and the docs get updated — which is the point.
         //
@@ -353,7 +362,9 @@ public class ReadingTests
         // 15 -> 17 with mzLib 1.0.592: #1347's MetaMorpheus protein-group and FlashLFQ peptide
         // tables each parse into their own record type. #1313's two mzIdentML types do NOT join
         // them: MzIdentMLRecord implements ISpectralMatch, so both offer spectral_match.
-        Assert.That(viewless, Is.EqualTo(17),
+        // 17 -> 19 with mzLib 1.0.593: #1388's RNA transcript-group and quantified-oligo tables
+        // subclass those two readers and add no shared interface.
+        Assert.That(viewless, Is.EqualTo(19),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
     }

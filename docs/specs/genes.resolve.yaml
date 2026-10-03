@@ -7,7 +7,7 @@ module: genes
 summary: >-
   Resolve every protein in the given databases to stable Ensembl gene ids, counted against a
   caller-supplied, release-pinned gene set, with one outcome per protein and the hash of every input.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: EnsemblGeneResolver.Resolve, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneResolver.cs, pin: 23c2490e}
   - {symbol: GeneResolutionTsv.Schema, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneResolver.cs, pin: 23c2490e}
@@ -80,7 +80,7 @@ caveats:
 bindings:
   py: {name: pymzlib.proteins.resolve_genes}
   rust: {name: "mzlib::proteins::resolve_genes_with", options: GeneResolveOptions}
-  r: {name: proteins_resolve_genes}
+  r: {name: proteins_resolve_genes, note: "source_index is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: genes_resolve_human.json
@@ -89,6 +89,6 @@ examples:
     r: "genes <- proteins_resolve_genes(c(xml, fasta), contaminants = bovine, gtf = gtf, xref = xref)"
 
 open_questions:
-  - "Rust and R spellings are intended, not yet implemented. The wire module is 'genes' but every binding projects it in its proteins module (BULK.md §6); confirm."
+  - "The wire module is 'genes' but every binding projects it in its proteins module (BULK.md §6); confirm."
   - "No verb writes the compact gene set (EnsemblGeneSetWriter); callers need mzLib or a future 'genes gene-set' verb to make one."
   - "The example gene set is a hand-built three-gene GTF in Ensembl's layout; O43653 is off_primary_only only because PSCA is left out of it."

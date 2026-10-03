@@ -94,6 +94,16 @@ internal static partial class Reading
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>Three more tables open here with no bridge code of their own.</b> mzLib #1365 reads
+    /// <c>AllProteinGroups.tsv</c> and the per-file <c>&lt;file&gt;_ProteinGroups.tsv</c>, which
+    /// MetaMorpheus writes when label-free quantification is off, as the same type. MetaMorpheus
+    /// writes <c>Intensity_</c> columns only when it quantified, so such a table still has
+    /// <c>spectral_count</c> but <c>intensity</c> is absent (and named in <c>absent_fields</c>). mzLib #1388's
+    /// <c>TranscriptGroupFromTsvFile</c> (an RNA search's <c>AllQuantifiedTranscriptGroups.tsv</c>)
+    /// subclasses <see cref="ProteinGroupFromTsvFile"/>, so <see cref="OpenAs{TFile}"/> accepts it and
+    /// its rows keep mzLib's protein-group field names.
+    /// </para>
+    /// <para>
     /// Each row carries the group's identity and the fields a caller filters on (its q-value and
     /// decoy/contaminant/target label), then one sample group's spectral count and intensity. The
     /// group's other fields — coverage, masses, member counts — are in <c>read-records</c>, joined on
@@ -146,7 +156,7 @@ internal static partial class Reading
     {
         var file = OpenAs<ProteinGroupFromTsvFile>(
             path, "read-protein-groups", nameof(SupportedFileType.MetaMorpheusQuantifiedProteinGroups),
-            "a MetaMorpheus AllQuantifiedProteinGroups.tsv");
+            "a MetaMorpheus protein-group or transcript-group table");
         List<ProteinGroupFromTsv> all = file.Results;
         IReadOnlyList<ProteinGroupFromTsv> selected = window.Apply(all, out bool truncated);
 
@@ -240,9 +250,16 @@ internal static partial class Reading
     /// <c>AllQuantifiedPeptides.tsv</c>) as one row per peptide per sample.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// An RNA search's <c>AllQuantifiedOligos.tsv</c> opens here too: mzLib #1388's
+    /// <c>QuantifiedOligoFile</c> subclasses <see cref="QuantifiedPeptideFile"/>, so its rows keep the
+    /// peptide field names, with an oligonucleotide in <c>sequence</c>.
+    /// </para>
+    /// <para>
     /// <b>A zero intensity is not a measurement.</b> FlashLFQ writes a literal <c>0</c> for a peptide
     /// it did not quantify in a sample, and mzLib keeps what was written. <c>detection_type</c> is
     /// what tells "not detected" from a measured value, which is why it is on every row.
+    /// </para>
     /// </remarks>
     public static object ReadQuantifiedPeptides(Program.Arguments arguments) =>
         RunTable(arguments, QuantifiedPeptidesVerb);
@@ -283,7 +300,7 @@ internal static partial class Reading
     {
         var file = OpenAs<QuantifiedPeptideFile>(
             path, "read-quantified-peptides", nameof(SupportedFileType.FlashLFQQuantifiedPeptide),
-            "a FlashLFQ QuantifiedPeptides.tsv or a MetaMorpheus AllQuantifiedPeptides.tsv");
+            "a FlashLFQ QuantifiedPeptides.tsv, or a MetaMorpheus AllQuantifiedPeptides.tsv or AllQuantifiedOligos.tsv");
         List<QuantifiedPeptideFromTsv> all = file.Results;
         IReadOnlyList<QuantifiedPeptideFromTsv> selected = window.Apply(all, out bool truncated);
 
@@ -408,7 +425,7 @@ internal static partial class Reading
     {
         var file = OpenAs<ProteinGroupFromTsvFile>(
             path, "read-occupancy", nameof(SupportedFileType.MetaMorpheusQuantifiedProteinGroups),
-            "a MetaMorpheus AllQuantifiedProteinGroups.tsv");
+            "a MetaMorpheus protein-group or transcript-group table");
         List<ProteinGroupFromTsv> all = file.Results;
         IReadOnlyList<ProteinGroupFromTsv> selected = window.Apply(all, out bool truncated);
 

@@ -55,6 +55,12 @@ def main() -> int:
         required=True,
         help="the bridge repository's design/verbs directory",
     )
+    ap.add_argument(
+        "--only-vendored",
+        action="store_true",
+        help="refresh only the specs already in docs/specs/ and add none; SOURCE then names the "
+        "bridge specs left out, so the gap stays visible until a change brings their pages in",
+    )
     args = ap.parse_args()
 
     source: Path = args.source.resolve()
@@ -62,6 +68,11 @@ def main() -> int:
     if not specs:
         print(f"No *.yaml specs in {source}; is that bridge's design/verbs?", file=sys.stderr)
         return 1
+    left_out: list[str] = []
+    if args.only_vendored:
+        vendored = {p.name for p in DEST.glob("*.yaml")}
+        left_out = sorted(p.name for p in specs if p.name not in vendored)
+        specs = [p for p in specs if p.name in vendored]
 
     DEST.mkdir(parents=True, exist_ok=True)
     wanted = {p.name for p in specs}
@@ -87,6 +98,8 @@ def main() -> int:
         f"synced: {dt.date.today().isoformat()}",
         f"specs: {len(specs)}",
     ]
+    if left_out:
+        lines.append(f"not_vendored: {', '.join(left_out)}")
     (DEST / "SOURCE").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"{len(specs)} specs from {commit[:12]}{' (with uncommitted changes)' if dirty else ''}")
     print("Now run: python scripts/render_spec_docs.py")

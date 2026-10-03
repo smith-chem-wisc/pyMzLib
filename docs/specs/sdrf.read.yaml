@@ -6,7 +6,7 @@ module: sdrf
 summary: >-
   Read one SDRF-Proteomics file as its header and rows of raw cells, keeping repeated column names
   and ragged rows exactly as written.
-since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfDocument.LoadResults, path: mzLib/Readers/Sdrf/SdrfDocument.cs, pin: 23c2490e}
   - {symbol: SdrfHeader, path: mzLib/Readers/Sdrf/SdrfHeader.cs, pin: 23c2490e}
@@ -78,5 +78,4 @@ examples:
     rust: "let doc = mzlib::sdrf::read(\"PXD059974.sdrf.tsv\")?;"
     r: "doc <- sdrf_read('PXD059974.sdrf.tsv')"
 
-open_questions:
-  - "since.mzlibrust / since.mzlibr are null: the ports (mzLibRust#23, mzLibR#19) merged 2026-09-17 but neither repo has cut a release tag yet (checked with gh api .../tags, 2026-09-23)."
+open_questions: []

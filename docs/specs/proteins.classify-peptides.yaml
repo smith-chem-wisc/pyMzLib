@@ -6,7 +6,7 @@ module: proteins
 summary: >-
   Classify peptides as unique to one sequence, shared within a gene, shared across genes, or not in
   the databases, treating I and L as the same residue.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: PeptideUniquenessClassifier.Classify, path: mzLib/Proteomics/Protein/PeptideUniqueness.cs, pin: 23c2490e}
   - {symbol: PeptideUniquenessClassifier.DefaultGeneKeys, path: mzLib/Proteomics/Protein/PeptideUniqueness.cs, pin: 23c2490e}
@@ -57,7 +57,7 @@ caveats:
 bindings:
   py: {name: pymzlib.proteins.classify_peptides}
   rust: {name: "mzlib::proteins::classify_peptides_with", options: ClassifyOptions}
-  r: {name: proteins_classify_peptides}
+  r: {name: proteins_classify_peptides, note: "files[].source_index is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: proteins_classify_peptides.json
@@ -66,6 +66,5 @@ examples:
     r: "calls <- proteins_classify_peptides(peptides, c(xml, fasta), contaminants = bovine)"
 
 open_questions:
-  - "Rust and R spellings are intended, not yet implemented."
   - "The gene-key function is mzLib's DefaultGeneKeys and is not selectable on the wire."
   - "The peptides param travels on stdin, not as an option; the spec format has no stdin field yet, so its doc says so."

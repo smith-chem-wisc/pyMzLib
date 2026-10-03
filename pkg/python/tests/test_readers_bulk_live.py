@@ -7,7 +7,7 @@ longer lists the verbs pyMzLib calls.
 
 Gated like ``test_thermo_live.py``: skipped in a source checkout with no built bridge, failed under
 CI, where the bridge is always built. The quantification checks also need mzLib's own 1.0.592 test
-files from the pinned ``code/mzLib`` worktree, and skip without them.
+files (1.0.593's for RNA) from the pinned ``code/mzLib`` worktree, and skip without them.
 """
 
 from __future__ import annotations
@@ -28,6 +28,8 @@ THERMO = FIXTURES / "thermo_scan_descriptions.raw"
 MZLIB_TEST = HERE.parents[2] / "code" / "mzLib" / "mzLib" / "Test"
 PROTEIN_GROUPS = MZLIB_TEST / "FileReadingTests" / "ExternalFileTypes" / "MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv"
 PEPTIDES = MZLIB_TEST / "FileReadingTests" / "ExternalFileTypes" / "MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv"
+TRANSCRIPT_GROUPS = MZLIB_TEST / "FileReadingTests" / "ExternalFileTypes" / "MetaMorpheus_RNA_AllQuantifiedTranscriptGroups.tsv"
+OLIGOS = MZLIB_TEST / "FileReadingTests" / "ExternalFileTypes" / "MetaMorpheus_RNA_AllQuantifiedOligos.tsv"
 
 
 @pytest.fixture()
@@ -108,3 +110,47 @@ def test_identify_many_answers_in_order(built_bridge, tmp_path):
 
     assert [f.file_type for f in batch.files] == ["ThermoRaw", ""]
     assert batch.files[1].error.kind == "usage"
+
+
+# ---- tables mzLib 1.0.593 reads through the same three functions ------------------------------
+
+
+def test_an_rna_transcript_group_table_reads_through_read_protein_groups(built_bridge):
+    # mzLib #1388: TranscriptGroupFromTsvFile subclasses the protein-group reader. The values are
+    # mzLib's own TestTranscriptGroupFromTsv's.
+    result = readers.read_protein_groups(mzlib_file(TRANSCRIPT_GROUPS))
+    rows = [r for r in result.records if r["protein_group_name"] == "FLuc" and r["sample_label"] == "1:1_1"]
+
+    assert result.record_count == 3
+    assert [(r["spectral_count"], r["intensity"]) for r in rows] == [(355, 89077470.71004736)]
+    assert readers.identify(str(TRANSCRIPT_GROUPS)).file_type == "MetaMorpheusQuantifiedTranscriptGroups"
+
+
+def test_an_rna_transcript_group_table_reads_its_rna_modification_occupancy(built_bridge):
+    result = readers.read_occupancy(mzlib_file(TRANSCRIPT_GROUPS))
+
+    assert "2'-O-methyluridine on U" in set(result.columns["modification"])
+
+
+def test_an_rna_oligo_table_reads_through_read_quantified_peptides(built_bridge):
+    # mzLib #1388: QuantifiedOligoFile subclasses the quantified-peptide reader.
+    result = readers.read_quantified_peptides(mzlib_file(OLIGOS), limit=1)
+
+    assert result.record_count == 492
+    assert result.records[0]["sequence"] == "AAAAAAAAACUCG"
+    assert readers.identify(str(OLIGOS)).file_type == "FlashLFQQuantifiedOligo"
+
+
+@pytest.mark.parametrize("name", ["AllProteinGroups.tsv", "Sample1_ProteinGroups.tsv"])
+def test_a_protein_group_table_written_without_quantification_reads_with_no_intensity(built_bridge, tmp_path, name):
+    # mzLib #1365: these names threw "Tsv file type not supported" before 1.0.593. MetaMorpheus
+    # writes Intensity_ columns only when it quantified, so the stand-in drops them.
+    lines = Path(mzlib_file(PROTEIN_GROUPS)).read_text(encoding="utf-8").splitlines()
+    keep = [i for i, column in enumerate(lines[0].split("\t")) if not column.startswith("Intensity_")]
+    path = tmp_path / name
+    path.write_text("\n".join("\t".join(line.split("\t")[i] for i in keep) for line in lines) + "\n", encoding="utf-8")
+
+    result = readers.read_protein_groups(str(path))
+
+    assert result.record_count > 0
+    assert result.absent_fields == ["intensity"]

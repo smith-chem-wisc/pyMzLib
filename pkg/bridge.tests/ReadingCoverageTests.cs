@@ -71,7 +71,7 @@ public class ReadingCoverageTests
     /// member absent from mzLib's own <c>TestSupportedFileExtensions</c> cases, which is presumably
     /// how the naming slipped through. The fixture is therefore copied to a correctly-named
     /// temporary file by <see cref="FixtureFor"/> rather than skipped, so the coverage claim holds
-    /// for all thirty-six; the upstream fixture is tracked in bridge/UPSTREAM.md.
+    /// for all thirty-eight; the upstream fixture is tracked in bridge/UPSTREAM.md.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
@@ -119,6 +119,10 @@ public class ReadingCoverageTests
         // mzLib #1347. MetaMorpheus 1.1.11 output, the only version mzLib ships a fixture for.
         [SupportedFileType.MetaMorpheusQuantifiedProteinGroups] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
         [SupportedFileType.FlashLFQQuantifiedPeptide] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
+        // mzLib #1388. MetaMorpheus RNA output; the two readers subclass the protein-group and
+        // quantified-peptide readers, so these tables also open through the typed quant verbs.
+        [SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_RNA_AllQuantifiedTranscriptGroups.tsv",
+        [SupportedFileType.FlashLFQQuantifiedOligo] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_RNA_AllQuantifiedOligos.tsv",
     };
 
     /// <summary>
@@ -912,10 +916,10 @@ public class ReadingCoverageTests
             ("Mgf.cs:350", "msLevel"),
             ("MsAlign.cs:526", "MzRange"),
             ("MzIdentMLResultFile.cs:123", "skipped"),
-            ("MzIdentMLResultFile.cs:159", "OneBasedScanNumber"),
-            ("MzIdentMLResultFile.cs:173", "IsDecoy"),
-            ("MzIdentMLResultFile.cs:177", "Rank"),
-            ("MzIdentMLResultFile.cs:179", "Scores"),
+            ("MzIdentMLResultFile.cs:175", "OneBasedScanNumber"),
+            ("MzIdentMLResultFile.cs:189", "IsDecoy"),
+            ("MzIdentMLResultFile.cs:193", "Rank"),
+            ("MzIdentMLResultFile.cs:195", "Scores"),
             ("MzIdentMLRecord.cs:45", "Accession"),
         ];
 

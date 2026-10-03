@@ -1,5 +1,5 @@
 {
-  "format_count": 36,
+  "format_count": 38,
   "formats": [
     {
       "file_type": "Ms1Feature",
@@ -253,6 +253,18 @@
       "file_type": "FlashLFQQuantifiedPeptide",
       "extension": "QuantifiedPeptides.tsv",
       "reader": "QuantifiedPeptideFile",
+      "views": []
+    },
+    {
+      "file_type": "MetaMorpheusQuantifiedTranscriptGroups",
+      "extension": "QuantifiedTranscriptGroups.tsv",
+      "reader": "TranscriptGroupFromTsvFile",
+      "views": []
+    },
+    {
+      "file_type": "FlashLFQQuantifiedOligo",
+      "extension": "QuantifiedOligos.tsv",
+      "reader": "QuantifiedOligoFile",
       "views": []
     }
   ]

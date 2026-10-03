@@ -1,6 +1,6 @@
 """Tests for the four verbs that make readers coverage exhaustive.
 
-``read_results`` reaches four of mzLib's thirty-six file types. These four reach the rest:
+``read_results`` reaches four of mzLib's thirty-eight file types. These four reach the rest:
 ``read_records`` reads any of them into that format's own fields, and ``read_features``,
 ``read_matches`` and ``read_spectra`` project the three typed views that ``read_results`` is not.
 
@@ -9,7 +9,7 @@ rather than hand-written, so a wire-shape change shows up here as a parse failur
 fixture that agrees with a Python file and with nothing else. What is under test is only the
 Python layer's job: assemble the arguments, parse the payload into typed objects, and refuse a bad
 argument before spawning anything. The reading itself is mzLib's, and the bridge's C# suite proves
-all thirty-six types are reachable.
+all thirty-eight types are reachable.
 """
 
 from __future__ import annotations

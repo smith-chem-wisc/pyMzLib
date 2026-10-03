@@ -10,7 +10,7 @@ peaks on request::
     >>> scans.scan_count, scans.columns["retention_time"][:2]
     (6, [38.92571663975, 38.92606115255])
 
-mzLib recognises 36 file types in all - the instrument and deconvolution formats above, plus the
+mzLib recognises 38 file types in all - the instrument and deconvolution formats above, plus the
 output of a dozen search tools: MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ, Pytheas, and any mzIdentML writer - and
 dispatches each to a parser it maintains. This module asks it what a path is::
@@ -26,9 +26,9 @@ dispatches each to a parser it maintains. This module asks it what a path is::
     >>> table.record_type, len(table.column_names)
     ('ToppicPrsm', 36)
 
-**Every one of the 36 formats is readable** - :func:`read_records` reads any of them. What differs
+**Every one of the 38 formats is readable** - :func:`read_records` reads any of them. What differs
 between formats is not *whether* you can read them but *what the columns mean*, and that is what
-:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 36 formats into one
+:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 38 formats into one
 uniform shape; it does not. They fall into disjoint families, and several belong to no family at
 all:
 
@@ -49,13 +49,13 @@ all:
 | ``"spectra"``       | 7     | :func:`read_spectra`   | uniform: scan headers, and peaks on   |
 |                     |       |                        | request.                              |
 +---------------------+-------+------------------------+---------------------------------------+
-| *(any)*             | 36    | :func:`read_records`   | **this format's own fields**, under   |
+| *(any)*             | 38    | :func:`read_records`   | **this format's own fields**, under   |
 |                     |       |                        | mzLib's names. Not uniform.           |
 +---------------------+-------+------------------------+---------------------------------------+
 
-``views == []`` is a real and common answer - seventeen types have it. TopPIC, Crux, MSFragger's
+``views == []`` is a real and common answer - nineteen types have it. TopPIC, Crux, MSFragger's
 peptide and protein tables, the FlashDeconv formats and MetaMorpheus's protein-group and peptide
-tables each parse into their own record type with nothing in common. mzLib reads them and so does :func:`read_records`; there is simply no uniform
+tables (and their RNA counterparts) each parse into their own record type with nothing in common. mzLib reads them and so does :func:`read_records`; there is simply no uniform
 view to project them onto, and inventing one here would mean publishing a schema mzLib does not
 have.
 
@@ -1862,9 +1862,9 @@ def read_records(
     """Read **any** file mzLib recognises, into that format's own fields.
 
     This is the exhaustive verb: if :func:`identify` succeeds on a path, this reads it. All
-    thirty-six file types, including the seventeen that belong to no cross-format view at all -
+    thirty-eight file types, including the nineteen that belong to no cross-format view at all -
     TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, MetaMorpheus's
-    protein-group and peptide tables - which no other
+    protein-group and peptide tables and their RNA counterparts - which no other
     function here can touch.
 
     **The columns are not uniform, by design.** They are this format's own mzLib record fields,
@@ -2308,8 +2308,12 @@ def read_protein_groups(
     :func:`read_occupancy`.
 
     Args:
-        path: Path to a MetaMorpheus ``AllQuantifiedProteinGroups.tsv`` (:func:`identify` reports
-            ``MetaMorpheusQuantifiedProteinGroups``).
+        path: Path to a MetaMorpheus protein-group table (:func:`identify` reports
+            ``MetaMorpheusQuantifiedProteinGroups``): ``AllQuantifiedProteinGroups.tsv``, or, since
+            mzLib 1.0.593 (#1365), ``AllProteinGroups.tsv`` and ``<file>_ProteinGroups.tsv`` from a
+            search without quantification - whose rows have no ``intensity``, named in
+            ``absent_fields``. An RNA search's ``AllQuantifiedTranscriptGroups.tsv`` (#1388) reads
+            too, with the transcript group in ``protein_group_name``.
         limit: Maximum groups to return; each group gives one row per sample group. ``None``
             returns all of them.
         offset: Groups to skip.
@@ -2411,7 +2415,9 @@ def read_quantified_peptides(
 
     Args:
         path: Path to a FlashLFQ ``QuantifiedPeptides.tsv`` or MetaMorpheus
-            ``AllQuantifiedPeptides.tsv`` (:func:`identify` reports ``FlashLFQQuantifiedPeptide``).
+            ``AllQuantifiedPeptides.tsv`` (:func:`identify` reports ``FlashLFQQuantifiedPeptide``),
+            or, since mzLib 1.0.593 (#1388), an RNA search's ``AllQuantifiedOligos.tsv``, with the
+            oligonucleotide in ``sequence``.
         limit: Maximum peptides to return; each gives one row per sample. ``None`` returns all.
         offset: Peptides to skip.
         out: Write a tab-separated table here and return only a summary.
@@ -2508,7 +2514,9 @@ def read_occupancy(
     came from.
 
     Args:
-        path: Path to a MetaMorpheus ``AllQuantifiedProteinGroups.tsv``.
+        path: Path to any MetaMorpheus protein-group table :func:`read_protein_groups` reads,
+            including an RNA search's ``AllQuantifiedTranscriptGroups.tsv``, whose sites name RNA
+            modifications.
         limit: Maximum groups to return. A group with no modified sites gives no rows.
         offset: Groups to skip.
         out: Write a tab-separated table here and return only a summary.

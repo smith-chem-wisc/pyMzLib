@@ -5,7 +5,7 @@ verb: sdrf lint
 module: sdrf
 summary: >-
   Find the concepts a set of SDRF documents wrote inconsistently, one row per finding and spelling.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfDriftLint.Analyze, path: mzLib/Readers/Sdrf/SdrfDriftLint.cs, pin: 23c2490e}
   - {symbol: SdrfCollection, path: mzLib/Readers/Sdrf/SdrfCollection.cs, pin: 23c2490e}
@@ -55,16 +55,13 @@ caveats:
 
 bindings:
   py: {name: pymzlib.sdrf.lint}
-  rust: {name: "mzlib::sdrf::lint_labelled"}
-  r: {name: sdrf_lint}
+  rust: {name: "mzlib::sdrf::lint_labelled", unlabelled: "mzlib::sdrf::lint"}
+  r: {name: sdrf_lint, note: "Documents are a character vector of paths named by label; finding_index and variant_rank are 1-based in R (the wire is 0-based); documents is a list column."}
 
 examples:
   - fixture: sdrf_lint_cohort.json
     py: "drift = pymzlib.sdrf.lint({'sdrf_cohort.sdrf.tsv': 'cohort', 'sdrf_cohort_partner.sdrf.tsv': 'partner'})"
     rust: "let drift = mzlib::sdrf::lint_labelled(&[(\"sdrf_cohort.sdrf.tsv\", \"cohort\"), (\"sdrf_cohort_partner.sdrf.tsv\", \"partner\")])?;"
-    r: "drift <- sdrf_lint(c('sdrf_cohort.sdrf.tsv' = 'cohort', 'sdrf_cohort_partner.sdrf.tsv' = 'partner'))"
+    r: "drift <- sdrf_lint(c(cohort = 'sdrf_cohort.sdrf.tsv', partner = 'sdrf_cohort_partner.sdrf.tsv'))"
 
-open_questions:
-  - "Rust and R spellings are the intended ones, mirroring pool / pool_labelled and sdrf_pool; not yet ported."
-  - "documents is the first list-valued cell in a columnar table on the wire. R will need a list column; confirm mzLibR's table projection accepts one before porting."
-  - "since.pymzlib is null until released."
+open_questions: []
