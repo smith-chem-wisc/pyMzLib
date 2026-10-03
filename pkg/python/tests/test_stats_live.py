@@ -78,14 +78,31 @@ def test_meta_matches_metafor_from_python():
 def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
     recorded = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     live = call()
-    assert live.columns == recorded["columns"]
+    assert_same_columns(live.columns, recorded["columns"])
     assert live.caveats == recorded["caveats"]
 
 
 def test_the_meta_recording_is_what_the_bridge_returns_today():
     recorded = json.loads((FIXTURES / "stats_meta_metafor.json").read_text(encoding="utf-8"))
     studies = [(r["case"], float(r["yi"]), float(r["sei"])) for r in tsv("metafor_dl_inputs.tsv")]
-    assert stats.meta(studies).columns == recorded["columns"]
+    assert_same_columns(stats.meta(studies).columns, recorded["columns"])
+
+
+def assert_same_columns(live: dict, recorded: dict) -> None:
+    """Equal, except that floats may differ in their last bits.
+
+    The recordings were made on one platform and CI replays them on others; the last digits of a
+    log or a quantile can differ between them, and that is not drift. 1e-9 relative is far below
+    the 1e-8 the reference comparisons promise, and far above floating-point noise.
+    """
+    assert list(live) == list(recorded)
+    for name, values in recorded.items():
+        assert len(live[name]) == len(values), name
+        for i, (a, b) in enumerate(zip(live[name], values)):
+            if isinstance(b, float) and isinstance(a, (int, float)) and not isinstance(a, bool):
+                assert abs(a - b) <= 1e-9 * max(abs(b), 1e-300), (name, i, a, b)
+            else:
+                assert a == b, (name, i, a, b)
 
 
 def test_a_trend_fit_runs_and_reports_its_basis():
