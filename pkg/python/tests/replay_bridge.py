@@ -63,10 +63,20 @@ def base(path: str) -> str:
     return PureWindowsPath(path).name if "\\" in path else PurePath(path).name
 
 
+#: Wire options a verb echoes under another name, so a recording made with one value cannot answer
+#: a call with another (peptidoform fragments echoes --max-mods as max_modifications).
+ECHOED_AS = {
+    "max-mods": "max_modifications",
+    "max-isoforms": "max_modification_isoforms",
+    "psms": "psm_file",
+    "peptides": "peptides_file",
+}
+
+
 def mismatch(data: dict, options: dict) -> str:
     """Why this recording cannot be the answer to these options, or "" if it can."""
     for name, value in options.items():
-        key = name.replace("-", "_")
+        key = ECHOED_AS.get(name, name.replace("-", "_"))
         if name in ("limit", "offset", "out"):
             continue
         if value is True:
@@ -94,8 +104,11 @@ def mismatch(data: dict, options: dict) -> str:
     # top-level path. read_count is not required: a verb that refuses on_error="skip" (proteins
     # classify-peptides) has nothing to count. pride files also has a files list, of PRIDE files.
     files = data.get("files")
+    # An empty list says nothing either way (PRIDE's answer for an unknown accession is files=[]),
+    # so it counts as bulk only when BULK.md's read_count says so.
     bulk_recording = (
         isinstance(files, list)
+        and (bool(files) or "read_count" in data)
         and all(isinstance(f, dict) and "path" in f for f in files)
         and "path" not in data
     )
@@ -106,6 +119,11 @@ def mismatch(data: dict, options: dict) -> str:
     # wrote nothing.
     if "written" in data and ("out" in options) != (data["written"] is not None):
         return "a recording that wrote out=" if data["written"] is not None else "a recording without out="
+    # proteins read: a filtered read (--accessions-stdin) and an unfiltered one never stand in for
+    # each other, or an example would print rows its filter did not select.
+    if "accession_filter_count" in data:
+        if ("accessions-stdin" in options) != (data["accession_filter_count"] is not None):
+            return "a recording with the other accession filter (filtered vs unfiltered)"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
@@ -127,7 +145,21 @@ def mismatch(data: dict, options: dict) -> str:
     return ""
 
 
-def answer(argv: list) -> dict:
+#: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
+#: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
+STDIN_ECHO = {"quant flashlfq"}
+
+
+def stdin_mismatch(data: dict, stdin: str) -> str:
+    """For quant flashlfq: the call's mzML runs must be the recording's runs (by file name)."""
+    sent = {base(line.split("	")[0].strip()) for line in stdin.splitlines() if line.strip()}
+    recorded = {base(str(f.get("full_path", ""))) for f in data.get("spectra_files") or []}
+    if sent != recorded:
+        return f"recorded for runs {sorted(recorded)}, not {sorted(sent)}"
+    return ""
+
+
+def answer(argv: list, stdin: str = "") -> dict:
     verb, options = parse(argv)
     table_path = os.environ.get("PYMZLIB_REPLAY_TABLE")
     if not table_path:
@@ -143,6 +175,8 @@ def answer(argv: list) -> dict:
             data = json.load(fh)
         data = data["data"] if isinstance(data, dict) and "ok" in data and "data" in data else data
         why = mismatch(data, options) if isinstance(data, dict) else ""
+        if not why and verb in STDIN_ECHO and isinstance(data, dict):
+            why = stdin_mismatch(data, stdin)
         if why:
             reasons.append(f"{base(fixture)}: {why}")
         else:
@@ -157,7 +191,10 @@ def answer(argv: list) -> dict:
 
 
 def main() -> int:
-    result = answer(sys.argv[1:])
+    argv = sys.argv[1:]
+    verb, _ = parse(argv)
+    stdin = sys.stdin.read() if verb in STDIN_ECHO else ""
+    result = answer(argv, stdin)
     sys.stdout.write(json.dumps(result))
     return 0 if result["ok"] else 2
 

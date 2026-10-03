@@ -1,0 +1,174 @@
+# Written 2026-09-24 from pyMzLib origin/main 06bfca9: pkg/bridge/Peptidoform.cs (FragmentsAsync,
+# FetchAnnotatedProteinAsync, ThrowIfUniProtRejected, CensusAnnotatedFeatures, FormalChargeOf,
+# ToWirePeptide), pkg/python/src/pymzlib/peptidoform.py (fragments, Digest, Peptide, Fragment,
+# ModificationCensus), mzLib pin 23c2490e. Example fixture peptidoform_P02768_small.json: serum albumin
+# with max-mods 1, trimmed by hand to 2 peptides (peptide_count is the trimmed count).
+verb: peptidoform fragments
+module: peptidoform
+summary: >-
+  Fetch a UniProt entry with its annotated modifications, digest it, and return every peptidoform
+  with its fragment ions, plus a census of which annotations were applied.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
+  - {symbol: Loaders.LoadUniprot, path: mzLib/UsefulProteomicsDatabases/Loaders.cs, pin: 23c2490e}
+  - {symbol: Protein.Digest, path: mzLib/Proteomics/Protein/Protein.cs, pin: 23c2490e}
+  - {symbol: DigestionParams, path: mzLib/Proteomics/ProteolyticDigestion/DigestionParams.cs, pin: 23c2490e}
+  - {symbol: ProteaseDictionary, path: mzLib/Proteomics/ProteolyticDigestion/ProteaseDictionary.cs, pin: 23c2490e}
+  - {symbol: PeptideWithSetModifications.Fragment, path: mzLib/Proteomics/ProteolyticDigestion/PeptideWithSetModifications.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, the source of the entry, its sequence and its annotated modifications (UniProt Consortium 2025, NAR)"}
+
+params:
+  - name: accession
+    type: string
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A UniProtKB accession, e.g. P02768; fetched from rest.uniprot.org. The bridge checks only that
+      it is not blank (the bindings upper-case it and check its shape first). UniProt's 400 or 404
+      becomes a usage error.
+  - name: protease
+    type: string
+    required: false
+    unit: null
+    range: "a key of mzLib's ProteaseDictionary"
+    default: "trypsin|P"
+    doc: >-
+      mzLib protease name. The default "trypsin|P" is the Keil rule (cleave after K/R EXCEPT before
+      P); mzLib's plain "trypsin" cleaves before P too. The bracket/bar marks a PREVENTING residue,
+      the reverse of MaxQuant's and Mascot's "Trypsin/P".
+  - name: dissociation
+    type: string
+    required: false
+    unit: null
+    range: "a mzLib DissociationType name, case-insensitive: HCD, CID, ETD, EThcD, ..."
+    default: ETD
+    doc: >-
+      Which fragment series to generate: HCD/CID give b and y; ETD gives c and zDot.
+  - name: terminus
+    type: string
+    required: false
+    unit: null
+    range: "a mzLib FragmentationTerminus name, case-insensitive: Both, N, C"
+    default: Both
+    doc: Which fragment termini to generate; also passed to DigestionParams.
+  - name: no-modifications
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: false
+    doc: >-
+      Digest the bare sequence: UniProt's modifications are discarded but its signal-peptide and
+      propeptide boundaries are kept (pyMzLib#8), so the backbone peptide list is unchanged and
+      only the modified variants go away. A clean control.
+  - name: missed-cleavages
+    type: int
+    required: false
+    unit: cleavage sites
+    range: ">= 0"
+    default: 2
+    doc: Maximum missed cleavage sites per peptide.
+  - name: min-length
+    type: int
+    required: false
+    unit: residues
+    range: ">= 1"
+    default: 7
+    doc: >-
+      Shortest peptide kept. The default silently drops shorter peptides (about a third of a
+      histone digest); pass 1 for every peptide.
+  - name: max-length
+    type: int
+    required: false
+    unit: residues
+    range: ">= 0"
+    default: 0
+    doc: Longest peptide kept; 0 means unbounded.
+  - name: max-mods
+    type: int
+    required: false
+    unit: modifications
+    range: ">= 0"
+    default: 2
+    doc: >-
+      Maximum modifications per peptidoform (DigestionParams maxModsForPeptides). Isoforms grow
+      combinatorially: histone H3.1 gives 49 bare tryptic peptides, 2,563 at 2 and 7,040 at 3.
+  - name: max-isoforms
+    type: int
+    required: false
+    unit: peptidoforms
+    range: ">= 1"
+    default: 1024
+    doc: >-
+      Cap on modification isoforms per peptide position (DigestionParams maxModificationIsoforms).
+      mzLib truncates SILENTLY at the cap; peptides_at_isoform_cap reports it.
+
+result:
+  envelope_fields:
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "The accession UniProt returned."}
+    - {wire: name, type: string, unit: null, nullable: true, null_means: "the entry records no entry name", doc: "UniProt entry name, e.g. ALBU_HUMAN."}
+    - {wire: full_name, type: string, unit: null, nullable: true, null_means: "the entry records no recommended name", doc: "Recommended protein name, e.g. Albumin."}
+    - {wire: organism, type: string, unit: null, nullable: true, null_means: "the entry records no organism", doc: "Scientific name."}
+    - {wire: sequence_length, type: int, unit: residues, nullable: false, null_means: null, doc: "Length of the full precursor sequence."}
+    - {wire: modifications_applied, type: bool, unit: null, nullable: false, null_means: null, doc: "False under no-modifications."}
+    - {wire: annotated_modification_sites, type: int, unit: residues, nullable: false, null_means: null, doc: "Distinct residue positions carrying at least one loaded modification. Not a modification count: K9me1/me2/me3/ac are four modifications at one site."}
+    - {wire: annotated_modifications_loaded, type: int, unit: modifications, nullable: false, null_means: null, doc: "Modifications mzLib loaded onto the protein (summed over sites). Counted from the annotated entry, so unchanged by no-modifications."}
+    - {wire: uniprot_annotated_features, type: int, unit: features, nullable: false, null_means: null, doc: "Modification-like features in the XML: modified residue, glycosylation site, lipid moiety-binding region and cross-link."}
+    - {wire: unresolved_modifications, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Modification names the entry annotates that could not be resolved against UniProt's ptmlist, sorted. These are dropped silently by mzLib otherwise."}
+    - {wire: uniprot_features_by_type, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{type, count, loaded} per feature type, sorted by type. loaded is true only for 'modified residue' and 'lipid moiety-binding region': mzLib drops the others on feature TYPE alone, before any mass lookup."}
+    - {wire: protease, type: string, unit: null, nullable: false, null_means: null, doc: "The protease used."}
+    - {wire: dissociation, type: string, unit: null, nullable: false, null_means: null, doc: "DissociationType name used."}
+    - {wire: terminus, type: string, unit: null, nullable: false, null_means: null, doc: "FragmentationTerminus name used."}
+    - {wire: max_modifications, type: int, unit: modifications, nullable: false, null_means: null, doc: "max-mods, echoed."}
+    - {wire: max_modification_isoforms, type: int, unit: peptidoforms, nullable: false, null_means: null, doc: "max-isoforms, echoed."}
+    - {wire: peptides_at_isoform_cap, type: int, unit: peptide positions, nullable: false, null_means: null, doc: "Peptide positions (start, end) whose distinct peptidoforms reached max-isoforms. Non-zero means the list is TRUNCATED."}
+    - {wire: peptide_count, type: int, unit: peptidoforms, nullable: false, null_means: null, doc: "Entries in peptides."}
+    - {wire: peptides, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One entry per distinct peptidoform (start, end, full sequence), in digestion order; fields under result.columns."}
+  # Fields of each entry in `peptides` (a list of records, not a column dict).
+  columns:
+    - {wire: base_sequence, type: string, unit: null, nullable: false, null_means: null, doc: "Bare residues."}
+    - {wire: full_sequence, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib full sequence with modifications inline, e.g. ...K[UniProt:N6-succinyllysine on K]."}
+    - {wire: monoisotopic_mass, type: float, unit: Da, nullable: false, null_means: null, doc: "Neutral monoisotopic mass, modifications included."}
+    - {wire: length, type: int, unit: residues, nullable: false, null_means: null, doc: "Peptide length."}
+    - {wire: one_based_start, type: int, unit: null, nullable: false, null_means: null, doc: "First residue's position in the protein, 1-based."}
+    - {wire: one_based_end, type: int, unit: null, nullable: false, null_means: null, doc: "Last residue's position in the protein, 1-based, inclusive."}
+    - {wire: missed_cleavages, type: int, unit: cleavage sites, nullable: false, null_means: null, doc: "Missed cleavage sites spanned."}
+    - {wire: modification_count, type: int, unit: modifications, nullable: false, null_means: null, doc: "Entries in modifications."}
+    - {wire: fixed_charges, type: int, unit: charge, nullable: false, null_means: null, doc: "Formal charges the INTACT peptide carries before protonation (e.g. trimethyllysine's quaternary ammonium), recovered from each modification's formula-vs-recorded mass deficit in whole electrons. m/z at charge z is (monoisotopic_mass + (z - fixed_charges) * 1.00727646677) / z. Does NOT apply to fragments."}
+    - {wire: modifications, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{one_based_residue, terminus, id, mass, formal_charge} per modification: one_based_residue is 1-based within the PEPTIDE and null for a terminal modification, which sets terminus 'N' or 'C' instead (terminus is null for a residue modification); id is mzLib's IdWithMotif; mass is its monoisotopic mass in Da (null only if the modification defines none); formal_charge in elementary charges."}
+    - {wire: fragments, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{product_type, fragment_number, neutral_mass, neutral_loss, residue_position} per ion: product_type e.g. b, y, c, zDot; fragment_number the position in its series; neutral_mass the monoisotopic NEUTRAL mass in Da (not an m/z; no proton added); neutral_loss in Da (0 when none); residue_position 1-based within the peptide."}
+
+errors:
+  - {kind: usage, when: "accession missing or blank; UniProt answers 400 or 404 (no such entry); the entry holds no protein sequence; protease not in ProteaseDictionary; dissociation or terminus not an enum name; an integer option that is not an integer"}
+  - {kind: service_unavailable, when: "UniProt unreachable by the bridge's own classification: a timeout (HttpClient 100 s), a socket or TLS failure, a request that never got a response, an HTTP 408, 429 or 5xx, or a body cut off in transit"}
+  - {kind: correctness, when: "any other UniProt status (e.g. 403); UniProt's ptmlist.txt or PSI-MOD.obo.xml missing from the bridge payload (FileNotFoundException: every protein would otherwise look unmodified or carry wrong charges); mzLib failing to parse the entry or to digest it"}
+
+caveats:
+  - "UniProt annotates more than mzLib applies: only 'modified residue' and 'lipid moiety-binding region' features load. Serum albumin: 14 of 38 annotated features applied, the 24 glycosylation-site features dropped on type (mzLib#1112). Read uniprot_features_by_type and unresolved_modifications before trusting a modification count."
+  - "max-isoforms truncates silently in mzLib (histone H3.1 at four modifications loses about 30% of peptidoforms at 1024). Check peptides_at_isoform_cap before treating the list as exhaustive."
+  - "Duplicate peptidoforms that mzLib's Digest emits where a chain boundary meets the initiator-Met cleavage site (mzLib#1108, open) are collapsed by the bridge on (start, end, full sequence)."
+  - "Fragment masses are neutral. Converting one to m/z needs the fixed charge within that fragment's span, which the wire does not report; fixed_charges is whole-peptide only."
+  - "ETD's zDot ions are suppressed N-terminal to proline while the complementary c ions are not, leaving about 4% of the c series unobservable (mzLib#1110)."
+  - "Needs the network: UniProt is queried on every call."
+
+bindings:
+  py: {name: pymzlib.peptidoform.fragments}
+  rust: {name: "mzlib::peptidoform::fragments_with", options: FragmentOptions}
+  r: {name: peptidoform_fragments}
+
+examples:
+  - fixture: peptidoform_P02768_small.json
+    py: "digest = pymzlib.peptidoform.fragments('P02768', max_modifications=1)"
+    rust: "let digest = mzlib::peptidoform::fragments_with(\"P02768\", &FragmentOptions { max_modifications: 1, ..Default::default() })?;"
+    r: "digest <- peptidoform_fragments('P02768', max_modifications = 1)"
+
+open_questions:
+  - "peptides_at_isoform_cap is computed on the DE-DUPLICATED list, although FragmentsAsync's own comment says it must count the raw digest (a truncated locus deduped below the cap then reads as untruncated); the correctly computed peptidesAtCap local is never used. Confirmed a bridge bug (pyMzLib 005), fixed on pyMzLib main by #67 (unreleased after 0.2.0): the wire then counts the raw digest, as the doc above says. Close this once a release carries #67."
+  - "The example fixture is hand-trimmed (2 peptides of a max-mods 1 digest), so its peptide_count is not what the live call returns; the envelope keys are the live ones."
+  - "Integer options are not range-checked by the bridge (negative min-length, max-isoforms 0); the bindings check them. Enum.TryParse also accepts numeric strings, so --dissociation 3 or --terminus 7 pass as undefined members. Behaviour of mzLib on such values is unverified."
+  - "The wire names max-mods and no-modifications project as max_modifications and modifications (inverted) in every binding; pyMzLib's spec lint will need PYTHON_DEVIATIONS entries for them."
+  - "modifications[].mass nullability: Modification.MonoisotopicMass is double?; a loaded UniProt modification has not been seen without one."

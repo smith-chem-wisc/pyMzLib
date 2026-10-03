@@ -91,6 +91,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Which function do I want?: which-function.md
   - Guides:
       - PRIDE Archive: guides/pride.md
       - Peptidoforms: guides/peptidoforms.md
@@ -102,6 +103,10 @@ nav:
       - Differential abundance: guides/stats.md
   - API reference:
       - Python API: reference.md
+      - Errors: errors.md
+      - "Wire verbs: pride": reference/pride.md
+      - "Wire verbs: peptidoform": reference/peptidoform.md
+      - "Wire verbs: quant": reference/quant.md
       - "Wire verbs: readers": reference/readers.md
       - "Wire verbs: bridge": reference/bridge.md
       - "Wire verbs: sdrf": reference/sdrf.md
@@ -117,6 +122,7 @@ nav:
       - Adding a capability: contributing/adding-a-capability.md
       - How the reference facts are generated: contributing/reference-facts.md
       - Releasing: contributing/releasing.md
+  - "Upgrading: what changed in your results": upgrading.md
   - FAQ: faq.md
 
 extra:

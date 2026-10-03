@@ -1,0 +1,10 @@
+{
+ "path": "F:\\ClaudeTemp\\docs593\\rd\\FraggerPsm_FragPipev21.1_psm.tsv",
+ "file_type": "MsFraggerPsm",
+ "extension": "psm.tsv",
+ "reader": "MsFraggerPsmFile",
+ "views": [
+  "quantifiable"
+ ],
+ "error": null
+}

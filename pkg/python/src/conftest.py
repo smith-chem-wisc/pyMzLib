@@ -30,7 +30,9 @@ REPLAY = ROOT / "pkg" / "python" / "tests" / "replay_bridge.py"
 #: Recordings for verbs with no spec yet, or recordings a spec does not list as an example.
 #: When a verb's spec lands with these fixtures among its ``examples``, delete its entry here.
 REPLAY_EXTRA = {
-    "readers read-spectra": ["readers_spectra_ms2.json"],
+    "readers read-spectra": ["readers_spectra_ms2.json", "readers_spectra_peaks.json"],
+    "readers read-protein-groups": ["readers_protein_groups_rna.json"],
+    "readers identify": ["readers_identify_fragger.json"],
     "readers read-features": ["readers_features_topfd.json"],
     "readers read-matches": [
         "readers_matches_casanovo.json",
@@ -41,11 +43,19 @@ REPLAY_EXTRA = {
     ],
     # The verb guard (pymzlib._bridge.require_verb) asks the bridge which verbs it has.
     "version": ["bridge_version.json"],
-    "pride files": ["pride_PXD000001_files.json"],
-    "pride search": ["pride_search_plasmodium.json"],
-    "quant flashlfq": ["flashlfq_small.json"],
-    "quant median-polish": ["median_polish_small.json"],
-    "peptidoform fragments": ["peptidoform_P02768_small.json"],
+    # The full albumin digest the peptidoforms guide reads (scripts/record_fixture.py --compact).
+    "peptidoform fragments": ["peptidoform_P02768.json"],
+    # The PRIDE guide: the complete FTP listing, and PRIDE's empty answer for an unknown accession.
+    "pride ftp-files": ["pride_PXD000001_ftp_files.json"],
+    "pride files": ["pride_PXD999999999_files.json"],
+    # The FlashLFQ guide: mzLib's two K562 test runs with MBR, and median polish of the peptide
+    # table that run wrote (renamed K562_QuantifiedPeptides.tsv so it is told apart from the spec's).
+    "quant flashlfq": ["flashlfq_k562_mbr.json"],
+    "quant median-polish": ["median_polish_k562.json"],
+    # The SDRF guide: assess() on a Partial file and on a skeleton.
+    "sdrf assess": ["sdrf_assess_PXD000070.json", "sdrf_assess_skeleton.json"],
+    # The proteins guide: three databases and a contaminant, filtered to four accessions.
+    "proteins read": ["proteins_read_accessions.json"],
 }
 
 

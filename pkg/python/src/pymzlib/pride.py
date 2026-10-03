@@ -182,9 +182,15 @@ class PrideFile:
         category: The file category, e.g. ``"RAW"``, ``"PEAK"``, ``"SEARCH"``, ``"OTHER"``.
         https_url: A direct HTTPS download URL, or ``None`` when the file is only reachable
             by a protocol that cannot be fetched over HTTPS (Aspera-only files).
+        category_accession: The category's PRIDE controlled-vocabulary accession, e.g.
+            ``"PRIDE:0000410"``.
         locations: Every published location as ``{"accession", "name", "value"}`` dicts, for
             callers that want the raw controlled-vocabulary terms.
-        submission_date / publication_date / updated_date: Repository timestamps.
+        submission_date: When the project was submitted, as a timezone-aware timestamp. ``None``
+            when PRIDE omitted it (the wire carries mzLib's ``0001-01-01`` placeholder).
+        publication_date: When the project was made public; as ``submission_date``.
+        updated_date: When the project record last changed; as ``submission_date``.
+        project_accession: The accession the file was listed under.
     """
 
     file_name: str
@@ -706,19 +712,27 @@ class PrideProjectSearchResult:
         sdrf: The project's SDRF metadata as a single space-joined bag of term *values*, flattened
             by the search index. **Not a file, filename or URL** — nothing can be fetched with it
             and the row/column structure is gone. For a real SDRF see :mod:`pymzlib.sdrf`.
-        submission_date / publication_date / updated_date: Calendar :class:`~datetime.date` values,
-            not timestamps — see :func:`_parse_date`. ``None`` when PRIDE reported none.
+        submission_date: A calendar :class:`~datetime.date`, not a timestamp: PRIDE's search index
+            sends no time and no offset. ``None`` when PRIDE reported none.
+        publication_date: As ``submission_date``.
+        updated_date: As ``submission_date``.
         project_tags: PRIDE's coarse classification tags.
         keywords: The submitter's free-text keywords. **May contain empty and whitespace-only
             strings** — PRIDE ships them on roughly 9% of hits. They are passed through rather than
             filtered, because dropping them here would make this module disagree with mzLib and with
             the Rust and R bindings about what a project's keywords are. Filter before joining.
-        submitters / lab_pis / affiliations: Display names and affiliations, flattened from the
-            structured contact objects the metadata endpoint returns.
-        instruments / softwares / quantification_methods: Display names.
+        submitters: Display names, flattened from the structured contact objects the metadata
+            endpoint returns.
+        lab_pis: Display names of the lab heads, flattened the same way.
+        affiliations: Display strings.
+        instruments: Display names only; the controlled-vocabulary accessions are not sent.
+        softwares: Display names.
+        quantification_methods: Display names, e.g. ``"TMT"``.
         sample_attributes: Sample characteristics by display *value* (e.g. ``"liver"``). Flattened:
             which characteristic each value describes is **not recoverable** from a search hit.
-        organisms / organism_parts / diseases: Display names.
+        organisms: Display names, e.g. ``"Homo sapiens (human)"``.
+        organism_parts: Display names.
+        diseases: Display names.
         references: Publications, each a single pre-formatted citation string. A PubMed ID or DOI
             cannot be read out of one without parsing the string PRIDE assembled.
         experiment_types: e.g. ``"Data-independent acquisition"``.
@@ -729,9 +743,15 @@ class PrideProjectSearchResult:
         highlights: Why this project matched, keyed by the field each match was found in, with the
             matched terms wrapped in ``<em>`` markup. The keys vary per hit and per query. This is
             the one thing search returns that the metadata endpoint cannot.
-        yearly_downloads: ``{"year", "count"}`` dicts.
-        download_count / avg_downloads_per_file / percentile: Download popularity.
-        bot_count / hub_count / organic_count: Downloads split by traffic kind.
+        yearly_downloads: ``{"year", "count"}`` dicts: ``year`` a string such as ``"2025"``,
+            ``count`` the downloads in that year. Empty when not reported.
+        download_count: Total downloads. ``0`` means not reported, never a measured zero.
+        avg_downloads_per_file: Mean downloads per file. ``0`` means not reported.
+        percentile: Download-popularity percentile within PRIDE. ``0`` means not reported.
+        bot_count: Downloads attributed to crawlers. ``0`` means not reported.
+        hub_count: Downloads attributed to institutional or aggregating hubs. ``0`` means not
+            reported.
+        organic_count: Downloads attributed to ordinary human traffic. ``0`` means not reported.
     """
 
     accession: str
@@ -850,8 +870,8 @@ def search(
         keyword: What to search for, e.g. ``"phosphoproteome"``. Matched across titles,
             descriptions, keywords, organisms and more — :attr:`~PrideProjectSearchResult.highlights`
             on each hit says which fields actually matched.
-        page_size: How many hits to request per underlying API call. Only affects how the result
-            set is fetched, never what you get back.
+        page_size: How many projects to request per underlying API call. Only affects how the
+            result set is fetched, never what you get back.
         timeout: Seconds to allow for the whole fetch.
 
     Returns:

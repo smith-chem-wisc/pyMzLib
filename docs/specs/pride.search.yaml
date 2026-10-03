@@ -1,0 +1,110 @@
+# Written 2026-09-24 from pyMzLib origin/main 06bfca9: pkg/bridge/Program.cs (PrideSearchAsync,
+# ToWireSearchResult, ToWireDate, ClassifyError), pkg/python/src/pymzlib/pride.py (search,
+# PrideProjectSearchResult, MAX_KEYWORD_LENGTH), mzLib pin 23c2490e
+# (PrideArchiveClient.SearchProjectsAsync, PrideProjectSearchResult). Example fixture
+# pride_search_plasmodium.json (6 hits for "plasmodium falciparum schizont").
+verb: pride search
+module: pride
+summary: >-
+  Find PRIDE Archive projects by keyword, with every page fetched and no accession repeated: the
+  discovery step that produces the accessions every other pride verb takes.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: PrideArchiveClient.SearchProjectsAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveClient.MaxKeywordLength, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideProjectSearchResult, path: mzLib/UsefulProteomicsDatabases/PrideProjectSearchResult.cs, pin: 23c2490e}
+  - {symbol: PrideYearlyDownloadCount, path: mzLib/UsefulProteomicsDatabases/PrideYearlyDownloadCount.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkae1011", for: "The PRIDE Archive and its search service (Perez-Riverol et al., The PRIDE database at 20 years: 2025 update, NAR)"}
+
+params:
+  - name: keyword
+    type: string
+    required: true
+    unit: null
+    range: "1 to 1000 characters"
+    default: null
+    doc: >-
+      What to search for, matched by PRIDE across titles, descriptions, keywords, organisms,
+      references and more. Longer than 1000 characters (mzLib MaxKeywordLength) is a usage error,
+      because PRIDE answers one with HTTP 500, which cannot be told apart from an outage.
+  - name: page-size
+    type: int
+    required: false
+    unit: projects
+    range: ">= 1"
+    default: 100
+    doc: >-
+      Hits requested per underlying API call. Changes how many requests the fetch takes, never
+      what comes back.
+
+result:
+  envelope_fields:
+    - {wire: keyword, type: string, unit: null, nullable: false, null_means: null, doc: "The keyword, echoed."}
+    - {wire: result_count, type: int, unit: projects, nullable: false, null_means: null, doc: "Entries in results. 0 is a real answer (no hits), not an error."}
+    - {wire: results, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One entry per matching project, deduplicated by accession, in PRIDE's ranking order; fields under result.columns."}
+  # Fields of each entry in `results` (a list of records, not a column dict). PRIDE omits nothing as
+  # null: an absent string is "", an absent list is [], an absent count is 0. The only nulls are dates.
+  columns:
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "The project accession: usually PXD, but also legacy PRD and affinity PAD. Treat it as an opaque key."}
+    - {wire: title, type: string, unit: null, nullable: false, null_means: null, doc: "Project title."}
+    - {wire: project_description, type: string, unit: null, nullable: false, null_means: null, doc: "Submitter's free-text description."}
+    - {wire: sample_processing_protocol, type: string, unit: null, nullable: false, null_means: null, doc: "Free text."}
+    - {wire: data_processing_protocol, type: string, unit: null, nullable: false, null_means: null, doc: "Free text."}
+    - {wire: doi, type: string, unit: null, nullable: false, null_means: null, doc: "Dataset DOI, or \"\" when PRIDE has minted none."}
+    - {wire: submission_type, type: string, unit: null, nullable: false, null_means: null, doc: "COMPLETE, PARTIAL, AFFINITY or PRIDE (legacy); not a closed set."}
+    - {wire: sdrf, type: string, unit: null, nullable: false, null_means: null, doc: "The project's SDRF term VALUES flattened by the search index into one space-joined string. Not a file, name or URL; \"\" on most hits."}
+    - {wire: submission_date, type: string, unit: null, nullable: true, null_means: "PRIDE reported no date (mzLib's default DateTime)", doc: "Bare calendar date yyyy-MM-dd: no time, no offset, because none was sent."}
+    - {wire: publication_date, type: string, unit: null, nullable: true, null_means: "PRIDE reported no date", doc: "As submission_date."}
+    - {wire: updated_date, type: string, unit: null, nullable: true, null_means: "PRIDE reported no date", doc: "As submission_date."}
+    - {wire: project_tags, type: "string[]", unit: null, nullable: false, null_means: null, doc: "PRIDE's coarse classification tags. Sparse (2.6% of 1,600 sampled hits)."}
+    - {wire: keywords, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Submitter keywords. May contain empty or whitespace-only strings (about 9% of hits); passed through, not filtered."}
+    - {wire: submitters, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names, flattened from contact objects."}
+    - {wire: lab_pis, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names."}
+    - {wire: affiliations, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display strings."}
+    - {wire: instruments, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names only; the CV accessions are not sent by this endpoint."}
+    - {wire: softwares, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names."}
+    - {wire: quantification_methods, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names, e.g. TMT."}
+    - {wire: sample_attributes, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Sample characteristic VALUES; which characteristic each describes is not recoverable from a hit."}
+    - {wire: organisms, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names, e.g. 'Homo sapiens (human)'."}
+    - {wire: organism_parts, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names."}
+    - {wire: diseases, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Display names."}
+    - {wire: references, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Each a pre-formatted citation string; no separate PubMed id or DOI."}
+    - {wire: experiment_types, type: "string[]", unit: null, nullable: false, null_means: null, doc: "e.g. Data-independent acquisition."}
+    - {wire: project_file_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "File names only: not the manifest (no sizes, categories or locations). Use pride files or pride ftp-files to act on files."}
+    - {wire: other_omics_links, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Links to related datasets in other omics repositories."}
+    - {wire: highlights, type: "map<string,string[]>", unit: null, nullable: false, null_means: null, doc: "Why the project matched: PRIDE field name -> matched snippets with the terms wrapped in <em>. Keys vary per hit and per query and cross unchanged (not snake_cased)."}
+    - {wire: yearly_downloads, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{year, count}: year a string (e.g. \"2025\"), count downloads in that year. Empty when not reported."}
+    - {wire: download_count, type: int, unit: downloads, nullable: false, null_means: null, doc: "Total downloads. 0 means not reported, never a measured zero."}
+    - {wire: avg_downloads_per_file, type: float, unit: "downloads per file", nullable: false, null_means: null, doc: "Mean downloads per file. 0 means not reported."}
+    - {wire: percentile, type: int, unit: percentile, nullable: false, null_means: null, doc: "Download-popularity percentile within PRIDE. 0 means not reported."}
+    - {wire: bot_count, type: int, unit: downloads, nullable: false, null_means: null, doc: "Downloads attributed to crawlers. 0 means not reported (populated on under half of hits)."}
+    - {wire: hub_count, type: int, unit: downloads, nullable: false, null_means: null, doc: "Downloads attributed to institutional or aggregating hubs. 0 means not reported."}
+    - {wire: organic_count, type: int, unit: downloads, nullable: false, null_means: null, doc: "Downloads attributed to ordinary human traffic. 0 means not reported."}
+
+errors:
+  - {kind: usage, when: "keyword missing or blank; keyword longer than 1000 characters; page-size not an integer or <= 0 (both checked by the bridge before mzLib)"}
+  - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout or cancellation, a socket failure, a request that never got a response (refused connection, DNS, TLS), an HTTP 408, 429 or 5xx, or a body cut off in transit"}
+  - {kind: correctness, when: "any other HTTP status; a paging contract violation (MzLibException: an identical page while total_records says more remain); the page limit (mzLib MaxPages) exceeded"}
+
+caveats:
+  - "A hit is NOT a project's metadata: PRIDE serves search from an Elasticsearch projection in which every controlled-vocabulary field is flattened to a display string, contacts to names and references to citation strings. Follow the accession for the vocabulary."
+  - "A zero or an empty list means 'not reported', never a measured zero. Several fields are genuinely sparse (sampled over 1,600 hits: project_tags 2.6%, sdrf 2.4%, other_omics_links 18%, the bot/hub/organic trio under half)."
+  - "Dates are bare calendar dates, unlike pride files' timestamps with offsets; a binding must not widen them to a midnight timestamp."
+  - "PRIDE pages a live index with no stable cursor: a project published mid-fetch is deduplicated, but one removed mid-fetch can fall between two pages and be missed. A result set that fits on one page cannot be affected."
+
+bindings:
+  py: {name: pymzlib.pride.search}
+  rust: {name: "mzlib::pride::search_with", options: SearchOptions, note: "Returns Vec<PrideProjectSearchResult>: no keyword or result_count."}
+  r: {name: pride_search, note: "Returns the hits data.frame itself: no keyword or result_count element."}
+
+examples:
+  - fixture: pride_search_plasmodium.json
+    py: "hits = pymzlib.pride.search('plasmodium falciparum schizont')"
+    rust: "let hits = mzlib::pride::search_with(\"plasmodium falciparum schizont\", &SearchOptions::default())?;"
+    r: "hits <- pride_search('plasmodium falciparum schizont')"
+
+open_questions:
+  - "Shape difference: mzlib::pride::search / search_with return Vec<PrideProjectSearchResult> and R pride_search() returns the hits data.frame, so neither carries the envelope's keyword or result_count (the caller has the keyword; the count is len() / nrow()). pyMzLib returns the hits list likewise. Declare it as a deviation or drop the two fields from the wire?"
+  - "The bindings also refuse a keyword beginning with '-' (it would be parsed as an option); the bridge cannot, since a value starting with '--' reaches it as a flag and the keyword then reads as missing."
+  - "The ranking order of results is PRIDE's and is not promised stable across calls."

@@ -5,7 +5,7 @@ that accession is, what it does, which gene encodes it, or whether the peptide c
 somewhere else. **The protein database you searched already knows all four**, and
 `pymzlib.proteins` reads them out of it with mzLib:
 
-| Question | Function | mzLib |
+| You want to know | Call | mzLib |
 |---|---|---|
 | What organism, taxon, gene and mass is this accession? What are its GO terms? | [`read()`](#look-up-organism-and-taxon-for-a-list-of-accessions) | `ProteinDbLoader`, `Protein.GoTerms` ([#1336][1336]), `Protein.EnsemblGeneReferences` |
 | Which Ensembl gene is this protein, in a way I can reproduce next year? | [`resolve_genes()`](#resolve-proteins-to-ensembl-genes-reproducibly) | `EnsemblGeneResolver` ([#1338][1338]) |
@@ -13,20 +13,23 @@ somewhere else. **The protein database you searched already knows all four**, an
 | Which GO terms does each protein group carry, with every member kept and the ontology's ancestors filled in? | [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member) | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
 | Where do I get a go.obo, and how do I keep the release pinned? | [`update_go()`](#first-get-a-goobo-once-and-keep-it) | `Loaders.UpdateGeneOntology` ([#1353][1353]) |
 
-```python
-import pymzlib
+```pycon
+>>> import pymzlib
+>>> databases = ["human_subset.xml", "human_extra.fasta", "mouse_aifm1.fasta"]
+>>> db = pymzlib.proteins.read(databases, contaminants=["contaminants.fasta"],
+...                            tables=pymzlib.proteins.TABLES)
+>>> db.record_count                            # one row per protein
+8
+>>> db.taxonomy()["P04406"]
+'9606'
 
-db = pymzlib.proteins.read("uniprotkb_human_proteome.xml.gz")
-print(db.record_count)                         # one row per protein
-print(db.taxonomy()["P04406"])                 # '9606'
 ```
 
-Every example on this page runs against the small databases committed in pyMzLib's test suite
-(`pkg/python/tests/fixtures/proteins/`): two real UniProt XML entries (GAPDH, PSCA), human albumin
-and three DYNC1I2 isoforms as FASTA, mouse AIFM1 as FASTA, and bovine albumin as a contaminant.
-The outputs shown are what those files produce. The Gene Ontology section adds a real MetaMorpheus
-protein-group table and the UniProt entries it names; its `>>>` examples are executed when the docs
-are built.
+Every `>>>` example on this page runs in CI against output recorded from the real bridge, on the
+small databases committed in pyMzLib's test suite (`pkg/python/tests/fixtures/proteins/`): two real
+UniProt XML entries (GAPDH, PSCA), human albumin and three DYNC1I2 isoforms as FASTA, mouse AIFM1
+as FASTA, and bovine albumin as a contaminant. The Gene Ontology section adds a real MetaMorpheus
+protein-group table and the UniProt entries it names. Blocks titled **Not run** say why.
 
 ## Before you start: XML or FASTA?
 
@@ -46,12 +49,14 @@ A FASTA's empty GO table is **the format being silent**, not a protein with no a
 will not let those two look alike: every result lists each input in `files`, and a FASTA's entry
 says so explicitly.
 
-```python
-db = pymzlib.proteins.read(["human_subset.xml", "human_extra.fasta"], tables=("proteins", "go_terms"))
-for f in db.files:
-    print(f.file_type, f.absent_fields)
-# UniProtXml []
-# Fasta ['go_terms', 'ensembl_genes', 'ensembl_gene_ids']
+```pycon
+>>> for f in db.files:
+...     print(f.file_type, f.contaminant, f.absent_fields)
+UniProtXml False []
+Fasta False ['go_terms', 'ensembl_genes', 'ensembl_gene_ids']
+Fasta False ['go_terms', 'ensembl_genes', 'ensembl_gene_ids']
+Fasta True ['go_terms', 'ensembl_genes', 'ensembl_gene_ids']
+
 ```
 
 Download the XML from UniProt with `format=xml` on the same query you would use for FASTA, e.g.
@@ -66,22 +71,19 @@ NCBI taxonomy id, and a mixed-species search (a host and a pathogen, a xenograft
 the id to join against anything taxonomic. You have the accessions; the database you searched has
 the answers.
 
-```python
-import pymzlib
+```pycon
+>>> found = pymzlib.proteins.read(
+...     databases,
+...     contaminants=["contaminants.fasta"],
+...     accessions=["P04406", "Q9Z0X1", "P02769", "P04406-1"],
+... )
+>>> found.taxonomy()
+{'P04406': '9606', 'Q9Z0X1': '10090', 'P02769': '9913'}
+>>> found.organisms()["P02769"]
+'Bos taurus'
+>>> found.accessions_not_found
+['P04406-1']
 
-accessions = ["P04406", "Q9Z0X1", "P02769", "P04406-1"]
-db = pymzlib.proteins.read(
-    ["human_subset.xml", "human_extra.fasta", "mouse_aifm1.fasta"],
-    contaminants=["contaminants.fasta"],
-    accessions=accessions,
-)
-
-print(db.taxonomy())
-# {'P04406': '9606', 'Q9Z0X1': '10090', 'P02769': '9913'}
-print(db.organisms()["P02769"])
-# 'Bos taurus'
-print(db.accessions_not_found)
-# ['P04406-1']
 ```
 
 Three things in that output are worth reading twice:
@@ -94,20 +96,24 @@ Three things in that output are worth reading twice:
 - **The bovine albumin came from `contaminants=`**, so its row has `is_contaminant == True`. Marking
   contaminants matters more for the other two functions than for this one.
 
-The whole protein table is column-major, so it goes straight into pandas:
+The whole protein table is column-major, one list per column:
 
-```python
-import pandas as pd
+```pycon
+>>> for row in found.records:
+...     print(row["accession"], row["organism"], row["primary_gene_name"], row["length"],
+...           round(row["monoisotopic_mass"], 2), row["is_contaminant"])
+P04406 Homo sapiens GAPDH 335 36030.4 False
+Q9Z0X1 Mus musculus Aifm1 612 66723.84 False
+P02769 Bos taurus ALB 607 69248.44 True
 
-proteins = pd.DataFrame(db.columns)
-proteins[["accession", "organism", "ncbi_taxonomy_id", "primary_gene_name", "length", "monoisotopic_mass"]]
 ```
 
-| accession | organism | ncbi_taxonomy_id | primary_gene_name | length | monoisotopic_mass |
-|---|---|---|---|---|---|
-| P04406 | Homo sapiens | 9606 | GAPDH | 335 | 36030.40 |
-| Q9Z0X1 | Mus musculus | 10090 | Aifm1 | 612 | 66723.84 |
-| P02769 | Bos taurus | 9913 | ALB | 607 | 69248.44 |
+so it goes straight into pandas:
+
+```python title="Not run: needs pandas, which pyMzLib does not depend on"
+import pandas as pd
+proteins = pd.DataFrame(found.columns)
+```
 
 `monoisotopic_mass` is in daltons, for the **unmodified sequence as written** - initiator
 methionine, signal peptide and propeptide included - so it is the precursor's mass, not the mature
@@ -127,30 +133,32 @@ entry's GO annotations as `<dbReference type="GO">`, with the aspect as a prefix
 (`C:cytoplasm`) and one reference per line of evidence. mzLib (#1336) turns that into one term per
 GO id with its evidence unioned, and pyMzLib returns it as a long table:
 
-```python
-group = ["O43653"]      # PSCA, from a protein group's accession list
-db = pymzlib.proteins.read("human_subset.xml", accessions=group, tables=("go_terms",))
-go = pd.DataFrame(db.go_terms.columns)
-go[["go_id", "aspect", "term_name", "evidence_codes", "projects"]]
+Here are PSCA's (O43653), from the read above:
+
+```pycon
+>>> psca = [r for r in db.go_terms.records if r["accession"] == "O43653"]
+>>> for r in psca:
+...     print(r["go_id"], r["aspect"], r["term_name"], r["evidence_codes"], r["projects"])
+GO:0031225 CellularComponent anchored component of membrane ['ECO:0000501'] ['UniProtKB-KW']
+GO:0070062 CellularComponent extracellular exosome ['ECO:0007005'] ['UniProtKB']
+GO:0005576 CellularComponent extracellular region ['ECO:0000304'] ['Reactome']
+GO:0016020 CellularComponent membrane ['ECO:0000318'] ['GO_Central']
+GO:0005886 CellularComponent plasma membrane ['ECO:0000314'] ['HPA']
+GO:0033130 MolecularFunction acetylcholine receptor binding ['ECO:0000314'] ['UniProtKB']
+GO:0070373 BiologicalProcess negative regulation of ERK1 and ERK2 cascade ['ECO:0000314'] ['UniProtKB']
+GO:0099601 BiologicalProcess regulation of neurotransmitter receptor activity ['ECO:0000314'] ['UniProtKB']
+
 ```
 
-| go_id | aspect | term_name | evidence_codes | projects |
-|---|---|---|---|---|
-| GO:0031225 | CellularComponent | anchored component of membrane | [ECO:0000501] | [UniProtKB-KW] |
-| GO:0070062 | CellularComponent | extracellular exosome | [ECO:0007005] | [UniProtKB] |
-| GO:0005576 | CellularComponent | extracellular region | [ECO:0000304] | [Reactome] |
-| GO:0016020 | CellularComponent | membrane | [ECO:0000318] | [GO_Central] |
-| GO:0005886 | CellularComponent | plasma membrane | [ECO:0000314] | [HPA] |
-| GO:0033130 | MolecularFunction | acetylcholine receptor binding | [ECO:0000314] | [UniProtKB] |
-| GO:0070373 | BiologicalProcess | negative regulation of ERK1 and ERK2 cascade | [ECO:0000314] | [UniProtKB] |
-| GO:0099601 | BiologicalProcess | regulation of neurotransmitter receptor activity | [ECO:0000314] | [UniProtKB] |
-
 Evidence codes are [ECO](https://www.evidenceontology.org/) ids, sorted. To drop annotations that
-rest only on automatic assertion (`ECO:0000501`), filter on them - it is a column, not a hidden mode:
+rest only on automatic assertion (`ECO:0000501`), filter on them; it is a column, not a hidden mode:
 
-```python
-automatic = {"ECO:0000501"}
-curated = go[go["evidence_codes"].map(lambda codes: bool(set(codes) - automatic))]
+```pycon
+>>> automatic = {"ECO:0000501"}
+>>> curated = [r for r in psca if set(r["evidence_codes"]) - automatic]
+>>> len(psca), len(curated)
+(8, 7)
+
 ```
 
 What the table does and does not say:
@@ -459,27 +467,29 @@ one Ensembl release can.
 `resolve_genes()` reads the Ensembl links the UniProt XML carries for each protein and counts them
 against **a gene set you supply**: an Ensembl GTF for one release.
 
-```python
-genes = pymzlib.proteins.resolve_genes(
-    ["human_subset.xml", "human_extra.fasta"],
-    contaminants=["contaminants.fasta"],
-    gtf="Homo_sapiens.GRCh38.116.gtf",                 # yours: the release's .gtf.gz
-    xref="Homo_sapiens.GRCh38.116.uniprot.tsv",        # optional second opinion
-)
-print(genes.gene_set.release, genes.gene_set.genome_build, genes.gene_set.sha256[:12])
-# 116 GRCh38.p14 cfe0494115dd
-print(genes.outcome_counts)
-# {'resolved': 1, 'multi_gene': 0, 'off_primary_only': 1, 'not_in_source': 4,
-#  'unrecognized_accession': 0, 'contaminant_not_mapped': 1}
-```
+```pycon
+>>> genes = pymzlib.proteins.resolve_genes(
+...     ["human_subset.xml", "human_extra.fasta"],
+...     contaminants=["contaminants.fasta"],
+...     gtf="Homo_sapiens.GRCh38.116.gtf",                 # yours: the release's .gtf.gz
+...     xref="Homo_sapiens.GRCh38.116.uniprot.tsv",        # optional second opinion
+... )
+>>> genes.gene_set.release, genes.gene_set.genome_build
+('116', 'GRCh38.p14')
+>>> genes.outcome_counts                                   # doctest: +NORMALIZE_WHITESPACE
+{'resolved': 1, 'multi_gene': 0, 'off_primary_only': 1, 'not_in_source': 4,
+ 'unrecognized_accession': 0, 'contaminant_not_mapped': 1}
+>>> for r in genes.records:
+...     print(r["accession"], r["outcome"], r["gene_id"], r["gene_symbol"], r["ensembl_xref_agrees"])
+P04406 resolved ENSG00000111640 GAPDH True
+O43653 off_primary_only None None None
+P02768 not_in_source None None None
+Q13409 not_in_source None None None
+Q13409-2 not_in_source None None None
+Q13409-3 not_in_source None None None
+P02769 contaminant_not_mapped None None None
 
-| accession | outcome | n_genes | gene_id | versioned_gene_id | gene_symbol | off_primary_genes | ensembl_xref_agrees |
-|---|---|---|---|---|---|---|---|
-| P04406 | resolved | 1 | ENSG00000111640 | ENSG00000111640.15 | GAPDH | 0 | True |
-| O43653 | off_primary_only | 0 | | | | 1 | |
-| P02768 | not_in_source | 0 | | | | 0 | |
-| Q13409 | not_in_source | 0 | | | | 0 | |
-| P02769 | contaminant_not_mapped | 0 | | | | 0 | |
+```
 
 (The example's gene set is a three-gene test GTF, which is why PSCA's gene is "off the assembly".)
 
@@ -539,23 +549,24 @@ proteome - the accessions are the same, so you can resolve a FASTA search's resu
 **The problem.** Protein inference, isoform claims and "is this contamination?" all start from the
 same question: *could this peptide have come from anything else in the search space?*
 
-```python
-calls = pymzlib.proteins.classify_peptides(
-    ["VGVNGFGR", "LVLNGNPLTLFQER", "ALSEQINIFFDYSGR", "YLYEIAR", "AEFVEVTK", "PEPTIDEK"],
-    ["human_subset.xml", "human_extra.fasta"],
-    contaminants=["contaminants.fasta"],
-)
-pd.DataFrame(calls.columns)
-```
+```pycon
+>>> calls = pymzlib.proteins.classify_peptides(
+...     ["VGVNGFGR", "LVLNGNPLTLFQER", "ALSEQINIFFDYSGR", "YLYEIAR", "AEFVEVTK", "PEPTIDEK"],
+...     ["human_subset.xml", "human_extra.fasta"],
+...     contaminants=["contaminants.fasta"],
+... )
+>>> for r in calls.records:
+...     print(r["peptide"], r["sharing"], r["accessions"])
+VGVNGFGR Unique ['P04406']
+LVLNGNPLTLFQER Unique ['P04406']
+ALSEQINIFFDYSGR SharedWithinGene ['Q13409', 'Q13409-2', 'Q13409-3']
+YLYEIAR SharedAcrossGenes ['P02768', 'P02769']
+AEFVEVTK Unique ['P02769']
+PEPTIDEK NotInDatabase []
+>>> calls.records[2]["shared_gene_keys"]
+['entry:Q13409', 'gene:Homo sapiens:DYNC1I2']
 
-| peptide | sharing | accessions | shared_gene_keys |
-|---|---|---|---|
-| VGVNGFGR | Unique | [P04406] | [ensembl:ENSG00000111640, entry:P04406, gene:Homo sapiens:GAPDH] |
-| LVLNGNPLTLFQER | Unique | [P04406] | [ensembl:ENSG00000111640, entry:P04406, gene:Homo sapiens:GAPDH] |
-| ALSEQINIFFDYSGR | SharedWithinGene | [Q13409, Q13409-2, Q13409-3] | [entry:Q13409, gene:Homo sapiens:DYNC1I2] |
-| YLYEIAR | SharedAcrossGenes | [P02768, P02769] | [] |
-| AEFVEVTK | Unique | [P02769] | [entry:P02769, gene:Bos taurus:ALB] |
-| PEPTIDEK | NotInDatabase | [] | [] |
+```
 
 Reading it row by row:
 
@@ -625,17 +636,12 @@ For `annotate_go()` and `update_go()`:
 | `UsageError` | a missing groups table, database, go.obo or category map; a FASTA database; an `out` or `categories_out` that is not `.tsv`, names an input, or sits in a folder that does not exist; `categories_out` without `category_map`; a negative `limit` or `offset` - all before any file is read. For `update_go()`, a folder that does not exist |
 | `BridgeError` | the database cites a GO id the release lacks (type `InvalidDataException`, every id named) unless `skip_unknown_go_ids=True`; a go.obo, category map or table mzLib cannot parse; a group written twice with different members. For `update_go()`, GO's server is unreachable (type `ServiceUnavailable`: retry later) |
 
-## References
+## Cite
 
-- The Gene Ontology Consortium: Ashburner, M. *et al.* Gene Ontology: tool for the unification of
-  biology. *Nature Genetics* **25**, 25-29 (2000).
-  [doi:10.1038/75556](https://doi.org/10.1038/75556)
-- The Gene Ontology Consortium. The Gene Ontology knowledgebase in 2023. *Genetics* **224**,
-  iyad031 (2023). [doi:10.1093/genetics/iyad031](https://doi.org/10.1093/genetics/iyad031)
-- The UniProt Consortium. UniProt: the Universal Protein Knowledgebase in 2025. *Nucleic Acids
-  Research* **53**, D609-D617 (2025). [doi:10.1093/nar/gkae1010](https://doi.org/10.1093/nar/gkae1010)
-- Yates, A. D. *et al.* Ensembl 2026. *Nucleic Acids Research* **54**, D1053-D1060 (2026).
-  [doi:10.1093/nar/gkaf1239](https://doi.org/10.1093/nar/gkaf1239)
+If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#citing)) and the
+resources the answers come from:
+
+--8<-- "docs/reference/_generated/cite.proteins.md"
 
 The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
 `proteins read`, `genes resolve`, `proteins classify-peptides`, `proteins annotate-go` and

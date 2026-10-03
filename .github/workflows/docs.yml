@@ -87,8 +87,12 @@ jobs:
       - name: Docstring examples run against the replay bridge
         run: python -m pytest --doctest-modules pkg/python/src/pymzlib -v
 
+      # Every >>> session on a teaching page runs, not only those under guides/. A python block
+      # that does not run must say so (test_docs_lint.py, in the test suite).
       - name: Guide examples (>>> sessions) run against the replay bridge
-        run: python -m pytest --doctest-glob="*.md" docs/guides -v
+        run: >-
+          python -m pytest --doctest-glob="*.md" -v
+          docs/guides docs/index.md docs/getting-started.md docs/errors.md
 
   deploy:
     # Pull requests build the docs but do not publish them.

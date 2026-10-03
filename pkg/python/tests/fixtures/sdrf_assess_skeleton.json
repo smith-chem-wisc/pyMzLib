@@ -1,0 +1,60 @@
+{
+ "path": "F:\\ClaudeTemp\\docs593\\sdrf\\sdrf_skeleton.sdrf.tsv",
+ "verdict": "Skeleton",
+ "factor_value_varies": false,
+ "sample_is_described": false,
+ "biological_replicate_varies": false,
+ "row_count": 2,
+ "column_names": [
+  "role",
+  "column_name",
+  "rows",
+  "filled",
+  "absent",
+  "distinct_values",
+  "fill_rate"
+ ],
+ "columns": {
+  "role": [
+   "sample_characteristic",
+   "sample_characteristic",
+   "biological_replicate"
+  ],
+  "column_name": [
+   "characteristics[disease]",
+   "characteristics[organism part]",
+   "characteristics[biological replicate]"
+  ],
+  "rows": [
+   2,
+   2,
+   2
+  ],
+  "filled": [
+   0,
+   0,
+   2
+  ],
+  "absent": [
+   2,
+   2,
+   0
+  ],
+  "distinct_values": [
+   0,
+   0,
+   1
+  ],
+  "fill_rate": [
+   0,
+   0,
+   1
+  ]
+ },
+ "caveats": [
+  "Informative = all three checks pass (a factor value varies, a sample characteristic other than organism and biological replicate is filled, the biological replicates differ); Skeleton = none pass; Partial = anything between. On the 1,236-file bigbio curated corpus mzLib measured 300 Informative, 742 Partial and 194 Skeleton.",
+  "Partial is often legitimate: a single-condition study has no factor to vary. Whether Partial is good enough is the caller's decision; the three booleans say which check failed.",
+  "A reserved word (\"not available\", \"not applicable\", \"anonymized\", \"pooled\") and an empty cell both count as ABSENT, so they neither fill a column nor add a distinct value. Distinct values are compared case-insensitively after trimming: \"liver\" and \"Liver\" are one.",
+  "Rows are counted once per row per column NAME, so a repeated column does not inflate them. This verb looks only at the sample half; it says nothing about structure (sdrf validate) or agreement across documents (sdrf lint)."
+ ]
+}

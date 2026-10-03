@@ -37,9 +37,20 @@ Built from mzLib 1.0.593.
   downloaded: `update_go()` is the one function that fetches go.obo, and it keeps a replaced file as
   a timestamped backup. The column names are mzLib's schema, and the bridge test suite holds `out=`
   byte for byte equal to mzLib's writer.
-- **Guide examples run in CI.** A `>>>` session in `docs/guides/*.md` is now executed against the
-  replay bridge, as docstring examples already were. The Gene Ontology section of the protein
-  guide is the first.
+- **Every guide example runs in CI.** Every `>>>` session in the guides, the home page, Getting
+  started and the Errors page is executed against output recorded from the real bridge, on mzLib's
+  own test data. A block that cannot run says why in its title (`test_docs_lint.py`). Running them
+  corrected the guides in several places: PXD000001's FTP tree holds 14 files, not 13; the first
+  albumin peptide is not `DAHKSEVAHR`; 21 of the K562 run's 140 MBR transfers reach the peptide
+  table, not 52; and the warning that an MSFragger `psm.tsv` quantifies wrongly predated mzLib#1116
+  and is gone.
+- **Docs pages: "Which function do I want?", Errors, and "Upgrading: what changed in your
+  results".** The first two are generated from the per-verb specs. The third lists, release by
+  release, every change that gives a different answer from the same file, citing the mzLib PR.
+- **Reference pages for `pride`, `peptidoform` and `quant`**, rendered from their specs, which are
+  now vendored. Every guide ends with a Cite section rendered from the specs' DOIs, and the home
+  page says what to cite.
+- **`scripts/record_fixture.py`** records a fixture from the real bridge in one command.
 - **`pymzlib.stats`: differential abundance with no R** (mzLib 1.0.593, #1341 and #1357). Three
   functions over mzLib's new `StatisticalModels`:
   - `fit(responses, design, coefficients)`: one linear model per feature, then limma's
@@ -80,6 +91,9 @@ Built from mzLib 1.0.593.
   `ServiceUnavailableError`, and still does.
 
 ### Fixed
+- **`flashlfq.quantify(use_pep_q_value=...)` documented what it does.** Its docstring said it
+  filters identifications on PEP q-value; it filters nothing, and changes the q-value FlashLFQ
+  carries.
 - **`peptidoform.fragments()`: `peptides_at_isoform_cap` counts the raw digest, as it always said
   it did.** It was recomputed on the de-duplicated list, so a locus that mzLib truncated at the cap,
   and that the mzLib#1108 de-duplication then dropped below it, was reported as untruncated. The

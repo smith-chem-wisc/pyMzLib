@@ -1,9 +1,9 @@
 # How the reference facts are generated, and why
 
 pyMzLib, mzLibRust and mzLibR all project the same bridge, so they describe the same verbs. When
-each binding wrote those descriptions by hand, they drifted. By September 2026 Python said mzLib
-reads 32 file types and Rust said 31, the R help pages were hand copies of Python docstrings, and
-no binding ran any of its examples.
+each binding wrote those descriptions by hand, they drifted. By September 2026 Python and Rust
+disagreed by one about how many file types mzLib reads, the R help pages were hand copies of
+Python docstrings, and no binding ran any of its examples.
 
 The fix is to write the facts about each wire verb once, and have every binding render them and
 check its own prose against them.

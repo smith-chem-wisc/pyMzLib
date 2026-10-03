@@ -268,18 +268,9 @@ A pooled estimate like that summarises studies that do not agree.
   three bindings publish them.
 - [FlashLFQ](flashlfq.md) and [Readers](readers.md): where intensity tables come from.
 
-## References
+## Cite
 
-- Smyth GK (2004). Linear models and empirical Bayes methods for assessing differential expression
-  in microarray experiments. *Stat Appl Genet Mol Biol* 3:3.
-  [doi:10.2202/1544-6115.1027](https://doi.org/10.2202/1544-6115.1027)
-- Ritchie ME et al. (2015). limma powers differential expression analyses for RNA-sequencing and
-  microarray studies. *Nucleic Acids Res* 43:e47.
-  [doi:10.1093/nar/gkv007](https://doi.org/10.1093/nar/gkv007)
-- Benjamini Y, Hochberg Y (1995). Controlling the false discovery rate: a practical and powerful
-  approach to multiple testing. *J R Stat Soc B* 57:289.
-  [doi:10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
-- DerSimonian R, Laird N (1986). Meta-analysis in clinical trials. *Control Clin Trials* 7:177.
-  [doi:10.1016/0197-2456(86)90046-2](https://doi.org/10.1016/0197-2456(86)90046-2)
-- Viechtbauer W (2010). Conducting meta-analyses in R with the metafor package. *J Stat Softw*
-  36(3). [doi:10.18637/jss.v036.i03](https://doi.org/10.18637/jss.v036.i03)
+If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#citing)) and the
+methods it reproduces:
+
+--8<-- "docs/reference/_generated/cite.stats.md"

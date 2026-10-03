@@ -1,0 +1,91 @@
+{
+ "accession": "PXD000001",
+ "file_count": 14,
+ "approximate_total_size_bytes": 1436359680,
+ "files": [
+  {
+   "relative_path": "F063721.dat",
+   "file_name": "F063721.dat",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat",
+   "approximate_size_bytes": 20971520
+  },
+  {
+   "relative_path": "F063721.dat-mztab.txt",
+   "file_name": "F063721.dat-mztab.txt",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/F063721.dat-mztab.txt",
+   "approximate_size_bytes": 305152
+  },
+  {
+   "relative_path": "PRIDE_Exp_Complete_Ac_22134.xml.gz",
+   "file_name": "PRIDE_Exp_Complete_Ac_22134.xml.gz",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PRIDE_Exp_Complete_Ac_22134.xml.gz",
+   "approximate_size_bytes": 10485760
+  },
+  {
+   "relative_path": "PRIDE_Exp_mzData_Ac_22134.xml.gz",
+   "file_name": "PRIDE_Exp_mzData_Ac_22134.xml.gz",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PRIDE_Exp_mzData_Ac_22134.xml.gz",
+   "approximate_size_bytes": 9751757
+  },
+  {
+   "relative_path": "PXD000001_community_annotated.sdrf.tsv",
+   "file_name": "PXD000001_community_annotated.sdrf.tsv",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PXD000001_community_annotated.sdrf.tsv",
+   "approximate_size_bytes": 4096
+  },
+  {
+   "relative_path": "PXD000001_mztab.txt",
+   "file_name": "PXD000001_mztab.txt",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/PXD000001_mztab.txt",
+   "approximate_size_bytes": 864256
+  },
+  {
+   "relative_path": "README.txt",
+   "file_name": "README.txt",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/README.txt",
+   "approximate_size_bytes": 1638
+  },
+  {
+   "relative_path": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzML",
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzML",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzML",
+   "approximate_size_bytes": 449839104
+  },
+  {
+   "relative_path": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzXML",
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzXML",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzXML",
+   "approximate_size_bytes": 472907776
+  },
+  {
+   "relative_path": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+   "approximate_size_bytes": 243269632
+  },
+  {
+   "relative_path": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+   "approximate_size_bytes": 220200960
+  },
+  {
+   "relative_path": "erwinia_carotovora.fasta",
+   "file_name": "erwinia_carotovora.fasta",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/erwinia_carotovora.fasta",
+   "approximate_size_bytes": 1677722
+  },
+  {
+   "relative_path": "generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+   "file_name": "PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+   "approximate_size_bytes": 5976883
+  },
+  {
+   "relative_path": "generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+   "file_name": "PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+   "url": "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/PXD000001/generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+   "approximate_size_bytes": 103424
+  }
+ ]
+}

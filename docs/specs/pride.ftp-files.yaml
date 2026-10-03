@@ -1,0 +1,67 @@
+# Written 2026-09-24 from pyMzLib origin/main 06bfca9: pkg/bridge/Program.cs (PrideFtpFilesAsync,
+# ToWireFtpFile, ClassifyError), pkg/python/src/pymzlib/pride.py (list_ftp_files, PrideFtpFile), mzLib
+# pin 23c2490e (PrideArchiveClient.GetProjectFilesFromFtpAsync, CollectFtpFilesAsync,
+# ParseAutoIndexSize). No recorded fixture exists for this verb (pride.py's doctests say so), so
+# there is no example yet.
+verb: pride ftp-files
+module: pride
+summary: >-
+  List every file a PRIDE project holds by walking its FTP directory tree, subdirectories included,
+  with approximate sizes.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: PrideArchiveClient.GetProjectFilesFromFtpAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveClient.GetProjectAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideFtpFile, path: mzLib/UsefulProteomicsDatabases/PrideFtpFile.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveExtensions.TotalApproximateSizeBytes, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkae1011", for: "The PRIDE Archive and its FTP layout (Perez-Riverol et al., The PRIDE database at 20 years: 2025 update, NAR)"}
+
+params:
+  - name: accession
+    type: string
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The project accession, e.g. PXD000001. The bridge checks only that it is not blank. mzLib
+      resolves the project first (for its publication date, which locates the FTP directory), so an
+      unknown accession fails instead of listing nothing.
+
+result:
+  envelope_fields:
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "The accession, echoed as given."}
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: "Entries in files. 0 only if the resolved project's directory listed nothing (the bindings raise their not-found error on it)."}
+    - {wire: approximate_total_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "Sum of approximate_size_bytes (mzLib TotalApproximateSizeBytes): an estimate over the COMPLETE file list. PXD000001 comes to about 1.44 GB."}
+    - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One entry per file in walk order (each directory's autoindex order, depth first); fields under result.columns."}
+  # Fields of each entry in `files` (a list of records, not a column dict).
+  columns:
+    - {wire: relative_path, type: string, unit: null, nullable: false, null_means: null, doc: "Path from the project's FTP root, '/'-separated and URL-decoded, e.g. generated/summary.mztab for a file in a subdirectory."}
+    - {wire: file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The last segment of relative_path."}
+    - {wire: url, type: string, unit: null, nullable: false, null_means: null, doc: "HTTPS URL on ftp.pride.ebi.ac.uk that the file can be fetched from with any HTTP client."}
+    - {wire: approximate_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "PRIDE's autoindex size (e.g. '429M'), expanded with 1024-based multipliers and so rounded to about three significant figures. 0 when the index showed '-' or an unparseable size: 0 means unknown, not empty. For the exact size, HTTP HEAD the url and read Content-Length."}
+
+errors:
+  - {kind: usage, when: "accession missing or blank"}
+  - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout or cancellation, a socket failure, a request that never got a response (refused connection, DNS, TLS), an HTTP 408, 429 or 5xx on the project lookup or on any directory listing, or a body cut off in transit"}
+  - {kind: correctness, when: "no project has that accession, or it has no publication date to locate its directory (MzLibException; the bindings re-map it to their not-found error); a directory listing answering any other status; nesting deeper than 64 levels (MzLibException: the listing may be cyclic)"}
+
+caveats:
+  - "This is the complete file list; pride files (PRIDE's REST manifest) omits files, for PXD000001 five of 13 including the two largest. The price is metadata: no category, checksum or CV locations here."
+  - "Sizes are approximate (rounded autoindex values), so approximate_total_size_bytes is an estimate, but an estimate over every file, unlike pride files' total_size_bytes."
+  - "A listing surface only: pride download selects from the REST manifest, so a file that appears only here cannot be fetched by pride download. Fetch it from its url with an ordinary HTTPS client."
+  - "One HTTP request per directory: the walk's cost grows with the tree, not the file count."
+
+bindings:
+  py: {name: pymzlib.pride.list_ftp_files}
+  rust: {name: "mzlib::pride::list_ftp_files_with"}
+  r: {name: pride_list_ftp_files}
+
+examples: []
+
+open_questions:
+  - "No recorded fixture: the verb needs a pride_PXD000001_ftp_files.json recording (live, 13 files) before it can have a checked example, and before the bindings' doctests can drop +SKIP."
+  - "An unknown accession crosses as correctness (MzLibException), not usage, although it is the caller's mistake. Every binding re-maps it to its not-found error; the wire itself does not say 'not found'."
+  - "Directory order is whatever PRIDE's Apache autoindex serves; not verified to be stable across requests, so files order is not promised."
+  - "mzlib::pride::list_ftp_files_with takes the timeout as its second argument rather than an options struct; no Rust options type exists for this verb."
