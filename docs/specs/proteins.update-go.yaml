@@ -1,0 +1,51 @@
+# Written 2026-10-03 from pyMzLib pkg/bridge/Proteins.Go.cs (UpdateGo) on branch
+# feat/proteins-annotate-go (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). The example
+# fixture was recorded from the live bridge against GO's PURL into an empty folder on 2026-10-03.
+verb: proteins update-go
+module: proteins
+summary: >-
+  Download the current Gene Ontology release (go.obo) to a path, on purpose, keeping any different
+  file already there as a timestamped backup.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: Loaders.UpdateGeneOntology, path: mzLib/UsefulProteomicsDatabases/Loaders.cs, pin: 0a808fec}
+  - {symbol: GeneOntologyGraph.Load, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GeneOntologyGraph.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1093/genetics/iyad031", for: "The Gene Ontology knowledgebase in 2023 (GO Consortium, Genetics 224, iyad031), the release fetched"}
+
+params:
+  - {name: go-obo, type: path, required: true, unit: null, range: null, default: null, doc: "Where to write, e.g. go.obo. Its folder must exist."}
+
+result:
+  envelope_fields:
+    - {wire: go_obo_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path written."}
+    - {wire: url, type: string, unit: null, nullable: false, null_means: null, doc: "Loaders.GeneOntologyUrl, https://purl.obolibrary.org/obo/go.obo: a moving PURL that always serves the current release."}
+    - {wire: existed_before, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether a file was already at the path."}
+    - {wire: previous_sha256, type: string, unit: null, nullable: true, null_means: "no file was there", doc: "sha256 of the file that was there."}
+    - {wire: changed, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the file on disk now differs from what was there (true for a first download)."}
+    - {wire: go, type: object, unit: null, nullable: false, null_means: null, doc: "{source_file_name, sha256, release (null when the file has no data-version), term_count}, read back with GeneOntologyGraph.Load, so a truncated download fails here rather than in a later annotate-go."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The backup kept when a different file was replaced; a file with no data-version."}
+
+errors:
+  - {kind: usage, when: "the folder for go-obo does not exist"}
+  - {kind: service_unavailable, when: "GO's PURL is unreachable, answers 408/429/5xx, or stalls for Loaders.GeneOntologyStallTimeout (2 min); any existing file is left untouched"}
+  - {kind: correctness, when: "a non-transient HTTP failure (e.g. 404); a downloaded file GeneOntologyGraph.Load refuses"}
+
+caveats:
+  - "The whole file (~37 MB) is fetched every time; there is no conditional request. A file that is byte-identical is left in place."
+  - "When the download differs, the old file is kept beside the new one as <name>.<yyyyMMdd-HHmmss-fff>, so earlier runs stay reproducible."
+  - "This is the only verb that fetches go.obo; proteins annotate-go never downloads."
+
+bindings:
+  py: {name: pymzlib.proteins.update_go}
+  rust: {name: "mzlib::proteins::update_go"}
+  r: {name: proteins_update_go}
+
+examples:
+  - fixture: proteins_update_go.json
+    py: "update = pymzlib.proteins.update_go(\"go.obo\")"
+    rust: "let update = mzlib::proteins::update_go(\"go.obo\")?;"
+    r: "update <- proteins_update_go(\"go.obo\")"
+
+open_questions:
+  - "The backup's exact file name is not returned: mzLib's UpdateGeneOntology computes it internally and returns nothing."

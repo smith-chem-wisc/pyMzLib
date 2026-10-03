@@ -1,0 +1,14 @@
+{
+ "go_obo_file": "go.obo",
+ "url": "https://purl.obolibrary.org/obo/go.obo",
+ "existed_before": false,
+ "previous_sha256": null,
+ "changed": true,
+ "go": {
+  "source_file_name": "go.obo",
+  "sha256": "d3593751d885ca160b2ab7baf6c7eccd88ca3c4599f79436c674bad661095ff0",
+  "release": "releases/2026-07-26",
+  "term_count": 48340
+ },
+ "caveats": []
+}

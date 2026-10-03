@@ -1,8 +1,8 @@
 """Protein databases: what each protein *is*, which gene it belongs to, and whether a peptide
 identifies it.
 
-Three questions a search result cannot answer on its own, each answered from the protein database
-you searched, by mzLib:
+Questions a search result cannot answer on its own, each answered from the protein database you
+searched, by mzLib:
 
 **What is this accession?** :func:`read` loads a UniProt XML or a FASTA and returns one row per
 protein - organism, NCBI taxonomy id, gene names, length, monoisotopic mass - and, on request, its
@@ -38,11 +38,25 @@ the same residue**, because a mass spectrometer cannot tell them apart::
     >>> calls.columns["sharing"]
     ['Unique', 'Unique', 'SharedWithinGene', 'SharedAcrossGenes', 'Unique', 'NotInDatabase']
 
-These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
-databases in ``pkg/python/tests/fixtures/proteins/``.
+**What does each protein group do, every member kept?** :func:`annotate_go` reads the protein-group
+table MetaMorpheus wrote, the UniProt XML it searched and a go.obo you pinned, and returns one row
+per (group, GO term) that **any** member holds - directly or through an ancestor in the ontology -
+naming the members that carry it. Consensus and direct-only views are filters on the rows.
+:func:`update_go` is the one function that fetches a go.obo; :func:`annotate_go` never does::
 
-All three take **one database or many**. Pass a list and they are read in one bridge call, in order;
-``threads`` says how many are read at once (default 1), and the answer is identical at any value.
+    >>> go = pymzlib.proteins.annotate_go(
+    ...     "PXD036557_AllQuantifiedProteinGroups.tsv", "pxd036557_proteins.xml",
+    ...     go_obo="go-pxd036557.obo", category_map="organelle_map.tsv")
+    >>> go.group_count, go.row_count, go.header["status_contaminant"]
+    (5, 563, '1')
+
+These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
+databases in ``pkg/python/tests/fixtures/proteins/``. The GO example's table is a real MetaMorpheus
+1.1.11 search (PXD036557).
+
+:func:`read`, :func:`resolve_genes` and :func:`classify_peptides` take **one database or many**.
+Pass a list and they are read in one bridge call, in order; ``threads`` says how many are read at
+once (default 1), and the answer is identical at any value.
 Mark contaminant databases with ``contaminants=`` - it changes answers: a contaminant is never mapped
 to a gene, and a peptide it shares with a target is shared.
 
@@ -60,8 +74,9 @@ to a gene, and a peptide it shares with a target is shared.
 - *Masses are of the unmodified sequence as written* - the precursor, initiator methionine and
   signal peptide included - so they are not the mass of the mature protein.
 
-Wire verbs: ``proteins read``, ``genes resolve`` and ``proteins classify-peptides``; their language-
-neutral specs live in the bridge repository under ``design/verbs/``.
+Wire verbs: ``proteins read``, ``genes resolve``, ``proteins classify-peptides``,
+``proteins annotate-go`` and ``proteins update-go``; their language-neutral specs live in the bridge
+repository under ``design/verbs/``.
 """
 
 from __future__ import annotations
@@ -75,23 +90,32 @@ from . import _bridge
 from .readers import _Table
 
 __all__ = [
+    "ANNOTATION_STATUSES",
     "NOT_IN_DATABASE",
     "OUTCOMES",
     "SHARED_ACROSS_GENES",
     "SHARED_WITHIN_GENE",
     "TABLES",
     "UNIQUE",
+    "AnnotationDatabase",
     "DatabaseFile",
     "FileError",
     "GeneResolutions",
     "GeneSet",
+    "GoAnnotations",
+    "GoCategories",
+    "GoRelease",
+    "GoUpdate",
     "PeptideClassification",
     "ProteinDatabase",
     "Table",
+    "WrittenTable",
     "XrefTable",
+    "annotate_go",
     "classify_peptides",
     "read",
     "resolve_genes",
+    "update_go",
 ]
 
 #: The tables :func:`read` can return. ``"proteins"`` alone is the default.
@@ -118,6 +142,14 @@ OUTCOMES = (
     "unrecognized_accession",
     "contaminant_not_mapped",
 )
+
+#: Every ``annotation_status`` :func:`annotate_go` can report, as mzLib writes it
+#: (``GoAnnotationTsv.StatusName``). A row with a GO term is always ``annotated``; the other three
+#: mark the single term-less row of a group that has no term, and say why.
+ANNOTATION_STATUSES = ("annotated", "no_go_terms", "no_entry", "contaminant")
+
+#: The pyMzLib release whose bridge first dispatches ``proteins annotate-go`` and ``update-go``.
+_GO_SINCE = "0.3.0"
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -602,6 +634,297 @@ class PeptideClassification(_Table):
         )
 
 
+@dataclass(frozen=True)
+class GoRelease:
+    """The go.obo a result was computed against. Record it with your results.
+
+    Attributes:
+        source_file_name: The file name read.
+        sha256: Lower-case hex sha256 of the file's bytes. This, not the release, is what proves two
+            runs used the same ontology.
+        release: The file's ``data-version``, e.g. ``"releases/2026-07-26"``. ``None``: the file
+            has no ``data-version`` header.
+        term_count: Terms in the file, obsolete terms included (alternative ids are not counted).
+    """
+
+    source_file_name: str
+    sha256: str
+    release: str | None
+    term_count: int
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> GoRelease:
+        return cls(
+            source_file_name=data.get("source_file_name", ""),
+            sha256=data.get("sha256", ""),
+            release=data.get("release"),
+            term_count=int(data.get("term_count", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class AnnotationDatabase:
+    """The protein database whose GO terms annotated the groups.
+
+    Attributes:
+        path: The absolute path.
+        file_type: ``"UniProtXml"``, the only type :func:`annotate_go` accepts.
+        reader: The mzLib loader used, ``"ProteinDbLoader.LoadProteinXML"``.
+        protein_count: Entries loaded, as written (no decoys generated, no variants applied).
+        sha256: Lower-case hex sha256 of the **decompressed** database, so ``.xml`` and
+            ``.xml.gz`` agree. Every row's ``annotation_db_sha256`` is this.
+        caveats: What mzLib did to the file while loading it, e.g. genotype variants applied.
+    """
+
+    path: str
+    file_type: str | None
+    reader: str | None
+    protein_count: int
+    sha256: str
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> AnnotationDatabase:
+        return cls(
+            path=data.get("path", ""),
+            file_type=data.get("file_type"),
+            reader=data.get("reader"),
+            protein_count=int(data.get("protein_count", 0)),
+            sha256=data.get("sha256", ""),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class WrittenTable:
+    """A file :func:`annotate_go` wrote, when asked to.
+
+    Attributes:
+        path: The absolute path written.
+        row_count: Rows written: the **whole** table, never the ``limit``/``offset`` window.
+            ``None`` for the category table, whose rows are counted in :attr:`GoCategories.row_count`.
+    """
+
+    path: str
+    row_count: int | None = None
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any] | None) -> WrittenTable | None:
+        if not data:
+            return None
+        row_count = data.get("row_count")
+        return cls(path=data.get("path", ""), row_count=None if row_count is None else int(row_count))
+
+
+@dataclass(frozen=True)
+class GoCategories(_Table):
+    """Your category map applied to the annotated terms: one row per (term, category, subcategory).
+
+    A term belongs to a category when one of that category's anchors is the term itself or one of
+    its ancestors. A term under no anchor has **no row**, so absence means "outside your map". Join
+    to :class:`GoAnnotations` on ``go_id``: both tables come from the same go.obo release.
+
+    ===============  =====  ===================================================================
+    column           type   meaning; ``None`` means
+    ===============  =====  ===================================================================
+    ``go_id``        str    an annotated term at or below one of the map's anchors
+    ``category``     str    the category label, as your map writes it
+    ``subcategory``  str    ``"category:subcategory"``, the most specific anchor within the
+                            category; ``None``: the term reaches only the category's own anchor
+    ===============  =====  ===================================================================
+
+    Attributes:
+        map_name: The map's declared ``map_name``.
+        map_version: The map's declared ``map_version``. Yours to bump; mzLib only records it.
+        source_file_name: The map file read.
+        sha256: Lower-case hex sha256 of the map file. A version is a claim; the hash is proof.
+        anchor_count: Rows (anchors) in the map.
+        row_count: Rows in the table.
+        column_names: Column order.
+        columns: Column name -> list of values.
+    """
+
+    map_name: str
+    map_version: str
+    source_file_name: str
+    sha256: str
+    anchor_count: int
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any] | None) -> GoCategories | None:
+        if data is None:
+            return None
+        return cls(
+            map_name=data.get("map_name", ""),
+            map_version=data.get("map_version", ""),
+            source_file_name=data.get("source_file_name", ""),
+            sha256=data.get("sha256", ""),
+            anchor_count=int(data.get("anchor_count", 0)),
+            row_count=int(data.get("row_count", 0)),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+        )
+
+
+@dataclass(frozen=True)
+class GoAnnotations(_Table):
+    """What :func:`annotate_go` returns: one row per (protein group, GO term) that **any** member of
+    the group holds, directly or through an ancestor.
+
+    No member of a group is privileged - MetaMorpheus never picks a leading protein - so the table
+    is the union, and every row says which members carry its term. The views people usually want
+    are filters you apply: **consensus** is ``n_with == n_members``; **direct annotations only** is
+    ``propagated is False``; **leave out isoform inheritance** is ``inherited is False``.
+
+    The column names are **mzLib's own** ``GoAnnotationTsv`` schema, in its order, so this table and
+    the file written by ``out=`` (or by mzLib inside a search) mean the same thing:
+
+    =========================  ==========  ===========================================================
+    column                     type        meaning; ``None`` means
+    =========================  ==========  ===========================================================
+    ``protein_group``          str         the group, as MetaMorpheus named it (``P0C0S5|Q71UI9``)
+    ``accession_used``         list[str]   members carrying the term, directly or by propagation
+    ``accession_direct``       list[str]   of those, members annotated to this exact term
+    ``accession_inherited``    list[str]   of those, members whose terms were borrowed: an isoform
+                                           (``P04406-2``) or sequence variant (``P04406_A20T``) absent
+                                           from the database takes its entry's terms
+    ``go_id``                  str         the term's primary id; ``None``: a term-less row
+    ``go_name``                str         the term's name; ``None``: a term-less row
+    ``aspect``                 str         ``biological_process``, ``cellular_component``,
+                                           ``molecular_function`` or ``unknown``; ``None``: term-less
+    ``evidence``               list[str]   evidence codes (ECO) pooled over the carrying members
+    ``evidence_by_member``     dict        member -> its own evidence codes for this term
+    ``inherited``              bool        every carrying member's terms were borrowed;
+                                           ``None``: a term-less row
+    ``propagated``             bool        no member is annotated to this exact term - it is implied
+                                           by a more specific one; ``None``: a term-less row
+    ``n_members``              int         members in the group
+    ``n_with``                 int         members carrying the term (``0`` on a term-less row)
+    ``entrapment_members``     list[str]   the group's entrapment members, on every row of the group
+    ``annotation_status``      str         one of :data:`ANNOTATION_STATUSES`
+    ``q_value``                float       the group's q-value from the table (never filtered on)
+    ``go_release``             str         the go.obo ``data-version``; ``None``: the file has none
+    ``go_obo_sha256``          str         sha256 of the go.obo
+    ``annotation_db_sha256``   str         sha256 of the decompressed annotation database
+    =========================  ==========  ===========================================================
+
+    Attributes:
+        groups_file: The absolute path of the protein-group table read.
+        groups_file_sha256: Lower-case hex sha256 of that table, also in :attr:`header` as
+            ``source_file_sha256``.
+        table_row_count: Rows in the table, decoys included.
+        decoy_group_count: Of those, decoy groups, which are skipped: decoys carry no GO.
+        group_count: Groups annotated: every non-decoy group, contaminants included, each once even
+            if MetaMorpheus wrote it twice.
+        annotation_database: The database the terms came from.
+        go: The ontology release the terms were propagated against.
+        skip_unknown_go_ids: Whether ``skip_unknown_go_ids=True`` was given.
+        unresolved_go_ids: GO ids the database cites that the ontology release lacks, dropped
+            because ``skip_unknown_go_ids=True``. Always empty otherwise (the call fails instead).
+        header: mzLib's ``#!key value`` header, as its writer produced it: the format version, the
+            mzLib build, the release and every sha256, and five counters - ``n_multi_member_groups``
+            and one ``status_<status>`` per status. **The counters count groups, not rows, and only
+            groups at q <= ``counter_q_value_max`` (0.01)**; the rows themselves are not filtered.
+            Every value is a string, as in the file.
+        row_count: Rows in the whole table.
+        returned_count: Rows returned here (the ``limit``/``offset`` window).
+        offset: Rows skipped before the window: the ``offset`` applied.
+        truncated: True when rows were left out of :attr:`columns` by ``limit`` or ``offset``.
+        caveats: What this result cannot tell you: ids dropped from the database, a go.obo with no
+            release, what mzLib did loading the database.
+        written: Where the whole table was written, when ``out=`` was given.
+        categories: Your category map applied to these terms, when ``category_map=`` was given.
+        categories_written: Where the category table was written, when ``categories_out=`` was given.
+        column_names: Column order: mzLib's schema.
+        columns: Column name -> list of values, for the returned window.
+    """
+
+    groups_file: str
+    groups_file_sha256: str
+    table_row_count: int
+    decoy_group_count: int
+    group_count: int
+    annotation_database: AnnotationDatabase
+    go: GoRelease
+    skip_unknown_go_ids: bool
+    row_count: int
+    returned_count: int
+    offset: int = 0
+    truncated: bool = False
+    unresolved_go_ids: list[str] = field(default_factory=list)
+    header: dict[str, str] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+    written: WrittenTable | None = None
+    categories: GoCategories | None = None
+    categories_written: WrittenTable | None = None
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> GoAnnotations:
+        return cls(
+            groups_file=data.get("groups_file", ""),
+            groups_file_sha256=data.get("groups_file_sha256", ""),
+            table_row_count=int(data.get("table_row_count", 0)),
+            decoy_group_count=int(data.get("decoy_group_count", 0)),
+            group_count=int(data.get("group_count", 0)),
+            annotation_database=AnnotationDatabase._from_wire(data.get("annotation_database") or {}),
+            go=GoRelease._from_wire(data.get("go") or {}),
+            skip_unknown_go_ids=bool(data.get("skip_unknown_go_ids", False)),
+            row_count=int(data.get("row_count", 0)),
+            returned_count=int(data.get("returned_count", 0)),
+            offset=int(data.get("offset", 0)),
+            truncated=bool(data.get("truncated", False)),
+            unresolved_go_ids=list(data.get("unresolved_go_ids") or []),
+            header=dict(data.get("header") or {}),
+            caveats=list(data.get("caveats") or []),
+            written=WrittenTable._from_wire(data.get("written")),
+            categories=GoCategories._from_wire(data.get("categories")),
+            categories_written=WrittenTable._from_wire(data.get("categories_written")),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+        )
+
+
+@dataclass(frozen=True)
+class GoUpdate:
+    """What :func:`update_go` returns: which go.obo is now on disk, and whether it changed.
+
+    Attributes:
+        go_obo_file: The absolute path written.
+        url: Where it was fetched from: GO's PURL, which always serves the **current** release.
+        existed_before: Whether a file was already at the path.
+        previous_sha256: That file's sha256; ``None``: there was none.
+        changed: Whether the file on disk is now different. When it is and a file existed, the old
+            one was kept beside it as ``go.obo.<yyyyMMdd-HHmmss-fff>`` (see :attr:`caveats`).
+        go: The release now at the path.
+        caveats: The backup kept, or a file with no ``data-version``.
+    """
+
+    go_obo_file: str
+    url: str
+    existed_before: bool
+    previous_sha256: str | None
+    changed: bool
+    go: GoRelease
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> GoUpdate:
+        return cls(
+            go_obo_file=data.get("go_obo_file", ""),
+            url=data.get("url", ""),
+            existed_before=bool(data.get("existed_before", False)),
+            previous_sha256=data.get("previous_sha256"),
+            changed=bool(data.get("changed", False)),
+            go=GoRelease._from_wire(data.get("go") or {}),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
 # ---- argument shaping --------------------------------------------------------------------------
 
 
@@ -923,3 +1246,152 @@ def classify_peptides(
     args = ["proteins", "classify-peptides", *db_args, *_threads(threads)]
     data = _bridge.invoke(*args, stdin=_stdin(path_lines, peptide_lines), timeout=timeout)
     return PeptideClassification._from_wire(data)
+
+
+def _one_path(value: _PathLike | None, what: str, *, required: bool) -> str | None:
+    """One path argument as clean text, or ``None`` when it is optional and absent."""
+    if value is None:
+        if required:
+            raise _bridge.UsageError(f"{what} is required.")
+        return None
+    text = _bridge.path_text(value)
+    if not text:
+        raise _bridge.UsageError(f"{what} must be a non-empty str or path; got {value!r}.")
+    return text
+
+
+def annotate_go(
+    groups: _PathLike,
+    database: _PathLike,
+    *,
+    go_obo: _PathLike,
+    category_map: _PathLike | None = None,
+    skip_unknown_go_ids: bool = False,
+    out: _PathLike | None = None,
+    categories_out: _PathLike | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    timeout: float | None = None,
+) -> GoAnnotations:
+    """Annotate MetaMorpheus protein groups with Gene Ontology terms, keeping every member.
+
+    Wraps mzLib's ``GoGroupAnnotator`` over a stored protein-group table
+    (``ProteinGroupFromTsv.ToGoAnnotationGroups``). For each group it returns one row per GO term
+    that **any** member holds - directly, or by propagation up ``is_a`` and ``part_of`` - and each
+    row names the members that carry it. Nothing is collapsed: the union, the consensus and the
+    direct-only views are filters on the rows (see :class:`GoAnnotations`).
+
+    **Every non-decoy group gets at least one row.** A group with no term gets a single row whose
+    ``annotation_status`` says why: ``no_go_terms`` (its members have none), ``no_entry`` (a member
+    is not in the database - annotate against the database the search used), or ``contaminant``.
+
+    **Pin the ontology.** Terms and their ancestors change between GO releases, so a result means
+    something only relative to one go.obo. This reads the file you name and never downloads one;
+    fetch a release on purpose with :func:`update_go`, keep the file, and record
+    :attr:`GoAnnotations.go` (its ``sha256``) with your results.
+
+    Args:
+        groups: A MetaMorpheus protein-group table: ``AllQuantifiedProteinGroups.tsv``,
+            ``AllProteinGroups.tsv`` (a search without quantification), or one file's
+            ``<file>_ProteinGroups.tsv``.
+        database: The UniProt XML (``.xml`` or ``.xml.gz``) whose GO terms annotate the members:
+            the proteome the search used. A FASTA is refused, because it carries no GO and every
+            group would read ``no_go_terms`` whatever the proteins are.
+        go_obo: A go.obo file. It must exist; nothing is fetched.
+        category_map: Optional. Your own term-to-category map in mzLib's format
+            (``#!category_map_format 1``, ``#!map_name``, ``#!map_version``, then ``category``,
+            ``subcategory`` and ``anchor_go_id`` columns). mzLib ships no vocabulary. Adds
+            :attr:`GoAnnotations.categories`.
+        skip_unknown_go_ids: ``False`` (default) fails when the database cites a GO id the
+            ontology release lacks - usually a UniProt release newer than the go.obo - and names
+            every missing id. ``True`` drops each such id and lists it in
+            :attr:`GoAnnotations.unresolved_go_ids`, so one new term does not cost the run.
+        out: Write the **whole** table here with mzLib's own ``GoAnnotationTsv`` writer, provenance
+            header included. Must end in ``.tsv``. For a large run, pair it with ``limit=0`` so only
+            the summary comes back.
+        categories_out: Write the category table here with mzLib's ``GoCategoryTsv`` writer. Must
+            end in ``.tsv``, and needs ``category_map``.
+        limit: At most this many rows (rows, not groups) in :attr:`GoAnnotations.columns`.
+            ``None`` (default) returns them all. Never shortens ``out``.
+        offset: Rows to skip before the window. Default 0.
+        timeout: Seconds to allow. ``None`` (default) waits: a whole proteome XML takes a while.
+
+    Returns:
+        A :class:`GoAnnotations`.
+
+    Raises:
+        UsageError: a missing groups table, database, go.obo or category map; a FASTA database;
+            an ``out`` or ``categories_out`` that is not ``.tsv`` or names an input;
+            ``categories_out`` without ``category_map``; a negative ``limit`` or ``offset``. All of
+            these are raised before any file is read.
+        BridgeError: the database cites GO ids the release lacks (``InvalidDataException``, every id
+            named) unless ``skip_unknown_go_ids=True``; a go.obo, category map or table mzLib
+            cannot parse; a group MetaMorpheus wrote twice with different members.
+
+    Examples:
+        >>> go = annotate_go("PXD036557_AllQuantifiedProteinGroups.tsv", "pxd036557_proteins.xml",
+        ...                  go_obo="go-pxd036557.obo", category_map="organelle_map.tsv")
+        >>> go.group_count, go.row_count, go.go.release
+        (5, 563, 'releases/2026-07-26')
+        >>> go.header["status_annotated"], go.header["status_contaminant"]
+        ('4', '1')
+        >>> histones = [r for r in go.records if r["protein_group"] == "P0C0S5|Q71UI9"]
+        >>> len(histones), sum(r["n_with"] == r["n_members"] for r in histones)
+        (106, 57)
+    """
+    args = [
+        "proteins", "annotate-go",
+        "--groups", _one_path(groups, "groups", required=True) or "",
+        "--database", _one_path(database, "database", required=True) or "",
+        "--go-obo", _one_path(go_obo, "go_obo", required=True) or "",
+    ]
+    for option, value in (("--category-map", category_map), ("--out", out), ("--categories-out", categories_out)):
+        text = _one_path(value, option[2:].replace("-", "_"), required=False)
+        if text is not None:
+            args += [option, text]
+    if skip_unknown_go_ids:
+        args.append("--skip-unknown-go-ids")
+    for name, value in (("limit", limit), ("offset", offset)):
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise _bridge.UsageError(f"{name} must be an int, zero or greater; got {value!r}.")
+        args += [f"--{name}", str(value)]
+
+    _bridge.require_verb("proteins annotate-go", since=_GO_SINCE)
+    return GoAnnotations._from_wire(_bridge.invoke(*args, timeout=timeout))
+
+
+def update_go(go_obo: _PathLike, *, timeout: float | None = None) -> GoUpdate:
+    """Download the current Gene Ontology release to ``go_obo``, on purpose.
+
+    Wraps mzLib's ``Loaders.UpdateGeneOntology``. The whole go.obo (about 37 MB) is streamed from
+    GO's PURL, which always serves the **current** release. When a file is already at the path, it
+    is kept beside the new one as ``go.obo.<yyyyMMdd-HHmmss-fff>`` if the download differs, and left
+    alone if it is the same, so earlier runs stay reproducible. A failed download leaves any
+    existing file untouched.
+
+    This is the only function in pyMzLib that fetches go.obo. :func:`annotate_go` never does, so
+    the release a result was computed against is always a file you chose to keep.
+
+    Args:
+        go_obo: Where to write, e.g. ``"go.obo"``. Its folder must exist.
+        timeout: Seconds to allow. ``None`` (default) waits; mzLib itself gives up after two
+            minutes without data.
+
+    Returns:
+        A :class:`GoUpdate`.
+
+    Raises:
+        UsageError: the folder does not exist.
+        BridgeError: GO's server is unreachable or answered with an error. ``type`` is
+            ``"ServiceUnavailable"`` for an outage, where retrying later makes sense.
+
+    Examples:
+        >>> update = update_go("go.obo")
+        >>> update.go.release, update.go.term_count, update.changed
+        ('releases/2026-07-26', 48340, True)
+    """
+    path = _one_path(go_obo, "go_obo", required=True) or ""
+    _bridge.require_verb("proteins update-go", since=_GO_SINCE)
+    return GoUpdate._from_wire(_bridge.invoke("proteins", "update-go", "--go-obo", path, timeout=timeout))

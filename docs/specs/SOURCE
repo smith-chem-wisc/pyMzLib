@@ -1,8 +1,8 @@
 # Written by scripts/sync_specs.py. Do not edit; re-run the script.
 repository: trishorts/bridge (private)
 path: design/verbs
-commit: 2b6d3a018ac6bbded822249538f1a02f9b0a000d
-uncommitted_changes: no
+commit: e186a466bb7f8a2db31fd839c400444e78a53840
+uncommitted_changes: yes
 synced: 2026-10-02
-specs: 21
-not_vendored: peptidoform.fragments.yaml, pride.download.yaml, pride.files.yaml, pride.ftp-files.yaml, pride.search.yaml, quant.flashlfq.yaml, quant.median-polish.yaml
+specs: 23
+not_vendored: isobaric.kits.yaml, peptidoform.fragments.yaml, pride.download.yaml, pride.files.yaml, pride.ftp-files.yaml, pride.search.yaml, quant.flashlfq.yaml, quant.median-polish.yaml, sdrf.design.yaml, stats.adjust.yaml, stats.fit.yaml, stats.meta.yaml

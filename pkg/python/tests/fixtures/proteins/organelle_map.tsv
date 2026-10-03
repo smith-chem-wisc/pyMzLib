@@ -1,0 +1,13 @@
+#!category_map_format 1
+#!map_name organelle
+#!map_version 1
+category	subcategory	anchor_go_id
+nucleus		GO:0005634
+nucleus	chromatin	GO:0000785
+mitochondrion		GO:0005739
+mitochondrion	inner_membrane	GO:0005743
+cytoskeleton		GO:0005856
+cytoskeleton	microtubule	GO:0005874
+cytosol		GO:0005829
+plasma_membrane		GO:0005886
+extracellular		GO:0005576

@@ -17,7 +17,9 @@ recorded for different arguments:
 * ``--limit``/``--offset`` must reproduce the fixture's ``returned_count`` from its
   ``record_count`` (or ``row_count``), and a ``--flag`` with a ``<flag>_included`` key must match it;
 * a ``--paths-stdin`` call fits only a bulk recording (``files`` + ``read_count``, BULK.md), and a
-  one-path call only a one-document recording.
+  one-path call only a one-document recording;
+* a recording with a ``written`` key fits a ``--out`` call only if ``written`` is set, and a call
+  without ``--out`` only if it is null.
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -93,6 +95,11 @@ def mismatch(data: dict, options: dict) -> str:
     )
     if ("paths-stdin" in options) != bulk_recording:
         return "a bulk (--paths-stdin) recording" if bulk_recording else "a one-document recording"
+    # A recording that wrote a file answers only a call that asked for one, and the reverse: the
+    # payload's `written` block is the evidence, so an out= example cannot print a recording that
+    # wrote nothing.
+    if "written" in data and ("out" in options) != (data["written"] is not None):
+        return "a recording that wrote out=" if data["written"] is not None else "a recording without out="
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"

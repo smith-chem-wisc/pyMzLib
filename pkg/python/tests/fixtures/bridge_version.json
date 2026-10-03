@@ -1,8 +1,8 @@
 {
  "bridge": "1.0.0.0",
  "protocol": 1,
- "runtime": "10.0.8",
- "mzlib": "1.0.0+23c2490e10d3ccce71c941bca31610725826ba83",
+ "runtime": "10.0.10",
+ "mzlib": "1.0.0+0a808fec346e6e8f334e455490faab463ea65457",
  "verbs": [
   "version",
   "pride files",
@@ -23,6 +23,16 @@
   "readers read-quantified-peptides",
   "readers read-occupancy",
   "sdrf read",
-  "sdrf pool"
+  "sdrf pool",
+  "sdrf validate",
+  "sdrf lint",
+  "sdrf assess",
+  "sdrf samples",
+  "sdrf parse-age",
+  "proteins read",
+  "proteins classify-peptides",
+  "proteins annotate-go",
+  "proteins update-go",
+  "genes resolve"
  ]
 }
