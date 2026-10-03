@@ -1,0 +1,61 @@
+{
+ "path": "PXD049018.sdrf.tsv",
+ "is_valid": false,
+ "file_key_column": "comment[data file]",
+ "condition_columns": [
+  "factor value[genotype]",
+  "factor value[treatment]"
+ ],
+ "condition_columns_declared": true,
+ "searched_files_given": false,
+ "file_count": 0,
+ "refusals": [
+  "Line 2 (MSB67868ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 3 (MSB67868ABand_02.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 4 (MSB67868ABand_03.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 5 (MSB67868ABand_04.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 6 (MSB67868ABand_05.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 7 (MSB67868ABand_06.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 8 (MSB67868ABand_07.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 9 (MSB67868ABand_08.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 10 (MSB67868ABand_09.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 11 (MSB67868ABand_10.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 12 (MSB67869ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 13 (MSB67869ABand_02.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 14 (MSB67869ABand_03.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 15 (MSB67869ABand_04.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 16 (MSB67869ABand_05.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 17 (MSB67869ABand_06.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 18 (MSB67869ABand_07.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 19 (MSB67869ABand_08.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 20 (MSB67869ABand_09.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.",
+  "Line 21 (MSB67869ABand_10.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows."
+ ],
+ "notes": [],
+ "report": "Label-free design REFUSED: 20 reason(s). No design was produced.\r\nFiles keyed on: comment[data file]\r\nCondition from: factor value[genotype] + factor value[treatment]\r\n  refused: Line 2 (MSB67868ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 3 (MSB67868ABand_02.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 4 (MSB67868ABand_03.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 5 (MSB67868ABand_04.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 6 (MSB67868ABand_05.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 7 (MSB67868ABand_06.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 8 (MSB67868ABand_07.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 9 (MSB67868ABand_08.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 10 (MSB67868ABand_09.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 11 (MSB67868ABand_10.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 12 (MSB67869ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 13 (MSB67869ABand_02.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 14 (MSB67869ABand_03.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 15 (MSB67869ABand_04.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 16 (MSB67869ABand_05.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 17 (MSB67869ABand_06.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 18 (MSB67869ABand_07.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 19 (MSB67869ABand_08.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 20 (MSB67869ABand_09.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n  refused: Line 21 (MSB67869ABand_10.raw): 'factor value[treatment]' is 'not available'. A condition cannot be built from an unknown factor; fill it in, or leave the column out of the declared condition columns to pool these rows.\r\n",
+ "column_names": [
+  "full_path",
+  "file_name",
+  "condition",
+  "biological_replicate",
+  "technical_replicate",
+  "fraction"
+ ],
+ "columns": {
+  "full_path": [],
+  "file_name": [],
+  "condition": [],
+  "biological_replicate": [],
+  "technical_replicate": [],
+  "fraction": []
+ },
+ "written": null,
+ "caveats": [
+  "LABEL-FREE ONLY. mzLib's SdrfLabelFreeDesign builds MetaMorpheus's label-free ExperimentalDesign.tsv; an isobaric (TMT, iTRAQ) SDRF needs a channel design this verb does not produce.",
+  "is_valid = false is an answer, not a failure: refusals lists EVERY reason at once and the table is empty. mzLib refuses rather than repairs because MetaMorpheus skips quantification with only a warning when its design file is invalid.",
+  "biological_replicate, technical_replicate and fraction are 0-based, as mzLib's SpectraFileInfo and the quant verbs take them. ExperimentalDesign.tsv (written by --out) is 1-based; mzLib converts when it writes.",
+  "notes records every relabelling: biological replicates ranked within each condition (with the mapping), and rows dropped because the search does not read their file. Read it; it is the only record of a renumbering.",
+  "With no condition columns declared, mzLib uses the document's only factor value column and refuses a document that has several. A factor holding 'not available' or 'not applicable' is refused, because it would pair samples nobody said were alike.",
+  "MetaMorpheus finds the design only as a file named ExperimentalDesign.tsv beside the spectra. --out writes any .tsv path; naming and placing it is the caller's job."
+ ]
+}

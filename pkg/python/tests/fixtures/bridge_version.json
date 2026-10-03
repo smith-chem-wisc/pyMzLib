@@ -29,6 +29,8 @@
   "sdrf assess",
   "sdrf samples",
   "sdrf parse-age",
+  "sdrf design",
+  "isobaric kits",
   "proteins read",
   "proteins classify-peptides",
   "proteins annotate-go",

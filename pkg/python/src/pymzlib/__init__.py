@@ -22,7 +22,7 @@ The PRIDE Archive is covered too::
     pymzlib.pride.download("PXD000001", "downloads", category="RAW")
 """
 
-from . import flashlfq, peptidoform, pride, proteins, readers, sdrf
+from . import flashlfq, isobaric, peptidoform, pride, proteins, readers, sdrf
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -40,6 +40,7 @@ __version__ = "0.2.0"
 
 __all__ = [
     "flashlfq",
+    "isobaric",
     "peptidoform",
     "pride",
     "proteins",

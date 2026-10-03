@@ -98,12 +98,14 @@ nav:
       - Readers: guides/readers.md
       - SDRF experimental design: guides/sdrf.md
       - Protein databases: guides/proteins.md
+      - Isobaric kits: guides/isobaric.md
   - API reference:
       - Python API: reference.md
       - "Wire verbs: readers": reference/readers.md
       - "Wire verbs: bridge": reference/bridge.md
       - "Wire verbs: sdrf": reference/sdrf.md
       - "Wire verbs: proteins": reference/proteins.md
+      - "Wire verbs: isobaric": reference/isobaric.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

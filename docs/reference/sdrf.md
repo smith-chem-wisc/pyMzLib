@@ -39,3 +39,13 @@ forms as two functions, `validate()` and `validate_many()`, so the bulk-only opt
 ## `parse_ages`
 
 --8<-- "docs/reference/_generated/sdrf.parse-age.md"
+
+## `design`
+
+**Python spells two options differently from the wire.** `condition_columns=` is a list; pyMzLib
+joins it with tabs for `condition-columns`, because a tab is the one character an SDRF column name
+cannot contain. `searched_files=` is a list; pyMzLib sends it on stdin and sets
+`searched-files-stdin`. The result's design coordinates are 0-based on the wire and in Python;
+`ExperimentalDesign.tsv`, which `out=` writes, is 1-based.
+
+--8<-- "docs/reference/_generated/sdrf.design.md"

@@ -37,6 +37,13 @@ Generated from the docstrings in the source, so it cannot fall out of step with 
       show_root_full_path: false
       heading_level: 3
 
+## `pymzlib.isobaric`
+
+::: pymzlib.isobaric
+    options:
+      show_root_full_path: false
+      heading_level: 3
+
 ## `pymzlib.proteins`
 
 ::: pymzlib.proteins

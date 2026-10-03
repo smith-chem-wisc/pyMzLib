@@ -64,6 +64,22 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     "sdrf parse-age": {
         "param.stdin": {"python": "cells", "why": "one stdin line per element of cells"},
     },
+    "sdrf design": {
+        "param.searched-files-stdin": {
+            "python": "searched_files",
+            "why": "the flag is set, and the stdin lines rendered, from the searched_files list",
+        },
+        "param.condition-columns": {
+            "python": "condition_columns",
+            "why": "a list in Python; pyMzLib joins it with tabs for the wire",
+        },
+    },
+    "isobaric kits": {
+        "field.kits": {
+            "python": "kit_summaries",
+            "why": "the wire's {kit, channel_count} list; IsobaricKits.kits regroups the table under it",
+        },
+    },
     # One document and many are two functions (validate / validate_many), a cross-binding decision:
     # the bulk options exist only on the _many form, which takes the list the wire reads on stdin.
     **{

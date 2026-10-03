@@ -25,7 +25,7 @@ print(set(pooled.source_documents()))             # {'malaria', 'colon'}
 
 ## What you can ask of an SDRF
 
-Reading is the first of seven questions. Each is answered by one mzLib type, projected once in the
+Reading is the first of eight questions. Each is answered by one mzLib type, projected once in the
 bridge so that Python, Rust and R get the same answer:
 
 | You want to know | Call | mzLib answers with |
@@ -37,6 +37,7 @@ bridge so that Python, Rust and R get the same answer:
 | Do these files write the same thing the same way? | [`lint()`](#lint-a-pooled-set) | `SdrfDriftLint` |
 | What does it say about each sample? | [`samples()`](#one-row-per-sample) | `SdrfSampleBlock` |
 | How old was each sample, in years? | [`parse_ages()`](#parse-ages-safely) | `SdrfAge` |
+| Can this file drive a quantification, and with what design? | [`design()`](#turn-an-sdrf-into-a-quantification-design) | `SdrfLabelFreeDesign` ([#1363][1363]) |
 
 `validate`, `assess` and `samples` also come as [`*_many`](#many-files-in-one-call), which reads a
 whole corpus in one call.
@@ -413,6 +414,128 @@ doc = pymzlib.sdrf.read("PXD026824.sdrf.tsv")
 ages = pymzlib.sdrf.parse_ages(doc.value("characteristics[age]"))
 ```
 
+## Turn an SDRF into a quantification design
+
+**The problem.** FlashLFQ and MetaMorpheus need an experimental design: which runs are the same
+condition, which are biological replicates of one another, which are fractions of one sample. The
+SDRF already says all of that, but a hand-written `ExperimentalDesign.tsv` is how most people still
+give it, and an invalid one is worse than none: MetaMorpheus skips quantification with a single
+warning and no error.
+
+**`design()` reads the design out of the SDRF, or refuses and says why.** It calls mzLib's
+`SdrfLabelFreeDesign`, which runs every check MetaMorpheus's own design validator runs and reports
+*all* of the failures at once, so you fix the file once rather than once per failure:
+
+| You want | Call | mzLib |
+|---|---|---|
+| The design, or every reason there is none | `design(path, condition_columns=...)` | `SdrfLabelFreeDesign.Read` |
+| It restricted to the runs one search read | `design(..., searched_files=[...])` | `SdrfLabelFreeDesignOptions.SearchedFiles` |
+| It as FlashLFQ's `spectra=` list | `result.spectra()` | `SdrfLabelFreeDesign.Files` |
+| It as `median_polish(design=...)` | `result.run_design()` | `SdrfLabelFreeDesign.Files` |
+| MetaMorpheus's `ExperimentalDesign.tsv` | `design(..., out="ExperimentalDesign.tsv")` | `WriteExperimentalDesignTsv` |
+
+Every example in this section is executed in CI, against fixtures recorded from the real bridge on
+mzLib's own design files: PXD067622 (a TurboID proximity-labelling study, two genotypes by four
+treatments, three biological replicates each) and PXD049018 (two pulldowns, ten SDS-PAGE bands each).
+
+### A valid design
+
+PXD067622 has two factor columns. Say which ones make up the condition; their values are joined
+with `_`, in the order you give:
+
+```pycon
+>>> import pymzlib
+>>> both = ["factor value[genotype]", "factor value[treatment]"]
+>>> d = pymzlib.sdrf.design("PXD067622.sdrf.tsv", condition_columns=both)
+>>> d.is_valid, d.file_count, len(set(d.columns["condition"]))
+(True, 24, 8)
+>>> d.file_key_column
+'comment[data file]'
+>>> for run in d.files[:3]:
+...     print(run.file_name, "|", run.condition, "|", run.biological_replicate)
+20240830_HF_LC3_MAA_RK_12032_CA_DMSO4 | SPRTN-TurboID CA_DMSO (vehicle) | 0
+20240830_HF_LC3_MAA_RK_12032_CA_DMSO5 | SPRTN-TurboID CA_DMSO (vehicle) | 1
+20240830_HF_LC3_MAA_RK_12032_CA_DMSO6 | SPRTN-TurboID CA_DMSO (vehicle) | 2
+
+```
+
+!!! note "The design is 0-based; `ExperimentalDesign.tsv` is 1-based"
+    `biological_replicate`, `technical_replicate` and `fraction` are mzLib's `SpectraFileInfo`
+    coordinates, which start at 0 - exactly what `pymzlib.flashlfq.quantify` and `median_polish`
+    take. `out=` writes MetaMorpheus's file, which starts at 1; mzLib adds the one when it writes,
+    and nowhere else. Never add it yourself.
+
+Hand the design straight to FlashLFQ. `spectra()` gives one mapping per run in the shape
+`quantify(psms, spectra=...)` takes:
+
+```pycon
+>>> d.spectra()[0]  # doctest: +NORMALIZE_WHITESPACE
+{'path': '20240830_HF_LC3_MAA_RK_12032_CA_DMSO4.raw', 'condition': 'SPRTN-TurboID CA_DMSO (vehicle)',
+ 'biological_replicate': 0, 'technical_replicate': 0, 'fraction': 0}
+
+```
+
+The SDRF names files without a directory. When your spectra live elsewhere, or the search read
+only some of them, pass `searched_files=` with the paths: each must be named **exactly** (case and
+extension) by one row, rows for other files are dropped and listed in `notes`, and your paths
+become `full_path`. To get MetaMorpheus's file instead, pass `out="ExperimentalDesign.tsv"` and put
+it beside the spectra, which is the only place MetaMorpheus looks. It must end in `.tsv`, and a
+refused design writes nothing.
+
+### A refusal lists every reason
+
+PXD049018's depositors did not say which pulldown was treated: its `factor value[treatment]` is
+`not available` on every row. A condition built from an unknown factor would pair samples nobody
+said were alike, so mzLib refuses, once per row, naming each file:
+
+```pycon
+>>> refused = pymzlib.sdrf.design("PXD049018.sdrf.tsv", condition_columns=both)
+>>> refused.is_valid, len(refused.refusals), refused.file_count
+(False, 20, 0)
+>>> print(refused.refusals[0])  # doctest: +NORMALIZE_WHITESPACE
+Line 2 (MSB67868ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition
+cannot be built from an unknown factor; fill it in, or leave the column out of the
+declared condition columns to pool these rows.
+>>> refused.spectra()  # doctest: +ELLIPSIS
+Traceback (most recent call last):
+...
+pymzlib._bridge.UsageError: The design was refused, so there is no spectra list to give. mzLib's reasons:
+...
+
+```
+
+**A refusal is a result, not an exception.** `design()` returns normally with `is_valid = False`,
+the table empty, and `refusals` filled; only `spectra()` and `run_design()` raise, so a refused
+design cannot reach FlashLFQ by accident. Print `report` for mzLib's whole account.
+
+Without `condition_columns`, mzLib uses the document's only factor column. PXD067622 has two, so
+leaving them undeclared is itself a refusal - joining every factor could split a condition on a
+nuisance factor, so mzLib makes you choose.
+
+### Replicate numbers are ranked within each condition
+
+A drafted SDRF often copies the study-wide run index out of the file names: WT_DMSO1-3,
+CA_DMSO4-6, ... CA_FA22-24. MetaMorpheus wants replicates numbered within each condition, so mzLib
+ranks them back to 1..3 - and records every renumbering in `notes`, the only place it is kept:
+
+```pycon
+>>> ranked = pymzlib.sdrf.design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
+>>> ranked.is_valid, len(ranked.notes)
+(True, 7)
+>>> print(ranked.notes[1])  # doctest: +NORMALIZE_WHITESPACE
+Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered
+22 -> 1, 23 -> 2, 24 -> 3.
+>>> ranked.columns == d.columns
+True
+
+```
+
+The ranked design is identical to the hand-numbered one. (`PXD067622_studywide.sdrf.tsv` is
+PXD067622 with each biological replicate replaced by the number in its file name.)
+
+**Label-free only.** An isobaric SDRF needs a channel design; `design()` does not build one. For the
+channels themselves, see [Isobaric kits](isobaric.md).
+
 ## Many files in one call
 
 `validate_many()`, `assess_many()` and `samples_many()` read a list of files in **one** bridge
@@ -474,5 +597,8 @@ rather than on `comment[data file]`**: it names the file whose scans the identif
 - The specification itself:
   [bigbio/proteomics-sample-metadata](https://github.com/bigbio/proteomics-sample-metadata). mzLib
   validates against v1.1.0.
+- mzLib [#1363][1363] added `SdrfLabelFreeDesign`, the SDRF-to-design reader `design()` projects.
 - The curated corpus mzLib's severities and verdict counts were calibrated on:
   [bigbio/sdrf-annotated-datasets](https://github.com/bigbio/sdrf-annotated-datasets).
+
+[1363]: https://github.com/smith-chem-wisc/mzLib/pull/1363

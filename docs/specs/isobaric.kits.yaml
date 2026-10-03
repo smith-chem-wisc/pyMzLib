@@ -1,0 +1,74 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Isobaric.cs on branch
+# feat/sdrf-design-isobaric (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). Example fixtures
+# recorded from the live bridge on that branch.
+verb: isobaric kits
+module: isobaric
+summary: >-
+  List the isobaric labelling kits mzLib can name, with every channel's label and reporter-ion m/z.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: IsobaricMassTag.TryGetIsobaricMassTag, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: 0a808fec}
+  - {symbol: IsobaricMassTag.TryGetTagType, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: 0a808fec}
+  - {symbol: IsobaricMassTagType, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1021/acs.jproteome.1c00168", for: "the 0.003 Da reporter-ion matching tolerance mzLib uses (IsobaricMassTag.AbsoluteToleranceValue)"}
+
+params:
+  - name: kit
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      One kit, resolved by mzLib's whole-name match, case-insensitive, optionally followed by
+      " on <motif>": TMT10, tmt10, TMT6-plex, iTRAQ-4plex on K. Never a substring, so TMT10plex is
+      unknown. An unknown or blank name is a usage error naming the known kits. Absent: every kit.
+
+result:
+  envelope_fields:
+    - {wire: kit, type: string, unit: null, nullable: true, null_means: "--kit was not given: every kit is listed", doc: "The --kit name exactly as given."}
+    - {wire: kit_count, type: int, unit: kits, nullable: false, null_means: null, doc: Kits listed.}
+    - {wire: record_count, type: int, unit: channels, nullable: false, null_means: null, doc: "Rows in columns: the channels of every kit listed."}
+    - {wire: absolute_tolerance, type: float, unit: Da, nullable: false, null_means: null, doc: "IsobaricMassTag.AbsoluteToleranceValue: the half-width of each channel's matching window."}
+    - {wire: kits, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per kit in IsobaricMassTagType order: {kit, channel_count}."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (kit, channel), kits in enum order, channels in ascending m/z."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Five static caveats.}
+  columns:
+    - {wire: kit, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's IsobaricMassTagType member: TMT6, TMT10, TMT11, TMT16, TMT18, iTRAQ4, iTRAQ8, diLeu4, diLeu12 (at 0a808fec). TMT16 and TMT18 are TMTpro."}
+    - {wire: channel_index, type: int, unit: null, nullable: false, null_means: null, doc: "0-based position within the kit, ascending with reporter_ion_mz."}
+    - {wire: channel_label, type: string, unit: null, nullable: false, null_means: null, doc: "The channel's name as MetaMorpheus spells it: 126, 127N, 127C, ..., 115a."}
+    - {wire: reporter_ion_mz, type: float, unit: m/z, nullable: false, null_means: null, doc: "Theoretical m/z at charge 1: a DI HCD diagnostic-ion mass of the kit's Multiplex Label modification in mzLib's TMT.txt, plus one proton."}
+    - {wire: mz_min, type: float, unit: m/z, nullable: false, null_means: null, doc: "reporter_ion_mz minus absolute_tolerance."}
+    - {wire: mz_max, type: float, unit: m/z, nullable: false, null_means: null, doc: "reporter_ion_mz plus absolute_tolerance."}
+
+errors:
+  - {kind: usage, when: "--kit blank, or not a name mzLib knows (the message lists the kits)"}
+  - {kind: correctness, when: "mzLib cannot build a kit from its embedded modifications (never at 0a808fec)"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "reporter_ion_mz is theoretical, charge 1, derived from mzLib's TMT.txt; not calibrated or observed."
+  - "mz_min and mz_max are mzLib's own reporter-ion matching window, the most intense peak inside it wins."
+  - "TMT16 is the lowest sixteen channels of TMTpro 18-plex and has no modification entry of its own."
+  - "iTRAQ8 has no 120 channel (the phenylalanine immonium ion sits at 120.081); its eighth reagent is 121."
+
+bindings:
+  py: {name: pymzlib.isobaric.kits}
+  rust: {name: "mzlib::isobaric::kits"}
+  r: {name: isobaric_kits, note: "channel_index is 1-based in R (the wire is 0-based)."}
+
+examples:
+  - fixture: isobaric_kits.json
+    py: "kits = pymzlib.isobaric.kits()"
+    rust: "let kits = mzlib::isobaric::kits(None)?;"
+    r: "kits <- isobaric_kits()"
+  - fixture: isobaric_kits_TMT18.json
+    py: "tmtpro = pymzlib.isobaric.kits('TMT18')"
+    rust: "let tmtpro = mzlib::isobaric::kits(Some(\"TMT18\"))?;"
+    r: "tmtpro <- isobaric_kits('TMT18')"
+
+open_questions:
+  - "A second verb could read reporter intensities out of spectra through IsobaricMassTag.GetReporterIonIntensities; not built."
+  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."
