@@ -1,0 +1,136 @@
+{
+ "path": "F:\\ClaudeTestBuilds\\pymzlib_convert\\code\\mzLib\\mzLib\\Test\\FileReadingTests\\SearchResults\\BottomUpExample.psmtsv",
+ "file_type": "psmtsv",
+ "reader": "PsmFromTsvFile",
+ "record_count": 8,
+ "rows_not_read": 0,
+ "retention_time_unit": "minutes",
+ "caveats": [
+  "monoisotopic_mass keeps only the FIRST candidate of an ambiguous identification: mzLib splits the '|'-separated list and parses the leading value (SpectrumMatchFromTsv.cs:119). full_sequence does NOT - it is passed through whole (SpectrumMatchFromTsv.cs:194), so on an ambiguous row it carries every candidate joined by '|' and is not a single sequence. The two fields therefore disagree about how many identifications the row holds; split full_sequence yourself before using it.",
+  "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of the identified peptide, not the observed precursor mass, which the file carries separately as 'Precursor Mass'.",
+  "There is no q-value, PEP or score in this view, so nothing here is FDR-filtered. IQuantifiableRecord carries only the fields FlashLFQ needs; confidence columns present in the file are not exposed. Filter before you report.",
+  "A malformed row is dropped silently: mzLib collects a warning per unreadable line and the reader discards the list (SpectrumMatchTsvReader.cs:71, PsmFromTsvFile.cs:17). Check rows_not_read."
+ ],
+ "column_names": [
+  "file_name",
+  "base_sequence",
+  "full_sequence",
+  "retention_time",
+  "charge_state",
+  "monoisotopic_mass",
+  "is_decoy",
+  "protein_accessions",
+  "gene_name",
+  "organism"
+ ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "returned_count": 8,
+ "offset": 0,
+ "truncated": false,
+ "columns": {
+  "file_name": [
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac4_6uL",
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac5_4uL",
+   "04-30-13_CAST_Frac4_6uL"
+  ],
+  "base_sequence": [
+   "YPIEHGIVTNWDDMEK",
+   "VAPEEHPVLLTEAPLNPK",
+   "AYHEQLSVAEITNACFEPANQMVK",
+   "VEDMAELTCLNEASVLHNLK",
+   "YPIEHGIVTNWDDMEK",
+   "LCYVALDFEQEMATAASSSSLEK",
+   "VGCNPNEDVAIFAVDSLR",
+   "KTLTTVQGIADDYDK"
+  ],
+  "full_sequence": [
+   "YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK",
+   "VAPEEHPVLLTEAPLNPK",
+   "AYHEQLSVAEITNAC[Common Fixed:Carbamidomethyl on C]FEPANQMVK",
+   "VEDMAELTC[Common Fixed:Carbamidomethyl on C]LNEASVLHNLK",
+   "YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDM[Common Variable:Oxidation on M]EK",
+   "LC[Common Fixed:Carbamidomethyl on C]YVALDFEQEMATAASSSSLEK",
+   "VGC[Common Fixed:Carbamidomethyl on C]NPNEDVAIFAVDSLR",
+   "KTLTTVQGIADDYDK"
+  ],
+  "retention_time": [
+   124.98721,
+   108.23569,
+   137.71394,
+   144.99635,
+   109.96102,
+   174.95978,
+   149.42708,
+   97.41842
+  ],
+  "charge_state": [
+   2,
+   2,
+   3,
+   3,
+   2,
+   3,
+   2,
+   2
+  ],
+  "monoisotopic_mass": [
+   1959.90366,
+   1953.05713,
+   2749.28399,
+   2285.10317,
+   1975.89858,
+   2549.16656,
+   1974.94693,
+   1666.84138
+  ],
+  "is_decoy": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "protein_accessions": [
+   "P60710;P63260",
+   "P60710;P63260",
+   "P05213;P68368;P68369",
+   "Q61879;Q8VDD5",
+   "P60710;P63260",
+   "P60710;P63260",
+   "A2A5R2;G3X9K3",
+   "P48024;Q9CXU9"
+  ],
+  "gene_name": [
+   "primary:Actb;primary:Actg1, synonym:Actg",
+   "primary:Actb;primary:Actg1, synonym:Actg",
+   "primary:Tuba1b, synonym:Tuba2;primary:Tuba4a, synonym:Tuba4;primary:Tuba1a, synonym:Tuba1",
+   "primary:Myh10;primary:Myh9",
+   "primary:Actb;primary:Actg1, synonym:Actg",
+   "primary:Actb;primary:Actg1, synonym:Actg",
+   "primary:Arfgef2, synonym:Arfgep2, synonym:Big2;primary:Arfgef1",
+   "primary:Eif1, synonym:Sui1, synonym:Sui1-rs1;primary:Eif1b"
+  ],
+  "organism": [
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus",
+   "Mus musculus;Mus musculus"
+  ]
+ },
+ "output": null
+}

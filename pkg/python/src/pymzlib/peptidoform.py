@@ -12,15 +12,20 @@ The defaults are opinions, not placeholders. Tryptic with the proline rule, two 
 ETD, both termini, UniProt's annotated modifications applied. They are the choices this lab makes
 when it does not have a reason to choose otherwise, so the common question needs no parameters —
 and every one of them is reachable, because the point is to open the doors, not to hide them.
+
+:func:`convert` rewrites full sequences from one notation to another with mzLib's
+``SequenceConversionService``: a MetaMorpheus full sequence ``[UniProt:N-acetylserine on S]SEQK``
+becomes ``[UNIMOD:1]SEQK`` in Unimod notation.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any, Iterable, Mapping
 
 from . import _bridge
+from .readers import _Table
 
 #: UniProtKB's own accession grammar (https://www.uniprot.org/help/accession_numbers). Checking
 #: it here means a typo costs nothing instead of a network round trip and a puzzling HTTP 400.
@@ -28,7 +33,17 @@ _ACCESSION = re.compile(
     r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$"
 )
 
-__all__ = ["Fragment", "Peptide", "Digest", "ModificationCensus", "fragments"]
+__all__ = [
+    "Fragment",
+    "Peptide",
+    "Digest",
+    "ModificationCensus",
+    "fragments",
+    "CONVERSION_MODES",
+    "ConvertedSequence",
+    "SequenceConversions",
+    "convert",
+]
 
 
 @dataclass(frozen=True)
@@ -439,3 +454,239 @@ def fragments(
         modification_census=census,
         peptides=[Peptide._from_wire(p) for p in (data.get("peptides") or [])],
     )
+
+
+# ---- convert -----------------------------------------------------------------------------------
+
+#: The first pyMzLib whose bridge has ``peptidoform convert`` (its spec's ``since.pymzlib``).
+_CONVERT_SINCE = "0.4.0"
+
+#: mzLib's ``SequenceConversionHandlingMode`` names, the values ``mode=`` accepts.
+CONVERSION_MODES = ("ThrowException", "ReturnNull", "RemoveIncompatibleElements", "UsePrimarySequence")
+
+
+@dataclass(frozen=True)
+class ConvertedSequence:
+    """One input sequence and what mzLib made of it.
+
+    Attributes:
+        input: The sequence exactly as given.
+        output: The sequence in the target notation, or ``None`` when mzLib could not convert it
+            (``status == "failed"``).
+        status: mzLib's verdict. ``"converted"``: an output and nothing recorded against it.
+            ``"converted_with_warnings"``: an output, but mzLib recorded a warning, an error or an
+            incompatible item (a modification dropped, a character skipped); read
+            :attr:`incompatible_items` and :attr:`warnings`. ``"failed"``: no output.
+        failure_reason: mzLib's ``ConversionFailureReason`` (``"InvalidSequence"``,
+            ``"IncompatibleModifications"``, ``"UnsupportedDirection"``, ``"UnknownFormat"``), or
+            ``None`` when mzLib recorded none. A failed row can have none: the Unimod target under
+            ``ReturnNull`` names only the :attr:`incompatible_items`.
+        incompatible_items: The modifications (or other elements) mzLib could not write in the
+            target, as mzLib describes them (``"Made Up:Not a modification on K @3(K)"``).
+        warnings: mzLib's non-fatal messages for this input.
+        errors: mzLib's error messages for this input.
+    """
+
+    input: str
+    output: str | None
+    status: str
+    failure_reason: str | None
+    incompatible_items: list[str]
+    warnings: list[str]
+    errors: list[str]
+
+    @property
+    def ok(self) -> bool:
+        """Whether mzLib converted it with nothing recorded against it (``status == "converted"``)."""
+        return self.status == "converted"
+
+
+@dataclass(frozen=True)
+class SequenceConversions(_Table):
+    """What :func:`convert` returned: one row per input sequence, in input order.
+
+    ``columns`` maps ``input``, ``output``, ``status``, ``failure_reason``, ``incompatible_items``,
+    ``warnings`` and ``errors`` to one value per input, ready for
+    ``pandas.DataFrame(result.columns)``. :attr:`sequences` is the same rows as
+    :class:`ConvertedSequence` objects.
+
+    Attributes:
+        source_format: The source notation, spelled as mzLib registered it (``"mzLib"``).
+        target_format: The target notation, spelled as mzLib registered it (``"Unimod"``).
+        mode: The ``SequenceConversionHandlingMode`` used.
+        source_formats: Every source notation mzLib has registered, sorted.
+        target_formats: Every target notation mzLib has registered, sorted.
+        record_count: Rows, one per input sequence, duplicates included.
+        converted_count: Sequences with status ``"converted"``.
+        warned_count: Sequences with status ``"converted_with_warnings"``.
+        failed_count: Sequences with status ``"failed"``.
+        column_names: The table's columns, in order.
+        columns: Column name to one value per input.
+        caveats: What a status does and does not promise, per target. Read these once.
+    """
+
+    source_format: str
+    target_format: str
+    mode: str
+    source_formats: list[str]
+    target_formats: list[str]
+    record_count: int
+    converted_count: int
+    warned_count: int
+    failed_count: int
+    column_names: list[str]
+    columns: dict[str, list[Any]]
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def outputs(self) -> list[str | None]:
+        """The converted sequences in input order, ``None`` where a row failed."""
+        return list(self.columns.get("output") or [])
+
+    @property
+    def sequences(self) -> list[ConvertedSequence]:
+        """Every row as a :class:`ConvertedSequence`, in input order."""
+        return [
+            ConvertedSequence(
+                input=row["input"],
+                output=row["output"],
+                status=row["status"],
+                failure_reason=row["failure_reason"],
+                incompatible_items=list(row["incompatible_items"] or []),
+                warnings=list(row["warnings"] or []),
+                errors=list(row["errors"] or []),
+            )
+            for row in self.records
+        ]
+
+    @property
+    def not_converted(self) -> list[ConvertedSequence]:
+        """The rows whose status is not ``"converted"``: failed, or converted with warnings."""
+        return [s for s in self.sequences if not s.ok]
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> "SequenceConversions":
+        return cls(
+            source_format=data.get("source_format", ""),
+            target_format=data.get("target_format", ""),
+            mode=data.get("mode", ""),
+            source_formats=list(data.get("source_formats") or []),
+            target_formats=list(data.get("target_formats") or []),
+            record_count=int(data.get("record_count", 0)),
+            converted_count=int(data.get("converted_count", 0)),
+            warned_count=int(data.get("warned_count", 0)),
+            failed_count=int(data.get("failed_count", 0)),
+            column_names=list(data.get("column_names") or []),
+            columns={k: list(v) for k, v in (data.get("columns") or {}).items()},
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+def _sequence_lines(sequences: Iterable[str]) -> list[str]:
+    """The sequences as stdin lines, unchanged, refusing what would shift the rows."""
+    if isinstance(sequences, str):
+        raise _bridge.UsageError(
+            "sequences must be a list of strings, not one string: that would send one sequence "
+            f"per character. Wrap it: [{sequences!r}]."
+        )
+    lines = []
+    for value in sequences:
+        if not isinstance(value, str):
+            raise _bridge.UsageError(f"Every sequence must be a str; got {value!r}.")
+        # The bridge skips blank lines and splits on line breaks, so either would put every later
+        # result on the wrong row. Refused here rather than silently re-aligned.
+        if not value.strip():
+            raise _bridge.UsageError("sequences contains a blank entry; every entry is one result row.")
+        if "\n" in value or "\r" in value:
+            raise _bridge.UsageError(f"A sequence contains a line break: {value!r}.")
+        lines.append(value)
+    return lines
+
+
+def convert(
+    sequences: Iterable[str],
+    *,
+    source: str = "mzLib",
+    target: str = "Unimod",
+    mode: str = "ReturnNull",
+    threads: int = 1,
+    timeout: float | None = 120,
+) -> SequenceConversions:
+    """Convert full sequences from one notation to another with mzLib, one result per input.
+
+    Wraps mzLib's ``SequenceConversionService.Default`` (with ProForma registered). The main use is
+    MetaMorpheus or mzLib full sequences to Unimod accessions: ``[UniProt:N-acetylserine on S]SEQK``
+    becomes ``[UNIMOD:1]SEQK``. Nothing is converted in Python or in the bridge; every output and
+    every status is mzLib's.
+
+    **Choose Unimod, not ProForma, for UniProt-sourced modifications.** mzLib's ProForma target
+    does not resolve them and writes them back under their mzLib name, status ``"converted"``. See
+    the caveats.
+
+    Args:
+        sequences: Full sequences, one result row each, in order, duplicates included. Sent to
+            mzLib exactly as given. A blank entry or one with a line break is refused, because it
+            would shift every later row. Split an ambiguous MetaMorpheus full sequence
+            (``|``-joined candidates) first: mzLib joins the candidates into one sequence.
+        source: The notation the sequences are in. One of mzLib's registered source formats
+            (:attr:`SequenceConversions.source_formats`), matched case-insensitively.
+        target: The notation to write. One of mzLib's registered target formats
+            (:attr:`SequenceConversions.target_formats`), matched case-insensitively.
+        mode: mzLib's ``SequenceConversionHandlingMode``, one of :data:`CONVERSION_MODES`
+            (case-insensitive).
+            ``"ReturnNull"`` (default): a sequence mzLib cannot convert is a failed row.
+            ``"RemoveIncompatibleElements"`` and ``"UsePrimarySequence"``: what the target cannot
+            write is dropped and the row is ``"converted_with_warnings"``. ``"ThrowException"``:
+            the first such sequence raises :class:`UsageError` naming it, and nothing is returned.
+        threads: Sequences converted at once. Default 1; ``-1`` means every core. Same rows, in
+            the same order, at any value.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`SequenceConversions` table, also as :attr:`SequenceConversions.sequences`.
+
+    Raises:
+        UsageError: no sequences; a blank one; ``source`` or ``target`` not a format mzLib
+            registered (the message lists them); ``mode`` not one of :data:`CONVERSION_MODES`; or,
+            under ``mode="ThrowException"``, a sequence mzLib could not convert.
+
+    Examples:
+        UniProt and MetaMorpheus modifications to Unimod accessions, and one mzLib cannot map:
+
+        >>> result = convert([
+        ...     "[UniProt:N-acetylserine on S]SEQK",
+        ...     "PEPK[UniProt:N6,N6-dimethyllysine on K]R",
+        ...     "PEPM[Common Variable:Oxidation on M]K",
+        ...     "PEPK[Made Up:Not a modification on K]R",
+        ... ])
+        >>> result.outputs
+        ['[UNIMOD:1]SEQK', 'PEPK[UNIMOD:36]R', 'PEPM[UNIMOD:35]K', None]
+        >>> failed = result.not_converted[0]
+        >>> failed.status, failed.incompatible_items
+        ('failed', ['Made Up:Not a modification on K @3(K)'])
+    """
+    lines = _sequence_lines(sequences)
+    if not lines:
+        raise _bridge.UsageError(
+            "At least one sequence is required, e.g. ['[UniProt:N-acetylserine on S]SEQK']."
+        )
+    for name, value in (("source", source), ("target", target)):
+        if not isinstance(value, str) or not value.strip():
+            raise _bridge.UsageError(f"{name} must be a non-empty format name; got {value!r}.")
+    canonical_mode = {m.lower(): m for m in CONVERSION_MODES}.get(mode.lower()) if isinstance(mode, str) else None
+    if canonical_mode is None:
+        raise _bridge.UsageError(
+            f"mode must be one of {', '.join(CONVERSION_MODES)} (mzLib's "
+            f"SequenceConversionHandlingMode); got {mode!r}."
+        )
+    if isinstance(threads, bool) or not isinstance(threads, int) or threads == 0 or threads < -1:
+        raise _bridge.UsageError(f"threads must be 1 or more, or -1 for every core; got {threads!r}.")
+
+    _bridge.require_verb("peptidoform convert", since=_CONVERT_SINCE)
+    data = _bridge.invoke(
+        "peptidoform", "convert",
+        "--from", source, "--to", target, "--mode", canonical_mode, "--threads", str(threads),
+        stdin="\n".join(lines) + "\n",
+        timeout=timeout,
+    )
+    return SequenceConversions._from_wire(data)

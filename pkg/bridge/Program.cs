@@ -266,6 +266,7 @@ public static partial class Program
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
             "pride search" => await PrideSearchAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
+            "peptidoform convert" => Peptidoform.Convert(arguments),
             "quant flashlfq" => Quantification.FlashLfq(arguments),
             "quant median-polish" => Quantification.MedianPolish(arguments),
             "readers formats" => Reading.Formats(arguments),

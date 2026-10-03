@@ -1,0 +1,133 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Peptidoform.Convert.cs on branch
+# feat/peptidoform-convert (off main 6f959bf, pyMzLib 0.3.0), mzLib pin 0a808fec (tag 1.0.593). Example
+# fixtures recorded from the live bridge on that branch; the psmtsv ones from mzLib's own
+# Test/FileReadingTests/SearchResults/BottomUpExample.psmtsv.
+verb: peptidoform convert
+module: peptidoform
+summary: >-
+  Convert full sequences from one notation to another with mzLib's sequence conversion service, one
+  result per input: for example a MetaMorpheus full sequence to Unimod accessions.
+since: {protocol: 1, pymzlib: "0.4.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SequenceConversionService.Default, path: mzLib/Omics/SequenceConversion/SequenceConversionService.cs, pin: 0a808fec}
+  - {symbol: SequenceConversionService.GetConverter, path: mzLib/Omics/SequenceConversion/SequenceConversionService.cs, pin: 0a808fec}
+  - {symbol: ISequenceConverter.Convert, path: mzLib/Omics/SequenceConversion/SequenceConverter.cs, pin: 0a808fec}
+  - {symbol: ProFormaSequenceConversion.RegisterWithDefault, path: mzLib/Readers/ProForma/SequenceConversion/ProFormaSequenceConversion.cs, pin: 0a808fec}
+  - {symbol: SequenceConversionHandlingMode, path: mzLib/Omics/SequenceConversion/Util/SequenceConversionHandlingMode.cs, pin: 0a808fec}
+  - {symbol: ConversionWarnings, path: mzLib/Omics/SequenceConversion/Util/ConversionWarnings.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1002/pmic.200300744", for: "Unimod, the modification database whose accessions the Unimod target writes (Creasy and Cottrell 2004, Proteomics)"}
+  - {doi: "10.1021/acs.jproteome.1c00771", for: "ProForma 2.0, the ProForma target's notation (LeDuc et al. 2022, J Proteome Res)"}
+
+params:
+  - name: from
+    type: string
+    required: false
+    unit: null
+    range: "a registered source format: MassShift, Modomics, ProForma, mzLib (at 0a808fec)"
+    default: mzLib
+    doc: >-
+      The notation the sequences are in, matched case-insensitively against the service's
+      AvailableSourceFormats. Any other name, or the option without a value, is a usage error that
+      lists the registered names.
+  - name: to
+    type: string
+    required: false
+    unit: null
+    range: "a registered target format: Chronologer, Essential, MassShift, ProForma, Unimod, mzLib (at 0a808fec)"
+    default: Unimod
+    doc: >-
+      The notation to write, matched case-insensitively against the service's
+      AvailableTargetFormats. Any other name, or the option without a value, is a usage error that
+      lists the registered names.
+  - name: mode
+    type: string
+    required: false
+    unit: null
+    range: "ThrowException | ReturnNull | RemoveIncompatibleElements | UsePrimarySequence"
+    default: ReturnNull
+    doc: >-
+      mzLib's SequenceConversionHandlingMode, by name, case-insensitive. ReturnNull: an input mzLib
+      cannot convert is a failed row. RemoveIncompatibleElements and UsePrimarySequence: what the
+      target cannot write is dropped and the row is converted_with_warnings. ThrowException: the
+      first input mzLib cannot convert (in input order) fails the whole call as a usage error naming
+      it. A number or any other name is a usage error.
+  - name: threads
+    type: int
+    required: false
+    unit: null
+    range: ">= 1, or -1 for every core"
+    default: 1
+    doc: "Sequences converted at once. Rows are identical, in input order, at any value."
+  - name: sequences
+    type: "string[]"
+    required: true
+    unit: null
+    range: non-empty
+    default: null
+    doc: >-
+      Read from stdin (not an option): one full sequence per line, given to mzLib exactly as read.
+      Blank lines are skipped. One row per line, in order, duplicates included. No sequences is a
+      usage error.
+
+result:
+  envelope_fields:
+    - {wire: source_format, type: string, unit: null, nullable: false, null_means: null, doc: "--from, spelled as mzLib registered it."}
+    - {wire: target_format, type: string, unit: null, nullable: false, null_means: null, doc: "--to, spelled as mzLib registered it."}
+    - {wire: mode, type: string, unit: null, nullable: false, null_means: null, doc: The SequenceConversionHandlingMode used.}
+    - {wire: source_formats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every source format the service has registered, ordinal order."}
+    - {wire: target_formats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every target format the service has registered, ordinal order."}
+    - {wire: record_count, type: int, unit: sequences, nullable: false, null_means: null, doc: "Rows: the input sequences."}
+    - {wire: converted_count, type: int, unit: sequences, nullable: false, null_means: null, doc: Rows with status converted.}
+    - {wire: warned_count, type: int, unit: sequences, nullable: false, null_means: null, doc: Rows with status converted_with_warnings.}
+    - {wire: failed_count, type: int, unit: sequences, nullable: false, null_means: null, doc: Rows with status failed.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per input, in input order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Six static caveats.}
+  columns:
+    - {wire: input, type: string, unit: null, nullable: false, null_means: null, doc: The line exactly as read from stdin.}
+    - {wire: output, type: string, unit: null, nullable: true, null_means: "mzLib returned no output for this input (status failed)", doc: "mzLib's converted sequence."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "converted (an output and ConversionWarnings.IsClean) | converted_with_warnings (an output, but mzLib recorded a warning, error or incompatible item) | failed (no output)."}
+    - {wire: failure_reason, type: string, unit: null, nullable: true, null_means: "mzLib recorded no ConversionFailureReason: always for converted rows, and for a row the Unimod target fails under ReturnNull", doc: "mzLib's ConversionFailureReason: InvalidSequence | IncompatibleModifications | UnsupportedDirection | UnknownFormat."}
+    - {wire: incompatible_items, type: "string[]", unit: null, nullable: false, null_means: null, doc: "ConversionWarnings.IncompatibleItems: what the target could not write, as mzLib describes it ('Made Up:Not a modification on K @3(K)'). Empty when none."}
+    - {wire: warnings, type: "string[]", unit: null, nullable: false, null_means: null, doc: "ConversionWarnings.Warnings: mzLib's non-fatal messages for this input."}
+    - {wire: errors, type: "string[]", unit: null, nullable: false, null_means: null, doc: "ConversionWarnings.Errors: mzLib's error messages for this input."}
+
+errors:
+  - {kind: usage, when: "no sequences on stdin; --from or --to not a registered format, or given without a value (the message lists the registered names); --mode not a SequenceConversionHandlingMode name; --threads 0 or below -1"}
+  - {kind: usage, when: "--mode ThrowException and mzLib could not convert an input (the first in input order; the message names it and mzLib's reason)"}
+  - {kind: correctness, when: "mzLib threw something other than its SequenceConversionException (never seen at 0a808fec)"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "ProForma does not resolve UniProt-sourced modifications at 0a808fec: '[UniProt:N-acetylserine on S]SEQK' comes out as '[UniProt:N-acetylserine on S]-SEQK', status converted, not '[UNIMOD:1]-SEQK'. mzLib's ProForma serializer looks modifications up in the MetaMorpheus list only (ProFormaSequenceSerializer.cs:34, MzLibModificationLookup.cs:54); the Unimod target looks them up in every list mzLib loads, UniProt's included (GlobalModificationLookup.cs:23). Convert to Unimod when the sequences carry UniProt modifications. mzLib#1401."
+  - "ProForma writes a modification it cannot resolve under its mzLib name and the row is still converted, so status converted does not mean every bracket in a ProForma output is a controlled-vocabulary term. Unimod either names a modification by its UNIMOD accession or reports it in incompatible_items."
+  - "A modification the target cannot write: under ReturnNull the row fails (output null); under RemoveIncompatibleElements and UsePrimarySequence it is dropped from output, named in incompatible_items, and the row is converted_with_warnings; under ThrowException the first such input fails the whole call as a usage error."
+  - "status is mzLib's verdict read off ConversionWarnings; failure_reason can be null on a failed row (the Unimod target under ReturnNull records only incompatible_items)."
+  - "An ambiguous MetaMorpheus full sequence ('|'-joined candidates) is not refused: mzLib's parser skips each '|' with a warning and joins the candidates into one sequence, status converted_with_warnings. Split ambiguous full sequences before converting them."
+  - "Each stdin line is one input, given to mzLib exactly as read; blank lines are skipped; rows are in input order at any --threads."
+
+bindings:
+  py: {name: pymzlib.peptidoform.convert}
+  rust: {name: "mzlib::peptidoform::convert_with", options: ConvertOptions}
+  r: {name: peptidoform_convert}
+
+examples:
+  - fixture: peptidoform_convert_unimod.json
+    py: "result = pymzlib.peptidoform.convert(['[UniProt:N-acetylserine on S]SEQK', 'PEPK[UniProt:N6,N6-dimethyllysine on K]R', 'PEPM[Common Variable:Oxidation on M]K', 'PEPK[Made Up:Not a modification on K]R'])"
+    rust: "let result = mzlib::peptidoform::convert_with(&sequences, &ConvertOptions::default())?;"
+    r: "result <- peptidoform_convert(sequences)"
+  - fixture: peptidoform_convert_psmtsv.json
+    py: "unimod = pymzlib.peptidoform.convert(psms.columns['full_sequence'])"
+    rust: "let unimod = mzlib::peptidoform::convert_with(&full_sequences, &ConvertOptions::default())?;"
+    r: "unimod <- peptidoform_convert(psms$full_sequence)"
+  - fixture: peptidoform_convert_psmtsv_proforma.json
+    py: "proforma = pymzlib.peptidoform.convert(psms.columns['full_sequence'], target='ProForma')"
+    rust: "let proforma = mzlib::peptidoform::convert_with(&full_sequences, &ConvertOptions { target: \"ProForma\".into(), ..Default::default() })?;"
+    r: "proforma <- peptidoform_convert(psms$full_sequence, target = 'ProForma')"
+
+open_questions:
+  - "The ProForma target's UniProt gap is an mzLib defect (the serializer's default lookup), mzLib#1401; close this when a pin carries its fix. A bridge-side substitute (ProFormaSequenceSerializer.WithLookup(GlobalModificationLookup)) composes serializer internals and is deliberately not used."
+  - "mzLib's MzLibSequenceParser joins '|'-separated ambiguous candidates into one sequence with only a warning; whether it should refuse them (as SpectrumMatchFromTsv.ProFormaFromFullSequence does before calling it) is an mzLib question: mzLib#1405."
+  - "AutoDetect (SequenceConversionService.ConvertAutoDetect) is not projected: --from is always explicit."
+  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."

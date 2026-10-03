@@ -4,7 +4,9 @@ A mass spectrometrist looking at a protein usually wants one thing: *which pepti
 which fragments would I see for each?* pyMzLib answers that in one call. Give it a UniProt
 accession and it fetches the annotated entry, applies the modifications UniProt records, digests
 the protein, and fragments every peptide. The digestion, the modification handling and the fragment
-masses are the ones MetaMorpheus uses.
+masses are the ones MetaMorpheus uses. pyMzLib can also rewrite a MetaMorpheus full sequence in
+Unimod or ProForma notation, so it can be handed to another tool (see
+[Converting full sequences](#converting-full-sequences-to-unimod-or-proforma)).
 
 | You want to know | Call | mzLib does it with |
 |---|---|---|
@@ -12,6 +14,10 @@ masses are the ones MetaMorpheus uses.
 | Which UniProt modifications were used, and which were not | [`Digest.modification_census`](#modifications-what-was-annotated-and-what-could-be-used) | the UniProt XML reader and its PTM list |
 | A peptide's m/z at a charge | [`Peptide.mz()`](#mz-and-why-trimethyllysine-needs-care) | `ClassExtensions.ToMz`, with fixed charges accounted for |
 | Whether the list is complete | [`Digest.truncated`](#the-isoform-cap-truncates-silently) | `DigestionParams.MaxModificationIsoforms` |
+| A MetaMorpheus full sequence in Unimod accessions | [`convert()`](#converting-full-sequences-to-unimod-or-proforma) | `SequenceConversionService.Convert`, Unimod serializer |
+| The same sequence in ProForma | [`convert(target="ProForma")`](#proforma-does-not-resolve-uniprot-modifications-yet) | `SequenceConversionService.Convert`, ProForma serializer |
+| Which sequences mzLib could not convert, and why | [`SequenceConversions.not_converted`](#when-mzlib-cannot-convert-a-sequence) | `ConversionWarnings` |
+| Which notations mzLib can read and write | [`SequenceConversions.source_formats` and `.target_formats`](#converting-full-sequences-to-unimod-or-proforma) | `SequenceConversionService.AvailableSourceFormats` and `AvailableTargetFormats` |
 
 Every `>>>` example on this page runs in CI against output recorded from the real bridge, so the
 numbers you see are the numbers pyMzLib gives. Blocks titled **Not run** say why they are not.
@@ -243,11 +249,127 @@ the modified variants go away.
 `max_modifications` is the setting that most affects run time, because isoforms are combinatorial:
 three modifications per peptide is much more work than two.
 
+## Converting full sequences to Unimod or ProForma
+
+A MetaMorpheus result names each modification the way mzLib's databases do:
+`[UniProt:N-acetylserine on S]`, `[Common Variable:Oxidation on M]`. Most other tools want a Unimod
+accession instead, such as `[UNIMOD:1]`. [`convert()`][pymzlib.peptidoform.convert] hands each
+sequence to mzLib's `SequenceConversionService` and returns one row per input, in order. pyMzLib
+maps no modification itself; every output is mzLib's.
+
+This example uses `BottomUpExample.psmtsv`, a MetaMorpheus search result that ships with mzLib's
+tests. Read its full sequences, then convert them:
+
+```pycon
+>>> psms = pymzlib.readers.read_results("BottomUpExample.psmtsv")
+>>> unimod = pymzlib.peptidoform.convert(psms.columns["full_sequence"])
+>>> unimod.source_format, unimod.target_format, unimod.mode
+('mzLib', 'Unimod', 'ReturnNull')
+>>> for row in unimod.sequences[:5]:
+...     print(row.status, row.output)
+converted YPIEH[UNIMOD:34]GIVTNWDDMEK
+converted VAPEEHPVLLTEAPLNPK
+converted AYHEQLSVAEITNAC[UNIMOD:4]FEPANQMVK
+converted VEDMAELTC[UNIMOD:4]LNEASVLHNLK
+converted YPIEH[UNIMOD:34]GIVTNWDDM[UNIMOD:35]EK
+>>> unimod.converted_count == unimod.record_count
+True
+
+```
+
+UniProt's tele-methylhistidine became `UNIMOD:34` (Methyl). Carbamidomethyl became `UNIMOD:4`, and
+oxidation became `UNIMOD:35`. Unmodified sequences pass through unchanged. `unimod.columns` is
+already the shape `pandas.DataFrame` wants, if you want a table instead of a loop.
+
+Every result lists the notations mzLib has registered, so you never need to guess a name:
+
+```pycon
+>>> unimod.source_formats
+['MassShift', 'Modomics', 'ProForma', 'mzLib']
+>>> unimod.target_formats
+['Chronologer', 'Essential', 'MassShift', 'ProForma', 'Unimod', 'mzLib']
+
+```
+
+### ProForma does not resolve UniProt modifications yet
+
+Ask for ProForma and the same file gives a different answer. Carbamidomethyl and oxidation become
+UNIMOD accessions. The UniProt modification is written back under its mzLib name, and the row
+still says `converted`:
+
+```pycon
+>>> proforma = pymzlib.peptidoform.convert(psms.columns["full_sequence"], target="ProForma")
+>>> proforma.outputs[0]
+'YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK'
+>>> proforma.outputs[4]
+'YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDM[UNIMOD:35]EK'
+>>> proforma.sequences[0].status
+'converted'
+
+```
+
+The cause is in mzLib, not in pyMzLib. mzLib's ProForma serializer looks modifications up only in
+MetaMorpheus's own list, which has no UniProt entries. The Unimod serializer looks them up in every
+list mzLib loads. Until mzLib fixes this, **convert to Unimod when your sequences carry UniProt
+modifications**. In ProForma output, treat any bracket that is not a `UNIMOD:` term as unresolved.
+pyMzLib does not patch around the gap. A patch here would leave the same gap in mzLibRust, mzLibR
+and MetaMorpheus. The `pro_forma` column that [`readers.read_records()`](readers.md) gives a
+`.psmtsv` comes from the same serializer, so it has the same gap.
+
+### When mzLib cannot convert a sequence
+
+What happens to a modification the target cannot write depends on `mode`, which is mzLib's
+`SequenceConversionHandlingMode`:
+
+| `mode` | The row | `output` |
+|---|---|---|
+| `"ReturnNull"` (default) | `failed` | `None` |
+| `"RemoveIncompatibleElements"` | `converted_with_warnings` | the sequence without that modification |
+| `"UsePrimarySequence"` | `converted_with_warnings` | the sequence without that modification |
+| `"ThrowException"` | no rows: the call raises `UsageError` naming the first such sequence | none |
+
+`status` is mzLib's own verdict:
+
+- `converted`: mzLib returned an output and recorded nothing against it.
+- `converted_with_warnings`: mzLib returned an output but noted something, such as a dropped
+  modification or a skipped character.
+- `failed`: mzLib returned nothing.
+
+These four sequences include one modification that has no Unimod accession:
+
+```pycon
+>>> result = pymzlib.peptidoform.convert([
+...     "[UniProt:N-acetylserine on S]SEQK",
+...     "PEPK[UniProt:N6,N6-dimethyllysine on K]R",
+...     "PEPM[Common Variable:Oxidation on M]K",
+...     "PEPK[Made Up:Not a modification on K]R",
+... ])
+>>> result.outputs
+['[UNIMOD:1]SEQK', 'PEPK[UNIMOD:36]R', 'PEPM[UNIMOD:35]K', None]
+>>> (bad,) = result.not_converted
+>>> bad.input, bad.status, bad.failure_reason
+('PEPK[Made Up:Not a modification on K]R', 'failed', None)
+>>> bad.incompatible_items
+['Made Up:Not a modification on K @3(K)']
+
+```
+
+`failure_reason` is `None` here. Under `ReturnNull`, mzLib's Unimod serializer records the
+incompatible modification but no reason code, so read `incompatible_items` to see what failed.
+
+**Split ambiguous sequences first.** When MetaMorpheus cannot tell candidates apart, it joins their
+full sequences with `|`. mzLib's parser does not refuse this. It skips each `|` with a warning and
+joins the candidates into one sequence. The row is `converted_with_warnings`, but the output is not
+a real peptide. Split on `|` before you convert.
+
+The full list of parameters, fields and caveats is in the
+[`peptidoform convert` reference](../reference/peptidoform.md#convert).
+
 ## Errors you might hit
 
 | Exception | Means |
 |---|---|
-| `UsageError` | The accession, protease, dissociation type or terminus is not recognised, or a number is negative. Raised before any network call. |
+| `UsageError` | `fragments()`: the accession, protease, dissociation type or terminus is not recognised, or a number is negative; raised before any network call. `convert()`: no sequences, a blank one, a format name mzLib has not registered (the message lists them), an unknown `mode`, or, under `mode="ThrowException"`, a sequence mzLib could not convert. |
 | `ServiceUnavailableError` | UniProt was down, rate-limiting, or timed out. **Not your bug**: retry later. |
 | `BridgeError` | UniProt answered, but something about the request was rejected. |
 

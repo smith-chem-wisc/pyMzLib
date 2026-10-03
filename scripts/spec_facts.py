@@ -74,6 +74,12 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "a list in Python; pyMzLib joins it with tabs for the wire",
         },
     },
+    "peptidoform convert": {
+        # from is a Python keyword, so the pair is source/target, the names mzLib's own
+        # Convert(input, sourceFormat, targetFormat) uses.
+        "param.from": {"python": "source", "why": "'from' is a Python keyword; mzLib calls it sourceFormat"},
+        "param.to": {"python": "target", "why": "the pair to source=; mzLib calls it targetFormat"},
+    },
     "isobaric kits": {
         "field.kits": {
             "python": "kit_summaries",

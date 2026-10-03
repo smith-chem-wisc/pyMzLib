@@ -6,6 +6,17 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Added
+- **`peptidoform.convert()`: rewrite full sequences in another notation with mzLib**
+  (`SequenceConversionService`). The main use is MetaMorpheus full sequences to Unimod accessions:
+  `[UniProt:N-acetylserine on S]SEQK` becomes `[UNIMOD:1]SEQK`, and dimethyllysine becomes
+  `UNIMOD:36`. One row per input, in order, with mzLib's own verdict (`converted`,
+  `converted_with_warnings` or `failed`), the modifications it could not write, and its warnings.
+  `source=` and `target=` take any notation mzLib has registered; every result lists them. `mode=`
+  is mzLib's `SequenceConversionHandlingMode`. **The ProForma target does not resolve UniProt
+  modifications** in this mzLib build and writes them back by name; convert to Unimod for those.
+  The `pro_forma` column of `read_records()` has the same gap. Wire verb `peptidoform convert`.
+
 ## [0.3.0] - 2026-10-03
 
 Built from mzLib 1.0.593. Adds differential abundance with no R (`pymzlib.stats`), Gene Ontology on

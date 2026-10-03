@@ -50,7 +50,7 @@ Coverage is deliberately partial and grows by demand — the same way
 | Area | Status |
 |---|---|
 | [PRIDE Archive](guides/pride.md) — search for projects by keyword, list a project's files, filtered download | :material-check: available |
-| [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide | :material-check: available |
+| [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide; convert full sequences to Unimod or ProForma | :material-check: available |
 | [FlashLFQ](guides/flashlfq.md) — label-free quantification across mzML runs, with match-between-runs | :material-check: available |
 | [Readers](guides/readers.md) — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify any format mzLib knows and read it, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables, RNA transcript groups and oligos included | :material-check: available |
 | [SDRF experimental design](guides/sdrf.md) — read an SDRF-Proteomics file, pool several into one analysis table; validate, lint and assess them; one row per sample with ages in years; the label-free design FlashLFQ and MetaMorpheus take, or every reason it was refused | :material-check: available |
