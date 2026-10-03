@@ -1,0 +1,112 @@
+{
+ "source_format": "mzLib",
+ "target_format": "Unimod",
+ "mode": "ReturnNull",
+ "source_formats": [
+  "MassShift",
+  "Modomics",
+  "ProForma",
+  "mzLib"
+ ],
+ "target_formats": [
+  "Chronologer",
+  "Essential",
+  "MassShift",
+  "ProForma",
+  "Unimod",
+  "mzLib"
+ ],
+ "record_count": 8,
+ "converted_count": 8,
+ "warned_count": 0,
+ "failed_count": 0,
+ "column_names": [
+  "input",
+  "output",
+  "status",
+  "failure_reason",
+  "incompatible_items",
+  "warnings",
+  "errors"
+ ],
+ "columns": {
+  "input": [
+   "YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK",
+   "VAPEEHPVLLTEAPLNPK",
+   "AYHEQLSVAEITNAC[Common Fixed:Carbamidomethyl on C]FEPANQMVK",
+   "VEDMAELTC[Common Fixed:Carbamidomethyl on C]LNEASVLHNLK",
+   "YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDM[Common Variable:Oxidation on M]EK",
+   "LC[Common Fixed:Carbamidomethyl on C]YVALDFEQEMATAASSSSLEK",
+   "VGC[Common Fixed:Carbamidomethyl on C]NPNEDVAIFAVDSLR",
+   "KTLTTVQGIADDYDK"
+  ],
+  "output": [
+   "YPIEH[UNIMOD:34]GIVTNWDDMEK",
+   "VAPEEHPVLLTEAPLNPK",
+   "AYHEQLSVAEITNAC[UNIMOD:4]FEPANQMVK",
+   "VEDMAELTC[UNIMOD:4]LNEASVLHNLK",
+   "YPIEH[UNIMOD:34]GIVTNWDDM[UNIMOD:35]EK",
+   "LC[UNIMOD:4]YVALDFEQEMATAASSSSLEK",
+   "VGC[UNIMOD:4]NPNEDVAIFAVDSLR",
+   "KTLTTVQGIADDYDK"
+  ],
+  "status": [
+   "converted",
+   "converted",
+   "converted",
+   "converted",
+   "converted",
+   "converted",
+   "converted",
+   "converted"
+  ],
+  "failure_reason": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "incompatible_items": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "warnings": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ],
+  "errors": [
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   []
+  ]
+ },
+ "caveats": [
+  "ProForma does not resolve UniProt-sourced modifications at the bridge's mzLib pin: '[UniProt:N-acetylserine on S]SEQK' comes out as '[UniProt:N-acetylserine on S]-SEQK', status converted, not '[UNIMOD:1]-SEQK'. mzLib's ProForma serializer looks modifications up in the MetaMorpheus list only (ProFormaSequenceSerializer.cs:34, MzLibModificationLookup.cs:54); the Unimod target looks them up in every list mzLib loads, UniProt's included (GlobalModificationLookup.cs:23). Convert to Unimod when the sequences carry UniProt modifications.",
+  "ProForma writes a modification it cannot resolve under its mzLib name, and the row is still converted: status converted does not mean every bracket in a ProForma output is a controlled vocabulary term. Unimod either names a modification by its UNIMOD accession or reports it in incompatible_items.",
+  "What a modification mzLib cannot write in the target does to a row depends on mode. ReturnNull: the row fails (output null). RemoveIncompatibleElements and UsePrimarySequence: the modification is dropped from output, named in incompatible_items, and the row is converted_with_warnings. ThrowException: the first such input fails the whole call as a usage error naming it.",
+  "status is mzLib's own verdict: failed when mzLib returned no output, converted_with_warnings when it returned one but recorded a warning, error or incompatible item (ConversionWarnings.IsClean false), converted otherwise. failure_reason is mzLib's ConversionFailureReason when it recorded one; the Unimod serializer under ReturnNull fails a row without recording a reason, so read incompatible_items.",
+  "An ambiguous MetaMorpheus full sequence ('|'-joined candidates) is not refused: mzLib's parser skips each '|' with a warning and joins the candidates into one sequence, status converted_with_warnings. Split ambiguous full sequences before converting them.",
+  "Each line of stdin is one input, given to mzLib exactly as read; blank lines are skipped. Rows are in input order, duplicates included, at any --threads."
+ ]
+}

@@ -70,6 +70,8 @@ ECHOED_AS = {
     "max-isoforms": "max_modification_isoforms",
     "psms": "psm_file",
     "peptides": "peptides_file",
+    "from": "source_format",
+    "to": "target_format",
 }
 
 
@@ -147,11 +149,21 @@ def mismatch(data: dict, options: dict) -> str:
 
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
-STDIN_ECHO = {"quant flashlfq"}
+STDIN_ECHO = {"quant flashlfq", "peptidoform convert"}
 
 
-def stdin_mismatch(data: dict, stdin: str) -> str:
-    """For quant flashlfq: the call's mzML runs must be the recording's runs (by file name)."""
+def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
+    """The call's stdin must be the recording's input.
+
+    quant flashlfq: the same mzML runs (by file name). peptidoform convert: the same sequences, in
+    the same order, as the recording's ``input`` column.
+    """
+    if verb == "peptidoform convert":
+        sent = [line for line in stdin.splitlines() if line.strip()]
+        recorded = list((data.get("columns") or {}).get("input") or [])
+        if sent != recorded:
+            return f"recorded for sequences {recorded}, not {sent}"
+        return ""
     sent = {base(line.split("	")[0].strip()) for line in stdin.splitlines() if line.strip()}
     recorded = {base(str(f.get("full_path", ""))) for f in data.get("spectra_files") or []}
     if sent != recorded:
@@ -176,7 +188,7 @@ def answer(argv: list, stdin: str = "") -> dict:
         data = data["data"] if isinstance(data, dict) and "ok" in data and "data" in data else data
         why = mismatch(data, options) if isinstance(data, dict) else ""
         if not why and verb in STDIN_ECHO and isinstance(data, dict):
-            why = stdin_mismatch(data, stdin)
+            why = stdin_mismatch(data, stdin, verb)
         if why:
             reasons.append(f"{base(fixture)}: {why}")
         else:

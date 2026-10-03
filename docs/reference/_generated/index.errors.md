@@ -18,6 +18,16 @@ Never raised: `service_unavailable`.
 
 Never raised: `service_unavailable`.
 
+### `peptidoform convert` · `pymzlib.peptidoform.convert`
+
+| Kind | pyMzLib raises | When |
+|---|---|---|
+| `usage` | `UsageError` | no sequences on stdin; --from or --to not a registered format, or given without a value (the message lists the registered names); --mode not a SequenceConversionHandlingMode name; --threads 0 or below -1 |
+| `usage` | `UsageError` | --mode ThrowException and mzLib could not convert an input (the first in input order; the message names it and mzLib's reason) |
+| `correctness` | `BridgeError` | mzLib threw something other than its SequenceConversionException (never seen at 0a808fec) |
+
+Never raised: `service_unavailable`.
+
 ### `peptidoform fragments` · `pymzlib.peptidoform.fragments`
 
 | Kind | pyMzLib raises | When |

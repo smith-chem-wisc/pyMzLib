@@ -33,6 +33,9 @@ REPLAY_EXTRA = {
     "readers read-spectra": ["readers_spectra_ms2.json", "readers_spectra_peaks.json"],
     "readers read-protein-groups": ["readers_protein_groups_rna.json"],
     "readers identify": ["readers_identify_fragger.json"],
+    # The peptidoforms guide: MetaMorpheus's BottomUpExample.psmtsv (mzLib's test data), whose
+    # full sequences it converts to Unimod and ProForma.
+    "readers read-results": ["readers_results_psmtsv.json"],
     "readers read-features": ["readers_features_topfd.json"],
     "readers read-matches": [
         "readers_matches_casanovo.json",

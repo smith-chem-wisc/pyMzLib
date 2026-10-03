@@ -16,3 +16,13 @@ explains the mechanism. For the Python signatures and result classes, see the
 ## `fragments`
 
 --8<-- "docs/reference/_generated/peptidoform.fragments.md"
+
+## `convert`
+
+`convert` reads no file and makes no network call. Python's `source=`, `target=` and `mode=` are
+the wire's `--from`, `--to` and `--mode`, and the sequences travel on stdin, one per line. Python
+always sends all three options, with the wire's own defaults. `SequenceConversions.sequences` and
+`not_converted` regroup the table's rows as `ConvertedSequence` objects, and `outputs` is the
+`output` column.
+
+--8<-- "docs/reference/_generated/peptidoform.convert.md"

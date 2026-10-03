@@ -2,6 +2,6 @@
 repository: trishorts/bridge (private)
 path: design/verbs
 commit: 766de5614f52a449bbd69c0bccff47d304bad157
-uncommitted_changes: no
+uncommitted_changes: yes
 synced: 2026-10-03
-specs: 35
+specs: 36

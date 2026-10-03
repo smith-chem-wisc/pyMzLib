@@ -28,7 +28,7 @@ namespace MzLibBridge;
 /// the point is to open the doors, not to hide them.
 /// </para>
 /// </remarks>
-internal static class Peptidoform
+internal static partial class Peptidoform
 {
     /// <summary>
     /// How a UniProtKB entry's XML is obtained, given an accession, returning a local file path.

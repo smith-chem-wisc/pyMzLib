@@ -16,6 +16,7 @@
 
 | You want to | Python | Rust | R | Wire verb |
 |---|---|---|---|---|
+| Convert full sequences from one notation to another with mzLib's sequence conversion service, one result per input: for example a MetaMorpheus full sequence to Unimod accessions. | `pymzlib.peptidoform.convert` | `mzlib::peptidoform::convert_with` | `peptidoform_convert` | [`peptidoform convert`](reference/peptidoform.md) |
 | Fetch a UniProt entry with its annotated modifications, digest it, and return every peptidoform with its fragment ions, plus a census of which annotations were applied. | `pymzlib.peptidoform.fragments` | `mzlib::peptidoform::fragments_with` | `peptidoform_fragments` | [`peptidoform fragments`](reference/peptidoform.md) |
 
 ## `pride` · [guide](guides/pride.md)
