@@ -100,12 +100,15 @@ the kits that exist, rather than quietly resolved to whichever kit's name it hap
 - **Build an isobaric design.** [`pymzlib.sdrf.design()`](sdrf.md#turn-an-sdrf-into-a-quantification-design)
   is label-free only.
 
-## References
+## Cite
 
-- Li J., Cai Z., Bomgarden R.D., *et al.* TMTpro-18plex: The Expanded and Complete Set of TMTpro
-  Reagents for Sample Multiplexing. *Journal of Proteome Research* **20**, 2964-2972 (2021).
-  [doi:10.1021/acs.jproteome.1c00168](https://doi.org/10.1021/acs.jproteome.1c00168) - the 18-plex
-  channel set, and the source of the 0.003 Da matching tolerance mzLib uses.
+If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#citing)) and the
+source of the channel set and its matching tolerance:
+
+--8<-- "docs/reference/_generated/cite.isobaric.md"
+
+Further sources:
+
 - mzLib [#1375][1375] moved `IsobaricMassTag` into `Omics.Modifications`, named every channel, and
   derived each m/z from `TMT.txt`.
 

@@ -1,0 +1,85 @@
+# Written 2026-09-24 from pyMzLib origin/main 06bfca9: pkg/bridge/Program.cs (PrideFilesAsync,
+# ToWireFile, ClassifyError), pkg/python/src/pymzlib/pride.py (list_files, PrideFile), mzLib pin
+# 23c2490e (PrideArchiveClient.GetProjectFilesAsync). Example fixture pride_PXD000001_files.json
+# (8 files: PRIDE's REST manifest for PXD000001).
+verb: pride files
+module: pride
+summary: >-
+  List a PRIDE Archive project's files as PRIDE's REST API publishes them, with every page already
+  fetched: name, size, checksum, category and download locations.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: PrideArchiveClient.GetProjectFilesAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveFile, path: mzLib/UsefulProteomicsDatabases/PrideArchiveFile.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveExtensions.TotalSizeBytes, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveExtensions.TryGetHttpsDownloadUrl, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1093/nar/gkae1011", for: "The PRIDE Archive, the repository this verb lists (Perez-Riverol et al., The PRIDE database at 20 years: 2025 update, NAR)"}
+
+params:
+  - name: accession
+    type: string
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The project accession, e.g. PXD000001. Sent to PRIDE as given: the bridge checks only that it
+      is not blank (the bindings upper-case it and check its shape first, because PRIDE is
+      case-sensitive).
+  - name: page-size
+    type: int
+    required: false
+    unit: files
+    range: ">= 1"
+    default: 100
+    doc: >-
+      Files requested per underlying API call. Changes how many requests the fetch takes, never
+      what comes back: mzLib pages until the manifest is complete. Leave it at the default; above
+      PRIDE's server-side cap the manifest is complete only while PRIDE reports total_records.
+
+result:
+  envelope_fields:
+    - {wire: accession, type: string, unit: null, nullable: false, null_means: null, doc: "The accession, echoed as given."}
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: "Entries in files. 0 for an unknown or private accession: PRIDE answers both with an empty manifest, not an error."}
+    - {wire: total_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "Sum of file_size_bytes over files (mzLib TotalSizeBytes). A sum of PRIDE-reported sizes over an incomplete manifest; see caveats."}
+    - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One entry per file in repository order; fields under result.columns."}
+  # Fields of each entry in `files` (a list of records, not a column dict).
+  columns:
+    - {wire: file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The file's name as PRIDE lists it, e.g. TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw."}
+    - {wire: file_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "Size as PRIDE reports it. For compressed files PRIDE often reports the DECOMPRESSED size (PXD000001's .mgf.gz: 16448103 reported vs 5984662 transferred)."}
+    - {wire: checksum, type: string, unit: null, nullable: false, null_means: null, doc: "The repository's checksum; the empty string when PRIDE provides none (never null)."}
+    - {wire: category, type: string, unit: null, nullable: false, null_means: null, doc: "PRIDE file category value, e.g. RAW, PEAK, SEARCH, RESULT, OTHER."}
+    - {wire: category_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The category's PRIDE CV accession, e.g. PRIDE:0000410."}
+    - {wire: https_url, type: string, unit: null, nullable: true, null_means: "the file has no location reachable over HTTPS (for example Aspera-only); pride download cannot fetch it", doc: "Direct HTTPS URL: the FTP location scheme-upgraded to HTTPS on PRIDE's FTP host."}
+    - {wire: locations, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Every published location as {accession, name, value} CV terms, e.g. {PRIDE:0000469, FTP Protocol, ftp://...}. May be empty."}
+    - {wire: submission_date, type: string, unit: null, nullable: false, null_means: null, doc: "ISO-8601 timestamp with offset (DateTimeOffset), e.g. 2012-03-13T00:00:00+00:00. Never null: a date PRIDE omitted arrives as 0001-01-01T00:00:00+00:00."}
+    - {wire: publication_date, type: string, unit: null, nullable: false, null_means: null, doc: "As submission_date."}
+    - {wire: updated_date, type: string, unit: null, nullable: false, null_means: null, doc: "As submission_date."}
+
+errors:
+  - {kind: usage, when: "accession missing or blank; page-size not an integer"}
+  - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout or cancellation, a socket failure, an HttpRequestException with no status but an inner cause (refused connection, DNS, TLS), an HTTP 408, 429 or 5xx, or a response body cut off in transit"}
+  - {kind: correctness, when: "any other HTTP status (e.g. 404), a paging contract violation (MzLibException: an identical page while total_records says more remain), the MaxPages backstop (an HttpRequestException mzLib composes with no status and no inner exception, which ClassifyHttpFailure deliberately does not excuse as an outage), or page-size <= 0 (mzLib's ArgumentOutOfRangeException; the bridge does not check it first)"}
+
+caveats:
+  - "This is PRIDE's REST manifest, which is knowingly incomplete: for PXD000001 it lists 8 files while the FTP tree holds 13, omitting the two largest. Use pride ftp-files when completeness or the true project size matters."
+  - "An unknown accession and a private project both return file_count 0, not an error. The bindings raise their not-found error on an empty manifest; the wire does not."
+  - "total_size_bytes is not the number of bytes a download transfers: PRIDE reports some compressed files at their decompressed size, and the sum covers only the files the manifest lists. The two errors run in opposite directions and do not cancel."
+  - "Dates are timestamps with an offset here, unlike pride search, whose dates are bare calendar dates."
+
+bindings:
+  py: {name: pymzlib.pride.list_files}
+  rust: {name: "mzlib::pride::list_files_with", options: ListOptions}
+  r: {name: pride_list_files}
+
+examples:
+  - fixture: pride_PXD000001_files.json
+    py: "files = pymzlib.pride.list_files('PXD000001')"
+    rust: "let files = mzlib::pride::list_files_with(\"PXD000001\", &ListOptions::default())?;"
+    r: "files <- pride_list_files('PXD000001')"
+
+open_questions:
+  - "page-size <= 0 crosses as a correctness failure (ArgumentOutOfRangeException) because the bridge, unlike pride search, does not check it before calling mzLib. Every binding rejects it first, so no binding user sees it; the wire should say usage."
+  - "An absent PRIDE date crosses as 0001-01-01T00:00:00+00:00, not null (PrideArchiveFile's dates are non-nullable DateTimeOffset, and ToWireFile does not map default to null as pride search's ToWireDate does). Not observed on a real manifest; unverified whether PRIDE ever omits one."
+  - "An option given with no value (e.g. --page-size followed by another option) is parsed as a flag and silently defaulted: OptionalInt does not consult WasProvided."

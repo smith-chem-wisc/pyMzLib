@@ -1,0 +1,197 @@
+{
+ "file_count": 4,
+ "read_count": 4,
+ "failed_count": 0,
+ "record_count": 3,
+ "tables": [
+  "proteins"
+ ],
+ "accession_filter_count": 4,
+ "accessions_not_found": [
+  "P04406-1"
+ ],
+ "caveats": [],
+ "files": [
+  {
+   "source_index": 0,
+   "path": "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\human_subset.xml",
+   "file_type": "UniProtXml",
+   "reader": "ProteinDbLoader.LoadProteinXML",
+   "contaminant": false,
+   "protein_count": 2,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [],
+   "absent_fields": [],
+   "error": null
+  },
+  {
+   "source_index": 1,
+   "path": "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\human_extra.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 4,
+   "decoy_count": 0,
+   "record_count": 0,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 2,
+   "path": "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\mouse_aifm1.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": false,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  },
+  {
+   "source_index": 3,
+   "path": "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\contaminants.fasta",
+   "file_type": "Fasta",
+   "reader": "ProteinDbLoader.LoadProteinFasta",
+   "contaminant": true,
+   "protein_count": 1,
+   "decoy_count": 0,
+   "record_count": 1,
+   "search_database_sha256": null,
+   "caveats": [
+    "FASTA carries no GO terms or Ensembl links, so this file contributes no go_terms or ensembl_genes rows and every ensembl_gene_ids is empty. Read the UniProt XML for those."
+   ],
+   "absent_fields": [
+    "go_terms",
+    "ensembl_genes",
+    "ensembl_gene_ids"
+   ],
+   "error": null
+  }
+ ],
+ "column_names": [
+  "source_index",
+  "source_path",
+  "accession",
+  "name",
+  "full_name",
+  "organism",
+  "ncbi_taxonomy_id",
+  "primary_gene_name",
+  "gene_names",
+  "length",
+  "monoisotopic_mass",
+  "is_contaminant",
+  "is_decoy",
+  "is_entrapment",
+  "ensembl_gene_ids"
+ ],
+ "columns": {
+  "source_index": [
+   0,
+   2,
+   3
+  ],
+  "source_path": [
+   "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\human_subset.xml",
+   "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\mouse_aifm1.fasta",
+   "F:\\ClaudeTestBuilds\\pymzlib_docs593\\pkg\\python\\tests\\fixtures\\proteins\\contaminants.fasta"
+  ],
+  "accession": [
+   "P04406",
+   "Q9Z0X1",
+   "P02769"
+  ],
+  "name": [
+   "G3P_HUMAN",
+   "AIFM1_MOUSE",
+   "ALBU_BOVIN"
+  ],
+  "full_name": [
+   "Glyceraldehyde-3-phosphate dehydrogenase",
+   "Apoptosis-inducing factor 1, mitochondrial",
+   "Albumin"
+  ],
+  "organism": [
+   "Homo sapiens",
+   "Mus musculus",
+   "Bos taurus"
+  ],
+  "ncbi_taxonomy_id": [
+   "9606",
+   "10090",
+   "9913"
+  ],
+  "primary_gene_name": [
+   "GAPDH",
+   "Aifm1",
+   "ALB"
+  ],
+  "gene_names": [
+   [
+    "GAPDH",
+    "GAPD",
+    "CDABP0047",
+    "OK/SW-cl.12"
+   ],
+   [
+    "Aifm1"
+   ],
+   [
+    "ALB"
+   ]
+  ],
+  "length": [
+   335,
+   612,
+   607
+  ],
+  "monoisotopic_mass": [
+   36030.397871725676,
+   66723.84361594773,
+   69248.44069247418
+  ],
+  "is_contaminant": [
+   false,
+   false,
+   true
+  ],
+  "is_decoy": [
+   false,
+   false,
+   false
+  ],
+  "is_entrapment": [
+   false,
+   false,
+   false
+  ],
+  "ensembl_gene_ids": [
+   [
+    "ENSG00000111640"
+   ],
+   [],
+   []
+  ]
+ },
+ "go_terms": null,
+ "ensembl_genes": null
+}

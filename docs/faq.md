@@ -50,7 +50,7 @@ for.
 Use the function's `_many` twin - `read_spectra_many(paths)`, `read_records_many(paths)`, and so
 on - and let it do the parallel work:
 
-```python
+```python title="Not run: a pattern; paths is your list of files"
 batch = pymzlib.readers.read_spectra_many(paths, threads=4)
 ```
 
@@ -212,7 +212,7 @@ scanner cutting long transfers) rather than EBI itself.
 
 The file is published only over Aspera. Filter it out before downloading:
 
-```python
+```python title="Not run: a pattern; files is a list_files() result"
 downloadable = [f for f in files if f.downloadable]
 ```
 

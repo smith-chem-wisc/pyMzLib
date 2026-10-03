@@ -49,7 +49,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | PRIDE Archive — list project files, filtered download | ✅ |
 | Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide | ✅ |
 | Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
-| Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read all 38 file types mzLib knows, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables, RNA transcript groups and oligos included | ✅ |
+| Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read every file type mzLib knows, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables, RNA transcript groups and oligos included | ✅ |
 | SDRF experimental design — read an SDRF-Proteomics file, pool several experiments into one analysis table; validate, lint and assess them; one row per sample with ages in years; the label-free design FlashLFQ and MetaMorpheus take, or every reason it was refused | ✅ |
 | Protein databases (`proteins`) — organism, taxon, GO terms and Ensembl genes per accession; resolve proteins to Ensembl genes against a pinned release; peptide uniqueness with I = L; Gene Ontology on protein groups, every member kept | ✅ |
 | Isobaric kits (`isobaric`) — every TMT, TMTpro, iTRAQ and DiLeu channel with its reporter-ion m/z and matching window, as MetaMorpheus quantifies them | ✅ |

@@ -245,7 +245,29 @@ class ModificationCensus:
 
 @dataclass(frozen=True)
 class Digest:
-    """The result of digesting a protein and fragmenting its peptides."""
+    """The result of digesting a protein and fragmenting its peptides.
+
+    Attributes:
+        accession: The accession UniProt returned.
+        name: UniProt entry name, e.g. ``"ALBU_HUMAN"``.
+        full_name: Recommended protein name, e.g. ``"Albumin"``.
+        organism: Scientific name of the source organism.
+        sequence_length: Length of the full precursor sequence, in residues.
+        protease: The protease used, as mzLib names it.
+        dissociation: The dissociation type used, which decides the fragment series.
+        terminus: Which fragment termini were generated: ``"Both"``, ``"N"`` or ``"C"``.
+        modifications_applied: ``False`` when ``modifications=False`` was passed.
+        max_modifications: The ``max_modifications`` cap, echoed, in modifications per peptidoform.
+        max_isoforms: The ``max_isoforms`` cap, echoed, in peptidoforms per peptide position.
+        peptides_at_cap: Peptide positions whose peptidoforms reached ``max_isoforms``. Non-zero
+            means the list is **truncated**; :attr:`truncated` is the same fact as a yes/no.
+        modification_census: What UniProt annotates against what mzLib applied: distinct residue
+            positions carrying a modification (``sites``), modifications loaded (``applied``),
+            modification-like features annotated (``annotated``), names that resolved to no mass
+            (``unresolved``), and a per-feature-type summary (``by_type``). See
+            :class:`ModificationCensus`.
+        peptides: One :class:`Peptide` per distinct peptidoform, in digestion order.
+    """
 
     accession: str
     name: str
@@ -329,10 +351,10 @@ def fragments(
             are present either way and albumin gives 195 distinct base sequences with
             modifications on or off.
         missed_cleavages: Maximum missed cleavage sites per peptide.
-        min_length: Shortest peptide to keep. The default of 7 silently discards shorter
+        min_length: Shortest peptide to keep, in residues. The default of 7 silently discards shorter
             peptides — roughly a third of a histone digest — so pass ``min_length=1`` when you
             mean *every* peptide.
-        max_length: Longest peptide to keep. ``None`` means unbounded.
+        max_length: Longest peptide to keep, in residues. ``None`` means unbounded.
         max_modifications: Maximum modifications considered per peptide. Modification isoforms
             are enumerated combinatorially: histone H3.1 yields 49 bare tryptic peptides, 2,563
             at two modifications and 7,040 at three.

@@ -158,6 +158,136 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     "stats meta": {
         "param.stdin": {"python": "studies", "why": "one stdin line per (feature, estimate, standard_error)"},
     },
+    "peptidoform fragments": {
+        # The wire's negative flag reads as a positive keyword in Python, and the wire's census
+        # fields arrive grouped as one object, Digest.modification_census.
+        "param.no-modifications": {
+            "python": "modifications",
+            "why": "modifications=False sends --no-modifications",
+        },
+        "param.max-mods": {
+            "python": "max_modifications",
+            "why": "spelled out; the wire's abbreviation is not worth keeping in Python",
+        },
+        "field.annotated_modification_sites": {
+            "python": "modification_census",
+            "why": "ModificationCensus.sites",
+        },
+        "field.annotated_modifications_loaded": {
+            "python": "modification_census",
+            "why": "ModificationCensus.applied",
+        },
+        "field.uniprot_annotated_features": {
+            "python": "modification_census",
+            "why": "ModificationCensus.annotated",
+        },
+        "field.unresolved_modifications": {
+            "python": "modification_census",
+            "why": "ModificationCensus.unresolved",
+        },
+        "field.uniprot_features_by_type": {
+            "python": "modification_census",
+            "why": "ModificationCensus.by_type",
+        },
+        "field.max_modification_isoforms": {
+            "python": "max_isoforms",
+            "why": "named after the max_isoforms argument it echoes",
+        },
+        "field.peptides_at_isoform_cap": {
+            "python": "peptides_at_cap",
+            "why": "shortened; Digest.truncated is the yes/no reading of it",
+        },
+        "field.peptide_count": {"python": None, "why": "len(Digest.peptides)"},
+    },
+    # The PRIDE functions return the rows themselves (a list of files, of paths, of hits), so each
+    # envelope field is the list, its length, or an argument echoed back.
+    "pride download": {
+        "param.dest": {"python": "destination", "why": "spelled out"},
+        "param.ext": {
+            "python": "extensions",
+            "why": "a list in Python; pyMzLib joins it with commas for the wire",
+        },
+        "param.no-overwrite": {
+            "python": "overwrite",
+            "why": "overwrite=False sends --no-overwrite",
+        },
+        "param.names-from-stdin": {
+            "python": None,
+            "why": "download_files(files) is the select-by-name form",
+        },
+        "param.stdin": {"python": None, "why": "download_files() renders it from its files list"},
+        "field.accession": {"python": None, "why": "the accession argument, echoed"},
+        "field.destination_directory": {
+            "python": None,
+            "why": "the destination argument; each returned Path is inside it",
+        },
+        "field.downloaded_count": {"python": None, "why": "len() of the returned list"},
+        "field.paths": {"python": None, "why": "download() returns this list itself, as Paths"},
+    },
+    "pride files": {
+        "field.accession": {"python": None, "why": "PrideFile.project_accession on every row"},
+        "field.file_count": {"python": None, "why": "len(list_files(...))"},
+        "field.total_size_bytes": {
+            "python": None,
+            "why": "pymzlib.pride.total_size_bytes(files), mzLib's TotalSizeBytes",
+        },
+        "field.files": {"python": None, "why": "list_files() returns this list itself"},
+    },
+    "pride ftp-files": {
+        "field.accession": {"python": None, "why": "PrideFtpFile.project_accession on every row"},
+        "field.file_count": {"python": None, "why": "len(list_ftp_files(...))"},
+        "field.approximate_total_size_bytes": {
+            "python": None,
+            "why": "pymzlib.pride.approximate_total_size_bytes(files)",
+        },
+        "field.files": {"python": None, "why": "list_ftp_files() returns this list itself"},
+    },
+    "pride search": {
+        "field.keyword": {"python": None, "why": "the keyword argument, echoed"},
+        "field.result_count": {"python": None, "why": "len(search(...))"},
+        "field.results": {"python": None, "why": "search() returns this list itself"},
+    },
+    # FlashLFQ's keywords are mzLib's FlashLfqEngine parameter names, so a Python call reads like
+    # the C# one; the wire's short flags abbreviate the same names.
+    "quant flashlfq": {
+        "param.stdin": {"python": "spectra", "why": "the stdin lines are rendered from spectra"},
+        "param.ppm": {"python": "ppm_tolerance", "why": "mzLib's PpmTolerance"},
+        "param.isotope-ppm": {
+            "python": "isotope_ppm_tolerance",
+            "why": "mzLib's IsotopePpmTolerance",
+        },
+        "param.mbr": {"python": "match_between_runs", "why": "mzLib's MatchBetweenRuns"},
+        "param.mbr-ppm": {"python": "mbr_ppm_tolerance", "why": "mzLib's MbrPpmTolerance"},
+        "param.mbr-q": {"python": "mbr_q_value_threshold", "why": "mzLib's MbrQValueThreshold"},
+        "param.shared-peptides": {
+            "python": "use_shared_peptides_for_protein_quant",
+            "why": "mzLib's UseSharedPeptidesForProteinQuant",
+        },
+        "param.bayesian": {
+            "python": "bayesian_protein_quant",
+            "why": "mzLib's BayesianProteinQuant",
+        },
+        "param.use-pep-q": {"python": "use_pep_q_value", "why": "MakeIdentifications usePepQValue"},
+        "param.threads": {"python": "max_threads", "why": "mzLib's MaxThreads"},
+        "param.out": {"python": "output_directory", "why": "spelled out"},
+    },
+    "quant median-polish": {
+        "param.stdin": {"python": "design", "why": "the stdin lines are rendered from design"},
+        "param.shared-peptides": {
+            "python": "use_shared_peptides",
+            "why": "mzLib's UseSharedPeptidesForProteinQuant, shortened",
+        },
+        "param.out": {"python": "output_directory", "why": "spelled out"},
+        **{
+            f"field.{name}": {
+                "python": None,
+                "why": "not projected: median_polish() returns only the protein list",
+            }
+            for name in ("peptides_file", "parameters", "samples", "peptide_count", "output_directory")
+        },
+        "field.protein_count": {"python": None, "why": "len(median_polish(...))"},
+        "field.proteins": {"python": None, "why": "median_polish() returns this list itself"},
+    },
 }
 
 

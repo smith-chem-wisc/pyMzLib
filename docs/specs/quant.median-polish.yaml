@@ -1,0 +1,100 @@
+# Written 2026-09-24 from pyMzLib origin/main 06bfca9: pkg/bridge/Quantification.cs (MedianPolish,
+# ParseMedianPolishDesign, BuildDesignedFiles, ReadPeptideTable, ResolveDetectionType,
+# MedianPolishToWire), pkg/python/src/pymzlib/flashlfq.py (median_polish, ProteinGroup), mzLib pin
+# 23c2490e (FlashLfqResults.CalculateProteinResultsMedianPolish; #1129 merged at 5bdd30c7). Example
+# fixture median_polish_small.json is a small hand-shaped payload (path "/abs/..."), not a live
+# recording.
+verb: quant median-polish
+module: quant
+summary: >-
+  Roll a FlashLFQ QuantifiedPeptides.tsv up to protein intensities per sample with FlashLFQ's median
+  polish, under a new experimental design, without re-reading any spectra.
+since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
+wraps:
+  - {symbol: FlashLfqResults.CalculateProteinResultsMedianPolish, path: mzLib/FlashLFQ/FlashLFQResults.cs, pin: 23c2490e}
+  - {symbol: FlashLfqResults.WriteResults, path: mzLib/FlashLFQ/FlashLFQResults.cs, pin: 23c2490e}
+  - {symbol: ProteinGroup, path: mzLib/FlashLFQ/ProteinGroup.cs, pin: 23c2490e}
+  - {symbol: SpectraFileInfo, path: mzLib/MassSpectrometry/SpectraFileInfo.cs, pin: 23c2490e}
+cite:
+  - {doi: "10.1021/acs.jproteome.7b00608", for: "FlashLFQ, whose protein quantification this verb reruns (Millikin et al., J Proteome Res 2018)"}
+
+params:
+  - name: peptides
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A FlashLFQ QuantifiedPeptides.tsv. Columns are found by header name: Sequence, Base Sequence
+      and Protein Groups are required; Gene Names (or Gene Name) and Organism are optional; one
+      Intensity_<run> per run, each optionally with a Detection Type_<run>. A blank intensity cell
+      is 0 (not measured).
+  - name: stdin
+    type: "string[]"
+    required: false
+    unit: null
+    range: "none, or exactly one line per Intensity_ run"
+    default: null
+    doc: >-
+      The experimental design, one run per line, tab-separated: run_name[TAB condition[TAB
+      biorep[TAB techrep[TAB fraction]]]], run_name matching an Intensity_<run_name> column (a
+      name, never opened as a file). Omitted fields: condition "", biorep = the line's 0-based
+      index, techrep 0, fraction 0. With no lines at all, every Intensity_ column is its own
+      biological replicate with a blank condition, as FlashLFQ assumes with no design file. Median
+      polish groups runs by condition and biological replicate, so this is how a caller says which
+      runs are replicates of which sample.
+  - {name: shared-peptides, type: flag, required: false, unit: null, range: null, default: false, doc: "Let peptides shared between protein groups contribute (UseSharedPeptidesForProteinQuant). Off: a group with only shared peptides quantifies to 0."}
+  - {name: out, type: path, required: false, unit: null, range: null, default: null, doc: "Directory (created if absent) where FlashLFQ also writes QuantifiedProteins.tsv. Absent or blank writes nothing."}
+
+result:
+  envelope_fields:
+    - {wire: peptides_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the peptide table."}
+    - {wire: parameters, type: object, unit: null, nullable: false, null_means: null, doc: "{use_shared_peptides_for_protein_quant}."}
+    - {wire: samples, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per (condition, biological replicate), ordered by condition (ordinal) then biorep. This is NOT the order of the TSV that out writes: mzLib groups conditions there in first-appearance order (see caveats); fields under result.tables.samples. Their labels are the keys of every protein's intensities."}
+    - {wire: peptide_count, type: int, unit: peptides, nullable: false, null_means: null, doc: "Distinct sequences read from the table (rows with a Sequence)."}
+    - {wire: protein_count, type: int, unit: protein groups, nullable: false, null_means: null, doc: "Entries in proteins."}
+    - {wire: proteins, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per protein group, ordered by protein_group (ordinal); fields under result.columns."}
+    - {wire: output_directory, type: string, unit: null, nullable: true, null_means: "out was not given (or was blank): nothing was written", doc: "Absolute path of out."}
+  # Fields of each entry in `proteins` (a list of records, not a column dict).
+  columns:
+    - {wire: protein_group, type: string, unit: null, nullable: false, null_means: null, doc: "Protein group name; a ';'-joined Protein Groups cell is split into one group per name."}
+    - {wire: gene_name, type: string, unit: null, nullable: false, null_means: null, doc: "From the table's gene column, paired to the group by position when the counts match, else the whole ';'-joined cell; \"\" when the table has no gene column."}
+    - {wire: organism, type: string, unit: null, nullable: false, null_means: null, doc: "As gene_name, from the Organism column."}
+    - {wire: intensities, type: "map<string,float>", unit: "intensity (instrument units)", nullable: false, null_means: null, doc: "Sample label -> protein intensity. A value is null when median polish could not resolve one (NaN: a degenerate peptide matrix); 0 means not measured in that sample. A sample of several runs (fractions, technical replicates) reports their sum, as FlashLFQ's own output does, EXCEPT when labels are run names (no design and one fraction): then the bridge reads the first run of the sample only."}
+  tables:
+    samples:
+      - {wire: label, type: string, unit: null, nullable: false, null_means: null, doc: "The run name when no design groups runs (every condition blank or Default, and one fraction); otherwise '<condition>_<biorep + 1>', e.g. control_1."}
+      - {wire: condition, type: string, unit: null, nullable: false, null_means: null, doc: "The sample's condition; \"\" with no design."}
+      - {wire: biological_replicate, type: int, unit: null, nullable: false, null_means: null, doc: "0-based (the label adds 1)."}
+
+errors:
+  - {kind: usage, when: "peptides missing or blank, or not found; the file empty; a required column (Sequence, Base Sequence, Protein Groups) missing; no Intensity_ columns; a sequence on two rows; an intensity cell that is not a number; a Detection Type_ cell that is not a FlashLFQ DetectionType name"}
+  - {kind: usage, when: "a design line with no run name, a run named twice, or a replicate/fraction that is not a non-negative integer; design runs with no Intensity_ column; Intensity_ runs the design does not mention (a design must name every run and only those)"}
+  - {kind: correctness, when: "FlashLFQ's reconstruction or median polish fails"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Detection types: where the table has no Detection Type_ column for a run (or the cell is blank), a positive intensity is treated as MSMS and 0 as NotDetected. That is this verb's only inference; a present but unrecognised value is an error, not a guess."
+  - "Protein intensity null means unquantifiable, 0 means not measured; neither is a measured zero."
+  - "Runs are names, not files: nothing but the peptide table is opened, and peak-level information (MBR peaks, retention times) is not available here. Use quant flashlfq for those."
+  - "With out, QuantifiedProteins.tsv labels its columns by the same rule as samples[].label at this pin (mzLib#1129 is in 23c2490e). Before #1129 the file's rule was inverted for unfractionated data; the values always agreed."
+  - "Column order can differ from samples[]: QuantifiedProteins.tsv groups conditions in first-appearance order (ProteinGroup.TabSeparatedHeader has no OrderBy), while samples[] sorts them ordinally. Join on the label, never on position."
+
+bindings:
+  py: {name: pymzlib.flashlfq.median_polish}
+  rust: {name: "mzlib::flashlfq::median_polish_with", options: MedianPolishOptions, note: "Returns MedianPolishResults."}
+  r: {name: flashlfq_median_polish, note: "Takes design (a data.frame), use_shared_peptides and output_directory; returns proteins long, one row per protein group per sample, with the intensities map keyed by a sample column."}
+
+examples:
+  - fixture: median_polish_small.json
+    py: "proteins = pymzlib.flashlfq.median_polish('QuantifiedPeptides.tsv', design=[{'file_name': 'run_3', 'condition': 'control', 'biological_replicate': 0}, {'file_name': 'run_4', 'condition': 'treated', 'biological_replicate': 0}])"
+    rust: "let proteins = mzlib::flashlfq::median_polish_with(\"QuantifiedPeptides.tsv\", &MedianPolishOptions { design: vec![DesignEntry::new(\"run_3\").condition(\"control\"), DesignEntry::new(\"run_4\").condition(\"treated\")], ..Default::default() })?;"
+    r: "proteins <- flashlfq_median_polish('QuantifiedPeptides.tsv', design = data.frame(file_name = c('run_3', 'run_4'), condition = c('control', 'treated'), biological_replicate = 0))"
+
+open_questions:
+  - "The bridge's own comment in MedianPolishToWire and pyMzLib's median_polish docstring still say the TSV labels disagree until mzLib#1129 lands; it is in the pin, so both are stale (confirmed by pyMzLib 005; removed on pyMzLib main by #67, unreleased after 0.2.0). The agreement stated in the caveat is from reading ProteinGroup.cs at 23c2490e, not from a recorded --out run."
+  - "median_polish_small.json is hand-shaped ('/abs/...'), not a live recording."
+  - "When labels are run names, the bridge reads only a sample's first run; whether the engine zeroes that sample's other runs (so the reading loses nothing) was not traced. It matters only if several runs share a biorep with no design."
+  - "The design's techrep and fraction are parsed but only fraction feeds the label rule; how FlashLFQ's median polish uses techrep is mzLib's and was not traced."
+  - "The wire params peptides/shared-peptides/out project as peptides/use_shared_peptides/output_directory in pyMzLib; the spec lint will need PYTHON_DEVIATIONS entries (stdin -> design, shared-peptides -> use_shared_peptides, out -> output_directory)."

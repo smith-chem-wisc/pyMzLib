@@ -276,6 +276,9 @@ class FlashLfqResults:
         peaks: Every quantified :class:`Peak` across all runs (mirrors ``QuantifiedPeaks.tsv``) —
             the complete surface, and the one to use for match-between-runs.
         output_directory: Where the FlashLFQ TSVs were written, or ``None`` if none were.
+        peptide_count: Distinct modified sequences quantified: the number of peptides in
+            :attr:`peptides`.
+        protein_count: Protein groups quantified: the number of protein groups in :attr:`proteins`.
     """
 
     psm_file: str
@@ -445,8 +448,11 @@ def quantify(
         mbr_q_value_threshold: The q-value cutoff below which an MBR transfer is accepted.
         use_shared_peptides_for_protein_quant: Let peptides shared between protein groups contribute
             to protein quant (``UseSharedPeptidesForProteinQuant``).
-        bayesian_protein_quant: Run FlashLFQ's Bayesian protein-fold-change engine.
-        use_pep_q_value: Filter identifications on PEP q-value rather than q-value.
+        bayesian_protein_quant: Also run FlashLFQ's Bayesian protein-fold-change engine. Its
+            results are written to ``output_directory`` only; nothing on the returned object changes.
+        use_pep_q_value: Store each identification's PEP q-value as its q-value, instead of its
+            q-value. **It filters nothing here**: FlashLFQ is given every identification either
+            way. It changes the q-value FlashLFQ carries, which match-between-runs reads.
         max_threads: Worker threads; ``-1`` lets FlashLFQ choose.
 
             Before mzLib 1.0.592 this changed results, not only speed: with match-between-runs
@@ -458,7 +464,9 @@ def quantify(
             ``max_threads=1`` remains the conservative choice when a result must reproduce
             exactly.
         output_directory: If given, FlashLFQ also writes ``QuantifiedPeaks.tsv``,
-            ``QuantifiedPeptides.tsv`` and ``QuantifiedProteins.tsv`` there.
+            ``QuantifiedPeptides.tsv`` and ``QuantifiedProteins.tsv`` there, and, with
+            ``bayesian_protein_quant``, ``BayesianProteinQuant.tsv``. That file is the only place the
+            Bayesian results appear: they are not returned.
         timeout: Seconds to allow. Large experiments legitimately take a while; ``None`` waits
             indefinitely.
 

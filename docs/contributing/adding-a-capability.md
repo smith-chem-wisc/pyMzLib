@@ -223,6 +223,16 @@ each through `external_service()` so a PRIDE outage skips rather than fails.
 
 Record a fixture from the real bridge rather than hand-writing one; hand-written fixtures encode
 what you *think* the format is. (The stub payload above is inline only to keep the example short.)
+`scripts/record_fixture.py` does it in one command, from a bridge built at the pin, on data that
+ships with mzLib's tests where possible:
+
+```bash
+python scripts/record_fixture.py readers_records_crux.json -- readers read-records --path crux.txt --limit 3
+```
+
+It writes the envelope's `data`, the shape every fixture has, and refuses to overwrite one
+without `--force`. Pass `--compact` for a recording over a few hundred KB, and `--stdin <file>` for
+a verb that reads its input there.
 
 ## 3b · Test the C# half too — CI gates it separately
 
@@ -245,9 +255,26 @@ for the full picture, including the skip-versus-fail convention for anything tou
 
 ## 4 · Document it
 
+The bar is that a reader can trust every number on the page, because CI produced it.
+`pkg/python/tests/test_docs_lint.py` checks the parts of this a machine can check.
+
 - A guide page under `docs/guides/` if it's a new area, following
-  [the PRIDE guide](../guides/pride.md): what it does, the common cases, the errors, one worked
-  example that solves a real problem.
+  [the FlashLFQ guide](../guides/flashlfq.md):
+    - **Open with a question table**: `| You want to | Call | mzLib does it with |`, one row per
+      question a reader arrives with.
+    - **Every example runs.** Write it as a `>>>` session in a fenced `pycon` block, on real data,
+      against a recording. `docs/conftest.py` runs it in CI through the replay bridge, so a guide
+      that drifts from the code fails the build. A block that cannot run (it downloads, writes a
+      file, or needs pandas) is a `python` block with a visible `title="Not run: <why>"`; there are
+      no silent skips.
+    - **No counts or mzLib versions in prose.** A count of formats once sat in seven places and went
+      stale in all of them with one release. Show a count as executed output, and put a version on the
+      [Upgrading](../upgrading.md) page.
+    - **End with a Cite section** that includes `docs/reference/_generated/cite.<guide>.md`, which
+      is rendered from the spec's `cite` DOIs. Check every DOI resolves before it goes in the spec.
+    - Say what a result means for the reader's science, in plain, short sentences.
+- If the new mzLib changes a value an existing function returns, add it to `docs/upgrading.md`,
+  citing the mzLib pull request.
 - Add it to the nav in `mkdocs.yml` and to the coverage table on the [home page](../index.md).
 - Add `::: pymzlib.<module>` to `docs/reference.md`. The reference is generated from your
   docstrings, but only for modules it is told about — a new module is silently absent otherwise.
@@ -276,4 +303,6 @@ for the full picture, including the skip-versus-fail convention for anything tou
 - [ ] Offline Python tests with a recorded fixture; live test for the real path
 - [ ] **C# tests for the new verb, and `check-bridge-coverage.ps1` still passes** (separate gate)
 - [ ] Guide page, nav entry, coverage table, and `reference.md` entry
+- [ ] Guide opens with a question table, every example runs or says why not, ends with Cite;
+      `test_docs_lint.py` passes
 - [ ] Fact table included on `docs/reference/<module>.md`; `test_spec_docs.py` and the doctests pass
