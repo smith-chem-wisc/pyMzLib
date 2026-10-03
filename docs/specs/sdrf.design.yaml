@@ -1,0 +1,120 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Sdrf.Design.cs on branch
+# feat/sdrf-design-isobaric (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). Example fixtures
+# recorded from the live bridge on that branch. The SDRFs are mzLib's own design fixtures
+# (Test/FileReadingTests/ExternalFileTypes/SdrfDesign); PXD067622_studywide is PXD067622 with each
+# biological replicate replaced by the study-wide index in its file name, as a drafted SDRF writes it.
+verb: sdrf design
+module: sdrf
+summary: >-
+  Read a label-free experimental design out of an SDRF, in MetaMorpheus's terms, or every reason it
+  was refused.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfLabelFreeDesign.Read, path: mzLib/Readers/Sdrf/SdrfLabelFreeDesign.cs, pin: 0a808fec}
+  - {symbol: SdrfLabelFreeDesign.WriteExperimentalDesignTsv, path: mzLib/Readers/Sdrf/SdrfLabelFreeDesign.cs, pin: 0a808fec}
+  - {symbol: SdrfLabelFreeDesignOptions, path: mzLib/Readers/Sdrf/SdrfLabelFreeDesign.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics, the format read (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: path
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: One .sdrf.tsv file. A file that does not exist is a usage error.
+  - name: condition-columns
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The factor value[...] columns the condition is built from, by exact (case-sensitive) name,
+      separated by TAB characters, in join order; the condition is their values joined with "_".
+      Absent: mzLib uses the document's only factor column, and refuses a document with several.
+      Given but blank, or with a blank name, is a usage error.
+  - name: searched-files-stdin
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stdin holds the files the search will read, one per line, as paths or bare names. Each must be
+      named EXACTLY (case and extension) by one row; rows for other files are dropped and reported
+      in notes; the searched paths replace the SDRF's names in full_path. An empty list is mzLib's
+      refusal, not a usage error.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Also write MetaMorpheus's ExperimentalDesign.tsv (1-based) here, through mzLib's writer. Must
+      end in .tsv, case-insensitive (PYB-1), checked before the SDRF is read. Written only when
+      is_valid; a refused design writes nothing and written is null.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The SDRF path as given.}
+    - {wire: is_valid, type: bool, unit: null, nullable: false, null_means: null, doc: "No refusals. False is an answer, not an error: the table is then empty."}
+    - {wire: file_key_column, type: string, unit: null, nullable: true, null_means: "the SDRF has neither comment[searched data file] nor comment[data file], so no row names a file (also a refusal)", doc: "The column files were keyed on: comment[searched data file] when present, else comment[data file] (mapping row MAP-12)."}
+    - {wire: condition_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The factor columns the condition was built from, in join order; empty when none could be chosen."}
+    - {wire: condition_columns_declared, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --condition-columns was given."}
+    - {wire: searched_files_given, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --searched-files-stdin was given."}
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: "Rows in the table; 0 when refused."}
+    - {wire: refusals, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every reason the design was refused, all at once, in mzLib's words. Empty when valid."}
+    - {wire: notes, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every relabelling on the way to a valid design: biological replicates ranked within a condition, with the old -> new mapping (MAP-33), and rows dropped because the search does not read their file."}
+    - {wire: report, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's human-readable account (SdrfLabelFreeDesign.Report): counts, key column, condition columns, notes, refusals."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per file, in SDRF row order."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "--out was not given, or the design was refused and nothing was written", doc: "{path, file_count} of the ExperimentalDesign.tsv written."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Six static caveats.}
+  columns:
+    - {wire: full_path, type: string, unit: null, nullable: false, null_means: null, doc: "The file as the SDRF's key column names it, or the matching searched path when --searched-files-stdin was given."}
+    - {wire: file_name, type: string, unit: null, nullable: false, null_means: null, doc: "full_path's file name without its extension (SpectraFileInfo.FilenameWithoutExtension): the run key the quant verbs use."}
+    - {wire: condition, type: string, unit: null, nullable: false, null_means: null, doc: "The condition columns' values joined with _."}
+    - {wire: biological_replicate, type: int, unit: null, nullable: false, null_means: null, doc: "0-based, ranked within the condition (ExperimentalDesign.tsv's Biorep minus 1)."}
+    - {wire: technical_replicate, type: int, unit: null, nullable: false, null_means: null, doc: "0-based (Techrep minus 1)."}
+    - {wire: fraction, type: int, unit: null, nullable: false, null_means: null, doc: "0-based (Fraction minus 1)."}
+
+errors:
+  - {kind: usage, when: "path missing or the file does not exist"}
+  - {kind: usage, when: "--out without a value, or not ending in .tsv (checked before the SDRF is read)"}
+  - {kind: usage, when: "--condition-columns without a value, or with a blank name"}
+  - {kind: correctness, when: "mzLib cannot parse the SDRF at all, or the --out directory cannot be written"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Label-free only. An isobaric (TMT, iTRAQ) SDRF needs a channel design this verb does not produce."
+  - "is_valid = false is an answer: refusals lists every reason at once and the table is empty. mzLib refuses rather than repairs because MetaMorpheus skips quantification with only a warning when its design file is invalid."
+  - "The table is 0-based, as SpectraFileInfo and the quant verbs take it. ExperimentalDesign.tsv is 1-based; mzLib converts when it writes."
+  - "notes is the only record of a renumbering; read it."
+  - "A factor holding not available or not applicable is refused: it would pair samples nobody said were alike."
+  - "MetaMorpheus finds the design only as a file named ExperimentalDesign.tsv beside the spectra; --out writes any .tsv path."
+
+bindings:
+  py: {name: pymzlib.sdrf.design}
+  rust: {name: "mzlib::sdrf::design_with", options: DesignOptions}
+  r: {name: sdrf_design, note: "biological_replicate, technical_replicate and fraction stay 0-based in R too, because they are design coordinates passed straight to the quant functions, not row indexes."}
+
+examples:
+  - fixture: sdrf_design_PXD067622.json
+    py: "design = pymzlib.sdrf.design('PXD067622.sdrf.tsv', condition_columns=['factor value[genotype]', 'factor value[treatment]'])"
+    rust: "let design = mzlib::sdrf::design_with(\"PXD067622.sdrf.tsv\", &DesignOptions { condition_columns: vec![\"factor value[genotype]\".into(), \"factor value[treatment]\".into()], ..Default::default() })?;"
+    r: "design <- sdrf_design('PXD067622.sdrf.tsv', condition_columns = c('factor value[genotype]', 'factor value[treatment]'))"
+  - fixture: sdrf_design_PXD049018.json
+    py: "design = pymzlib.sdrf.design('PXD049018.sdrf.tsv', condition_columns=['factor value[genotype]', 'factor value[treatment]'])"
+    rust: "let design = mzlib::sdrf::design_with(\"PXD049018.sdrf.tsv\", &DesignOptions { condition_columns: vec![\"factor value[genotype]\".into(), \"factor value[treatment]\".into()], ..Default::default() })?;"
+    r: "design <- sdrf_design('PXD049018.sdrf.tsv', condition_columns = c('factor value[genotype]', 'factor value[treatment]'))"
+  - fixture: sdrf_design_studywide.json
+    py: "design = pymzlib.sdrf.design('PXD067622_studywide.sdrf.tsv', condition_columns=['factor value[genotype]', 'factor value[treatment]'])"
+    rust: "let design = mzlib::sdrf::design_with(\"PXD067622_studywide.sdrf.tsv\", &DesignOptions { condition_columns: vec![\"factor value[genotype]\".into(), \"factor value[treatment]\".into()], ..Default::default() })?;"
+    r: "design <- sdrf_design('PXD067622_studywide.sdrf.tsv', condition_columns = c('factor value[genotype]', 'factor value[treatment]'))"
+
+open_questions:
+  - "No --paths-stdin form. The condition columns and searched files are per-deposit facts; a batch would need either one shared declaration (only sensible with none, i.e. each document's only factor column) or a per-document list. Decide before adding sdrf design_many."
+  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."

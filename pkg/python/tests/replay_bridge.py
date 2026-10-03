@@ -103,6 +103,8 @@ def mismatch(data: dict, options: dict) -> str:
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
+    if data.get("kit") is not None and "kit" not in options:
+        return f"recorded for kit={data['kit']!r}, but the call asks for every kit"
     total = data.get("record_count", data.get("row_count"))
     if total is not None and "returned_count" in data and "out" not in options:
         offset = int(options.get("offset", 0))

@@ -285,6 +285,8 @@ public static partial class Program
             "sdrf assess" => Sdrf.Assess(arguments),
             "sdrf samples" => Sdrf.Samples(arguments),
             "sdrf parse-age" => Sdrf.ParseAge(arguments),
+            "sdrf design" => Sdrf.Design(arguments),
+            "isobaric kits" => Isobaric.Kits(arguments),
             "proteins read" => Proteins.Read(arguments),
             "proteins classify-peptides" => Proteins.ClassifyPeptides(arguments),
             "proteins annotate-go" => Proteins.AnnotateGo(arguments),

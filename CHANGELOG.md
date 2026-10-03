@@ -9,6 +9,21 @@ envelope is not a breaking change unless Python callers can see it.
 Built from mzLib 1.0.593.
 
 ### Added
+- **`sdrf.design()`: the label-free experimental design an SDRF describes, or every reason it
+  cannot** (mzLib 1.0.593, #1363, `SdrfLabelFreeDesign`). Name the `factor value[...]` columns that
+  make up the condition and get one run per row, in the 0-based coordinates
+  `flashlfq.quantify()` and `median_polish()` take (`.spectra()` and `.run_design()` hand them
+  over). A design MetaMorpheus would reject is a result with `is_valid = False` and every refusal
+  listed at once, never a partial design. Study-wide replicate numbers are ranked within each
+  condition, and every renumbering is recorded in `notes`. `searched_files=` restricts the design
+  to the runs one search read; `out=` writes MetaMorpheus's 1-based `ExperimentalDesign.tsv`
+  (`.tsv` only, nothing written for a refused design). Wire verb `sdrf design`.
+- **`isobaric.kits()`: every isobaric kit mzLib can name, with each channel's reporter-ion m/z**
+  (mzLib 1.0.593, #1375, `IsobaricMassTag`). TMT 6/10/11, TMTpro 16/18, iTRAQ 4/8 and DiLeu 4/12,
+  with labels as MetaMorpheus spells them, theoretical m/z at charge 1 derived from mzLib's
+  `TMT.txt`, and mzLib's 0.003 Da matching window. Look a kit up by MetaMorpheus's modification
+  name (`"TMT6-plex"`, `"iTRAQ-4plex on K"`); a partial name such as `"TMT10plex"` is refused. New
+  module `pymzlib.isobaric`, wire verb `isobaric kits`.
 - **Gene Ontology on protein groups: `proteins.annotate_go()` and `proteins.update_go()`** (mzLib
   #1353, #1366). `annotate_go()` reads a MetaMorpheus protein-group table (`AllQuantifiedProteinGroups.tsv`,
   `AllProteinGroups.tsv` or a file's `_ProteinGroups.tsv`), the UniProt XML the search used and a

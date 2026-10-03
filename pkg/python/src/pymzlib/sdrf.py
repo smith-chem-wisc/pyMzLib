@@ -60,6 +60,8 @@ own answer, projected once in the bridge for all three bindings:
 - :func:`samples` - *what does it say about each sample?* ``SdrfSampleBlock``: one sample per
   ``source name``, its characteristics and factor values, and ages read into years.
 - :func:`parse_ages` - ``SdrfAge.TryParse`` over any age cells, SDRF or not.
+- :func:`design` - *can this file drive a quantification?* ``SdrfLabelFreeDesign``: the
+  label-free experimental design MetaMorpheus and FlashLFQ take, or every reason it was refused.
 
 The first three are blind in different places, which is why there are three. A file of
 ``"not available"`` validates cleanly and lints clean, and only :func:`assess` sees that it says
@@ -107,6 +109,9 @@ __all__ = [
     "samples_many",
     "ParsedAges",
     "parse_ages",
+    "DesignedFile",
+    "SdrfDesign",
+    "design",
     "VERDICTS",
     "AGE_PRECISIONS",
     "AGE_REFUSALS",
@@ -1471,3 +1476,287 @@ def parse_ages(cells: Sequence[str | None], *, timeout: float | None = 60) -> Pa
     # A trailing newline ends the last cell, so a final blank cell survives the trip.
     data = _bridge.invoke("sdrf", "parse-age", stdin="\n".join(lines) + "\n", timeout=timeout)
     return ParsedAges._from_wire(data)
+
+
+# ---- design --------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DesignedFile:
+    """One run in a label-free design, in mzLib's ``SpectraFileInfo`` coordinates.
+
+    The design coordinates are **0-based**, exactly as :func:`pymzlib.flashlfq.quantify` and
+    :func:`pymzlib.flashlfq.median_polish` take them. ``ExperimentalDesign.tsv`` writes the same
+    numbers plus one.
+
+    Attributes:
+        full_path: The file as the SDRF names it, or the searched path you passed for it.
+        file_name: ``full_path``'s file name without its extension - the run key FlashLFQ uses
+            (``Intensity_<file_name>``).
+        condition: The condition columns' values joined with ``_``.
+        biological_replicate: 0-based, ranked within the condition.
+        technical_replicate: 0-based.
+        fraction: 0-based.
+    """
+
+    full_path: str
+    file_name: str
+    condition: str
+    biological_replicate: int
+    technical_replicate: int
+    fraction: int
+
+
+@dataclass(frozen=True)
+class SdrfDesign(_Table):
+    """A label-free experimental design read from an SDRF, or the reasons it was refused.
+
+    **A refusal is an answer, not an exception.** When ``is_valid`` is ``False``, ``refusals`` lists
+    every reason at once and the table is empty, so a design that MetaMorpheus would reject can
+    never be used by mistake. mzLib refuses rather than repairs because MetaMorpheus skips
+    quantification with only a warning when its design file is invalid.
+
+    ``columns`` maps ``full_path``, ``file_name``, ``condition``, ``biological_replicate``,
+    ``technical_replicate`` and ``fraction`` to one value per run, in SDRF row order;
+    :attr:`files` gives the same rows as :class:`DesignedFile` objects.
+
+    Attributes:
+        path: The SDRF path as given.
+        is_valid: ``True`` when there are no refusals.
+        file_key_column: The column runs were keyed on - ``comment[searched data file]`` when the
+            SDRF has it, else ``comment[data file]`` - or ``None`` when it has neither (which is
+            itself a refusal).
+        condition_columns: The ``factor value[...]`` columns the condition was built from, in join
+            order. Empty when none could be chosen.
+        condition_columns_declared: Whether you passed ``condition_columns``.
+        searched_files_given: Whether you passed ``searched_files``.
+        file_count: Runs (files) in the design; ``0`` when refused.
+        refusals: Every reason the design was refused, in mzLib's words. Empty when valid.
+        notes: Every relabelling on the way to a valid design: biological replicates ranked within
+            a condition (with the ``old -> new`` mapping), and rows dropped because the search does
+            not read their file. **The only record of a renumbering - read it.**
+        report: mzLib's human-readable account of all of the above. Print it.
+        column_names: The table's columns, in order.
+        columns: Column name to one value per run.
+        written: ``{"path", "file_count"}`` of the ``ExperimentalDesign.tsv`` written, or ``None``
+            when ``out`` was not given or the design was refused.
+        caveats: What the design does and does not cover - read these once.
+    """
+
+    path: str
+    is_valid: bool
+    file_key_column: str | None
+    condition_columns: list[str]
+    condition_columns_declared: bool
+    searched_files_given: bool
+    file_count: int
+    refusals: list[str]
+    notes: list[str]
+    report: str
+    column_names: list[str]
+    columns: dict[str, list[Any]]
+    written: dict[str, Any] | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def files(self) -> list[DesignedFile]:
+        """Every run as a :class:`DesignedFile`, in SDRF row order. Empty when refused."""
+        return [DesignedFile(**row) for row in self.records]
+
+    def _require_valid(self, what: str) -> None:
+        if not self.is_valid:
+            raise _bridge.UsageError(
+                f"The design was refused, so there is no {what} to give. mzLib's reasons:\n  "
+                + "\n  ".join(self.refusals)
+            )
+
+    def spectra(self) -> list[dict[str, Any]]:
+        """The design as :func:`pymzlib.flashlfq.quantify` takes its ``spectra`` argument.
+
+        One mapping per run - ``path`` plus the four design fields - so the SDRF drives FlashLFQ
+        with no hand-written design. Each ``path`` is ``full_path``; pass ``searched_files`` to
+        :func:`design` when the SDRF names files without the directory you keep them in.
+
+        Raises:
+            UsageError: the design was refused (mzLib's ``ToExperimentalDesign`` refuses too).
+        """
+        self._require_valid("spectra list")
+        return [
+            {
+                "path": f.full_path,
+                "condition": f.condition,
+                "biological_replicate": f.biological_replicate,
+                "technical_replicate": f.technical_replicate,
+                "fraction": f.fraction,
+            }
+            for f in self.files
+        ]
+
+    def run_design(self) -> list[dict[str, Any]]:
+        """The design as :func:`pymzlib.flashlfq.median_polish` takes its ``design`` argument.
+
+        One mapping per run, keyed by ``file_name`` (the ``Intensity_<file_name>`` column of a
+        ``QuantifiedPeptides.tsv``).
+
+        Raises:
+            UsageError: the design was refused.
+        """
+        self._require_valid("run design")
+        return [
+            {
+                "file_name": f.file_name,
+                "condition": f.condition,
+                "biological_replicate": f.biological_replicate,
+                "technical_replicate": f.technical_replicate,
+                "fraction": f.fraction,
+            }
+            for f in self.files
+        ]
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> "SdrfDesign":
+        names, columns = _columns(data)
+        return cls(
+            path=data.get("path", ""),
+            is_valid=bool(data.get("is_valid", False)),
+            file_key_column=data.get("file_key_column"),
+            condition_columns=list(data.get("condition_columns") or []),
+            condition_columns_declared=bool(data.get("condition_columns_declared", False)),
+            searched_files_given=bool(data.get("searched_files_given", False)),
+            file_count=int(data.get("file_count", 0)),
+            refusals=list(data.get("refusals") or []),
+            notes=list(data.get("notes") or []),
+            report=data.get("report", ""),
+            column_names=names,
+            columns=columns,
+            written=data.get("written"),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+def design(
+    path: str | os.PathLike[str],
+    *,
+    condition_columns: Sequence[str] | None = None,
+    searched_files: Sequence[str | os.PathLike[str]] | None = None,
+    out: str | os.PathLike[str] | None = None,
+    timeout: float | None = 60,
+) -> SdrfDesign:
+    """Read a label-free experimental design out of an SDRF, or every reason it cannot be read.
+
+    Calls mzLib's ``SdrfLabelFreeDesign.Read``. It runs every check MetaMorpheus's own design
+    validator runs and **refuses rather than repairs**: a factor written ``not available``, two
+    files claiming the same replicate and fraction, a document with several factor columns and no
+    declaration - each is a refusal, and all of them are reported at once. It relabels in only two
+    ways, both recorded in ``notes``: study-wide biological replicate numbers are ranked within each
+    condition (``22 -> 1``), and rows for files the search does not read are dropped.
+
+    Args:
+        path: Path to a ``.sdrf.tsv`` file.
+        condition_columns: The ``factor value[...]`` columns that make up the condition, by exact
+            (case-sensitive) name, in the order to join them with ``_``. ``None`` uses the
+            document's only factor column; a document with several is then refused, because
+            joining all of them could split a condition on a nuisance factor.
+        searched_files: The files the search will read, as paths or bare names. Each must be named
+            **exactly** (case and extension) by one SDRF row; rows for other files are dropped and
+            reported in ``notes``, and the paths you give become ``full_path``. ``None`` takes the
+            SDRF's own file names.
+        out: Also write MetaMorpheus's ``ExperimentalDesign.tsv`` (1-based) here. Must end in
+            ``.tsv``. Written only when the design is valid. MetaMorpheus finds the file only when
+            it is named ``ExperimentalDesign.tsv`` and sits beside the spectra.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        An :class:`SdrfDesign`: ``is_valid``, the refusals or the runs, and mzLib's notes.
+
+    Raises:
+        UsageError: the path is blank or the file does not exist; ``out`` does not end in ``.tsv``
+            (checked before the SDRF is read); a condition column or searched file is blank or
+            contains a tab or newline.
+        BridgeError: mzLib could not parse the SDRF at all, or ``out``'s directory cannot be
+            written.
+
+    Examples:
+        A valid two-factor design - 24 runs, 8 conditions of 3 biological replicates:
+
+        >>> both = ["factor value[genotype]", "factor value[treatment]"]
+        >>> d = design("PXD067622.sdrf.tsv", condition_columns=both)
+        >>> d.is_valid, d.file_count, len(set(d.columns["condition"]))
+        (True, 24, 8)
+        >>> run = d.files[0]
+        >>> run.file_name, run.condition, run.biological_replicate
+        ('20240830_HF_LC3_MAA_RK_12032_CA_DMSO4', 'SPRTN-TurboID CA_DMSO (vehicle)', 0)
+
+        A refusal lists every reason at once - here one per run, because the deposit's treatment
+        is ``not available``:
+
+        >>> refused = design("PXD049018.sdrf.tsv", condition_columns=both)
+        >>> refused.is_valid, len(refused.refusals), refused.file_count
+        (False, 20, 0)
+        >>> print(refused.refusals[0])  # doctest: +NORMALIZE_WHITESPACE
+        Line 2 (MSB67868ABand_01.raw): 'factor value[treatment]' is 'not available'. A condition
+        cannot be built from an unknown factor; fill it in, or leave the column out of the
+        declared condition columns to pool these rows.
+
+        Study-wide replicate numbers are ranked within each condition, and the mapping is kept:
+
+        >>> ranked = design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
+        >>> ranked.is_valid, len(ranked.notes)
+        (True, 7)
+        >>> print(ranked.notes[1])  # doctest: +NORMALIZE_WHITESPACE
+        Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered
+        22 -> 1, 23 -> 2, 24 -> 3.
+    """
+    args = ["sdrf", "design", "--path", _one_path(path)]
+
+    if condition_columns is not None:
+        if isinstance(condition_columns, str):
+            raise _bridge.UsageError(
+                "condition_columns takes a list of column names, e.g. ['factor value[treatment]']."
+            )
+        names = []
+        for name in condition_columns:
+            if not isinstance(name, str) or not name.strip():
+                raise _bridge.UsageError(
+                    f"Every condition column must be a non-blank str; got {name!r}."
+                )
+            if "\t" in name or "\n" in name or "\r" in name:
+                raise _bridge.UsageError(
+                    f"A condition column may not contain a tab or newline: {name!r}."
+                )
+            names.append(name)
+        if not names:
+            raise _bridge.UsageError(
+                "condition_columns is empty; pass None to use the document's only factor column."
+            )
+        args += ["--condition-columns", "\t".join(names)]
+
+    stdin = None
+    if searched_files is not None:
+        if isinstance(searched_files, (str, os.PathLike)):
+            raise _bridge.UsageError(
+                "searched_files takes a list of paths, e.g. ['run1.raw', 'run2.raw']."
+            )
+        lines = []
+        for f in searched_files:
+            text = _bridge.path_text(f)
+            if not text:
+                raise _bridge.UsageError(
+                    f"Every searched file must be a non-blank str or PathLike; got {f!r}."
+                )
+            if "\n" in text or "\r" in text:
+                raise _bridge.UsageError(f"A searched file contains a newline: {text!r}.")
+            lines.append(text)
+        args.append("--searched-files-stdin")
+        stdin = "\n".join(lines) + "\n"
+
+    if out is not None:
+        out_text = _bridge.path_text(out)
+        if not out_text:
+            raise _bridge.UsageError(
+                "out must be a file path ending in .tsv, e.g. 'ExperimentalDesign.tsv'."
+            )
+        args += ["--out", out_text]
+
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return SdrfDesign._from_wire(data)

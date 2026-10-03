@@ -50,8 +50,9 @@ Coverage is deliberately partial and grows by demand — the same way
 | [Peptidoforms](guides/peptidoforms.md) — digest an annotated protein, apply its modifications, fragment every peptide | :material-check: available |
 | [FlashLFQ](guides/flashlfq.md) — label-free quantification across mzML runs, with match-between-runs | :material-check: available |
 | [Readers](guides/readers.md) — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify any of 38 formats and read them, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables, RNA transcript groups and oligos included | :material-check: available |
-| [SDRF experimental design](guides/sdrf.md) — read an SDRF-Proteomics file, pool several into one analysis table; validate, lint and assess them; one row per sample with ages in years | :material-check: available |
+| [SDRF experimental design](guides/sdrf.md) — read an SDRF-Proteomics file, pool several into one analysis table; validate, lint and assess them; one row per sample with ages in years; the label-free design FlashLFQ and MetaMorpheus take, or every reason it was refused | :material-check: available |
 | [Protein databases](guides/proteins.md) — organism, taxon, GO terms and Ensembl genes per accession from a UniProt XML or FASTA; resolve proteins to Ensembl genes against a pinned release; peptide uniqueness with I = L; Gene Ontology on MetaMorpheus protein groups, every member kept, against a pinned GO release | :material-check: available |
+| [Isobaric kits](guides/isobaric.md) — every TMT, TMTpro, iTRAQ and DiLeu channel with its reporter-ion m/z and matching window | :material-check: available |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 If there is something in mzLib you want from Python, opening an issue is genuinely the fastest
