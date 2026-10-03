@@ -49,7 +49,7 @@ caveats:
 bindings:
   py: {name: pymzlib.stats.adjust}
   rust: {name: "mzlib::stats::adjust", note: "planned; not yet shipped"}
-  r: {name: stats_adjust, note: "planned; not yet shipped. NA in the input crosses as an empty line."}
+  r: {name: stats_adjust, note: "in mzLibR #29, not yet released. NA in the input crosses as an empty line."}
 
 examples:
   - fixture: stats_adjust.json

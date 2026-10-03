@@ -15,7 +15,7 @@ params:
   - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "A TopFD/FLASHDeconv _ms1.feature or a Dinosaur .feature.tsv."}
   - {name: offset, type: "int", required: false, unit: "features", range: ">= 0", default: 0, doc: "Skip this many features. A window, not a cursor: mzLib parses the whole file on every call, so paging re-reads it."}
   - {name: limit, type: "int", required: false, unit: "features", range: ">= 0", default: null, doc: "Return at most this many features. Absent means no limit; there is deliberately no default cap."}
-  - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created."}
+  - {name: out, type: "path", required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created. Must end in .tsv, any case (PYB-1); any other extension, or none, is a usage error before any input is read, and no extension is appended."}
 
 result:
   envelope_fields:
@@ -51,7 +51,7 @@ result:
       - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Read MANY files: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset and limit are refused with it."}
       - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Files read at once. The output is byte-identical at any value (files are emitted in input order); 1 is the default because each file in flight is held whole in memory."}
       - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first unreadable input stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that input's files[i].error and the rest are read. skip with a single path is a usage error."}
-      - {name: out, type: "path", required: false, unit: null, range: null, default: null, doc: "Write the long table here, one file at a time in input order, so memory holds at most threads files. A batch that stops on an error deletes its partial table. Must differ from every input."}
+      - {name: out, type: "path", required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the long table here, one file at a time in input order, so memory holds at most threads files. A batch that stops on an error deletes its partial table. Must differ from every input. Must end in .tsv, any case (PYB-1); any other extension, or none, is a usage error before any input is read, and no extension is appended."}
     envelope_fields:
       - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
       - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Files read."}
@@ -73,6 +73,8 @@ errors:
   - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
   - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
   - {kind: correctness, when: "with on-error fail, mzLib failing to parse an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
+  - {kind: usage, when: "out (with path or paths-stdin) whose extension is not .tsv, any case, including none (PYB-1); checked before any input is opened"}
+  - {kind: usage, when: "the answer is too large to return as one JSON document (PYB-3 part 1; measured: past the ~1.07 G-character .NET string ceiling, not RAM). Message: 'this read (N records) is too large to return as one document; use --limit/--offset or --out', N the parsed record_count"}
   - {kind: service_unavailable, when: never}
 
 caveats:
@@ -94,3 +96,4 @@ examples:
 
 open_questions:
   - "retention_time_start/_end declare their unit as the envelope's retention_time_unit, not a fixed unit, because it genuinely varies per file."
+  - "PYB-3 part 2: refusing a too-large answer BEFORE serialising, when the parsed record count already predicts it, is not built. It needs a characters-per-record threshold measured per format (dataRepo's ~805 per record is one file type); part 1 catches the failure after serialising."
