@@ -4,7 +4,7 @@
 **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign — scan headers always, peaks on
 request.
 
-mzLib recognises **36 file types** in all: those instrument and deconvolution formats, plus the
+mzLib recognises **38 file types** in all: those instrument and deconvolution formats, plus the
 output of a dozen search tools — MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ, Pytheas, and any mzIdentML writer — and
 maintains a parser for each. pyMzLib lets you point at a file, ask what it is, and read it.
@@ -19,7 +19,7 @@ table = pymzlib.readers.read_records("toppic_prsm.tsv")
 print(table.record_type, len(table.column_names))    # ToppicPrsm 36
 ```
 
-**All 36 formats are readable.** What differs between them is not whether you can read them but
+**All 38 formats are readable.** What differs between them is not whether you can read them but
 what the columns mean — which is the whole subject of this page.
 
 ## Ways to read, and how to choose
@@ -30,14 +30,14 @@ else:
 
 | function | reads | columns | use it when |
 |---|---|---|---|
-| [`read_records()`](#read_records-any-format-its-own-fields) | **all 36** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
+| [`read_records()`](#read_records-any-format-its-own-fields) | **all 38** | **this format's own fields**, under mzLib's names | you want *everything* a file has |
 | [`read_results()`](#read_results-the-quantifiable-view) | 4 | uniform: sequence, RT, charge, mass, proteins | you are feeding [FlashLFQ](flashlfq.md) or comparing search results |
 | [`read_features()`](#read_features-deconvolved-ms1-features) | 2 | uniform: m/z, charge, RT range, intensity | you are working with deconvolved MS1 features |
 | [`read_matches()`](#read_matches-identifications) | 6 | uniform: scan, sequences, accession, mods | you are comparing identifications from MsPathFinderT, Casanovo or mzIdentML |
 | [`read_spectra()`](#read_spectra-scans-and-peaks) | 7 | uniform: scan headers, peaks on request | the file is spectra rather than results |
-| [`read_protein_groups()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per protein group per sample group | you want MetaMorpheus's per-sample protein intensities and spectral counts |
-| [`read_quantified_peptides()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per peptide per sample | you want FlashLFQ's per-sample peptide intensities |
-| [`read_occupancy()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 1 | long: one row per modified site | you want PTM site occupancy from a MetaMorpheus protein-group table |
+| [`read_protein_groups()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 2 | long: one row per protein group per sample group | you want MetaMorpheus's per-sample protein (or RNA transcript) intensities and spectral counts |
+| [`read_quantified_peptides()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 2 | long: one row per peptide per sample | you want FlashLFQ's per-sample peptide (or oligonucleotide) intensities |
+| [`read_occupancy()`](#quantification-tables-protein-groups-peptides-and-occupancy) | 2 | long: one row per modified site | you want PTM site occupancy from a MetaMorpheus protein-group (or transcript-group) table |
 
 **Every one of them has a `_many` twin** - `read_spectra_many()`, `read_records_many()`,
 `identify_many()` and so on - that reads a list of files into one table in one call. See
@@ -55,8 +55,8 @@ MetaMorpheus's, and no other format has them.
 
 ## Start with `views`, not with the file type
 
-It would be convenient if mzLib read all 36 formats into one uniform table. **It does not.** The
-formats fall into disjoint families, and seventeen belong to no family at all:
+It would be convenient if mzLib read all 38 formats into one uniform table. **It does not.** The
+formats fall into disjoint families, and nineteen belong to no family at all:
 
 | view | what it means | which formats |
 |---|---|---|
@@ -64,7 +64,7 @@ formats fall into disjoint families, and seventeen belong to no family at all:
 | `ms1_features` | deconvolved MS1 features | **2**: TopFD `_ms1.feature`, Dinosaur |
 | `spectral_match` | records are identifications, but share no *file*-level interface | **6**: MsPathFinderT ×3, Casanovo, mzIdentML `.mzid`/`.mzid.gz` |
 | `spectra` | the file is spectra, not results | **7**: `.raw`, `.mzML`, `.mgf`, `.d` ×2, msalign ×2 |
-| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **17**: TopPIC ×4, Crux, Pytheas, MSFragger peptide/protein, FlashDeconv, MetaMorpheus protein groups and peptides, and more |
+| *(none)* | mzLib parses it into a format-specific shape with nothing in common | **19**: TopPIC ×4, Crux, Pytheas, MSFragger peptide/protein, FlashDeconv, MetaMorpheus protein groups and peptides and their RNA counterparts, and more |
 
 `views == []` is a real and common answer, not an error — it is the commonest answer, in fact. It
 means "mzLib reads this, but there is no uniform projection of it", and `read_records()` is exactly
@@ -457,9 +457,9 @@ sample in a column:
 
 | function | reads | one row per | per-sample columns |
 |---|---|---|---|
-| `read_protein_groups()` | MetaMorpheus `AllQuantifiedProteinGroups.tsv` | protein group x sample group | `spectral_count`, `intensity` |
-| `read_quantified_peptides()` | FlashLFQ `QuantifiedPeptides.tsv`, MetaMorpheus `AllQuantifiedPeptides.tsv` | peptide x sample | `intensity`, `detection_type`, `retention_time` (IsoTracker only) |
-| `read_occupancy()` | MetaMorpheus `AllQuantifiedProteinGroups.tsv` | group x sample group x basis x modified site | `fraction`, `numerator`, `denominator` |
+| `read_protein_groups()` | MetaMorpheus `AllQuantifiedProteinGroups.tsv`, `AllProteinGroups.tsv`, `<file>_ProteinGroups.tsv`; RNA `AllQuantifiedTranscriptGroups.tsv` | protein group x sample group | `spectral_count`, `intensity` |
+| `read_quantified_peptides()` | FlashLFQ `QuantifiedPeptides.tsv`, MetaMorpheus `AllQuantifiedPeptides.tsv`; RNA `AllQuantifiedOligos.tsv` | peptide x sample | `intensity`, `detection_type`, `retention_time` (IsoTracker only) |
+| `read_occupancy()` | any protein-group or transcript-group table `read_protein_groups()` reads | group x sample group x basis x modified site | `fraction`, `numerator`, `denominator` |
 
 **Why long.** A wide table's column names would be made up from your sample labels, so they would
 differ in every experiment and could not be documented, checked or shared across files - and two
@@ -496,6 +496,31 @@ Four things these tables will not do for you:
   channel cannot be recovered from it - map it yourself, from an [SDRF](sdrf.md) or a sample sheet.
 - **Name a leading protein.** `protein_group_name` lists the members sorted by accession, so the
   first is only the one that sorts first.
+
+### RNA searches, and searches without quantification
+
+Since mzLib 1.0.593 the same three functions read two kinds of table they used to refuse:
+
+- **An RNA search** writes `AllQuantifiedTranscriptGroups.tsv` and `AllQuantifiedOligos.tsv`
+  (mzLib #1388). They are their own file types, but mzLib reads them with subclasses of the
+  protein-group and peptide readers, so the columns keep their protein names:
+  `protein_group_name` holds the transcript group, `sequence` the oligonucleotide, and
+  `read_occupancy()` returns RNA modifications such as `2'-O-methyluridine on U`.
+- **A search with label-free quantification off** writes `AllProteinGroups.tsv`, and each file's
+  `<file>_ProteinGroups.tsv` (mzLib #1365). MetaMorpheus writes `Intensity_` columns only when it
+  quantified, so these rows have `spectral_count` and no `intensity`: the field is named in
+  `absent_fields`, which means *no basis*, not zero.
+
+```python
+t = pymzlib.readers.read_protein_groups("AllQuantifiedTranscriptGroups.tsv")
+df = pd.DataFrame(t.columns)
+df[(df.protein_group_name == "FLuc") & (df.sample_label == "1:1_1")][["spectral_count", "intensity"]]
+#    spectral_count     intensity
+#               355  8.907747e+07        (mzLib's own RNA test table)
+
+g = pymzlib.readers.read_protein_groups("AllProteinGroups.tsv")
+"intensity" in g.absent_fields                      # True: this search was not quantified
+```
 
 ### Site occupancy
 
@@ -714,6 +739,8 @@ reflects your installed version rather than this page's age. Every row is readab
 | `MzIdentMLGz` | `.mzid.gz` | `spectral_match` |
 | `MetaMorpheusQuantifiedProteinGroups` | `QuantifiedProteinGroups.tsv` | (none) |
 | `FlashLFQQuantifiedPeptide` | `QuantifiedPeptides.tsv` | (none) |
+| `MetaMorpheusQuantifiedTranscriptGroups` | `QuantifiedTranscriptGroups.tsv` | (none) |
+| `FlashLFQQuantifiedOligo` | `QuantifiedOligos.tsv` | (none) |
 
 Note that **extensions are not unique**: both Bruker types are `.d` (told apart by what the
 directory contains), and several formats share `.tsv`, disambiguated by filename suffix and
@@ -735,10 +762,19 @@ file. Only a `.txt` without one is read as a `CruxResult`. The records are
 Pytheas's own match lines, one per candidate. Charges are negative, and `molecule_location` reads
 `decoy` on decoy matches.
 
-The two MetaMorpheus quantification tables dispatch on a filename suffix:
-`AllQuantifiedProteinGroups.tsv` (or any name ending `QuantifiedProteinGroups.tsv`) and
-`AllQuantifiedPeptides.tsv` (any name ending `QuantifiedPeptides.tsv`, which is also what FlashLFQ
-writes). Their per-sample values are read by [their own functions](#quantification-tables-protein-groups-peptides-and-occupancy).
+The MetaMorpheus quantification tables dispatch on a filename suffix:
+
+- **Protein groups:** any name ending `ProteinGroups.tsv`. That covers `AllQuantifiedProteinGroups.tsv`
+  and, since mzLib 1.0.593 (#1365), the two names MetaMorpheus uses when it did not quantify:
+  `AllProteinGroups.tsv` and each file's `<file>_ProteinGroups.tsv`. Those used to fail with
+  `Tsv file type not supported`.
+- **Peptides:** any name ending `QuantifiedPeptides.tsv`, which is also what FlashLFQ writes.
+- **RNA** (mzLib 1.0.593, #1388): any name ending `TranscriptGroups.tsv`, and `QuantifiedOligos.tsv`.
+  They are their own file types, but mzLib reads them with subclasses of the protein-group and
+  peptide readers, so the same three functions read them and the columns keep their protein names:
+  `protein_group_name` holds a transcript group, `sequence` an oligonucleotide.
+
+Their per-sample values are read by [their own functions](#quantification-tables-protein-groups-peptides-and-occupancy).
 
 ## What is not covered
 

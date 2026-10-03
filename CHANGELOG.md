@@ -6,6 +6,34 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+Built from mzLib 1.0.593.
+
+### Added
+- **RNA quantification tables** (mzLib 1.0.593, #1388). An RNA search's
+  `AllQuantifiedTranscriptGroups.tsv` reads through `read_protein_groups()` and `read_occupancy()`,
+  and its `AllQuantifiedOligos.tsv` through `read_quantified_peptides()`. mzLib reads them with
+  subclasses of the protein-group and peptide readers, so the columns keep their protein names
+  (`protein_group_name` is the transcript group, `sequence` the oligonucleotide) and occupancy names
+  RNA modifications. `formats()` lists 38 types, up from 36, and 19 of them offer no view, up from
+  17.
+
+### Changed
+- **MetaMorpheus protein-group tables written without quantification now read** (mzLib #1365).
+  `AllProteinGroups.tsv` and each file's `<file>_ProteinGroups.tsv` failed with `Tsv file type not
+  supported`; they now read as `MetaMorpheusQuantifiedProteinGroups`. They have spectral counts but
+  no intensities, so `intensity` is in `absent_fields`.
+- **Four shipped modifications now write their Unimod accession in `pro_forma`** (mzLib #1328):
+  `GG (Ubiquitination Site)` as `[UNIMOD:121]`, both `Myristoylation` entries as `[UNIMOD:45]` and
+  `EQIGG` as `[UNIMOD:846]`, instead of by name. `read_records()` on a MetaMorpheus `.psmtsv` or
+  `.osmtsv` that carries them returns the new text. Masses are unchanged.
+- **A read fault on an existing `.mzid` is a `BridgeError` of type `MzLibException` naming the
+  file** (mzLib #1362), where it was an `IOException`. A missing file is still a `UsageError`. A
+  plain `.mzid` is now streamed from disk rather than held in memory.
+- **PRIDE download errors name the file and the host, never the URL** (mzLib #1350), so a
+  reviewer token in a query string cannot reach a log. Every PRIDE transport failure now arrives
+  from mzLib as an `HttpRequestException`; pyMzLib already reported all of them as
+  `ServiceUnavailableError`, and still does.
+
 ### Fixed
 - **`peptidoform.fragments()`: `peptides_at_isoform_cap` counts the raw digest, as it always said
   it did.** It was recomputed on the de-duplicated list, so a locus that mzLib truncated at the cap,

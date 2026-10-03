@@ -784,6 +784,83 @@ public class ReadingBulkTests
         });
     }
 
+    // ---- tables that reach the typed quant verbs through mzLib's own subclasses ---------------
+
+    private static string TranscriptGroups => External("MetaMorpheus_RNA_AllQuantifiedTranscriptGroups.tsv");
+
+    private static string Oligos => External("MetaMorpheus_RNA_AllQuantifiedOligos.tsv");
+
+    [Test]
+    public void AnRnaTranscriptGroupTable_ReadsThroughReadProteinGroups()
+    {
+        // mzLib #1388: TranscriptGroupFromTsvFile subclasses ProteinGroupFromTsvFile, so OpenAs
+        // accepts it with no bridge code. The values are mzLib's own test's (TestTranscriptGroupFromTsv).
+        JsonElement data = Invoke(null, ["readers", "read-protein-groups", "--path", TranscriptGroups]);
+        JsonElement columns = data.GetProperty("columns");
+        string?[] names = columns.GetProperty("protein_group_name").EnumerateArray().Select(v => v.GetString()).ToArray();
+        string?[] labels = columns.GetProperty("sample_label").EnumerateArray().Select(v => v.GetString()).ToArray();
+        int row = Enumerable.Range(0, names.Length).Single(i => names[i] == "FLuc" && labels[i] == "1:1_1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("record_count").GetInt32(), Is.EqualTo(3));
+            Assert.That(names.Distinct(), Is.EquivalentTo(new[] { "FLuc", "MALAT1", "20mer2" }));
+            Assert.That(columns.GetProperty("spectral_count")[row].GetInt32(), Is.EqualTo(355));
+            Assert.That(columns.GetProperty("intensity")[row].GetDouble(), Is.EqualTo(89077470.71004736));
+        });
+    }
+
+    [Test]
+    public void AnRnaTranscriptGroupTable_ReadsItsModificationOccupancy()
+    {
+        JsonElement data = Invoke(null, ["readers", "read-occupancy", "--path", TranscriptGroups]);
+        JsonElement columns = data.GetProperty("columns");
+        string?[] groups = columns.GetProperty("protein_group_name").EnumerateArray().Select(v => v.GetString()).ToArray();
+        string?[] mods = columns.GetProperty("modification").EnumerateArray().Select(v => v.GetString()).ToArray();
+
+        Assert.That(Enumerable.Range(0, groups.Length).Where(i => groups[i] == "20mer2").Select(i => mods[i]),
+            Does.Contain("2'-O-methyluridine on U"));
+    }
+
+    [Test]
+    public void AnRnaQuantifiedOligoTable_ReadsThroughReadQuantifiedPeptides()
+    {
+        // mzLib #1388: QuantifiedOligoFile subclasses QuantifiedPeptideFile.
+        JsonElement data = Invoke(null, ["readers", "read-quantified-peptides", "--path", Oligos]);
+        string?[] sequences = data.GetProperty("columns").GetProperty("sequence").EnumerateArray()
+            .Select(v => v.GetString()).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("record_count").GetInt32(), Is.EqualTo(492));
+            Assert.That(sequences, Does.Contain("AAAAAAAAACUCG"));
+            Assert.That(sequences, Has.Some.Contains("[Digestion Termini:Cyclic Phosphate on X]"));
+        });
+    }
+
+    [TestCase("AllProteinGroups.tsv")]
+    [TestCase("Sample1_ProteinGroups.tsv")]
+    public void AProteinGroupTableWrittenWithoutQuantification_ReadsWithItsIntensityAbsent(string name)
+    {
+        // mzLib #1365: these names threw "Tsv file type not supported" before 1.0.593. MetaMorpheus
+        // writes Intensity_ columns only when it quantified, so the stand-in drops them and keeps
+        // the spectral counts, as such a file does.
+        string[] lines = File.ReadAllLines(ProteinGroups);
+        string[] header = lines[0].Split('\t');
+        int[] keep = Enumerable.Range(0, header.Length).Where(i => !header[i].StartsWith("Intensity_")).ToArray();
+        string path = Path.Combine(_tempDirectory, name);
+        File.WriteAllLines(path, lines.Select(line => string.Join('\t', keep.Select(i => line.Split('\t')[i]))));
+
+        JsonElement data = Invoke(null, ["readers", "read-protein-groups", "--path", path]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("record_count").GetInt32(), Is.GreaterThan(0));
+            Assert.That(Strings(data, "absent_fields"), Does.Contain("intensity"));
+            Assert.That(Strings(data, "absent_fields"), Does.Not.Contain("spectral_count"));
+        });
+    }
+
     // ---- harness -------------------------------------------------------------------------------
 
     private static string Stdin(IEnumerable<string> paths) => string.Join('\n', paths) + "\n";

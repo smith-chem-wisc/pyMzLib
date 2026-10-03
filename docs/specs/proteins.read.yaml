@@ -7,7 +7,7 @@ module: proteins
 summary: >-
   Read protein databases (UniProt XML or FASTA) into one row per protein, with GO terms and Ensembl
   gene links as long tables on request.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
   - {symbol: ProteinDbLoader.LoadProteinFasta, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
@@ -99,16 +99,15 @@ caveats:
 bindings:
   py: {name: pymzlib.proteins.read}
   rust: {name: "mzlib::proteins::read_with", options: ProteinReadOptions}
-  r: {name: proteins_read}
+  r: {name: proteins_read, note: "source_index is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: proteins_read_human.json
     py: "db = pymzlib.proteins.read([xml, fasta, mouse], contaminants=[bovine], tables=pymzlib.proteins.TABLES)"
-    rust: "let db = mzlib::proteins::read_with(&[xml, fasta, mouse], &ProteinReadOptions { contaminants: vec![bovine], tables: vec![Table::Proteins, Table::GoTerms, Table::EnsemblGenes], ..Default::default() })?;"
+    rust: "let db = mzlib::proteins::read_with(&[xml, fasta, mouse], &ProteinReadOptions { contaminants: vec![bovine], tables: vec![ProteinTable::Proteins, ProteinTable::GoTerms, ProteinTable::EnsemblGenes], ..Default::default() })?;"
     r: "db <- proteins_read(c(xml, fasta, mouse), contaminants = bovine, tables = c(\"proteins\", \"go_terms\", \"ensembl_genes\"))"
 
 open_questions:
-  - "Rust (mzlib::proteins::read_with + ProteinReadOptions, Table enum) and R (proteins_read) spellings are intended, not yet implemented; the checker cannot verify them."
   - "files[] is always present, with --path too, instead of BULK.md §3's flattened single-file block: a new verb has no pre-existing single-file shape to preserve, and one shape is simpler for every binding. Confirm or amend BULK.md."
   - "Two lists sharing stdin, separated by a line holding only '--', is new wire grammar (also used by proteins classify-peptides). It belongs in CONTRACT.md or BULK.md if adopted."
   - "result.tables (go_terms, ensembl_genes) is not validated by tools/check_verbs.py, which checks only 'columns'; the pyMzLib tests pin them."

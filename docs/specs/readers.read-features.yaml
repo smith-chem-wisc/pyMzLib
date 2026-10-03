@@ -82,9 +82,9 @@ caveats:
   - "Many files: --paths-stdin reads the list in ONE process, --threads at a time, into one long table with source_index and source_path first. The output does not depend on --threads (a tested property); the default of 1 is a memory choice, since every reader materialises the whole file."
 
 bindings:
-  py: {name: pymzlib.readers.read_features, bulk: pymzlib.readers.read_features_many}
+  py: {name: pymzlib.readers.read_features, bulk: pymzlib.readers.read_features_many}  # read_features_many: pyMzLib 0.2.0
   rust: {name: "mzlib::readers::read_features_with", bulk: "mzlib::readers::read_features_many", options: ReadOptions}
-  r: {name: readers_read_features, bulk: readers_read_features_many}
+  r: {name: readers_read_features, bulk: readers_read_features_many, note: "source_index is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: readers_features_topfd.json
@@ -93,5 +93,4 @@ examples:
     r: "result <- readers_read_features(path, limit = 5)"
 
 open_questions:
-  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
   - "retention_time_start/_end declare their unit as the envelope's retention_time_unit, not a fixed unit, because it genuinely varies per file."

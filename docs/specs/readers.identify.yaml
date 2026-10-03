@@ -37,7 +37,7 @@ caveats:
   - "Many paths: --paths-stdin (newline-delimited paths on stdin) with --threads N (default 1, -1 = one per core; the answer is identical at any value) and --on-error fail|skip answers {file_count, read_count, failed_count, on_error, files}, files[i] being path i's answer in input order with error set when it could not be identified under skip (readers_many_identify.json). There is no table and no --out."
 
 bindings:
-  py: {name: pymzlib.readers.identify, bulk: pymzlib.readers.identify_many}
+  py: {name: pymzlib.readers.identify, bulk: pymzlib.readers.identify_many}  # identify_many: pyMzLib 0.2.0
   rust: {name: "mzlib::readers::identify", bulk: "mzlib::readers::identify_many"}
   r: {name: readers_identify, bulk: readers_identify_many}
 
@@ -48,5 +48,4 @@ examples:
     r: "result <- readers_identify('PXD078927_msgf_1_1_0.mzid')"
 
 open_questions:
-  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
-  - "The --paths-stdin answer is not declared as result.bulk because check_verbs.py requires a record_count there (BULK.md section 2), which has no meaning for identify. Its shape is in the caveats and in readers_many_identify.json until the checker allows a table-less bulk verb."
+  - "The --paths-stdin answer is not declared as result.bulk because check_verbs.py requires a record_count there (BULK.md section 2), and the bridge sends none: at pyMzLib v0.2.0 (pkg/bridge/Reading.cs Identify) it is {file_count, read_count, failed_count, on_error, files}, as are IdentifyBatch (Rust) and readers_identify_many (R). All three bindings ship identify_many. Declare result.bulk once the checker allows a table-less bulk verb, or add record_count (0) to the wire."

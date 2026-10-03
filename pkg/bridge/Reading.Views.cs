@@ -179,7 +179,7 @@ internal static partial class Reading
     /// <c>is_decoy</c> is absent for every format but MsPathFinderT (see
     /// <see cref="DecoysAreReported"/>): Casanovo writes no label, and mzIdentML's <c>isDecoy</c>
     /// defaults to false when a writer omits it, so mzLib cannot tell a stated false from an unstated
-    /// one (MzIdentMLResultFile.cs:173).
+    /// one (MzIdentMLResultFile.cs:189).
     /// </para>
     /// <para>
     /// <c>q_value</c> is absent for Casanovo, and for an MsPathFinderT file without a
@@ -382,15 +382,15 @@ internal static partial class Reading
                 caveats.Add(
                     "is_decoy is null for this format. mzIdentML's isDecoy attribute is optional and " +
                     "defaults to false, and mzLib reports a decoy only when every peptide evidence says " +
-                    "so (MzIdentMLResultFile.cs:173), so false cannot be told apart from 'not stated'. " +
+                    "so (MzIdentMLResultFile.cs:189), so false cannot be told apart from 'not stated'. " +
                     "read-records carries mzLib's boolean for a caller who knows the writer sets it.");
                 caveats.Add(
                     "Every SpectrumIdentificationItem is a row, not only the matches the submitter " +
                     "accepted: lower-ranked candidates and items that fail the threshold are here too " +
-                    "(MzIdentMLResultFile.cs:177). Filter on rank == 1 and pass_threshold before " +
+                    "(MzIdentMLResultFile.cs:193). Filter on rank == 1 and pass_threshold before " +
                     "counting identifications.");
                 caveats.Add(
-                    "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:159). " +
+                    "one_based_scan_number is parsed from the nativeID (MzIdentMLResultFile.cs:175). " +
                     "'scan=N' gives N, but 'index=N', which peak-list input carries, is a zero-based " +
                     "position in the file and gives N + 1, not an instrument scan number. -1 means the " +
                     "nativeID had neither.");
@@ -402,7 +402,7 @@ internal static partial class Reading
                     "is the number of items in the file.");
                 caveats.Add(
                     "The engine's own scores (for example MS-GF:SpecEValue) have no common name across " +
-                    "search engines (MzIdentMLResultFile.cs:179). Pass scores=true for them as long " +
+                    "search engines (MzIdentMLResultFile.cs:195). Pass scores=true for them as long " +
                     "rows, one per match and score. q_value is null on an item that reports none.");
                 caveats.Add(
                     "accession joins every protein the item's peptide evidence names with '|' " +

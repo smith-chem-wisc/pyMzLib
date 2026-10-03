@@ -5,7 +5,7 @@ verb: sdrf validate
 module: sdrf
 summary: >-
   Check SDRF-Proteomics files against the specification's structural rules, one row per finding.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfValidator.Validate, path: mzLib/Readers/Sdrf/SdrfValidator.cs, pin: 23c2490e}
   - {symbol: SdrfValidationResult, path: mzLib/Readers/Sdrf/SdrfValidation.cs, pin: 23c2490e}
@@ -98,7 +98,7 @@ caveats:
 bindings:
   py: {name: pymzlib.sdrf.validate, bulk: pymzlib.sdrf.validate_many}
   rust: {name: "mzlib::sdrf::validate", bulk: "mzlib::sdrf::validate_many", options: BulkOptions}
-  r: {name: sdrf_validate, bulk: sdrf_validate_many}
+  r: {name: sdrf_validate, bulk: sdrf_validate_many, note: "row_index and source_index are 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: sdrf_validate_cohort.json
@@ -115,6 +115,4 @@ examples:
     rust: "let batch = mzlib::sdrf::validate_many(&[\"sdrf_skeleton.sdrf.tsv\", \"sdrf_cohort.sdrf.tsv\", \"missing.sdrf.tsv\"], &BulkOptions { on_error: OnError::Skip, ..Default::default() })?;"
     r: "batch <- sdrf_validate_many(c('sdrf_skeleton.sdrf.tsv', 'sdrf_cohort.sdrf.tsv', 'missing.sdrf.tsv'), on_error = 'skip')"
 
-open_questions:
-  - "since.pymzlib is null until the pyMzLib release carrying feat/sdrf-1.0.592 is tagged; Rust and R are not yet ported."
-  - "Bulk spellings are the cross-binding decision of 2026-09-23: a separate <verb>_many in every binding (R too, not vectorisation). Rust and R names here are intended, not yet ported."
+open_questions: []

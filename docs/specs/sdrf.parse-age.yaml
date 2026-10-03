@@ -6,7 +6,7 @@ module: sdrf
 summary: >-
   Read characteristics[age] cells into years with an honest precision, refusing any cell that would
   need a guess.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.2.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfAge.TryParse, path: mzLib/Readers/Sdrf/SdrfAge.cs, pin: 23c2490e}
 cite:
@@ -53,7 +53,7 @@ caveats:
 bindings:
   py: {name: pymzlib.sdrf.parse_ages}
   rust: {name: "mzlib::sdrf::parse_ages"}
-  r: {name: sdrf_parse_ages}
+  r: {name: sdrf_parse_ages, note: "NA in the input crosses as an empty line, as Python maps None."}
 
 examples:
   - fixture: sdrf_parse_age.json
@@ -64,5 +64,3 @@ examples:
 open_questions:
   - "The refusal reason is a bridge-side classification of TryParse's false; see sdrf.samples.yaml. An upstream TryParse(cell, out age, out reason) would retire it."
   - "Binding name is parse_ages (plural) for the verb parse-age (one cell per line). Kept because the function takes a list; revisit if a binding wants the wire name."
-  - "Rust and R spellings are intended, not yet ported. R: NA_character_ in the input should map to an empty line, as Python maps None."
-  - "since.pymzlib is null until released."

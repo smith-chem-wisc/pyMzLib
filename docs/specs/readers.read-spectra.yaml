@@ -159,9 +159,9 @@ caveats:
   - "Many files: --paths-stdin reads the list in ONE process, --threads at a time, into one long table with source_index and source_path first. The output does not depend on --threads (a tested property); the default of 1 is a memory choice, since every reader materialises the whole file."
 
 bindings:
-  py: {name: pymzlib.readers.read_spectra, bulk: pymzlib.readers.read_spectra_many}
-  rust: {name: "mzlib::readers::read_spectra_with", bulk: "mzlib::readers::read_spectra_many", options: SpectraOptions}
-  r: {name: readers_read_spectra, bulk: readers_read_spectra_many}
+  py: {name: pymzlib.readers.read_spectra, bulk: pymzlib.readers.read_spectra_many}  # read_spectra_many: pyMzLib 0.2.0
+  rust: {name: "mzlib::readers::read_spectra_with", bulk: "mzlib::readers::read_spectra_many", options: SpectraOptions, bulk_options: SpectraBulkOptions}
+  r: {name: readers_read_spectra, bulk: readers_read_spectra_many, note: "source_index is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: readers_spectra_mzml.json
@@ -171,10 +171,9 @@ examples:
   - fixture: readers_many_spectra.json
     shape: bulk
     py: "batch = pymzlib.readers.read_spectra_many(['sliced_ethcd.mzML', 'no-such-run.mzML', 'withZeros.mgf'], threads=2, on_error='skip')"
-    rust: "let batch = mzlib::readers::read_spectra_many(&[\"sliced_ethcd.mzML\", \"no-such-run.mzML\", \"withZeros.mgf\"], &SpectraBulkOptions { threads: 2, on_error: OnError::Skip, ..Default::default() })?;"
+    rust: "let batch = mzlib::readers::read_spectra_many(&[\"sliced_ethcd.mzML\", \"no-such-run.mzML\", \"withZeros.mgf\"], &SpectraBulkOptions { bulk: BulkOptions { threads: 2, on_error: OnError::Skip, ..Default::default() }, ..Default::default() })?;"
     r: "batch <- readers_read_spectra_many(c('sliced_ethcd.mzML', 'no-such-run.mzML', 'withZeros.mgf'), threads = 2, on_error = 'skip')"
 
 open_questions:
   - "injection_time unit 'ms' is from the mzML CV term (MS:1000927); not yet confirmed that every mzLib vendor reader (Thermo, Bruker, timsTOF, MGF) emits ms."
   - "source is read from MsDataFile.SourceFile after LoadAllStaticData; Bruker .d and timsTOF .d have not been checked for which of its fields they fill."
-  - "The _many spellings (py, rust, r) follow the 2026-09-23 cross-binding decision; Rust and R names here are intended, not yet ported, and since.pymzlib stays null until release."
