@@ -1,0 +1,106 @@
+{
+ "study_count": 21,
+ "feature_count": 4,
+ "confidence": 0.95,
+ "row_count": 4,
+ "column_names": [
+  "feature",
+  "studies",
+  "estimate",
+  "standard_error",
+  "confidence_low",
+  "confidence_high",
+  "p_value",
+  "tau2",
+  "q",
+  "i_squared",
+  "direction_agree",
+  "direction_disagree",
+  "leave_one_out_max_delta"
+ ],
+ "columns": {
+  "feature": [
+   "homogeneous",
+   "heterogeneous",
+   "two_studies",
+   "random_eight"
+  ],
+  "studies": [
+   5,
+   6,
+   2,
+   8
+  ],
+  "estimate": [
+   0.3096949574377927,
+   0.2512720807911714,
+   -0.2,
+   0.106957297530285
+  ],
+  "standard_error": [
+   0.04585680537331734,
+   0.1276707162419465,
+   0.24494897427831783,
+   0.12320124763027451
+  ],
+  "confidence_low": [
+   0.21981727046002786,
+   0.0010420750765233744,
+   -0.680091167635531,
+   -0.13451271067545367
+  ],
+  "confidence_high": [
+   0.3995726444155575,
+   0.5015020865058195,
+   0.28009116763553094,
+   0.3484273057360237
+  ],
+  "p_value": [
+   1.4429831962115736e-11,
+   0.049053519704063485,
+   0.41421617824252516,
+   0.38531162494379134
+  ],
+  "tau2": [
+   0,
+   0.07516969806196556,
+   0.06000000000000001,
+   0.09113603411504044
+  ],
+  "q": [
+   0.30998661419622275,
+   28.20922056692866,
+   1.9230769230769231,
+   37.29995844506632
+  ],
+  "i_squared": [
+   0,
+   0.8227529899971148,
+   0.48000000000000004,
+   0.8123322306026352
+  ],
+  "direction_agree": [
+   5,
+   5,
+   1,
+   6
+  ],
+  "direction_disagree": [
+   0,
+   1,
+   1,
+   2
+  ],
+  "leave_one_out_max_delta": [
+   0.014132591916504289,
+   0.09481755625440375,
+   0.30000000000000004,
+   0.07461657418794791
+  ]
+ },
+ "caveats": [
+  "DerSimonian-Laird random effects with a normal reference: the interval and p-value do not widen for few studies (no Hartung-Knapp adjustment).",
+  "A feature with one study is reported with tau2 = 0 and q, i_squared and leave_one_out_max_delta null: one study has no heterogeneity to measure.",
+  "Each feature is pooled independently; p_value is not adjusted across features. Pass the p_value column to stats adjust for that."
+ ]
+}

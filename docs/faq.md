@@ -159,6 +159,17 @@ past a bad file. Do not wrap the single-file functions in a thread pool: each ca
 120 ms of start-up, and the thread count belongs inside the bridge, where it cannot change the
 answer. See [Many files in one call](guides/sdrf.md#many-files-in-one-call).
 
+## `stats.fit()` disagrees with my limma run. Which is right?
+
+Probably both. `fit()` is limma's `eBayes(legacy = TRUE)`, which mzLib reproduces to 1e-8 relative.
+When your features have different residual degrees of freedom - and omitting missing values per
+feature makes them differ - limma 3.61 and later default to `legacy = FALSE`, a different prior
+estimator, so the moderated statistics differ. `fit().residual_df_differ` is `True` exactly when
+that applies. Run limma with `legacy = TRUE` to compare like with like, as the
+[guide's first section](guides/stats.md#1-check-it-against-limma) does. Also check that you passed
+the same values: `fit()` models what you give it, so log-transform first, and blank any 0 that
+means "not measured" (`zero_count` counts them).
+
 ---
 
 ## Troubleshooting

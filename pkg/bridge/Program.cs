@@ -292,6 +292,9 @@ public static partial class Program
             "proteins annotate-go" => Proteins.AnnotateGo(arguments),
             "proteins update-go" => Proteins.UpdateGo(arguments),
             "genes resolve" => Proteins.ResolveGenes(arguments),
+            "stats fit" => Statistics.Fit(arguments),
+            "stats adjust" => Statistics.Adjust(arguments),
+            "stats meta" => Statistics.Meta(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the
             // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(

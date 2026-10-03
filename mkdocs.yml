@@ -99,6 +99,7 @@ nav:
       - SDRF experimental design: guides/sdrf.md
       - Protein databases: guides/proteins.md
       - Isobaric kits: guides/isobaric.md
+      - Differential abundance: guides/stats.md
   - API reference:
       - Python API: reference.md
       - "Wire verbs: readers": reference/readers.md
@@ -106,6 +107,7 @@ nav:
       - "Wire verbs: sdrf": reference/sdrf.md
       - "Wire verbs: proteins": reference/proteins.md
       - "Wire verbs: isobaric": reference/isobaric.md
+      - "Wire verbs: stats": reference/stats.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

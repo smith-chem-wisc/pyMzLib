@@ -67,6 +67,32 @@ Per-row fields (one value per record, in `columns` or each list entry):
 | `ensembl_gene_ids` | `string[]` | — | never | Distinct stable Ensembl gene ids (Protein.EnsemblGeneIds), ordinal order. Empty for a FASTA: see absent_fields. |
 | `sequence` | `string` | — | never | The base sequence. *Present only with `sequences`.* |
 
+Fields of `go_terms`:
+
+| Field | Type | Unit | Null? | Meaning |
+|---|---|---|---|---|
+| `source_index` | `int` | — | never | Input position. |
+| `source_path` | `string` | — | never | Input path. |
+| `accession` | `string` | — | never | The protein. |
+| `go_id` | `string` | — | never | GO accession, e.g. GO:0005737. Unique per protein. |
+| `aspect` | `string` | — | never | mzLib GoAspect name: BiologicalProcess, CellularComponent, MolecularFunction, or Unknown when UniProt gave no C:/F:/P: prefix (never inferred). |
+| `term_name` | `string` | — | yes: the reference carried no term property | Term name with the aspect prefix removed. |
+| `evidence_codes` | `string[]` | — | never | ECO ids unioned over UniProt's repeats of this GO id, sorted ordinal. Empty is normal. |
+| `projects` | `string[]` | — | never | Annotating projects (UniProtKB, MGI, HPA, ...), unioned, sorted. |
+
+Fields of `ensembl_genes`:
+
+| Field | Type | Unit | Null? | Meaning |
+|---|---|---|---|---|
+| `source_index` | `int` | — | never | Input position. |
+| `source_path` | `string` | — | never | Input path. |
+| `accession` | `string` | — | never | The protein. |
+| `transcript_id` | `string` | — | yes: the reference named no transcript | Ensembl transcript as UniProt wrote it, versioned. |
+| `protein_id` | `string` | — | yes: UniProt gave no Ensembl protein id | Ensembl protein id as written. |
+| `gene_id` | `string` | — | never | Stable gene id, e.g. ENSG00000111640: the one to join on. |
+| `versioned_gene_id` | `string` | — | never | As UniProt wrote it, e.g. ENSG00000111640.15; equal to gene_id when unversioned. |
+| `gene_version` | `int` | — | yes: the id carried no numeric version (absent is not 0) | The gene version. |
+
 ### Errors
 
 | Kind | pyMzLib raises | When |

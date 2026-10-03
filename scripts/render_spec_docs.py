@@ -119,6 +119,11 @@ def render_returns(spec: dict[str, Any]) -> list[str]:
             "",
         ]
         out += [f"- {cell(rule)}" for rule in result.get("cell_rules") or []]
+    # Named sub-tables (result.tables.<name>): the fields of a nested object or a second table,
+    # e.g. stats fit's `prior` or proteins read's `go_terms`.
+    for name, fields in (result.get("tables") or {}).items():
+        if isinstance(fields, list) and fields:
+            out += ["", f"Fields of `{name}`:", ""] + table(header, field_rows(fields))
     return out
 
 

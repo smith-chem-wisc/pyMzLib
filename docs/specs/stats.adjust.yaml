@@ -1,0 +1,61 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Statistics.cs (Adjust) on branch
+# feat/stats-module (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). Example fixture
+# recorded from the live bridge on that branch.
+verb: stats adjust
+module: stats
+summary: >-
+  Adjust a list of p-values for the false discovery rate with Benjamini-Hochberg, keeping every
+  input position and leaving untested entries out of the family.
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: MultipleTesting.BenjaminiHochberg, path: mzLib/StatisticalModels/MultipleTesting.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1111/j.2517-6161.1995.tb02031.x", for: "the step-up adjustment (Benjamini and Hochberg, J R Stat Soc B 57:289, 1995)"}
+
+params:
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each in [0, 1], blank, NA or NaN"
+    default: null
+    doc: >-
+      One p-value per line. BLANK LINES ARE KEPT (as in sdrf parse-age) so output row i is line i;
+      one trailing newline does not add a line. A blank, NA or NaN line is a feature that was not
+      tested: it stays null and is not counted in m. A UTF-8 BOM is dropped.
+
+result:
+  envelope_fields:
+    - {wire: line_count, type: int, unit: lines, nullable: false, null_means: null, doc: "Lines read from stdin; the length of every column."}
+    - {wire: tested_count, type: int, unit: p-values, nullable: false, null_means: null, doc: "m: the finite p-values, the family the adjustment is over."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Equal to line_count."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per input line, in order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Two static caveats."}
+  columns:
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "the line was blank, NA or NaN: not tested", doc: "The p-value as read."}
+    - {wire: bh_adjusted, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not tested", doc: "min over j >= i of p_(j) m / j, capped at 1, for the i-th smallest p-value."}
+
+errors:
+  - {kind: usage, when: "stdin empty; a line that is not a number (other than blank, NA, NaN); a p-value outside [0, 1] (mzLib's refusal, reclassified)"}
+  - {kind: correctness, when: never expected}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Benjamini-Hochberg controls the false discovery rate among the features tested. It is not a target-decoy q-value for identifications."
+  - "m is the number of finite p-values. Leave a line blank, or write NA, for a feature that was not tested rather than writing 1, which would enlarge the family."
+  - "stats fit already reports bh_adjusted per coefficient; use this verb for p-values from anywhere else."
+
+bindings:
+  py: {name: pymzlib.stats.adjust}
+  rust: {name: "mzlib::stats::adjust", note: "planned; not yet shipped"}
+  r: {name: stats_adjust, note: "planned; not yet shipped. NA in the input crosses as an empty line."}
+
+examples:
+  - fixture: stats_adjust.json
+    py: "adjusted = pymzlib.stats.adjust([0.0002, 0.004, 0.019, None, 0.031, 0.2, float('nan'), 0.74])"
+    rust: "let adjusted = mzlib::stats::adjust(&[Some(0.0002), Some(0.004), Some(0.019), None, Some(0.031), Some(0.2), None, Some(0.74)])?;"
+    r: "adjusted <- stats_adjust(c(0.0002, 0.004, 0.019, NA, 0.031, 0.2, NaN, 0.74))"
+
+open_questions:
+  - "Rust and R spellings are proposals until those bindings ship the verb."

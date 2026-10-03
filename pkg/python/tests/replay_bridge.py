@@ -74,6 +74,12 @@ def mismatch(data: dict, options: dict) -> str:
             if flag is not None and flag is not True:
                 return f"--{name} given, but the recording has {key}={flag!r}"
             continue
+        # An input file option is echoed back as <name>_file (--peptides -> peptides_file,
+        # --responses -> responses_file): hold the call's file to the recording's, by file name.
+        if key not in data and isinstance(data.get(f"{key}_file"), str):
+            if base(data[f"{key}_file"]) != base(value):
+                return f"recorded from {base(data[key + '_file'])!r}, not {base(value)!r}"
+            continue
         if key not in data or isinstance(data[key], (dict, list)):
             continue
         recorded = data[key]

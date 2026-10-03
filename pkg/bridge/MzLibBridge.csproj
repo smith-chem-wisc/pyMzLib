@@ -42,6 +42,11 @@
          MassSpectrometry. This is the narrowest seam that lets the bridge do quant with mzLib
          alone (no MetaMorpheus). See design/expansion-plans/flashlfq-tranche.md. -->
     <ProjectReference Include="..\..\code\mzLib\mzLib\FlashLFQ\FlashLFQ.csproj" />
+    <!-- Linear models, empirical-Bayes moderation, Benjamini-Hochberg and random-effects
+         meta-analysis (mzLib #1341, #1357) for the stats verbs. Nothing else references it. Its only
+         dependency is MathNet.Numerics, which FlashLFQ already brings, so the payload grows by the
+         assembly alone. -->
+    <ProjectReference Include="..\..\code\mzLib\mzLib\StatisticalModels\StatisticalModels.csproj" />
   </ItemGroup>
 
   <!-- libtorch arrives through Proteomics -> Chromatography, which references libtorch-cpu for the

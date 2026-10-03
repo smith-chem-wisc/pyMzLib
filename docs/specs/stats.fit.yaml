@@ -1,0 +1,131 @@
+# Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Statistics.cs (Fit, ReadResponses,
+# ReadDesign, FitCaveats) on branch feat/stats-module (stacked on pyMzLib#68), mzLib pin 0a808fec
+# (tag 1.0.593). Example fixtures recorded from the live bridge on that branch. Agreement with limma
+# is held by pkg/bridge.tests/StatisticsTests.cs (Fit_ReproducesLimmaEBayesLegacy_ThroughTheWire).
+verb: stats fit
+module: stats
+summary: >-
+  Fit one linear model per feature of a feature-by-sample table and test each named coefficient
+  with limma's empirical-Bayes moderated t, Benjamini-Hochberg adjusted, in one call.
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: LinearModel.Fit, path: mzLib/StatisticalModels/LinearModel.cs, pin: 0a808fec}
+  - {symbol: EmpiricalBayes.Moderate, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: 0a808fec}
+  - {symbol: EmpiricalBayes.FitPrior, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: 0a808fec}
+  - {symbol: MultipleTesting.BenjaminiHochberg, path: mzLib/StatisticalModels/MultipleTesting.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.2202/1544-6115.1027", for: "the empirical-Bayes moderated t this verb computes (Smyth, Stat Appl Genet Mol Biol 3:3, 2004)"}
+  - {doi: "10.1093/nar/gkv007", for: "limma, whose eBayes(legacy = TRUE) mzLib reproduces to 1e-8 relative (Ritchie et al., Nucleic Acids Res 43:e47, 2015)"}
+  - {doi: "10.1111/j.2517-6161.1995.tb02031.x", for: "the Benjamini-Hochberg adjustment in bh_adjusted (J R Stat Soc B 57:289, 1995)"}
+
+params:
+  - name: responses
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row. The first column is the feature id (unique, any header); every other
+      column is one sample, named by its header. Cells are used as given, so log-transform
+      intensities first. A blank cell, NA or NaN (any case) is missing and is omitted from that
+      feature's fit, never imputed. A 0 is an OBSERVATION. Blank lines are skipped.
+  - name: design
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row and one row per sample. The first column is the sample name and must
+      match the responses header exactly (rows are matched by name, so their order does not
+      matter); every other column is one coefficient, named by its header, and every cell must be a
+      finite number. The design is used as written: include an intercept column if you want one.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each a design column name, none repeated"
+    default: null
+    doc: >-
+      The coefficients to test, one design column name per line. Each gets its own moderated test
+      and its own Benjamini-Hochberg family. The model always fits every design column.
+  - {name: trend, type: flag, required: false, unit: null, range: null, default: false, doc: "Let the prior variance trend with each feature's average response (limma's trend = TRUE), as a natural cubic spline."}
+  - {name: spline-basis, type: int, required: false, unit: basis functions, range: ">= 1; only with --trend", default: 4, doc: "Basis functions of the trend spline, intercept included. mzLib caps it at the distinct average responses and the fitted features minus one; prior.spline_basis_count reports what was used."}
+  - {name: threads, type: int, required: false, unit: threads, range: ">= 1, or -1 for every core", default: 1, doc: "Features fitted at once. The bridge default is 1 (BULK.md); mzLib's own default is -1. Results are identical at any value."}
+
+result:
+  envelope_fields:
+    - {wire: responses_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the responses table."}
+    - {wire: design_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the design table."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Feature rows read."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Sample columns read."}
+    - {wire: sample_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "In responses header order, which is the order the design rows were put in."}
+    - {wire: coefficient_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every design column, in order."}
+    - {wire: tested_coefficients, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stdin coefficients, in order; the table holds one block of feature_count rows per entry."}
+    - {wire: trend, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --trend was given."}
+    - {wire: threads, type: int, unit: threads, nullable: false, null_means: null, doc: "The thread count used."}
+    - {wire: missing_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that were blank, NA or NaN."}
+    - {wire: zero_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that are exactly 0, fitted as observations."}
+    - {wire: status_counts, type: "map<string,int>", unit: features, nullable: false, null_means: null, doc: "Features per status: fitted, too_few_observations, rank_deficient."}
+    - {wire: residual_df_differ, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the fitted features do not all have the same residual df (missing values omitted). Then default limma (>= 3.61, eBayes legacy = FALSE) would use a different prior estimator and report different moderated statistics; these follow legacy = TRUE. A caveat says so."}
+    - {wire: prior, type: object, unit: null, nullable: false, null_means: null, doc: "The fitted variance prior, shared by every tested coefficient; fields under result.tables.prior."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "feature_count x the number of tested coefficients."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (tested coefficient, feature): coefficient blocks in stdin order, features in file order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats, plus one each when residual_df_differ, when any feature was not fitted (with counts), when any cell is 0, and when the prior df is infinite."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
+    - {wire: coefficient, type: string, unit: null, nullable: false, null_means: null, doc: "The coefficient this row tests."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "fitted | too_few_observations (fewer observed samples than coefficients plus one) | rank_deficient (the design restricted to this feature's observed samples is not of full rank). Only fitted rows carry statistics or enter the BH family."}
+    - {wire: estimate, type: float, unit: "response units per coefficient unit (e.g. log2 fold change for a 0/1 group column on log2 intensities)", nullable: true, null_means: "status is not fitted", doc: "The least-squares coefficient; moderation does not change it."}
+    - {wire: standard_error, type: float, unit: "response units per coefficient unit", nullable: true, null_means: "not fitted", doc: "Moderated standard error: sqrt(posterior_variance) x the coefficient's unscaled standard deviation."}
+    - {wire: t, type: float, unit: "standard errors", nullable: true, null_means: "not fitted", doc: "Moderated t-statistic."}
+    - {wire: df_total, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted", doc: "Degrees of freedom of the moderated t: df_residual + prior df, capped at the pooled residual df."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted", doc: "Two-sided p-value."}
+    - {wire: bh_adjusted, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted (not in the family)", doc: "Benjamini-Hochberg adjusted p-value over this coefficient's fitted features. Not a target-decoy q-value."}
+    - {wire: posterior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted", doc: "The moderated residual variance (d0 s0^2 + d s^2) / (d0 + d)."}
+    - {wire: prior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted (the feature did not enter the prior)", doc: "s0^2 for this feature: one value for every feature without --trend, varying with average_response with it."}
+    - {wire: sigma, type: float, unit: "response units", nullable: true, null_means: "not fitted", doc: "Residual standard deviation, sqrt(RSS / df_residual), before moderation."}
+    - {wire: df_residual, type: int, unit: null, nullable: true, null_means: "not fitted", doc: "Observed samples minus coefficients."}
+    - {wire: observed, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a finite response for this feature."}
+    - {wire: average_response, type: float, unit: "response units", nullable: true, null_means: "the feature has no finite response at all", doc: "Mean of the feature's observed responses: the covariate --trend fits on."}
+  tables:
+    prior:
+      - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "infinite: df_infinite is true", doc: "Prior degrees of freedom d0."}
+      - {wire: df_infinite, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the residual variances are no more dispersed than sampling alone explains, so every feature takes the prior variance."}
+      - {wire: trended, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether s0^2 varies with average_response."}
+      - {wire: spline_basis_count, type: int, unit: basis functions, nullable: false, null_means: null, doc: "Basis functions the trend used, intercept included; 1 without a trend."}
+      - {wire: scale, type: float, unit: "squared response units", nullable: true, null_means: "trended: s0^2 is per feature, in the prior_variance column", doc: "s0^2, the prior variance."}
+
+errors:
+  - {kind: usage, when: "responses or design missing, blank or not found; a table empty, header-only or with too few columns; a row whose field count differs from its header; an empty or repeated feature id, sample or coefficient name; a response cell that is not a number (other than blank, NA, NaN); a design cell that is not a finite number"}
+  - {kind: usage, when: "the design's samples are not exactly the responses' sample columns (both differences are named); no coefficient on stdin, one named twice, or one not in the design; --spline-basis without --trend, or below 1; --threads 0 or below -1"}
+  - {kind: usage, when: "mzLib refuses the input: the design is not of full column rank, or fewer than 2 features could be fitted, so no variance prior exists (mzLib's ArgumentException, reclassified)"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "This is limma's LEGACY empirical-Bayes estimator (eBayes(legacy = TRUE)). Since limma 3.61, eBayes defaults to a different estimator whenever residual df differ between features, which omitting missing values causes; residual_df_differ says when that applies."
+  - "Not implemented: robust = TRUE, contrasts, the B-statistic, observation weights. Write a contrast as its own design column instead."
+  - "A 0 is an observation. Log-transform intensities first, and blank any cell that means 'not measured'."
+  - "bh_adjusted adjusts for the false discovery rate among the features tested. It is not a target-decoy q-value for identifications."
+
+bindings:
+  py: {name: pymzlib.stats.fit}
+  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "planned; not yet shipped"}
+  r: {name: stats_fit, note: "planned; not yet shipped"}
+
+examples:
+  - fixture: stats_fit_malat.json
+    py: "fit = pymzlib.stats.fit('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', ['malat_250ng', 'malat_125ng'])"
+    rust: "let fit = mzlib::stats::fit_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_dilution_design.tsv\", &[\"malat_250ng\", \"malat_125ng\"], &FitOptions::default())?;"
+    r: "fit <- stats_fit('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', c('malat_250ng', 'malat_125ng'))"
+  - fixture: stats_fit_limma.json
+    py: "fit = pymzlib.stats.fit('limma_reference_responses.tsv', 'limma_reference_design.tsv', ['age_decades'])"
+    rust: "let fit = mzlib::stats::fit_with(\"limma_reference_responses.tsv\", \"limma_reference_design.tsv\", &[\"age_decades\"], &FitOptions::default())?;"
+    r: "fit <- stats_fit('limma_reference_responses.tsv', 'limma_reference_design.tsv', 'age_decades')"
+
+open_questions:
+  - "Rust and R spellings are proposals until those bindings ship the verb."
+  - "stats_fit_malat.json is the largest recorded fixture (about 258 KB): 492 features x 2 coefficients. It is real data (mzLib's RNA oligo table, #1388), derived by a rule held in StatisticsTests.MalatDilutionFixture_IsLog2OfMzLibsOligoTable."
