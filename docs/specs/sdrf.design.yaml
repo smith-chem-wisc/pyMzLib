@@ -50,7 +50,7 @@ params:
     type: path
     required: false
     unit: null
-    range: null
+    range: ".tsv only, any case (PYB-1)"
     default: null
     doc: >-
       Also write MetaMorpheus's ExperimentalDesign.tsv (1-based) here, through mzLib's writer. Must

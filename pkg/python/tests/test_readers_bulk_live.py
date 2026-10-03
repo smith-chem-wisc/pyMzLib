@@ -154,3 +154,36 @@ def test_a_protein_group_table_written_without_quantification_reads_with_no_inte
 
     assert result.record_count > 0
     assert result.absent_fields == ["intensity"]
+
+
+# ---- bridge thread 008: PYB-1 and PYB-2, through the real bridge ---------------------------------
+# The bridge is the authority on both rules; pyMzLib passes ``out`` through and validates nothing
+# about its extension, so these only prove the bridge's refusal reaches Python as a UsageError.
+
+SDRF = FIXTURES / "PXD067622.sdrf.tsv"
+
+
+@pytest.mark.parametrize("name", ["records.csv", "records.txt", "records", "records.tsv.gz"])
+def test_an_out_that_is_not_tsv_is_a_usage_error_before_the_file_is_read(built_bridge, tmp_path, name):
+    # The input does not exist: a "not found" would mean it was opened before out= was checked.
+    with pytest.raises(_bridge.UsageError, match=r"must name a \.tsv file"):
+        readers.read_records(str(tmp_path / "absent.psmtsv"), out=tmp_path / name)
+    assert not (tmp_path / name).exists()
+    assert not (tmp_path / (name + ".tsv")).exists(), "an extension must never be appended"
+
+
+def test_a_batch_out_that_is_not_tsv_is_a_usage_error_before_any_file_is_read(built_bridge, tmp_path):
+    paths = [str(tmp_path / "a.psmtsv"), str(tmp_path / "b.psmtsv")]
+    with pytest.raises(_bridge.UsageError, match=r"must name a \.tsv file"):
+        readers.read_records_many(paths, out=tmp_path / "batch.csv")
+
+
+def test_read_records_on_an_sdrf_leaves_header_and_cells_out(built_bridge):
+    result = readers.read_records(str(SDRF))
+
+    excluded = {entry["field"]: entry for entry in result.excluded_fields}
+    assert set(excluded) == {"header", "cells"}
+    assert {entry["reason"] for entry in excluded.values()} == {"use sdrf read"}
+    assert {entry["verb"] for entry in excluded.values()} == {"sdrf read"}
+    assert result.column_names == []
+    assert result.record_count == 24

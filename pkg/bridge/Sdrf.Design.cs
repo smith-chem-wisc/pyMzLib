@@ -48,9 +48,7 @@ internal static partial class Sdrf
         string? outputPath = arguments.Optional("out");
         if (arguments.WasProvided("out") && string.IsNullOrWhiteSpace(outputPath))
             throw new Program.UsageException("Option --out needs a file path ending in .tsv, e.g. 'ExperimentalDesign.tsv'.");
-        if (outputPath is not null && !outputPath.EndsWith(".tsv", StringComparison.OrdinalIgnoreCase))
-            throw new Program.UsageException(
-                $"Option --out writes ExperimentalDesign.tsv's format, so the path must end in .tsv; got '{outputPath}'.");
+        Program.RequireTsvOutput(outputPath);
 
         if (!File.Exists(path))
             throw new Program.UsageException($"SDRF file not found: '{path}'.");

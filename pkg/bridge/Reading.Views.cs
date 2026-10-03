@@ -308,13 +308,15 @@ internal static partial class Reading
     /// <remarks>
     /// So an <c>excluded_fields</c> entry is a pointer, not a dead end: the per-sample tables of the
     /// two mzLib 1.0.592 quantification readers (#1347) and mzIdentML's engine scores (#1306) each
-    /// have a typed verb that projects them in long form.
+    /// have a typed verb that projects them in long form, and an SDRF row's header and cells (PYB-2)
+    /// have <c>sdrf read</c>.
     /// </remarks>
     private static string? VerbCarrying(Type recordType, string propertyName) => (recordType.Name, propertyName) switch
     {
         (nameof(ProteinGroupFromTsv), nameof(ProteinGroupFromTsv.SampleGroups)) => "readers read-protein-groups",
         (nameof(QuantifiedPeptideFromTsv), nameof(QuantifiedPeptideFromTsv.Samples)) => "readers read-quantified-peptides",
         (nameof(MzIdentMLRecord), nameof(MzIdentMLRecord.Scores)) => "readers read-matches",
+        (nameof(SdrfRow), nameof(SdrfRow.Header) or nameof(SdrfRow.Cells)) => "sdrf read",
         _ => null,
     };
 

@@ -17,6 +17,24 @@ envelope is not a breaking change unless Python callers can see it.
   modifications** in this mzLib build and writes them back by name; convert to Unimod for those.
   The `pro_forma` column of `read_records()` has the same gap. Wire verb `peptidoform convert`.
 
+### Changed
+- **`out=` on every `readers.read_*()` function, single-file and `_many`, accepts only a `.tsv`
+  path** (any case). Any other extension, or none, is a `UsageError` raised before the file is
+  read, and no extension is ever appended. The table was always tab-separated, so `out="x.csv"`
+  used to write a TSV under a `.csv` name while `output.format` said `"tsv"`. `sdrf.design()` and
+  `proteins.annotate_go()` already refused one, and now share the bridge's one check and message
+  (bridge thread 008, PYB-1).
+- **`read_records()` on an SDRF no longer returns `header` and `cells` as `;`-joined columns.**
+  SDRF cells contain `;` themselves (`NT=Oxidation;AC=UNIMOD:35`), so the join could not be split
+  back. Both are now in `excluded_fields` with the reason `"use sdrf read"`; read SDRFs with
+  `sdrf.read()`. Other formats keep the join (bridge thread 008, PYB-2).
+
+### Fixed
+- **A read too large to return as one answer is a `UsageError` naming its record count**, telling
+  you to use `limit`/`offset` or `out=`. The JSON answer is one .NET string, which holds about
+  1.07 billion characters whatever the machine's memory; past that the bridge used to fail with an
+  unexplained `OutOfMemoryException` after the read had succeeded (bridge thread 008, PYB-3 part 1).
+
 ## [0.3.0] - 2026-10-03
 
 Built from mzLib 1.0.593. Adds differential abundance with no R (`pymzlib.stats`), Gene Ontology on

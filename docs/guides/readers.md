@@ -181,7 +181,7 @@ which:
 |---|---|---|
 | `absent_fields` | the function defines the field, but **this file's format has no column for it** | `None` in every row |
 | `failed_fields` | the field exists, but **reading it threw** on some rows | `None` in those rows |
-| `excluded_fields` | the field has **no column shape** (a dictionary, a nested object) | not a column at all |
+| `excluded_fields` | the field has **no column shape** (a dictionary, a nested object), or would cross only lossily (an SDRF row's `header` and `cells`; use [`sdrf.read()`](sdrf.md)) | not a column at all |
 | none of them | the value is **genuinely missing for that row**: the precursor of an MS1 scan, a blank cell | `None` in that row |
 
 `absent_fields` is the one that protects numbers. When a file lacks an optional column, mzLib does
@@ -273,6 +273,14 @@ The table goes to disk and the envelope carries only a summary. It is **tab-sepa
 these fields contain commas (MSFragger's mapped proteins are a comma-separated list inside a single
 field) and because every mzLib reader and writer uses tabs. Read it with
 `pandas.read_csv(path, sep="\t")`, or `csv.reader(f, delimiter="\t")` with no dependencies at all.
+
+`out=` must end in `.tsv`, in any case. Any other extension, or none, is a `UsageError` raised
+before the file is read, and no extension is ever added for you: `out="records"` is refused, not
+written to `records.tsv`. The same rule holds for every `read_*()` function and its `_many` twin.
+
+A read too large to come back as one answer is a `UsageError` naming its record count; add
+`limit=` or write it with `out=`. The answer is one JSON document held in one .NET string, which
+holds about 1.07 billion characters however much memory the machine has.
 
 !!! warning "`offset` is a window, not a cursor"
     mzLib's readers look lazy and are not: every one of them reads the whole file into a list. So
@@ -731,6 +739,8 @@ dispatchable or it is a `UsageError`:
 | A `_many` call's file cannot be read (default `on_error="fail"`) | that file's own error, its message starting `Input <i> ('<path>')` |
 | A quantification function on a bridge that predates it (`PYMZLIB_BRIDGE` pointing at an old build) | `UsageError` naming the pyMzLib release it needs, before any process starts |
 | `out=` equal to the input path | `UsageError`: a read must not overwrite what it is reading |
+| `out=` not ending in `.tsv` (any case), including no extension | `UsageError` before the file is read; no extension is added |
+| An answer too large for one JSON document | `UsageError` naming the record count: use `limit`/`offset` or `out=` |
 
 A list given to a single-file function is caught before the bridge starts:
 

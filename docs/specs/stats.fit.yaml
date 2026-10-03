@@ -113,7 +113,7 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit}
-  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "planned; not yet shipped"}
+  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "in mzLibR #29, not yet released"}
   r: {name: stats_fit, note: "planned; not yet shipped"}
 
 examples:
