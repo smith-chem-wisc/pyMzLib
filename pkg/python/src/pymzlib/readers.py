@@ -129,8 +129,9 @@ different things, and conflating them is how a missing column turns into a measu
   ``None``, whatever default mzLib filled in.
 - ``failed_fields`` - the field exists, but **reading it threw** for some rows (a UniProt-shaped
   accession parsed from a plain FASTA header). ``None`` in those rows.
-- ``excluded_fields`` - the field has **no column shape** (a dictionary, a nested object), so it
-  does not cross in this function at all; each entry names the function that does carry it.
+- ``excluded_fields`` - the field has **no column shape** (a dictionary, a nested object), or
+  none without loss (an SDRF row's header and cells), so it does not cross in this function at
+  all; each entry names the function that does carry it.
 - a ``None`` in one row, with the field in none of those lists - the value is **genuinely missing
   for that row**: the precursor of an MS1 scan, a blank intensity cell.
 
@@ -763,7 +764,10 @@ class NativeRecords(_Table):
             Listed rather than dropped, so an absent column is never mistaken for an absent field;
             ``verb`` names the bridge command that does carry it - ``sample_groups`` points at
             ``readers read-protein-groups`` (:func:`read_protein_groups`), mzIdentML's ``scores``
-            at ``readers read-matches`` (:func:`read_matches` with ``scores=True``).
+            at ``readers read-matches`` (:func:`read_matches` with ``scores=True``). An SDRF row's
+            ``header`` and ``cells`` are here too, with the reason ``"use sdrf read"``: SDRF cells
+            contain ``;`` themselves, so a ``;``-joined list could not be split back. Read an SDRF
+            with :func:`pymzlib.sdrf.read`.
         failed_fields: Fields that **raised** while being read, with the exception type. Several
             mzLib properties are computed and assume a UniProt-style FASTA header - Crux's and
             MsPathFinderT's ``accession`` are ``protein_id.split("|")[1]`` - so on other databases
@@ -1773,6 +1777,7 @@ def read_results(
         out: Write the records to this path as a **tab-separated** table and return only a summary,
             instead of carrying them back in the envelope. The intended path for large files, not
             an escape hatch. Tab-separated because these fields contain commas.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow. A large file legitimately takes a while; ``None`` waits
             indefinitely.
 
@@ -1820,6 +1825,7 @@ def read_results_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -1883,6 +1889,7 @@ def read_records(
         limit: Maximum records to return. ``None`` (the default) returns all of them.
         offset: Records to skip. A window, not a cursor - see :func:`read_results`.
         out: Write a **tab-separated** table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow. ``None`` waits indefinitely.
 
     Returns:
@@ -1931,6 +1938,7 @@ def read_records_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -1985,6 +1993,7 @@ def read_features(
         limit: Maximum features to return. ``None`` returns all of them.
         offset: Features to skip.
         out: Write a tab-separated table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow.
 
     Returns:
@@ -2027,6 +2036,7 @@ def read_features_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -2091,6 +2101,7 @@ def read_matches(
             records them (mzLib #1306); other files keep one row per match and name the two
             columns in ``absent_fields``. ``limit`` and ``offset`` still count matches.
         out: Write a tab-separated table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow.
 
     Returns:
@@ -2137,6 +2148,7 @@ def read_matches_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -2203,6 +2215,7 @@ def read_spectra(
         peaks: Include the ``mz`` and ``intensity`` arrays. Off by default.
         out: Write a tab-separated table here and return only a summary. With ``peaks=True`` each
             cell holds a ``;``-joined list.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow. Reading a large ``.raw`` legitimately takes a while.
 
     Returns:
@@ -2251,6 +2264,7 @@ def read_spectra_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -2318,6 +2332,7 @@ def read_protein_groups(
             returns all of them.
         offset: Groups to skip.
         out: Write a tab-separated table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow.
 
     Returns:
@@ -2361,6 +2376,7 @@ def read_protein_groups_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -2421,6 +2437,7 @@ def read_quantified_peptides(
         limit: Maximum peptides to return; each gives one row per sample. ``None`` returns all.
         offset: Peptides to skip.
         out: Write a tab-separated table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow.
 
     Returns:
@@ -2463,6 +2480,7 @@ def read_quantified_peptides_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because
@@ -2520,6 +2538,7 @@ def read_occupancy(
         limit: Maximum groups to return. A group with no modified sites gives no rows.
         offset: Groups to skip.
         out: Write a tab-separated table here and return only a summary.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         timeout: Seconds to allow.
 
     Returns:
@@ -2565,6 +2584,7 @@ def read_occupancy_many(
             (:attr:`ReadBatch.output`). Files are written one at a time, in order, so memory holds
             at most ``threads`` files however long the list is - the way to read hundreds. A
             batch that stops on an error removes its partial table.
+            The path must end in ``.tsv`` (any case); any other is a ``UsageError`` before a read.
         threads: Files to read at once: ``1`` (the default), more, or ``-1`` for one per core. The
             result is **byte-identical at any value** - files are always returned in input order -
             so this trades memory for speed and never changes an answer. The default is 1 because

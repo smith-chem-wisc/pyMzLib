@@ -211,8 +211,13 @@ public class ReadingCoverageTests
                 "read-records must report the type mzLib dispatched, not a guess from the extension.");
             Assert.That(data.GetProperty("record_type").GetString(), Is.Not.Empty,
                 "Every read names the mzLib record class its columns came from.");
-            Assert.That(data.GetProperty("column_names").GetArrayLength(), Is.GreaterThan(0),
-                "A format with no columns would mean the projection found nothing to report.");
+            // An SDRF row is the one record type whose every field is excluded with a reason
+            // (PYB-2: its header and cells are lists that cannot be ;-joined losslessly).
+            if (fileType == SupportedFileType.Sdrf)
+                Assert.That(data.GetProperty("excluded_fields").GetArrayLength(), Is.EqualTo(2));
+            else
+                Assert.That(data.GetProperty("column_names").GetArrayLength(), Is.GreaterThan(0),
+                    "A format with no columns would mean the projection found nothing to report.");
             Assert.That(data.GetProperty("record_count").GetInt32(), Is.GreaterThan(0),
                 "Every fixture holds records; a zero count means the file parsed to nothing.");
         });
@@ -250,7 +255,9 @@ public class ReadingCoverageTests
 
         Assert.That(File.Exists(output), Is.True, "--out must write the table it reports.");
 
-        string[] header = File.ReadLines(output).First().Split('\t');
+        // A table with no columns (an SDRF, PYB-2) writes an empty header line, not one empty name.
+        string first = File.ReadLines(output).First();
+        string[] header = first.Length == 0 ? [] : first.Split('\t');
         Assert.Multiple(() =>
         {
             Assert.That(header, Is.EqualTo(data.GetProperty("column_names").EnumerateArray()
@@ -300,6 +307,30 @@ public class ReadingCoverageTests
 
         Assert.That(exclusion, Is.Not.Null, $"{fileType}.{field} must be named in excluded_fields");
         Assert.That(exclusion!.Value.GetProperty("reason").GetString(), Does.StartWith("a dictionary"));
+    }
+
+    [Test]
+    public void AnSdrfRowsHeaderAndCellsAreExcluded_NotJoinedWithSemicolons()
+    {
+        // PYB-2 (bridge thread 008). The general rule joins a list of strings with ';', and SDRF
+        // cells contain ';' themselves (NT=Oxidation;AC=UNIMOD:35), so the join could not be split
+        // back. Nothing lossy crosses: both lists are excluded and point at sdrf read.
+        JsonElement data = Invoke("readers", "read-records",
+            "--path", FixtureFor(SupportedFileType.Sdrf), "--limit", "2");
+
+        List<JsonElement> excluded = data.GetProperty("excluded_fields").EnumerateArray().ToList();
+        List<string?> columns = data.GetProperty("column_names").EnumerateArray().Select(c => c.GetString()).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("record_type").GetString(), Is.EqualTo("SdrfRow"));
+            Assert.That(excluded.Select(e => e.GetProperty("field").GetString()), Is.EquivalentTo(new[] { "header", "cells" }));
+            Assert.That(excluded.Select(e => e.GetProperty("reason").GetString()), Is.All.EqualTo("use sdrf read"));
+            Assert.That(excluded.Select(e => e.GetProperty("verb").GetString()), Is.All.EqualTo("sdrf read"));
+            Assert.That(columns, Does.Not.Contain("header").And.Not.Contain("cells"));
+            Assert.That(data.GetProperty("record_count").GetInt32(), Is.GreaterThan(0),
+                "the rows are still counted; only their lossy rendering is withheld");
+        });
     }
 
     [Test]
@@ -687,6 +718,48 @@ public class ReadingCoverageTests
 
         Assert.That(error.GetProperty("message").GetString(), Does.Contain("must differ from"),
             $"{verb} must refuse to write its projection over the file it is reading.");
+    }
+
+    private static IEnumerable<TestCaseData> EveryReadVerbAndANonTsvOut()
+    {
+        string[] verbs =
+        [
+            "read-results", "read-records", "read-features", "read-matches", "read-spectra",
+            "read-protein-groups", "read-quantified-peptides", "read-occupancy",
+        ];
+        foreach (string verb in verbs)
+            foreach (string name in new[] { "table.csv", "table.txt", "table", "table.tsv.gz" })
+                yield return new TestCaseData(verb, name);
+    }
+
+    [TestCaseSource(nameof(EveryReadVerbAndANonTsvOut))]
+    public void EveryReadVerbRefusesAnOutThatIsNotTsv_BeforeReadingAnything(string verb, string name)
+    {
+        // PYB-1 (bridge thread 008). The input does not exist, so a "not found" here would mean the
+        // file was looked for before --out was checked. No extension is refused too, never appended.
+        string output = Path.Combine(_tempDirectory, name);
+
+        JsonElement error = InvokeExpectingError("readers", verb,
+            "--path", Path.Combine(_tempDirectory, "absent.psmtsv"), "--out", output);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.GetProperty("type").GetString(), Is.EqualTo("usage"));
+            Assert.That(error.GetProperty("message").GetString(), Does.Contain("must name a .tsv file"));
+            Assert.That(File.Exists(output) || File.Exists(output + ".tsv"), Is.False);
+        });
+    }
+
+    [Test]
+    public void AnUpperCaseTsvOutIsAccepted()
+    {
+        string output = Path.Combine(_tempDirectory, "records.TSV");
+
+        JsonElement data = Invoke("readers", "read-records",
+            "--path", FixtureFor(SupportedFileType.psmtsv), "--limit", "1", "--out", output);
+
+        Assert.That(data.GetProperty("output").GetProperty("format").GetString(), Is.EqualTo("tsv"));
+        Assert.That(File.Exists(output), Is.True);
     }
 
     [TestCase("read-records")]

@@ -291,10 +291,7 @@ internal static partial class Proteins
         string? path = arguments.Optional(option);
         if (path is null)
             return null;
-        if (!string.Equals(Path.GetExtension(path), ".tsv", StringComparison.OrdinalIgnoreCase))
-            throw new Program.UsageException(
-                $"Option --{option} must name a .tsv file; got '{path}'. The table is written as mzLib's " +
-                "tab-separated format and .tsv is the only extension that says so.");
+        Program.RequireTsvOutput(path, option);
         string full = Path.GetFullPath(path);
         string? directory = Path.GetDirectoryName(full);
         if (directory is not null && !Directory.Exists(directory))

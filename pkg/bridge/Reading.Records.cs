@@ -735,6 +735,10 @@ internal static partial class Reading
                     $"Option --out must differ from --path: writing to '{path}' would overwrite the input file.");
             }
 
+            // PYB-1: the table is tab-separated whatever the path says, so a path that says
+            // otherwise is refused here, before the input is opened.
+            Program.RequireTsvOutput(outputPath);
+
             return new Window(path, offset, limit, string.IsNullOrWhiteSpace(outputPath) ? null : outputPath);
         }
 
@@ -778,6 +782,15 @@ internal static partial class Reading
     /// <see cref="Excluded"/>. Flattening a nested object into invented column names would be the
     /// bridge inventing a schema mzLib never published.
     /// </para>
+    /// <para>
+    /// <b>One exception: an SDRF row's lists do not cross</b> (bridge thread 008, PYB-2).
+    /// <see cref="SdrfRow.Header"/> and <see cref="SdrfRow.Cells"/> are lists of strings, so the
+    /// general rule would join each with <c>;</c> — and SDRF cells themselves contain <c>;</c>
+    /// (<c>NT=Oxidation;AC=UNIMOD:35</c>), so the join could not be split back, and a document whose
+    /// column names repeat would cross as one string per row with no way to tell which value went
+    /// with which column. Both are named in <c>excluded_fields</c> with the reason
+    /// <see cref="UseSdrfRead"/>; <c>sdrf read</c> carries the document losslessly.
+    /// </para>
     /// </remarks>
     private sealed class RecordProjection
     {
@@ -799,7 +812,7 @@ internal static partial class Reading
 
             foreach (PropertyInfo property in PropertiesOf(recordType))
             {
-                string? why = WhyNotAColumn(property);
+                string? why = IsSdrfRowList(recordType, property) ? UseSdrfRead : WhyNotAColumn(property);
                 if (why is null)
                     fields.Add((SnakeCase(property.Name), property));
                 else
@@ -817,6 +830,21 @@ internal static partial class Reading
             Excluded = excluded;
             _sentinelFields = SentinelFieldsOf(recordType);
         }
+
+        /// <summary>The <c>excluded_fields</c> reason for an SDRF row's header and cells (PYB-2).</summary>
+        internal const string UseSdrfRead = "use sdrf read";
+
+        /// <summary>
+        /// Whether this is <see cref="SdrfRow.Header"/> or <see cref="SdrfRow.Cells"/>, which never
+        /// cross <c>;</c>-joined: SDRF cells contain <c>;</c> themselves (see the class remarks).
+        /// </summary>
+        /// <remarks>
+        /// Named rather than "every SdrfRow property", so a scalar mzLib adds to the row later still
+        /// becomes a column under the general rule instead of being swept out with these two.
+        /// </remarks>
+        private static bool IsSdrfRowList(Type recordType, PropertyInfo property) =>
+            typeof(SdrfRow).IsAssignableFrom(recordType)
+            && property.Name is nameof(SdrfRow.Header) or nameof(SdrfRow.Cells);
 
         /// <summary>
         /// The fields on this record type where mzLib documents <c>-1</c> as "absent".

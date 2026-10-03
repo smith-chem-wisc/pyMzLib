@@ -327,6 +327,27 @@ public class ReadingBulkTests
         Assert.That(error.GetProperty("message").GetString(), Does.Contain("repeats input 0"));
     }
 
+    [TestCase("read-records", "batch.csv")]
+    [TestCase("read-spectra", "batch")]
+    [TestCase("read-results", "batch.txt")]
+    [TestCase("read-protein-groups", "batch.tsv.gz")]
+    public void ABatchOutThatIsNotTsvIsRefusedBeforeAnyInputIsRead(string verb, string name)
+    {
+        // PYB-1, in the --paths-stdin form. Neither input exists, so a "not found" would mean they
+        // were opened before --out was checked.
+        string output = Path.Combine(_tempDirectory, name);
+        JsonElement error = InvokeExpectingError(
+            Stdin([Path.Combine(_tempDirectory, "a.psmtsv"), Path.Combine(_tempDirectory, "b.psmtsv")]),
+            ["readers", verb, "--paths-stdin", "--out", output]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(error.GetProperty("type").GetString(), Is.EqualTo("usage"));
+            Assert.That(error.GetProperty("message").GetString(), Does.Contain("must name a .tsv file"));
+            Assert.That(File.Exists(output), Is.False);
+        });
+    }
+
     [Test]
     public void OutMayNotOverwriteAnyInput()
     {

@@ -606,6 +606,9 @@ internal static partial class Reading
                 throw new Program.UsageException(
                     $"Option --out must differ from every input: writing to '{outputPath}' would overwrite input {clash}.");
 
+            // PYB-1, as Window.From: refused before any input is opened.
+            Program.RequireTsvOutput(outputPath);
+
             return new Batch(paths, threads, skip, string.IsNullOrWhiteSpace(outputPath) ? null : outputPath);
         }
     }

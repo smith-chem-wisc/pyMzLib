@@ -81,7 +81,8 @@ file's format has no column for** - MBR Score in a current FlashLFQ peaks table,
 MSPathFinder targets file, apex intensity in a FLASHDeconv feature file - so every value is `None`
 rather than the default mzLib would have filled in (often a zero that looks like a measurement).
 `failed_fields` names columns whose read threw on some rows, and `excluded_fields` names fields
-that have no column shape at all. The
+that have no column shape at all, or none without loss (an SDRF's header and cells: use
+`sdrf.read()`). The
 [readers guide](guides/readers.md#four-ways-a-field-can-have-no-value) sets the four cases side
 by side.
 

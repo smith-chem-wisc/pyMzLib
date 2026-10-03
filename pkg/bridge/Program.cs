@@ -212,8 +212,9 @@ public static partial class Program
         try
         {
             object data = await DispatchAsync(args).ConfigureAwait(false);
-            WriteJson(new Envelope { Ok = true, Data = data });
-            return 0;
+            (string json, int exitCode) = SuccessJson(data);
+            Console.Out.WriteLine(json);
+            return exitCode;
         }
         catch (UsageException ex)
         {
@@ -352,6 +353,37 @@ public static partial class Program
     }
 
 
+
+    /// <summary>
+    /// Refuses an output path whose extension is not <c>.tsv</c> (any case), as a usage error.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one rule behind every option that writes a table (bridge thread 008, PYB-1): the reader
+    /// verbs' <c>--out</c>, single-file and batch, <c>sdrf design --out</c>, and <c>proteins
+    /// annotate-go</c>'s <c>--out</c>/<c>--categories-out</c>. Each of them writes tab-separated
+    /// values and nothing else, so a path saying <c>.csv</c> or <c>.txt</c> would mislabel the file
+    /// it gets, and the result's <c>format = "tsv"</c> would contradict its own path.
+    /// </para>
+    /// <para>
+    /// A path with no extension is refused too, rather than given one: appending <c>.tsv</c> would
+    /// write somewhere the caller did not name. Every caller checks before it reads any input, so a
+    /// typo costs milliseconds rather than a whole read. A null path (the option was not given)
+    /// passes; a blank one is each verb's own "given without a value" error.
+    /// </para>
+    /// </remarks>
+    /// <param name="path">The path as given, or null when the option was not given.</param>
+    /// <param name="option">The option's name without its dashes, for the message.</param>
+    internal static void RequireTsvOutput(string? path, string option = "out")
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+        if (!string.Equals(Path.GetExtension(path), ".tsv", StringComparison.OrdinalIgnoreCase))
+            throw new UsageException(
+                $"Option --{option} must name a .tsv file; got '{path}'. .tsv is the only format --{option} " +
+                "writes (tab-separated values), so any other extension, or none, is refused rather than " +
+                "renamed.");
+    }
 
     /// <summary>Reports the bridge and protocol versions so a caller can check compatibility.</summary>
     /// <remarks>
@@ -749,6 +781,63 @@ public static partial class Program
         url = file.Url,
         approximate_size_bytes = file.ApproximateSizeBytes,
     };
+
+    /// <summary>
+    /// The success envelope for <paramref name="data"/> and exit code 0 — or, when the answer is too
+    /// large to become one JSON document, a <c>usage</c> envelope and exit code 2 (PYB-3).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The document is one .NET string, and a string holds at most about 1.07 billion characters.
+    /// Measured on 2026-10-03, System.Text.Json serialising to a string as here, with 446 GB free:
+    /// a 0.90-billion-character document serialises, a 1.10-billion-character one throws
+    /// <see cref="OutOfMemoryException"/>. So the failure is the string ceiling, not the machine's
+    /// memory, and more RAM does not move it. It used to escape as an unexplained correctness failure
+    /// after the whole read had succeeded.
+    /// </para>
+    /// <para>
+    /// It is the caller's to fix, with <c>--limit</c>/<c>--offset</c> or <c>--out</c>, so it is a
+    /// <c>usage</c> error and the contract gains no new kind (bridge thread 008, PYB-3 part 1). Only
+    /// <see cref="OutOfMemoryException"/> is caught, because it is what the measurement produced; an
+    /// <see cref="ArgumentOutOfRangeException"/> from a getter is a real fault and stays one. Nothing
+    /// reaches stdout until the document is whole, so the refusal is the only envelope written.
+    /// Refusing before serialising (part 2) needs a size threshold measured per format, and is not
+    /// done here.
+    /// </para>
+    /// </remarks>
+    internal static (string Json, int ExitCode) SuccessJson(object data)
+    {
+        try
+        {
+            return (JsonSerializer.Serialize(new Envelope { Ok = true, Data = data }, JsonOptions), 0);
+        }
+        catch (OutOfMemoryException)
+        {
+            long? records = RecordCountOf(data);
+            string what = records is null ? "this read" : $"this read ({records} records)";
+            return (ErrorJson("usage",
+                $"{what} is too large to return as one document; use --limit/--offset or --out."), 2);
+        }
+    }
+
+    /// <summary>The parsed record count a read reported, or null when the answer carries none.</summary>
+    private static long? RecordCountOf(object data)
+    {
+        object? count = data is IReadOnlyDictionary<string, object?> table
+            ? table.GetValueOrDefault("record_count")
+            : data.GetType().GetProperty("record_count")?.GetValue(data);
+
+        return count switch
+        {
+            int value => value,
+            long value => value,
+            _ => null,
+        };
+    }
+
+    private static string ErrorJson(string type, string message) =>
+        JsonSerializer.Serialize(
+            new Envelope { Ok = false, Error = new ErrorInfo { Type = type, Message = message } }, JsonOptions);
 
     private static void WriteJson(Envelope envelope) =>
         Console.Out.WriteLine(JsonSerializer.Serialize(envelope, JsonOptions));

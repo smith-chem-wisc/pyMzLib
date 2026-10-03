@@ -179,4 +179,54 @@ public class WireFormatTests
             Assert.That(json.TryGetProperty("error", out _), Is.True);
         });
     }
+
+    /// <summary>An answer whose serialisation fails the way a document past the string ceiling does.</summary>
+    private sealed class TooLargeToSerialize
+    {
+        public string Cells => throw new OutOfMemoryException();
+    }
+
+    [Test]
+    public void AnAnswerTooLargeForOneDocumentIsAUsageErrorNamingTheRecordCount()
+    {
+        // PYB-3 part 1 (bridge thread 008): the caller can fix it with --limit/--offset or --out, so
+        // it is usage, exit 2, never an unexplained correctness failure after a successful read.
+        var data = new Dictionary<string, object?> { ["record_count"] = 842130, ["columns"] = new TooLargeToSerialize() };
+
+        (string json, int exitCode) = Program.SuccessJson(data);
+        JsonElement envelope = JsonSerializer.Deserialize<JsonElement>(json);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitCode, Is.EqualTo(2));
+            Assert.That(envelope.GetProperty("ok").GetBoolean(), Is.False);
+            Assert.That(envelope.GetProperty("error").GetProperty("type").GetString(), Is.EqualTo("usage"));
+            Assert.That(envelope.GetProperty("error").GetProperty("message").GetString(), Is.EqualTo(
+                "this read (842130 records) is too large to return as one document; use --limit/--offset or --out."));
+        });
+    }
+
+    [Test]
+    public void ATooLargeAnswerWithNoRecordCountStillSaysWhatToDo()
+    {
+        (string json, int exitCode) = Program.SuccessJson(new { columns = new TooLargeToSerialize() });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitCode, Is.EqualTo(2));
+            Assert.That(json, Does.Contain("this read is too large to return as one document"));
+        });
+    }
+
+    [Test]
+    public void AnOrdinaryAnswerIsASuccessWithExitCodeZero()
+    {
+        (string json, int exitCode) = Program.SuccessJson(new { record_count = 3 });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitCode, Is.Zero);
+            Assert.That(JsonSerializer.Deserialize<JsonElement>(json).GetProperty("ok").GetBoolean(), Is.True);
+        });
+    }
 }
