@@ -2,7 +2,7 @@
 repository: trishorts/bridge (private)
 path: design/verbs
 commit: ae3ed8d0a0f5e567d55d46be6f97389978644c94
-uncommitted_changes: no
+uncommitted_changes: yes
 synced: 2026-10-02
-specs: 25
+specs: 28
 not_vendored: peptidoform.fragments.yaml, pride.download.yaml, pride.files.yaml, pride.ftp-files.yaml, pride.search.yaml, quant.flashlfq.yaml, quant.median-polish.yaml
