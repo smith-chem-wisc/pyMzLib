@@ -213,7 +213,11 @@ def invoke(*args: str, stdin: str | None = None, timeout: float | None = None) -
     try:
         completed = subprocess.run(
             command,
-            input=stdin,
+            # Never inherit the caller's stdin. Some verbs read stdin unconditionally (median
+            # polish takes its optional design there), so an inherited, still-open stdin -- a
+            # terminal or a REPL -- makes the bridge wait for input forever. An empty string
+            # gives the bridge a pipe that is already at end of file.
+            input=stdin if stdin is not None else "",
             capture_output=True,
             text=True,
             encoding="utf-8",

@@ -12,6 +12,7 @@ None of these tests touch the network or the real executable.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -204,6 +205,64 @@ def test_every_error_is_catchable_as_one_type():
     """A user should be able to write `except PyMzLibError` and be done."""
     for error in (_bridge.UsageError, _bridge.BridgeNotFoundError, _bridge.BridgeError):
         assert issubclass(error, _bridge.PyMzLibError)
+
+
+# --------------------------------------------------------------------------- stdin
+
+
+def test_a_call_with_no_stdin_sends_an_empty_one_rather_than_inheriting_the_callers(
+    monkeypatch, fake_bridge
+):
+    seen = {}
+
+    def run(*args, **kwargs):
+        seen.update(kwargs)
+        return _Completed(stdout=json.dumps({"ok": True, "data": None}))
+
+    monkeypatch.setattr(subprocess, "run", run)
+    _bridge.invoke("anything")
+    assert seen["input"] == ""
+
+
+# The bridge itself, for this test: a Python child that reads stdin to end of file and then
+# answers. It stands in for a verb that reads stdin unconditionally, as `quant median-polish` does
+# for its optional design.
+_READS_STDIN_TO_EOF = (
+    "import json, sys; sys.stdin.read(); print(json.dumps({'ok': True, 'data': 'reached eof'}))"
+)
+
+_CALLER = f"""
+import sys
+from pathlib import Path
+from pymzlib import _bridge
+_bridge.bridge_path = lambda: Path(sys.executable)
+print(_bridge.invoke("-c", {_READS_STDIN_TO_EOF!r}))
+"""
+
+
+def test_a_caller_whose_own_stdin_never_closes_still_gets_an_answer():
+    """A terminal or a REPL holds stdin open for ever. Before the fix the bridge inherited it, and
+    `median_polish(path)` with no design waited for input that never came, with no timeout to
+    stop it. Here the caller's stdin is a pipe this test never closes."""
+    caller = subprocess.Popen(
+        [sys.executable, "-c", _CALLER],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)},
+    )
+    try:
+        returncode = caller.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        caller.kill()
+        caller.communicate()
+        pytest.fail("the bridge inherited the caller's open stdin and never returned")
+    out = caller.stdout.read()
+    err = caller.stderr.read()
+    caller.stdin.close()
+    assert returncode == 0, err
+    assert out.strip() == "reached eof"
 
 
 # --------------------------------------------------------------------------- version handshake

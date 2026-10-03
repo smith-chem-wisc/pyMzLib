@@ -94,6 +94,11 @@ Built from mzLib 1.0.593.
 - **`flashlfq.quantify(use_pep_q_value=...)` documented what it does.** Its docstring said it
   filters identifications on PEP q-value; it filters nothing, and changes the q-value FlashLFQ
   carries.
+- **`flashlfq.median_polish(path)` with no design no longer hangs in a terminal or a REPL.** The
+  bridge reads its optional design from stdin, and with no design to send, it inherited the
+  caller's stdin. A terminal or a REPL never closes that, so the call waited for input for ever,
+  with no default timeout to stop it. No call now inherits the caller's stdin: a call with nothing
+  to send gives the bridge an empty one, so every verb is covered, not only this one.
 - **`peptidoform.fragments()`: `peptides_at_isoform_cap` counts the raw digest, as it always said
   it did.** It was recomputed on the de-duplicated list, so a locus that mzLib truncated at the cap,
   and that the mzLib#1108 de-duplication then dropped below it, was reported as untruncated. The
