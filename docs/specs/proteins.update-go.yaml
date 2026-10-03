@@ -6,7 +6,7 @@ module: proteins
 summary: >-
   Download the current Gene Ontology release (go.obo) to a path, on purpose, keeping any different
   file already there as a timestamped backup.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: Loaders.UpdateGeneOntology, path: mzLib/UsefulProteomicsDatabases/Loaders.cs, pin: 0a808fec}
   - {symbol: GeneOntologyGraph.Load, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GeneOntologyGraph.cs, pin: 0a808fec}
