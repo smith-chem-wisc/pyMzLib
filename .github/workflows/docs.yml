@@ -87,6 +87,9 @@ jobs:
       - name: Docstring examples run against the replay bridge
         run: python -m pytest --doctest-modules pkg/python/src/pymzlib -v
 
+      - name: Guide examples (>>> sessions) run against the replay bridge
+        run: python -m pytest --doctest-glob="*.md" docs/guides -v
+
   deploy:
     # Pull requests build the docs but do not publish them.
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'

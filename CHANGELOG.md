@@ -9,6 +9,22 @@ envelope is not a breaking change unless Python callers can see it.
 Built from mzLib 1.0.593.
 
 ### Added
+- **Gene Ontology on protein groups: `proteins.annotate_go()` and `proteins.update_go()`** (mzLib
+  #1353, #1366). `annotate_go()` reads a MetaMorpheus protein-group table (`AllQuantifiedProteinGroups.tsv`,
+  `AllProteinGroups.tsv` or a file's `_ProteinGroups.tsv`), the UniProt XML the search used and a
+  go.obo, and returns one row per (group, term) that any member holds, directly or through an
+  ancestor over `is_a` and `part_of`. No member is privileged: each row names the members that carry
+  the term, how directly, and on what evidence, so the consensus and direct-only views are filters.
+  Every non-decoy group gets at least one row, and a group with no term gets one that says why
+  (`no_go_terms`, `no_entry`, `contaminant`). `category_map=` applies your own term-to-category map.
+  `out=` writes the whole table with mzLib's own `GoAnnotationTsv` writer, provenance header
+  included, and must end in `.tsv`; `limit`/`offset` window only what comes back. Nothing is
+  downloaded: `update_go()` is the one function that fetches go.obo, and it keeps a replaced file as
+  a timestamped backup. The column names are mzLib's schema, and the bridge test suite holds `out=`
+  byte for byte equal to mzLib's writer.
+- **Guide examples run in CI.** A `>>>` session in `docs/guides/*.md` is now executed against the
+  replay bridge, as docstring examples already were. The Gene Ontology section of the protein
+  guide is the first.
 - **RNA quantification tables** (mzLib 1.0.593, #1388). An RNA search's
   `AllQuantifiedTranscriptGroups.tsv` reads through `read_protein_groups()` and `read_occupancy()`,
   and its `AllQuantifiedOligos.tsv` through `read_quantified_peptides()`. mzLib reads them with

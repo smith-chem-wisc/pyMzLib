@@ -1,0 +1,112 @@
+# Written 2026-10-03 from pyMzLib pkg/bridge/Proteins.Go.cs (AnnotateGo) on branch
+# feat/proteins-annotate-go (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). The example
+# fixture was recorded from the live bridge over mzLib's own PXD036557 MetaMorpheus 1.1.11 table, the
+# five UniProt entries it names (cut whole from UP000005640, 2026-09-18) and GO release 2026-07-26
+# trimmed to the 412 terms mzLib's annotator reached on the full ontology. The trimmed pair
+# reproduces the full run's 563 rows exactly, apart from the two file hashes.
+verb: proteins annotate-go
+module: proteins
+summary: >-
+  Annotate a stored MetaMorpheus protein-group table with Gene Ontology terms: one row per (group,
+  term) that any member holds, directly or through an ancestor, with no member privileged.
+since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: GoGroupAnnotator.AnnotateAll, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoGroupAnnotator.cs, pin: 0a808fec}
+  - {symbol: GeneOntologyGraph.Load, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GeneOntologyGraph.cs, pin: 0a808fec}
+  - {symbol: ProteinGroupFromTsvExtensions.ToGoAnnotationGroups, path: mzLib/Readers/InternalResults/IndividualResultRecords/ProteinGroupFromTsvExtensions.cs, pin: 0a808fec}
+  - {symbol: GoAnnotationTsv.Schema, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoAnnotationTsv.cs, pin: 0a808fec}
+  - {symbol: GoAnnotationTsv.Write, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoAnnotationTsv.cs, pin: 0a808fec}
+  - {symbol: GoCategoryResolver.Categorize, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoCategoryResolver.cs, pin: 0a808fec}
+  - {symbol: GoCategoryTsv.Write, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoCategoryTsv.cs, pin: 0a808fec}
+  - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 0a808fec}
+cite:
+  - {doi: "10.1093/genetics/iyad031", for: "The Gene Ontology knowledgebase in 2023 (GO Consortium, Genetics 224, iyad031), the ontology and annotations used"}
+  - {doi: "10.1038/75556", for: "Gene Ontology: tool for the unification of biology (Ashburner et al., Nat Genet 25, 25-29, 2000), the is_a / part_of graph propagated over"}
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, whose XML GO dbReferences are the direct annotations (UniProt Consortium 2025, NAR)"}
+
+params:
+  - {name: groups, type: path, required: true, unit: null, range: null, default: null, doc: "A MetaMorpheus protein-group table: AllQuantifiedProteinGroups.tsv, AllProteinGroups.tsv (no quantification, mzLib #1365) or a file's <file>_ProteinGroups.tsv. Read by ProteinGroupFromTsvFile."}
+  - {name: database, type: path, required: true, unit: null, range: null, default: null, doc: "The UniProt XML (.xml or .xml.gz) whose GO terms annotate the members: the proteome the search used. Exactly one, because every row carries that database's sha256. A FASTA is a usage error: it carries no GO."}
+  - {name: go-obo, type: path, required: true, unit: null, range: null, default: null, doc: "A go.obo file, which must exist. Nothing is downloaded (see proteins update-go), so the release is always one the caller chose to keep."}
+  - {name: skip-unknown-go-ids, type: flag, required: false, unit: null, range: null, default: false, doc: "Drop each GO id the database cites that the release lacks, listing it in unresolved_go_ids, instead of failing on the first run that meets one."}
+  - {name: category-map, type: path, required: false, unit: null, range: null, default: null, doc: "A consumer term-to-category map in mzLib's format (#!category_map_format 1, #!map_name, #!map_version; columns category, subcategory, anchor_go_id). Adds the categories table. mzLib ships no map."}
+  - {name: out, type: path, required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the WHOLE table here with GoAnnotationTsv.Write, header included, whatever offset and limit are. Written atomically through <out>.partial. Must not name an input; its folder must exist."}
+  - {name: categories-out, type: path, required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the category table here with GoCategoryTsv.Write. Needs category-map."}
+  - {name: offset, type: int, required: false, unit: rows, range: ">= 0", default: 0, doc: "Skip this many rows in the payload."}
+  - {name: limit, type: int, required: false, unit: rows, range: ">= 0", default: null, doc: "Return at most this many rows. Absent means every row. 0 returns only the summary, the usual pairing with out for a large run."}
+
+result:
+  envelope_fields:
+    - {wire: groups_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the protein-group table."}
+    - {wire: groups_file_sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the table's bytes; also the header's source_file_sha256."}
+    - {wire: table_row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in the table, decoys included."}
+    - {wire: decoy_group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Decoy rows (label contains D, so an entrapment decoy ED too), skipped: decoys carry no GO."}
+    - {wire: group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Groups annotated: every non-decoy group, contaminants included, each once even when MetaMorpheus wrote it twice (mzLib #1366)."}
+    - {wire: annotation_database, type: object, unit: null, nullable: false, null_means: null, doc: "{path, file_type (UniProtXml), reader, protein_count, sha256 (of the DECOMPRESSED bytes), caveats}."}
+    - {wire: go, type: object, unit: null, nullable: false, null_means: null, doc: "{source_file_name, sha256, release (the data-version; null when the file has none), term_count (obsolete terms included)}."}
+    - {wire: skip_unknown_go_ids, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether skip-unknown-go-ids was given."}
+    - {wire: unresolved_go_ids, type: "string[]", unit: null, nullable: false, null_means: null, doc: "GO ids the database cites that the release lacks, in ordinal order. Always empty without skip-unknown-go-ids (the call fails instead)."}
+    - {wire: header, type: "map<string,string>", unit: null, nullable: false, null_means: null, doc: "The #!key value header GoAnnotationTsv.Write produced, read back: go_annotation_format, mzlib_version, mzlib_release, go_release, go_obo_sha256, annotation_db_sha256, source_file_sha256, unresolved_go_ids (only when some were dropped), counter_q_value_max, n_multi_member_groups and status_<status>. The counters count GROUPS at q <= counter_q_value_max, not rows."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in the whole table."}
+    - {wire: returned_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns."}
+    - {wire: offset, type: int, unit: rows, nullable: false, null_means: null, doc: "The offset applied."}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever rows were left out of columns by limit or offset."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Ids dropped from the database, a go.obo with no data-version, and the database's own load caveats."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, row_count}; row_count is the whole table."}
+    - {wire: categories, type: object, unit: null, nullable: true, null_means: "category-map was not given", doc: "{map_name, map_version, source_file_name, sha256, anchor_count, row_count, column_names [go_id, category, subcategory], columns}: GoCategoryTsv's rows read back. subcategory is \"category:subcategory\", or null where the term reaches only the category's own anchor. A term under no anchor has no row."}
+    - {wire: categories_written, type: object, unit: null, nullable: true, null_means: "categories-out was not given", doc: "{path}."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Exactly GoAnnotationTsv.Schema's headers, in its order (a bridge test holds them equal)."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to per-row values, for the returned window."}
+  columns:
+    - {wire: protein_group, type: string, unit: null, nullable: false, null_means: null, doc: "The group as MetaMorpheus named it, members |-joined."}
+    - {wire: accession_used, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Members carrying the term, directly or by propagation, ordinal order. Empty on a term-less row."}
+    - {wire: accession_direct, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Of those, members annotated to this exact term."}
+    - {wire: accession_inherited, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Of those, members whose terms were borrowed: a UniProt isoform or mzLib sequence variant takes its entry's terms when it has none of its own."}
+    - {wire: go_id, type: string, unit: null, nullable: true, null_means: "a term-less row: the group has no term (annotation_status says why)", doc: "The term's primary id (an alternative id in the database resolves to it)."}
+    - {wire: go_name, type: string, unit: null, nullable: true, null_means: "a term-less row", doc: "The term's name in this release."}
+    - {wire: aspect, type: string, unit: null, nullable: true, null_means: "a term-less row", doc: "biological_process | cellular_component | molecular_function | unknown, spelled by mzLib's own schema column."}
+    - {wire: evidence, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Evidence codes (ECO) pooled over the carrying members, ordinal order."}
+    - {wire: evidence_by_member, type: "map<string,string[]>", unit: null, nullable: false, null_means: null, doc: "Member to its own evidence codes for this term; empty on a term-less row. The file spells it member=code,code;member=code."}
+    - {wire: inherited, type: bool, unit: null, nullable: true, null_means: "a term-less row", doc: "True when every carrying member's terms were borrowed (accession_inherited covers accession_used)."}
+    - {wire: propagated, type: bool, unit: null, nullable: true, null_means: "a term-less row", doc: "True when no member is annotated to this exact term: it is implied by a more specific one, over is_a or part_of."}
+    - {wire: n_members, type: int, unit: proteins, nullable: false, null_means: null, doc: "Members in the group."}
+    - {wire: n_with, type: int, unit: proteins, nullable: false, null_means: null, doc: "Members carrying the term; 0 on a term-less row. n_with == n_members is the consensus view."}
+    - {wire: entrapment_members, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The group's entrapment members (ProteinDbLoader.IsEntrapmentAccession, or marked so by the database), on every row of the group."}
+    - {wire: annotation_status, type: string, unit: null, nullable: false, null_means: null, doc: "annotated | no_go_terms | no_entry | contaminant (GoAnnotationTsv.StatusName). A row with a term is always annotated."}
+    - {wire: q_value, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The group's q-value from the table. Never filtered on."}
+    - {wire: go_release, type: string, unit: null, nullable: true, null_means: "the go.obo has no data-version header", doc: "The ontology release, e.g. releases/2026-07-26."}
+    - {wire: go_obo_sha256, type: string, unit: null, nullable: false, null_means: null, doc: "sha256 of the go.obo."}
+    - {wire: annotation_db_sha256, type: string, unit: null, nullable: false, null_means: null, doc: "sha256 of the decompressed annotation database."}
+
+errors:
+  - {kind: usage, when: "a missing groups table, database, go.obo or category map; a FASTA database; out or categories-out not .tsv, naming an input, naming each other, or in a folder that does not exist; categories-out without category-map; a negative offset or limit. Every one is raised before any file is read."}
+  - {kind: correctness, when: "the database cites a GO id the release lacks, without skip-unknown-go-ids (InvalidDataException naming every id); a go.obo mzLib cannot parse, including a truncated one whose edges name absent terms (InvalidDataException with the line); a category map it refuses; a group written twice with different members (InvalidDataException); a table or database it cannot parse"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "The table is the UNION over a group's members, never a pick: MetaMorpheus chooses no leading protein. Consensus (n_with == n_members), direct-only (propagated false) and no-borrowing (inherited false) are filters on the rows."
+  - "Every non-decoy group gets at least one row; a group with no term gets one term-less row whose annotation_status says why. Decoys get none."
+  - "The header counters count groups at q <= 0.01, not rows; the rows are unfiltered and every group is present."
+  - "Pin the ontology: terms and ancestors change between releases. This verb reads only an existing go.obo and never downloads one; record go.sha256 with the results."
+  - "mzlib_release in the header is 'none' and mzlib_version is 1.0.0+<commit>, because the bridge builds mzLib from source at the pinned commit; the commit names the release."
+  - "An isoform or variant member absent from the database (or present without GO of its own) borrows its entry's terms and is listed in accession_inherited; an isoform can differ from its entry in cellular component, which is why the row says so."
+
+bindings:
+  py: {name: pymzlib.proteins.annotate_go}
+  rust: {name: "mzlib::proteins::annotate_go_with", options: GoAnnotateOptions}
+  r: {name: proteins_annotate_go}
+
+examples:
+  - fixture: proteins_annotate_go_pxd036557.json
+    py: "go = pymzlib.proteins.annotate_go(\"PXD036557_AllQuantifiedProteinGroups.tsv\", \"pxd036557_proteins.xml\", go_obo=\"go-pxd036557.obo\", category_map=\"organelle_map.tsv\")"
+    rust: "let go = mzlib::proteins::annotate_go_with(groups, database, &GoAnnotateOptions { go_obo: obo, category_map: Some(map), ..Default::default() })?;"
+    r: "go <- proteins_annotate_go(groups, database, go_obo = obo, category_map = map)"
+  - fixture: proteins_annotate_go_out.json
+    py: "go = pymzlib.proteins.annotate_go(groups, database, go_obo=obo, out=\"go_annotations.tsv\", limit=0)"
+    rust: "let go = mzlib::proteins::annotate_go_with(groups, database, &GoAnnotateOptions { go_obo: obo, out: Some(\"go_annotations.tsv\".into()), limit: Some(0), ..Default::default() })?;"
+    r: "go <- proteins_annotate_go(groups, database, go_obo = obo, out = \"go_annotations.tsv\", limit = 0)"
+
+open_questions:
+  - "Only one annotation database: a search over a target XML plus a separate contaminant database annotates contaminant members as no_entry unless their entries are in the XML. Whether GoGroupAnnotator should take several databases (and stamp several sha256s) is mzLib's call."
+  - "No bulk (--paths-stdin) form yet. One table per call; a cohort of many tables against one proteome reloads the proteome each time."
+  - "PYB-3 (a document too large to return is a usage error) is not built in the bridge yet; until it is, use out with limit 0 for a large table."

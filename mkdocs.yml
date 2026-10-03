@@ -44,6 +44,7 @@ hooks:
 exclude_docs: |
   reference/_generated/
   specs/
+  conftest.py
 
 plugins:
   - search

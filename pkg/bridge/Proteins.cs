@@ -30,7 +30,7 @@ namespace MzLibBridge;
 /// when an empty column means "this format cannot say" rather than "there is nothing".
 /// </para>
 /// </remarks>
-internal static class Proteins
+internal static partial class Proteins
 {
     /// <summary>The tables <c>proteins read</c> can return, in wire order.</summary>
     internal static readonly string[] TableNames = { "proteins", "go_terms", "ensembl_genes" };

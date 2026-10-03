@@ -14,6 +14,11 @@ or a list as its first argument, and contaminant databases as `contaminants=`. p
 `accessions=` list. `genes resolve` is a wire verb of the `genes` module, and Python projects it as
 `pymzlib.proteins.resolve_genes`.
 
+**`annotate_go` takes the table and the database positionally** (`groups`, `database`), as the wire's
+`--groups` and `--database`; every other option is a keyword with the wire's name in snake case.
+Its rows are windowed by `limit`/`offset`, while `out=` always receives the whole table, so a large
+run is `out=` plus `limit=0`.
+
 **Multi-table output is JSON only.** `proteins read` has no `out` option: its three tables would
 need three files. **Performance:** each call starts one bridge process, about 120 ms before mzLib
 does any work, and each database is read whole. Pass all your databases in one call rather than
@@ -30,3 +35,11 @@ looping, and raise `threads` only if memory allows one whole database per thread
 ## `classify_peptides`
 
 --8<-- "docs/reference/_generated/proteins.classify-peptides.md"
+
+## `annotate_go`
+
+--8<-- "docs/reference/_generated/proteins.annotate-go.md"
+
+## `update_go`
+
+--8<-- "docs/reference/_generated/proteins.update-go.md"

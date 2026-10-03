@@ -99,6 +99,23 @@ in `files[i].absent_fields` rather than letting an empty table pass for "no anno
 UniProt XML of the same proteome instead: the accessions are the same. See
 [Protein databases](guides/proteins.md#before-you-start-xml-or-fasta).
 
+## Why does `annotate_go` give a group more terms than any one member has?
+
+Because a group's rows are the **union** over its members, and each member's terms include their
+ancestors in the ontology. A protein annotated to *mitochondrial inner membrane* also carries
+*mitochondrion*, because GO says the one is part of the other. Each row says which members carry the
+term (`accession_used`, `n_with` of `n_members`) and whether any is annotated to it directly
+(`propagated`). For the terms every member shares, keep the rows with `n_with == n_members`; for an
+enrichment tool that propagates on its own, keep the rows with `propagated` false. See
+[Union, consensus, direct only](guides/proteins.md#union-consensus-direct-only-filters-not-modes).
+
+## `annotate_go` failed with `InvalidDataException: The annotation database cites ... GO id(s) absent`
+
+Your UniProt XML is newer than your go.obo, and cites terms that release does not have. Fetch a
+newer go.obo with `pymzlib.proteins.update_go()`, or pass `skip_unknown_go_ids=True` to drop those
+ids and have them listed in `unresolved_go_ids`. See
+[When the database is newer than the ontology](guides/proteins.md#when-the-database-is-newer-than-the-ontology).
+
 ## Is peptide uniqueness decided with I and L as different residues?
 
 No. `pymzlib.proteins.classify_peptides` treats I and L as one residue, because they have the same

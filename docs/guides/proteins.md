@@ -10,6 +10,8 @@ somewhere else. **The protein database you searched already knows all four**, an
 | What organism, taxon, gene and mass is this accession? What are its GO terms? | [`read()`](#look-up-organism-and-taxon-for-a-list-of-accessions) | `ProteinDbLoader`, `Protein.GoTerms` ([#1336][1336]), `Protein.EnsemblGeneReferences` |
 | Which Ensembl gene is this protein, in a way I can reproduce next year? | [`resolve_genes()`](#resolve-proteins-to-ensembl-genes-reproducibly) | `EnsemblGeneResolver` ([#1338][1338]) |
 | Does this peptide identify one protein, one gene, or neither? | [`classify_peptides()`](#decide-whether-a-peptide-is-unique-with-i-l) | `PeptideUniquenessClassifier` ([#1348][1348]) |
+| Which GO terms does each protein group carry, with every member kept and the ontology's ancestors filled in? | [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member) | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
+| Where do I get a go.obo, and how do I keep the release pinned? | [`update_go()`](#first-get-a-goobo-once-and-keep-it) | `Loaders.UpdateGeneOntology` ([#1353][1353]) |
 
 ```python
 import pymzlib
@@ -22,7 +24,9 @@ print(db.taxonomy()["P04406"])                 # '9606'
 Every example on this page runs against the small databases committed in pyMzLib's test suite
 (`pkg/python/tests/fixtures/proteins/`): two real UniProt XML entries (GAPDH, PSCA), human albumin
 and three DYNC1I2 isoforms as FASTA, mouse AIFM1 as FASTA, and bovine albumin as a contaminant.
-The outputs shown are what those files produce.
+The outputs shown are what those files produce. The Gene Ontology section adds a real MetaMorpheus
+protein-group table and the UniProt entries it names; its `>>>` examples are executed when the docs
+are built.
 
 ## Before you start: XML or FASTA?
 
@@ -113,10 +117,10 @@ protein's. It is `None` when the sequence holds a letter with no defined mass (`
 of 20,000 is fine. Databases are read in the order given; `threads=4` reads four at once, and the
 result is identical at any thread count - only memory changes, since each database is read whole.
 
-## Get GO terms for a protein group
+## Look up the GO terms a protein was annotated with
 
-**The problem.** A protein group from your search is significant, and you want to know what its
-members do - but only from annotations that were not assigned automatically.
+**The problem.** You want to know what a protein does, from the annotations UniProt itself records
+for it - but only those that were not assigned automatically.
 
 GO terms come from the UniProt XML you already have, with no extra download: UniProt ships every
 entry's GO annotations as `<dbReference type="GO">`, with the aspect as a prefix on the term
@@ -156,11 +160,293 @@ What the table does and does not say:
 - **One row per GO id per protein.** A term UniProt repeats with three lines of evidence is one row
   with three evidence codes, so counting rows counts terms.
 - **These are the terms as annotated, not propagated.** A protein annotated to `plasma membrane` is
-  not also listed under `membrane` unless UniProt says so; walking the GO graph is not done here.
-  Enrichment tools expect to do that themselves.
+  not also listed under `membrane` unless UniProt says so. To put a term's ancestors in as well -
+  and to do it for whole protein groups - use [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member),
+  next.
 
-For a whole group, pass all its accessions and group by `accession` - or by `go_id` to see which
-terms the members share.
+## Annotate protein groups with GO, keeping every member
+
+**The problem.** Your search reports *protein groups*, and a group can have several members: two
+histone H2A.Z variants that no peptide could tell apart are one group, `P0C0S5|Q71UI9`. A GO
+enrichment tool wants one set of terms per group. The usual shortcut - take the first accession -
+throws away half the evidence, and the first accession is not even a choice MetaMorpheus made: it
+sorts members alphabetically and never picks a leading protein. And the terms UniProt records are
+the most specific ones, so a group annotated to *mitochondrial inner membrane* is not, as written,
+"in the mitochondrion" at all.
+
+`annotate_go()` answers both, with mzLib's
+`GoGroupAnnotator` ([#1353][1353]) reading the protein-group table MetaMorpheus already wrote
+([#1366][1366]):
+
+- **one row per (group, term)** that *any* member holds - directly, or through an ancestor in the
+  ontology (`is_a` and `part_of`, nothing weaker);
+- **every row says who carries the term**, how directly, and on what evidence, so the union, the
+  consensus and the direct-only views are all filters you apply, not choices made for you;
+- **every non-decoy group gets at least one row**, and a group with no term gets one row that says
+  why.
+
+| Question | Code | mzLib |
+|---|---|---|
+| Which GO terms does each group carry, members kept apart? | `annotate_go(groups, database, go_obo=...)` | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
+| Which terms do *all* members share? | rows with `n_with == n_members` | the same rows |
+| Which organelles, complexes, pathways - in *my* vocabulary? | `category_map=` | `GoCategoryResolver` |
+| Which GO release did I use, exactly? | `go.go.sha256`, `go.header` | `GeneOntologyGraph` |
+| How do I get a go.obo, once, on purpose? | `update_go("go.obo")` | `Loaders.UpdateGeneOntology` |
+
+Every example in this section is executed when the docs are built, against output recorded from the
+real bridge, so what you see is what pyMzLib returns. The data is real: mzLib's own copy of a
+MetaMorpheus 1.1.11 protein-group table from PXD036557 (six groups: tubulin alpha-1B, ADP/ATP
+translocase 2, the H2A.Z pair, 14-3-3 zeta, bovine serum albumin as a contaminant, and one decoy),
+the five human UniProt entries it names, cut whole from UniProt's reviewed human proteome, and GO
+release 2026-07-26. The go.obo committed for the tests is trimmed to the 412 terms these proteins
+reach; against the full 48,340-term release the same call gives the same 563 rows.
+
+### First, get a go.obo - once, and keep it
+
+Terms are added, renamed and moved between GO releases, so a GO result means something only
+relative to one release. `annotate_go()` therefore **never downloads anything**: it reads the
+go.obo you name. Fetching one is its own function, which you call on purpose:
+
+```pycon
+>>> update = pymzlib.proteins.update_go("go.obo")
+>>> update.go.release, update.go.term_count, update.changed
+('releases/2026-07-26', 48340, True)
+
+```
+
+`update_go()` streams the whole file (about 37 MB) from GO's PURL, which always serves the current
+release. Call it again later and a newer release replaces the file, while the old one is kept beside
+it as `go.obo.<timestamp>`, so a result you already published can still be reproduced. Keep the
+go.obo with your project, the way you keep the FASTA you searched.
+
+### Annotate the groups
+
+Give it the protein-group table, the UniProt XML the search used, and the go.obo:
+
+```pycon
+>>> go = pymzlib.proteins.annotate_go(
+...     "PXD036557_AllQuantifiedProteinGroups.tsv", "pxd036557_proteins.xml",
+...     go_obo="go-pxd036557.obo", category_map="organelle_map.tsv")
+>>> go.table_row_count, go.decoy_group_count, go.group_count, go.row_count
+(6, 1, 5, 563)
+
+```
+
+Six rows in the table, one of them a decoy, which is skipped because decoys carry no GO: five groups,
+563 rows. Any MetaMorpheus protein-group table works - `AllQuantifiedProteinGroups.tsv`,
+`AllProteinGroups.tsv` from a search without quantification, or one file's `_ProteinGroups.tsv`.
+Hand `go.columns` to `pandas.DataFrame` for a data frame; `go.records` gives one dict per row.
+
+### Read one row
+
+Both histones are annotated to the nucleosome, each on its own evidence:
+
+```pycon
+>>> nucleosome = next(r for r in go.records
+...                   if r["protein_group"] == "P0C0S5|Q71UI9" and r["go_id"] == "GO:0000786")
+>>> nucleosome["go_name"], nucleosome["aspect"], nucleosome["n_with"], nucleosome["n_members"]
+('nucleosome', 'cellular_component', 2, 2)
+>>> nucleosome["accession_used"], nucleosome["evidence_by_member"]
+(['P0C0S5', 'Q71UI9'], {'P0C0S5': ['ECO:0000353'], 'Q71UI9': ['ECO:0000353']})
+>>> nucleosome["propagated"], nucleosome["inherited"]
+(False, False)
+
+```
+
+| column | what it tells you |
+|---|---|
+| `accession_used` | the members carrying the term - directly or through a more specific one |
+| `accession_direct` | of those, the members annotated to this exact term |
+| `n_with` of `n_members` | how many members carry it; `n_with == n_members` is the consensus |
+| `evidence`, `evidence_by_member` | [ECO](https://www.evidenceontology.org/) codes, pooled and per member |
+| `propagated` | `True`: no member is annotated to this term; it is implied by a more specific one |
+| `inherited` | `True`: the members' terms were borrowed - an isoform (`P04406-2`) or a sequence variant (`P04406_A20T`) the database does not annotate takes its entry's terms |
+| `entrapment_members` | the group's entrapment members, on every row of the group, so you decide whether they count |
+| `q_value` | the group's q-value, from the table - **never filtered on** |
+
+The column names are mzLib's own `GoAnnotationTsv` schema, so this table, the file `out=` writes
+and the file mzLib writes inside a search all mean the same thing.
+
+### Union, consensus, direct only: filters, not modes
+
+The table is the **union** over a group's members. Everything narrower is one comparison:
+
+```pycon
+>>> histones = [r for r in go.records if r["protein_group"] == "P0C0S5|Q71UI9"]
+>>> union = {r["go_id"] for r in histones}
+>>> consensus = {r["go_id"] for r in histones if r["n_with"] == r["n_members"]}
+>>> len(union), len(consensus)
+(106, 57)
+>>> euchromatin = next(r for r in histones if r["go_name"] == "euchromatin")
+>>> euchromatin["accession_used"]
+['P0C0S5']
+
+```
+
+Of the 106 terms either H2A.Z variant carries, 57 are carried by both. *Euchromatin* is not one of
+them: only `P0C0S5` is annotated to it. Whether that should count for the group is a scientific
+question, which is why the table answers it per member rather than deciding.
+
+Propagation is what makes broad questions answerable. 14-3-3 zeta has 205 rows, and only 42 of them
+are terms UniProt annotates directly; the other 163 are their ancestors:
+
+```pycon
+>>> zeta = [r for r in go.records if r["protein_group"] == "P63104"]
+>>> len(zeta), sum(r["propagated"] is False for r in zeta)
+(205, 42)
+
+```
+
+Keep `propagated` in mind before an enrichment test: most tools propagate terms themselves, and
+feeding them already-propagated rows counts every ancestor twice. Give such a tool the rows with
+`propagated is False`.
+
+### A group with no term still gets a row
+
+Bovine serum albumin is in the table as a contaminant. It gets exactly one row, with no term, and
+a status that says why:
+
+```pycon
+>>> [(r["protein_group"], r["annotation_status"]) for r in go.records if r["go_id"] is None]
+[('P02769', 'contaminant')]
+
+```
+
+| `annotation_status` | means |
+|---|---|
+| `annotated` | the row has a term (every row with a `go_id` is `annotated`) |
+| `no_go_terms` | the group's members are in the database, but none has a GO annotation |
+| `no_entry` | a member is not in the database at all - annotate against the database the search used |
+| `contaminant` | the group is a contaminant and none of its members has a term |
+
+So a group never silently disappears, and *no annotation* is never confused with *not looked up*.
+
+### Count groups, not rows
+
+`go.header` is the provenance header mzLib's writer puts at the top of the file, read back. Its
+counters count **groups**, and only groups at q ≤ 0.01:
+
+```pycon
+>>> go.header["counter_q_value_max"]
+'0.01'
+>>> {k: go.header[k] for k in ("status_annotated", "status_no_go_terms", "status_no_entry", "status_contaminant")}
+{'status_annotated': '4', 'status_no_go_terms': '0', 'status_no_entry': '0', 'status_contaminant': '1'}
+
+```
+
+The rows themselves are never filtered by q-value: every group is in the table, and you choose the
+cut-off.
+
+### Put terms into your own categories
+
+GO has tens of thousands of terms; a figure usually wants a handful of categories. mzLib ships **no
+vocabulary** - the categories are your science - but it applies yours with one rule: a term belongs
+to a category when one of the category's anchors is the term itself or one of its ancestors, and
+within a category the most specific anchor wins. A map is a small tab-separated file:
+
+```text
+#!category_map_format 1
+#!map_name organelle
+#!map_version 1
+category	subcategory	anchor_go_id
+nucleus		GO:0005634
+nucleus	chromatin	GO:0000785
+mitochondrion		GO:0005739
+mitochondrion	inner_membrane	GO:0005743
+cytoskeleton		GO:0005856
+cytoskeleton	microtubule	GO:0005874
+cytosol		GO:0005829
+plasma_membrane		GO:0005886
+extracellular		GO:0005576
+```
+
+The categories come back as their own table, joined to the annotations on `go_id`:
+
+```pycon
+>>> go.categories.map_name, go.categories.anchor_count, go.categories.row_count
+('organelle', 9, 30)
+>>> inner = next(c for c in go.categories.records if c["go_id"] == "GO:0005743")
+>>> inner["category"], inner["subcategory"]
+('mitochondrion', 'mitochondrion:inner_membrane')
+>>> place = {}
+>>> for c in go.categories.records:
+...     place.setdefault(c["go_id"], set()).add(c["category"])
+>>> where = {}
+>>> for r in go.records:
+...     for category in place.get(r["go_id"], ()):
+...         where.setdefault(r["protein_group"], set()).add(category)
+>>> sorted(where["P05141"])
+['cytoskeleton', 'mitochondrion', 'nucleus', 'plasma_membrane']
+
+```
+
+A term under none of your anchors has no category row, so absence means "outside your map", not
+"unknown". The map's name, version and sha256 travel with the result (`go.categories.sha256`): a
+version is a claim, the hash is proof two runs used the same map.
+
+### A large run: write the file, return the summary
+
+A real search annotates hundreds of groups into tens of thousands of rows: the full MetaMorpheus
+table from the same PXD036557 search gave 715 target groups and 87,513 rows, in about 20 s, against
+the whole human proteome ([#1353][1353]). Write them to a file with mzLib's own writer and bring back
+only the summary:
+
+```pycon
+>>> big = pymzlib.proteins.annotate_go(
+...     "PXD036557_AllQuantifiedProteinGroups.tsv", "pxd036557_proteins.xml",
+...     go_obo="go-pxd036557.obo", out="go_annotations.tsv", limit=0)
+>>> big.written.path, big.written.row_count, big.returned_count
+('go_annotations.tsv', 563, 0)
+
+```
+
+`limit` and `offset` shape only what comes back; the file always gets every row. It is a
+tab-separated table whose header records what it was computed from:
+
+```text
+#!go_annotation_format 1
+#!mzlib_version 1.0.0+0a808fec346e6e8f334e455490faab463ea65457
+#!mzlib_release none
+#!go_release releases/2026-07-26
+#!go_obo_sha256 c1cdfd098c5cf395ce4bbefdea017fd698fdf22d135b28623e74f6f714e1c5fa
+#!annotation_db_sha256 484e16a9a2fa5f4754f90d904f9030621c6ce3257488fd39fdff9b4fb8a0b5db
+#!source_file_sha256 751a00c5109bdf350db75d2d4053e0fd78fea8326c5a38bce95b1ce0d8445ae6
+#!counter_q_value_max 0.01
+#!n_multi_member_groups 1
+#!status_annotated 4
+#!status_no_go_terms 0
+#!status_no_entry 0
+#!status_contaminant 1
+protein_group	accession_used	accession_direct	...	go_id	go_name	aspect	...
+```
+
+`mzlib_release` reads `none` because the bridge builds mzLib from source; `mzlib_version` names the
+exact commit. `out=` must end in `.tsv`, and is checked before anything is read, so a typo costs
+milliseconds, not a proteome load.
+
+### When the database is newer than the ontology
+
+UniProt is released more often than you will move your go.obo, so sooner or later the database
+cites a GO id your release does not have. By default that **fails**, naming every missing id,
+because a silently dropped term is a silently wrong answer. If you would rather keep the run,
+pass `skip_unknown_go_ids=True`: each such id is dropped, listed in `go.unresolved_go_ids`, counted
+in the file header as `unresolved_go_ids`, and described in `go.caveats`. A protein whose only terms
+were dropped then reads `no_go_terms`. The better fix is usually a newer go.obo.
+
+### What it will not do, and says so
+
+- **One annotation database.** Every row carries the sha256 of the database its terms came from, so
+  two databases have no honest single value. Use the UniProt XML of the proteome you searched. A
+  FASTA is refused outright: it carries no GO, and every group would read `no_go_terms` whatever the
+  proteins are.
+- **No hidden download.** A missing go.obo is an error that tells you to run `update_go()`.
+- **No filtering.** Not by q-value, not by evidence, not by member. Every filter is a column.
+- **Obsolete terms are kept** if your database still cites them; they have no ancestors in the
+  release, so they never propagate.
+
+To reproduce a GO result, record three hashes with it: `go.go.sha256` (the ontology),
+`go.annotation_database.sha256` (the database) and `go.groups_file_sha256` (the table). The file
+`out=` writes already carries all three.
 
 ## Resolve proteins to Ensembl genes, reproducibly
 
@@ -332,21 +618,33 @@ and mass; that file's `caveats` say how many.
 | `UsageError` | no database; a blank or repeated path; a file that is not `.xml` or a FASTA extension; a missing file (under `on_error="fail"`); an unknown table; `threads` of `0` or below `-1`; an empty `accessions` list; neither or both of `gtf` / `gene_set`; a missing GTF or xref; a peptide that is not upper-case A-Z |
 | `BridgeError` | mzLib could not parse a database, a GTF gene row has no `gene_id`, or an xref table's columns are not Ensembl's layout |
 
+For `annotate_go()` and `update_go()`:
+
+| Raised | When |
+|---|---|
+| `UsageError` | a missing groups table, database, go.obo or category map; a FASTA database; an `out` or `categories_out` that is not `.tsv`, names an input, or sits in a folder that does not exist; `categories_out` without `category_map`; a negative `limit` or `offset` - all before any file is read. For `update_go()`, a folder that does not exist |
+| `BridgeError` | the database cites a GO id the release lacks (type `InvalidDataException`, every id named) unless `skip_unknown_go_ids=True`; a go.obo, category map or table mzLib cannot parse; a group written twice with different members. For `update_go()`, GO's server is unreachable (type `ServiceUnavailable`: retry later) |
+
 ## References
 
 - The Gene Ontology Consortium: Ashburner, M. *et al.* Gene Ontology: tool for the unification of
   biology. *Nature Genetics* **25**, 25-29 (2000).
   [doi:10.1038/75556](https://doi.org/10.1038/75556)
+- The Gene Ontology Consortium. The Gene Ontology knowledgebase in 2023. *Genetics* **224**,
+  iyad031 (2023). [doi:10.1093/genetics/iyad031](https://doi.org/10.1093/genetics/iyad031)
 - The UniProt Consortium. UniProt: the Universal Protein Knowledgebase in 2025. *Nucleic Acids
   Research* **53**, D609-D617 (2025). [doi:10.1093/nar/gkae1010](https://doi.org/10.1093/nar/gkae1010)
 - Yates, A. D. *et al.* Ensembl 2026. *Nucleic Acids Research* **54**, D1053-D1060 (2026).
   [doi:10.1093/nar/gkaf1239](https://doi.org/10.1093/nar/gkaf1239)
 
-The same three verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
-`proteins read`, `genes resolve` and `proteins classify-peptides`. See the
+The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
+`proteins read`, `genes resolve`, `proteins classify-peptides`, `proteins annotate-go` and
+`proteins update-go`. See the
 [wire-verb reference](../reference/proteins.md) for every parameter and field with its unit, and the
 [API reference](../reference.md#pymzlibproteins) for the Python classes.
 
 [1336]: https://github.com/smith-chem-wisc/mzLib/pull/1336
 [1338]: https://github.com/smith-chem-wisc/mzLib/pull/1338
 [1348]: https://github.com/smith-chem-wisc/mzLib/pull/1348
+[1353]: https://github.com/smith-chem-wisc/mzLib/pull/1353
+[1366]: https://github.com/smith-chem-wisc/mzLib/pull/1366
