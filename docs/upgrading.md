@@ -9,7 +9,7 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
-## Next release (built from mzLib 1.0.593)
+## 0.3.0 (built from mzLib 1.0.593)
 
 ### Files that used to be refused now read
 

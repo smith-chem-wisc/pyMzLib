@@ -9,7 +9,7 @@ module: proteins
 summary: >-
   Annotate a stored MetaMorpheus protein-group table with Gene Ontology terms: one row per (group,
   term) that any member holds, directly or through an ancestor, with no member privileged.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: GoGroupAnnotator.AnnotateAll, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GoGroupAnnotator.cs, pin: 0a808fec}
   - {symbol: GeneOntologyGraph.Load, path: mzLib/UsefulProteomicsDatabases/GeneOntology/GeneOntologyGraph.cs, pin: 0a808fec}

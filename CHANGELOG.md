@@ -6,7 +6,11 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
-Built from mzLib 1.0.593.
+## [0.3.0] - 2026-10-03
+
+Built from mzLib 1.0.593. Adds differential abundance with no R (`pymzlib.stats`), Gene Ontology on
+protein groups, the label-free design an SDRF describes, and isobaric kits; every guide example now
+runs in CI.
 
 ### Added
 - **`sdrf.design()`: the label-free experimental design an SDRF describes, or every reason it
@@ -417,7 +421,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.2.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.3.0...main
+[0.3.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.3.0
 [0.2.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.2.0
 [0.1.1]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.1
 [0.1.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.0

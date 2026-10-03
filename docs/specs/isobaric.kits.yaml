@@ -5,7 +5,7 @@ verb: isobaric kits
 module: isobaric
 summary: >-
   List the isobaric labelling kits mzLib can name, with every channel's label and reporter-ion m/z.
-since: {protocol: 1, pymzlib: null, mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: IsobaricMassTag.TryGetIsobaricMassTag, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: 0a808fec}
   - {symbol: IsobaricMassTag.TryGetTagType, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: 0a808fec}
