@@ -6,6 +6,13 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-03
+
+Still built from mzLib 1.0.593. Adds `peptidoform.convert()`, mzLib's sequence-notation converter
+(MetaMorpheus full sequences to Unimod accessions), and tightens three bridge contracts: `out=` must be
+a `.tsv`, an SDRF read as generic records no longer returns lossy joined columns, and an answer too
+large to return is a `UsageError` that says what to do.
+
 ### Added
 - **`peptidoform.convert()`: rewrite full sequences in another notation with mzLib**
   (`SequenceConversionService`). The main use is MetaMorpheus full sequences to Unimod accessions:
@@ -450,7 +457,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.3.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.4.0...main
+[0.4.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.4.0
 [0.3.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.3.0
 [0.2.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.2.0
 [0.1.1]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.1.1
