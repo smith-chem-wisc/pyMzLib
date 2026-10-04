@@ -120,14 +120,14 @@ examples:
   - fixture: peptidoform_convert_psmtsv.json
     py: "unimod = pymzlib.peptidoform.convert(psms.columns['full_sequence'])"
     rust: "let unimod = mzlib::peptidoform::convert_with(&full_sequences, &ConvertOptions::default())?;"
-    r: "unimod <- peptidoform_convert(psms$full_sequence)"
+    r: "unimod <- peptidoform_convert(psms$records$full_sequence)"
   - fixture: peptidoform_convert_psmtsv_proforma.json
     py: "proforma = pymzlib.peptidoform.convert(psms.columns['full_sequence'], target='ProForma')"
     rust: "let proforma = mzlib::peptidoform::convert_with(&full_sequences, &ConvertOptions { target: \"ProForma\".into(), ..Default::default() })?;"
-    r: "proforma <- peptidoform_convert(psms$full_sequence, target = 'ProForma')"
+    r: "proforma <- peptidoform_convert(psms$records$full_sequence, target = 'ProForma')"
 
 open_questions:
   - "The ProForma target's UniProt gap is an mzLib defect (the serializer's default lookup), mzLib#1401; close this when a pin carries its fix. A bridge-side substitute (ProFormaSequenceSerializer.WithLookup(GlobalModificationLookup)) composes serializer internals and is deliberately not used."
   - "mzLib's MzLibSequenceParser joins '|'-separated ambiguous candidates into one sequence with only a warning; whether it should refuse them (as SpectrumMatchFromTsv.ProFormaFromFullSequence does before calling it) is an mzLib question: mzLib#1405."
   - "AutoDetect (SequenceConversionService.ConvertAutoDetect) is not projected: --from is always explicit."
-  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."
+  - "Ported, unreleased: mzLibRust #32 and mzLibR #32 (drafts until pyMzLib 0.4.0 publishes the bridge). Set since.mzlibrust / since.mzlibr when they release."

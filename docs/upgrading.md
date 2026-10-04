@@ -9,6 +9,29 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
+## 0.4.0 (still built from mzLib 1.0.593)
+
+mzLib did not move, so no mzLib change gives you a different answer. These three are pyMzLib's own.
+
+### Calls that used to succeed are now refused
+
+- **`out=` must name a `.tsv` file** on every `readers.read_*()` function, single-file and `_many`
+  (any case: `.TSV` is fine). `out="table.csv"`, or a path with no extension, is now a `UsageError`
+  before anything is read. The file was always tab-separated, so the fix is to rename it.
+
+### Same file, different value
+
+- **`read_records()` on an SDRF returns no columns.** `header` and `cells` used to come back as
+  `;`-joined strings, which could not be split back because SDRF cells contain `;` themselves. Both
+  are now listed in `excluded_fields` with the reason `"use sdrf read"`; `record_count` is unchanged.
+  Read SDRFs with `sdrf.read()`.
+
+### Same failure, different error
+
+- **A read whose answer is too large to return** (past about 1.07 billion characters of JSON) is a
+  `UsageError` naming the record count and telling you to use `limit`/`offset` or `out=`. It used to
+  fail with an unexplained `OutOfMemoryException`.
+
 ## 0.3.0 (built from mzLib 1.0.593)
 
 ### Files that used to be refused now read
