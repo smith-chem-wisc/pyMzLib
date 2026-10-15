@@ -297,6 +297,30 @@ public class ReadingTests
     }
 
     [Test]
+    public void Identify_ParquetWithoutDiaNnColumns_IsAUsageErrorNotAFault()
+    {
+        // mzLib #1384 dispatches .parquet on its schema, not its name: only a file with the DIA-NN
+        // report columns is a DiaNnReportParquet. Anything else, an unreadable file included, makes
+        // mzLib's probe answer "no" (it swallows Parquet.Net's exceptions), so it is the same
+        // unsupported-type usage error as an unknown extension rather than a bridge fault.
+        string notParquet = Touch("report.parquet");
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "identify", "--path", notParquet));
+
+        Assert.That(exception!.Message, Does.Contain("Parquet file type not supported"));
+        Assert.That(exception.Message, Does.Contain("formats listing"));
+
+        // mzLib's probe leaks the file handle on this path: ParquetReader.CreateAsync(path) opens the
+        // file, throws on the bad magic bytes, and leaves no reader to dispose, so Windows keeps the
+        // file locked until the stream is finalized (DiaNnParquetReportFile.HasDiaNnReportColumns).
+        // A bridge call is one process, so a caller never sees it; this in-process test would fail
+        // its teardown. Finalizing here keeps it green, and the delete pins that nothing else holds it.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        Assert.DoesNotThrow(() => File.Delete(notParquet));
+    }
+
+    [Test]
     public void Identify_MissingPathOption_IsAUsageError() =>
         Assert.Throws<Program.UsageException>(() => Run("readers", "identify"));
 
