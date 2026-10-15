@@ -678,11 +678,24 @@ internal static partial class Reading
     /// Names compare case-insensitively after trimming, so an ambiguity can only make a column look
     /// present. An empty answer means "no basis to say", never "nothing is absent".
     /// </para>
+    /// <para>
+    /// <b>Nor about a <c>.parquet</c></b> (DIA-NN 2.x's report, mzLib #1384). It has no text header
+    /// to read, and its columns are not the <c>[Name]</c>s: mzLib's parquet reader maps them through
+    /// a rename table of its own (<c>Lib.Index</c> is <c>Precursor.Lib.Index</c> there) and treats
+    /// every column but the three that identify a report as optional, leaving one 2.x does not write
+    /// at null, NaN (which crosses as null) or, for <c>Ms2ScanNumber</c>, 0
+    /// (DiaNnParquetReportFile.cs:16). mzLib exposes neither the schema it read nor that table, so judging
+    /// absence here would mean re-implementing its mapping in the bridge. The guard is explicit
+    /// rather than left to the header check failing on binary bytes, which it would do only by luck
+    /// and after reading up to the first newline of a file that may be gigabytes.
+    /// </para>
     /// </remarks>
     private static HashSet<string> AbsentProperties(Type? recordType, string path)
     {
         var absent = new HashSet<string>(StringComparer.Ordinal);
-        if (recordType is null || !File.Exists(path) || path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+        if (recordType is null || !File.Exists(path)
+            || path.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".parquet", StringComparison.OrdinalIgnoreCase))
             return absent;
 
         var mapped = new List<(PropertyInfo Property, string[] Names, bool Optional)>();

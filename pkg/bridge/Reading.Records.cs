@@ -15,8 +15,8 @@ namespace MzLibBridge;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="Reading.ReadResults"/> reads the <c>quantifiable</c> view, which four of mzLib's
-/// thirty-eight file types implement. That is a real and useful view — it is what FlashLFQ
+/// <see cref="Reading.ReadResults"/> reads the <c>quantifiable</c> view, which five of mzLib's
+/// thirty-nine file types implement. That is a real and useful view — it is what FlashLFQ
 /// consumes — but it leaves thirty-four formats readable by mzLib and unreachable from a binding. The
 /// verbs here close that gap, in two different ways, because the gap has two different shapes.
 /// </para>
@@ -29,7 +29,7 @@ namespace MzLibBridge;
 /// </para>
 /// <para>
 /// <b><c>read-records</c> is the exhaustive one</b>, and it is a deliberately different animal. It
-/// works on all thirty-eight, including the nineteen that belong to no cross-format interface at all
+/// works on all thirty-nine, including the nineteen that belong to no cross-format interface at all
 /// (TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, MetaMorpheus's
 /// protein-group and peptide tables and their RNA counterparts, …), by projecting each format's <i>own</i> record type. So its
 /// columns are <b>not</b> uniform: reading a TopPIC file gives you TopPIC's thirty-odd columns under
@@ -50,7 +50,7 @@ internal static partial class Reading
 {
     /// <summary>
     /// <c>readers read-records --path FILE [--limit N] [--offset N] [--out FILE]</c>, or
-    /// <c>--paths-stdin [--threads N] [--on-error fail|skip] [--out FILE]</c> — any of the 38 file
+    /// <c>--paths-stdin [--threads N] [--on-error fail|skip] [--out FILE]</c> — any of the 39 file
     /// types, as a table of its own native fields.
     /// </summary>
     /// <remarks>

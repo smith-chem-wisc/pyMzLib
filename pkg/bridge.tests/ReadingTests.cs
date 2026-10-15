@@ -15,14 +15,16 @@ namespace MzLibBridge.Tests;
 /// which views a reader is reported to support, and the translation of mzLib's two exception types
 /// into a usage error a caller can act on. Most need no real data — mzLib dispatches on the
 /// filename for the majority of types exercised here, so empty files with the right names suffice,
-/// and the suite stays fast and offline. The exceptions are the three content-sniffed families in
-/// the next paragraph, whose fixtures must carry the bytes mzLib reads to dispatch them.
+/// and the suite stays fast and offline. The exceptions are the content-sniffed families in the
+/// next paragraph, whose fixtures must carry the bytes mzLib reads to dispatch them.
 /// </para>
 /// <para>
-/// The exceptions are the three families mzLib disambiguates by reading rather than by name: a bare
-/// <c>.tsv</c> by its first line, a <c>.mztab</c> by its first five, and a <c>.d</c> by which
-/// analysis file the directory holds. Each is exercised deliberately below to cover its
-/// content-sniffing branch.
+/// The exceptions are the families mzLib disambiguates by reading rather than by name: a bare
+/// <c>.tsv</c> by its first line, a <c>.txt</c> and a <c>.mztab</c> by their first five, a
+/// <c>.parquet</c> by its column schema, and a <c>.d</c> by which analysis file the directory
+/// holds. Each is exercised deliberately below to cover its content-sniffing branch. The
+/// <c>.parquet</c> is the one fixture that cannot be written here as text, so it is mzLib's own
+/// DIA-NN 2.x sample from the pinned worktree.
 /// </para>
 /// </remarks>
 [TestFixture]
@@ -68,7 +70,7 @@ public class ReadingTests
     /// </summary>
     /// <remarks>
     /// Most types dispatch on the filename, so a right-named empty file suffices. The exceptions are
-    /// the two content-sniffed families and the two Bruker directory types, which need the bytes or
+    /// the content-sniffed types and the two Bruker directory types, which need the bytes or
     /// directory entries mzLib reads to disambiguate them (SupportedFileTypes.cs <c>ParseFileType</c>).
     /// </remarks>
     private string FixtureForType(string fileType, string extension) => fileType switch
@@ -90,6 +92,11 @@ public class ReadingTests
         // .txt, disambiguated by a "#theoretical_digest" line in its first five. Without it mzLib
         // dispatches the same extension to CruxResult, which is what an empty sample.txt became.
         "PytheasResult" => Touch("pytheas.txt", "#theoretical_digest digest.txt\n"),
+        // .parquet, dispatched on its schema: mzLib #1384 reads it as a DIA-NN 2.x report when it
+        // has the Precursor.Id, Stripped.Sequence and Run columns, and rejects any other .parquet
+        // ("Parquet file type not supported"). An empty sample.parquet is therefore rejected, so this
+        // is the real report mzLib ships for its own reader tests.
+        "DiaNnReportParquet" => Fixture("ExternalFileTypes", "DiaNn2_report.parquet"),
         // Everything else dispatches on the name: "sample" + the type's dispatch extension lands on
         // exactly this type (e.g. sample.psmtsv, sample_prsm.tsv, samplepsm.tsv, sample_ms1.feature).
         _ => Touch("sample" + extension),
@@ -165,8 +172,9 @@ public class ReadingTests
     [Test]
     public void Identify_CasanovoMzTab_ReportsSpectralMatchView_FromFileContents()
     {
-        // .mztab is one of the four types mzLib disambiguates by reading the file rather than the
-        // name, so this also covers the content-sniffing branch.
+        // .mztab is one of the five types mzLib disambiguates by reading the file rather than the
+        // name (with Tsv_FlashDeconv, DiaNnReport, PytheasResult and DiaNnReportParquet), so this
+        // also covers the content-sniffing branch.
         JsonElement result = Run("readers", "identify", "--path",
             Touch("denovo.mztab", "MTD\tmzTab-version\t1.0.0\nMTD\tsoftware[1]\t[MS, MS:1003281, casanovo, 5.0.0]\n"));
 
@@ -306,8 +314,9 @@ public class ReadingTests
         // comparison is tautological — it checks the output against its own source — so mzLib adding
         // a 30th type would pass it green while the guide's supported-format table silently went
         // stale. The literal is the tripwire that forces the docs to be regenerated.
-        Assert.That(formats.GetArrayLength(), Is.EqualTo(38),
-            "mzLib recognises 38 result-file types; a change here means the docs table needs regenerating");
+        // 38 -> 39 with mzLib #1384 (DiaNnReportParquet, DIA-NN 2.x's report.parquet).
+        Assert.That(formats.GetArrayLength(), Is.EqualTo(39),
+            "mzLib recognises 39 result-file types; a change here means the docs table needs regenerating");
         Assert.That(formats.GetArrayLength(), Is.EqualTo(Enum.GetValues<Readers.SupportedFileType>().Length),
             "every enum member must appear in the listing");
 
@@ -330,23 +339,25 @@ public class ReadingTests
     }
 
     [Test]
-    public void Formats_ExactlyFourTypesOfferTheQuantifiableView()
+    public void Formats_ExactlyFiveTypesOfferTheQuantifiableView()
     {
         // The headline fact about this tranche, pinned so a change in mzLib is DETECTED rather than
-        // silently widening or narrowing what pyMzLib claims. mzLib reads 38 formats; only these
-        // four implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
+        // silently widening or narrowing what pyMzLib claims. mzLib reads 39 formats; only these
+        // five implement IQuantifiableResultFile and can therefore feed flashlfq.quantify().
         // If mzLib adds one, this test fails and the docs get updated — which is the point.
         //
         // It just did: mzLib #1120 added DiaNnReport as an IQuantifiableResultFile, which is how
         // DIA data reaches flashlfq.quantify() at all. This test failing is the mechanism working,
         // not a regression -- the name moved from Three to Four because the claim itself changed.
+        // And again with mzLib #1384: DIA-NN 2.x writes its main report only as report.parquet,
+        // read by DiaNnParquetReportFile, a subclass of the TSV reader, so Four became Five.
         string[] quantifiable = Run("readers", "formats").GetProperty("formats").EnumerateArray()
             .Where(f => ViewsOf(f).Contains("quantifiable"))
             .Select(f => f.GetProperty("file_type").GetString()!)
             .ToArray();
 
         Assert.That(quantifiable,
-            Is.EquivalentTo(new[] { "psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport" }));
+            Is.EquivalentTo(new[] { "psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport", "DiaNnReportParquet" }));
     }
 
     [Test]
@@ -364,6 +375,7 @@ public class ReadingTests
         // them: MzIdentMLRecord implements ISpectralMatch, so both offer spectral_match.
         // 17 -> 19 with mzLib 1.0.593: #1388's RNA transcript-group and quantified-oligo tables
         // subclass those two readers and add no shared interface.
+        // Still 19 at the 1.0.595 content: #1384's DiaNnReportParquet offers quantifiable.
         Assert.That(viewless, Is.EqualTo(19),
             "an empty view list is the common case; if this changed, mzLib changed which formats " +
             "implement a shared interface and the docs table needs regenerating");
@@ -635,6 +647,24 @@ public class ReadingTests
         Assert.That(exception.Message, Does.Contain("no cross-format record view"));
         Assert.That(exception.Message, Does.Not.Contain("Run '"),
             "the bridge must not prescribe a command; its callers are not all shells");
+    }
+
+    [Test]
+    public void ReadResults_FormatWithoutTheView_CountsTheQuantifiableTypesAsTheListingDoes()
+    {
+        // The message says how many types offer the view, and a number in prose is exactly what goes
+        // stale when mzLib adds one: it read "four" until the #1384 bump. So it is checked against
+        // the live listing, not against a literal that would need the same edit the message did.
+        int quantifiable = Run("readers", "formats").GetProperty("formats").EnumerateArray()
+            .Count(f => ViewsOf(f).Contains("quantifiable"));
+        string[] words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+        Assert.That(quantifiable, Is.InRange(1, words.Length - 1),
+            "the message spells the count as a word; extend the table if mzLib passes ten");
+
+        var exception = Assert.Throws<Program.UsageException>(
+            () => Run("readers", "read-results", "--path", Touch("run.mzML")));
+
+        Assert.That(exception!.Message, Does.Contain($"names the {words[quantifiable]} types that offer this one"));
     }
 
     [Test]
