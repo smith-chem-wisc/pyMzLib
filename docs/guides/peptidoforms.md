@@ -305,7 +305,7 @@ True
 
 ```
 
-That is new in mzLib 1.0.594 ([mzLib#1403](https://github.com/smith-chem-wisc/mzLib/pull/1403)).
+That is new with [mzLib#1403](https://github.com/smith-chem-wisc/mzLib/pull/1403).
 Before it, mzLib's ProForma serializer looked modifications up only in MetaMorpheus's own list,
 which has no UniProt entries, so it wrote `[UniProt:Tele-methylhistidine on H]` back by name. It
 now falls back to every list mzLib loads, as the Unimod serializer does. pyMzLib never patched

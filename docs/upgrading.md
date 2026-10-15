@@ -9,6 +9,29 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
+## Unreleased (built from mzLib 1.0.595)
+
+This release moves mzLib from 1.0.593 to 1.0.595, so it carries 1.0.594's changes too.
+
+### Files that used to be refused now read
+
+- **DIA-NN 2.x `report.parquet`** ([mzLib#1384](https://github.com/smith-chem-wisc/mzLib/pull/1384)).
+  A `.parquet` was a `UsageError` (`File type not supported`). One whose columns include
+  `Precursor.Id`, `Stripped.Sequence` and `Run` now reads as `DiaNnReportParquet`, a `quantifiable`
+  type like the DIA-NN `report.tsv`, with retention time in minutes. Any other `.parquet` is still a
+  `UsageError`, now `Parquet file type not supported`. `formats()` lists one more entry, and one more
+  of them offers `quantifiable`: code that asserts either count needs updating.
+
+### Same file, different value
+
+- **ProForma names UniProt modifications by their UNIMOD accession**
+  ([mzLib#1403](https://github.com/smith-chem-wisc/mzLib/pull/1403)). `peptidoform.convert(...,
+  target="ProForma")` turns `YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK` into
+  `YPIEH[UNIMOD:34]GIVTNWDDMEK`, where it wrote the UniProt name back. The `pro_forma` column of
+  `read_records()` on a `.psmtsv` written without a ProForma column changes the same way. A string
+  comparison of ProForma across the upgrade will see these peptides as different. `convert()`
+  returns five caveats instead of six, because the one describing this gap is gone.
+
 ## 0.4.0 (still built from mzLib 1.0.593)
 
 mzLib did not move, so no mzLib change gives you a different answer. These three are pyMzLib's own.

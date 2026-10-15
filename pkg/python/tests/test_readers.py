@@ -136,20 +136,24 @@ def test_formats_parses_every_entry(recorded_formats):
 
     # An explicit, non-vacuous count first: the all(...) checks below are trivially true over an
     # empty sequence, so without this a parser that returned nothing would pass this test outright.
-    assert len(formats) == 38
+    # 38 -> 39 with mzLib #1384 (DiaNnReportParquet, DIA-NN 2.x's report.parquet).
+    assert len(formats) == 39
     assert len(formats) == recorded_formats["format_count"]
     assert all(isinstance(f, readers.Format) for f in formats)
     assert all(f.file_type for f in formats)
 
 
-def test_exactly_four_formats_offer_the_quantifiable_view(recorded_formats):
-    # The headline fact about this module, pinned on the Python side too: mzLib reads 38 formats
-    # and only these four can feed flashlfq.quantify(). Documented in the module docstring, so if
+def test_exactly_five_formats_offer_the_quantifiable_view(recorded_formats):
+    # The headline fact about this module, pinned on the Python side too: mzLib reads 39 formats
+    # and only these five can feed flashlfq.quantify(). Documented in the module docstring, so if
     # mzLib widens the set this test fails and the docs get corrected rather than quietly lying.
     # It just did: mzLib #1120 added DiaNnReport, which is how DIA data reaches quantify() at all.
+    # And again: #1384 added DiaNnReportParquet, DIA-NN 2.x's report.parquet (four -> five).
     quantifiable = [f.file_type for f in readers.formats() if f.is_quantifiable]
 
-    assert sorted(quantifiable) == sorted(["psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport"])
+    assert sorted(quantifiable) == sorted(
+        ["psmtsv", "osmtsv", "MsFraggerPsm", "DiaNnReport", "DiaNnReportParquet"]
+    )
 
 
 def test_no_view_is_the_commonest_answer(recorded_formats):
@@ -161,6 +165,7 @@ def test_no_view_is_the_commonest_answer(recorded_formats):
     # 15 -> 17 with mzLib 1.0.592 (#1347's protein-group and peptide tables); #1313's mzIdentML
     # types offer spectral_match instead. 17 -> 19 with mzLib 1.0.593 (#1388's RNA transcript-group
     # and quantified-oligo tables, which subclass those two readers and add no shared interface).
+    # Still 19 at mzLib 1.0.595: #1384's DiaNnReportParquet offers quantifiable.
     assert len(viewless) == 19, "an empty view list is the common case; a change here means mzLib " \
         "changed which formats implement a shared interface and the docs table needs regenerating"
 
@@ -431,8 +436,8 @@ def test_docstrings_are_ascii_so_help_is_readable_on_a_windows_console():
 def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
     """The recording must not drift from what the bridge actually emits.
 
-    Without this the Python 4-of-38 tests are pinned to a frozen JSON file, so mzLib could add a
-    fifth quantifiable type - or the wire shape could change - and they would keep passing against
+    Without this the Python 5-of-39 tests are pinned to a frozen JSON file, so mzLib could add a
+    sixth quantifiable type - or the wire shape could change - and they would keep passing against
     a stale recording while claiming to guard the contract. The C# side pins the live value; this
     is what makes the Python side a real second pin rather than an echo of a file on disk.
     """
@@ -441,7 +446,7 @@ def test_the_recorded_formats_fixture_still_matches_the_live_bridge():
     # a missing build artifact, not about the recording drifting.
     #
     # But a bare skip would let a misconfigured CI report green while the module's ONLY live pin
-    # never ran — every 32 / 15 / four-quantifiable assertion would then be pinned solely to the
+    # never ran — every 39 / 19 / five-quantifiable assertion would then be pinned solely to the
     # frozen readers_formats.json, and mzLib could drift past it unnoticed. CI always builds the
     # bridge before pytest (wheels.yml runs publish-bridge.ps1 first), so an absent binary UNDER CI
     # is a real fault, not an expected local gap. Fail there, mirroring the C# FixtureRoot_Exists

@@ -2,6 +2,9 @@
 # feat/peptidoform-convert (off main 6f959bf, pyMzLib 0.3.0), mzLib pin 0a808fec (tag 1.0.593). Example
 # fixtures recorded from the live bridge on that branch; the psmtsv ones from mzLib's own
 # Test/FileReadingTests/SearchResults/BottomUpExample.psmtsv.
+# Revised 2026-10-15 on pyMzLib bump/mzlib-1.0.595 (pin 2615953a, 1.0.595 content, untagged): mzLib
+# #1403 (in 1.0.594) closed mzLib#1401, so the ProForma UniProt caveat and its open question are
+# retired; the three example fixtures were re-recorded from the live bridge at that pin.
 verb: peptidoform convert
 module: peptidoform
 summary: >-
@@ -83,7 +86,7 @@ result:
     - {wire: failed_count, type: int, unit: sequences, nullable: false, null_means: null, doc: Rows with status failed.}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
     - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per input, in input order."}
-    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Six static caveats.}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Five static caveats (six through mzLib 1.0.593)."}
   columns:
     - {wire: input, type: string, unit: null, nullable: false, null_means: null, doc: The line exactly as read from stdin.}
     - {wire: output, type: string, unit: null, nullable: true, null_means: "mzLib returned no output for this input (status failed)", doc: "mzLib's converted sequence."}
@@ -100,7 +103,6 @@ errors:
   - {kind: service_unavailable, when: never}
 
 caveats:
-  - "ProForma does not resolve UniProt-sourced modifications at 0a808fec: '[UniProt:N-acetylserine on S]SEQK' comes out as '[UniProt:N-acetylserine on S]-SEQK', status converted, not '[UNIMOD:1]-SEQK'. mzLib's ProForma serializer looks modifications up in the MetaMorpheus list only (ProFormaSequenceSerializer.cs:34, MzLibModificationLookup.cs:54); the Unimod target looks them up in every list mzLib loads, UniProt's included (GlobalModificationLookup.cs:23). Convert to Unimod when the sequences carry UniProt modifications. mzLib#1401."
   - "ProForma writes a modification it cannot resolve under its mzLib name and the row is still converted, so status converted does not mean every bracket in a ProForma output is a controlled-vocabulary term. Unimod either names a modification by its UNIMOD accession or reports it in incompatible_items."
   - "A modification the target cannot write: under ReturnNull the row fails (output null); under RemoveIncompatibleElements and UsePrimarySequence it is dropped from output, named in incompatible_items, and the row is converted_with_warnings; under ThrowException the first such input fails the whole call as a usage error."
   - "status is mzLib's verdict read off ConversionWarnings; failure_reason can be null on a failed row (the Unimod target under ReturnNull records only incompatible_items)."
@@ -127,7 +129,6 @@ examples:
     r: "proforma <- peptidoform_convert(psms$records$full_sequence, target = 'ProForma')"
 
 open_questions:
-  - "The ProForma target's UniProt gap is an mzLib defect (the serializer's default lookup), mzLib#1401; close this when a pin carries its fix. A bridge-side substitute (ProFormaSequenceSerializer.WithLookup(GlobalModificationLookup)) composes serializer internals and is deliberately not used."
   - "mzLib's MzLibSequenceParser joins '|'-separated ambiguous candidates into one sequence with only a warning; whether it should refuse them (as SpectrumMatchFromTsv.ProFormaFromFullSequence does before calling it) is an mzLib question: mzLib#1405."
   - "AutoDetect (SequenceConversionService.ConvertAutoDetect) is not projected: --from is always explicit."
   - "Ported, unreleased: mzLibRust #32 and mzLibR #32 (drafts until pyMzLib 0.4.0 publishes the bridge). Set since.mzlibrust / since.mzlibr when they release."
