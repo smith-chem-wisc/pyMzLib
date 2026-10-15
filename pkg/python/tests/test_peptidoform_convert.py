@@ -97,8 +97,10 @@ def test_the_envelope_names_the_formats_mzlib_registered(replay):
     assert result.column_names == [
         "input", "output", "status", "failure_reason", "incompatible_items", "warnings", "errors"
     ]
-    assert len(result.caveats) == 6
-    assert any("ProForma" in c and "UniProt" in c for c in result.caveats)
+    # Six until the pin carrying mzLib #1403, which retired "ProForma does not resolve UniProt-sourced
+    # modifications": the ProForma serializer now falls back to the lookup the Unimod one uses.
+    assert len(result.caveats) == 5
+    assert not any("UniProt" in c for c in result.caveats)
 
 
 def test_real_psmtsv_sequences_to_unimod(replay):
@@ -113,16 +115,22 @@ def test_real_psmtsv_sequences_to_unimod(replay):
     assert not any("UniProt:" in o for o in result.outputs)
 
 
-def test_proforma_leaves_uniprot_modifications_unresolved(replay):
-    """The mzLib gap the caveats describe, pinned so a fix upstream is noticed when re-recorded."""
+def test_proforma_resolves_uniprot_modifications_as_unimod_does(replay):
+    """Was test_proforma_leaves_uniprot_modifications_unresolved, pinning the gap mzLib #1403 closed.
+
+    Re-recorded at the pin that carries #1403: tele-methylhistidine, written back by name before,
+    is UNIMOD:34 in ProForma too, so on this file the two targets now agree row for row.
+    """
     seen = replay("peptidoform_convert_psmtsv_proforma.json")
     psms = _load("readers_results_psmtsv.json")
     result = peptidoform.convert(psms["columns"]["full_sequence"], target="ProForma")
 
     assert seen["args"][5] == "ProForma"
-    assert result.outputs[0] == "YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK"
+    assert result.outputs[0] == "YPIEH[UNIMOD:34]GIVTNWDDMEK"
     assert result.outputs[2] == "AYHEQLSVAEITNAC[UNIMOD:4]FEPANQMVK"
     assert result.sequences[0].status == "converted"
+    assert not any("UniProt:" in o for o in result.outputs)
+    assert result.outputs == _load("peptidoform_convert_psmtsv.json")["columns"]["output"]
 
 
 def test_mode_and_threads_are_passed_through(replay):

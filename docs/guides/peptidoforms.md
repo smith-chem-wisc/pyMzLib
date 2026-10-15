@@ -15,7 +15,7 @@ Unimod or ProForma notation, so it can be handed to another tool (see
 | A peptide's m/z at a charge | [`Peptide.mz()`](#mz-and-why-trimethyllysine-needs-care) | `ClassExtensions.ToMz`, with fixed charges accounted for |
 | Whether the list is complete | [`Digest.truncated`](#the-isoform-cap-truncates-silently) | `DigestionParams.MaxModificationIsoforms` |
 | A MetaMorpheus full sequence in Unimod accessions | [`convert()`](#converting-full-sequences-to-unimod-or-proforma) | `SequenceConversionService.Convert`, Unimod serializer |
-| The same sequence in ProForma | [`convert(target="ProForma")`](#proforma-does-not-resolve-uniprot-modifications-yet) | `SequenceConversionService.Convert`, ProForma serializer |
+| The same sequence in ProForma | [`convert(target="ProForma")`](#proforma-gives-the-same-accessions) | `SequenceConversionService.Convert`, ProForma serializer |
 | Which sequences mzLib could not convert, and why | [`SequenceConversions.not_converted`](#when-mzlib-cannot-convert-a-sequence) | `ConversionWarnings` |
 | Which notations mzLib can read and write | [`SequenceConversions.source_formats` and `.target_formats`](#converting-full-sequences-to-unimod-or-proforma) | `SequenceConversionService.AvailableSourceFormats` and `AvailableTargetFormats` |
 
@@ -291,30 +291,32 @@ Every result lists the notations mzLib has registered, so you never need to gues
 
 ```
 
-### ProForma does not resolve UniProt modifications yet
+### ProForma gives the same accessions
 
-Ask for ProForma and the same file gives a different answer. Carbamidomethyl and oxidation become
-UNIMOD accessions. The UniProt modification is written back under its mzLib name, and the row
-still says `converted`:
+Ask for ProForma and this file gives the same accessions. The UniProt modification is `UNIMOD:34`
+here too:
 
 ```pycon
 >>> proforma = pymzlib.peptidoform.convert(psms.columns["full_sequence"], target="ProForma")
 >>> proforma.outputs[0]
-'YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK'
->>> proforma.outputs[4]
-'YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDM[UNIMOD:35]EK'
->>> proforma.sequences[0].status
-'converted'
+'YPIEH[UNIMOD:34]GIVTNWDDMEK'
+>>> proforma.outputs == unimod.outputs
+True
 
 ```
 
-The cause is in mzLib, not in pyMzLib. mzLib's ProForma serializer looks modifications up only in
-MetaMorpheus's own list, which has no UniProt entries. The Unimod serializer looks them up in every
-list mzLib loads. Until mzLib fixes this, **convert to Unimod when your sequences carry UniProt
-modifications**. In ProForma output, treat any bracket that is not a `UNIMOD:` term as unresolved.
-pyMzLib does not patch around the gap. A patch here would leave the same gap in mzLibRust, mzLibR
-and MetaMorpheus. The `pro_forma` column that [`readers.read_records()`](readers.md) gives a
-`.psmtsv` comes from the same serializer, so it has the same gap.
+That is new in mzLib 1.0.594 ([mzLib#1403](https://github.com/smith-chem-wisc/mzLib/pull/1403)).
+Before it, mzLib's ProForma serializer looked modifications up only in MetaMorpheus's own list,
+which has no UniProt entries, so it wrote `[UniProt:Tele-methylhistidine on H]` back by name. It
+now falls back to every list mzLib loads, as the Unimod serializer does. pyMzLib never patched
+around the gap, so the fix reached it, mzLibRust, mzLibR and MetaMorpheus at once. The `pro_forma`
+column that [`readers.read_records()`](readers.md) computes for a `.psmtsv` written without one
+comes from the same serializer, so it gained the accessions too.
+
+The two targets still differ on a modification that no list mzLib loads knows. ProForma writes it
+back under its own name and the row says `converted`; Unimod fails the row, or drops the
+modification, depending on `mode`. In ProForma output, treat any bracket that is not a `UNIMOD:`
+term as unresolved.
 
 ### When mzLib cannot convert a sequence
 
