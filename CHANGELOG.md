@@ -6,8 +6,7 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
-Built from the mzLib 1.0.595 release content (master `2615953a`, pinned before the tag exists; it is
-repinned to the 1.0.595 tag commit before release). It carries mzLib 1.0.594 as well.
+Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as well.
 
 ### Added
 - **DIA-NN 2.x's `report.parquet` reads** (mzLib 1.0.595, #1384, file type `DiaNnReportParquet`).
