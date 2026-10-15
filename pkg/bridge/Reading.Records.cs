@@ -856,8 +856,8 @@ internal static partial class Reading
         /// <c>feature_score</c>. That rule has exactly one documented exception, and it is not
         /// optional: <see cref="IQuantifiableRecord.RetentionTime"/> and
         /// <see cref="IQuantifiableRecord.MonoisotopicMass"/> are typed as non-nullable doubles, so
-        /// mzLib assigns literal <c>-1</c> when the column is missing (SpectrumMatchFromTsv.cs:234,
-        /// :119).
+        /// mzLib assigns literal <c>-1</c> when the column is missing (SpectrumMatchFromTsv.cs:237,
+        /// :122).
         /// </para>
         /// <para>
         /// Those two members are projected by <c>read-results</c> as null, and

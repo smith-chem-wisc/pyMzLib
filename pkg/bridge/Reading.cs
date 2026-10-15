@@ -664,8 +664,8 @@ internal static partial class Reading
         [
             "monoisotopic_mass keeps only the FIRST candidate of an ambiguous identification: " +
             "mzLib splits the '|'-separated list and parses the leading value " +
-            "(SpectrumMatchFromTsv.cs:119). full_sequence does NOT - it is passed through whole " +
-            "(SpectrumMatchFromTsv.cs:194), so on an ambiguous row it carries every candidate " +
+            "(SpectrumMatchFromTsv.cs:122). full_sequence does NOT - it is passed through whole " +
+            "(SpectrumMatchFromTsv.cs:197), so on an ambiguous row it carries every candidate " +
             "joined by '|' and is not a single sequence. The two fields therefore disagree about " +
             "how many identifications the row holds; split full_sequence yourself before using it.",
             "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of " +

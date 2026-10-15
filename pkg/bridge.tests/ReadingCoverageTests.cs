@@ -1021,8 +1021,8 @@ public class ReadingCoverageTests
         [
             ("MsFraggerPsm.cs:231", "IsDecoy"),
             ("MsFraggerPsm.cs:233", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:119", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:194", "FullSequence"),
+            ("SpectrumMatchFromTsv.cs:122", "MonoisotopicMass"),
+            ("SpectrumMatchFromTsv.cs:197", "FullSequence"),
             ("SpectrumMatchTsvReader.cs:71", "catch"),
             ("PsmFromTsvFile.cs:17", "warnings"),
             ("Ms1Feature.cs:84", "ChargeState"),
