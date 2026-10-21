@@ -117,4 +117,3 @@ examples:
 
 open_questions:
   - "No --paths-stdin form. The condition columns and searched files are per-deposit facts; a batch would need either one shared declaration (only sensible with none, i.e. each document's only factor column) or a per-document list. Decide before adding sdrf design_many."
-  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."

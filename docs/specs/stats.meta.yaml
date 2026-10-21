@@ -1,6 +1,8 @@
 # Written 2026-10-03 with the verb, from pyMzLib pkg/bridge/Statistics.cs (Meta) on branch
 # feat/stats-module (stacked on pyMzLib#68), mzLib pin 0a808fec (tag 1.0.593). Example fixture
-# recorded from the live bridge on that branch over mzLib's metafor reference inputs; agreement with
+# recorded from the live bridge on that branch over mzLib's metafor reference inputs
+# (Test/StatisticalModels/ReferenceData/dl_inputs.tsv, copied verbatim to
+# pkg/python/tests/fixtures/stats/metafor_dl_inputs.tsv; constructed cases, not proteomics data); agreement with
 # metafor is held by StatisticsTests.Meta_ReproducesMetaforDerSimonianLaird.
 verb: stats meta
 module: stats
@@ -63,8 +65,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.meta}
-  rust: {name: "mzlib::stats::meta_with", options: MetaOptions, note: "planned; not yet shipped"}
-  r: {name: stats_meta, note: "in mzLibR #29, not yet released. Takes a data.frame with feature, estimate and standard_error columns."}
+  rust: {name: "mzlib::stats::meta_with", options: MetaOptions, note: "on main (mzLibRust #31), not yet released"}
+  r: {name: stats_meta, note: "on main (mzLibR #31), not yet released. Takes a data.frame with feature, estimate and standard_error columns."}
 
 examples:
   - fixture: stats_meta_metafor.json
@@ -72,6 +74,4 @@ examples:
     rust: "let pooled = mzlib::stats::meta_with(&studies, &MetaOptions::default())?;"
     r: "pooled <- stats_meta(studies)"
 
-open_questions:
-  - "Rust and R spellings are proposals until those bindings ship the verb."
-  - "The example's studies are mzLib's metafor reference cases (Test/StatisticalModels/ReferenceData/dl_inputs.tsv), copied verbatim to pkg/python/tests/fixtures/stats/metafor_dl_inputs.tsv. They are constructed cases, not proteomics data."
+open_questions: []

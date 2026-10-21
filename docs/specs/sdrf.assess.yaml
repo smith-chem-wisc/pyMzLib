@@ -81,5 +81,4 @@ examples:
     rust: "let batch = mzlib::sdrf::assess_many(&[\"sdrf_cohort.sdrf.tsv\", \"sdrf_skeleton.sdrf.tsv\", \"PXD000070.sdrf.tsv\"], &BulkOptions::default())?;"
     r: "batch <- sdrf_assess_many(c('sdrf_cohort.sdrf.tsv', 'sdrf_skeleton.sdrf.tsv', 'PXD000070.sdrf.tsv'))"
 
-open_questions:
-  - "fill_rate is a C# double that serialises 1.0 as 1; bindings must read it as a float."
+open_questions: []

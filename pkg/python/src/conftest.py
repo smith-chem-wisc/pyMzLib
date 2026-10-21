@@ -48,8 +48,7 @@ REPLAY_EXTRA = {
     "version": ["bridge_version.json"],
     # The full albumin digest the peptidoforms guide reads (scripts/record_fixture.py --compact).
     "peptidoform fragments": ["peptidoform_P02768.json"],
-    # The PRIDE guide: the complete FTP listing, and PRIDE's empty answer for an unknown accession.
-    "pride ftp-files": ["pride_PXD000001_ftp_files.json"],
+    # The PRIDE guide: PRIDE's empty answer for an unknown accession.
     "pride files": ["pride_PXD999999999_files.json"],
     # The FlashLFQ guide: mzLib's two K562 test runs with MBR, and median polish of the peptide
     # table that run wrote (renamed K562_QuantifiedPeptides.tsv so it is told apart from the spec's).

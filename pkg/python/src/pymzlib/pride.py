@@ -368,8 +368,8 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     """Return the **complete** file list of a PRIDE project, read from its FTP directory tree.
 
     This is the authoritative counterpart to :func:`list_files`. Where ``list_files`` returns
-    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 five of the
-    project's 13 files, including the two largest — this walks the FTP directory (subdirectories
+    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 six of the
+    14 files the project held on 2026-10-03, including the two largest — this walks the FTP directory (subdirectories
     included) and returns everything the project actually holds. Reach for it whenever completeness
     or a true project size matters; use :func:`list_files` when you want the rich metadata (category,
     checksum, controlled-vocabulary locations) that the REST manifest carries and the directory
@@ -384,11 +384,12 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     :attr:`PrideFtpFile.approximate_size_bytes`), so :func:`approximate_total_size_bytes` is an
     estimate — but an estimate over the *whole* project, unlike :func:`total_size_bytes`.
 
-        >>> # Not run in CI: no "pride ftp-files" recording to replay yet.
-        >>> ftp = pymzlib.pride.list_ftp_files("PXD000001")           # doctest: +SKIP
-        >>> len(ftp)                                                  # doctest: +SKIP
-        13
-        >>> nested = [f.relative_path for f in ftp if "/" in f.relative_path]   # doctest: +SKIP
+        >>> ftp = pymzlib.pride.list_ftp_files("PXD000001")
+        >>> len(ftp)
+        14
+        >>> [f.relative_path for f in ftp if "/" in f.relative_path]   # doctest: +NORMALIZE_WHITESPACE
+        ['generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz',
+         'generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz']
 
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
@@ -648,9 +649,8 @@ def approximate_total_size_bytes(files: Iterable[PrideFtpFile]) -> int:
     REST manifest. When you need the exact bytes for one file, HTTP HEAD its
     :attr:`PrideFtpFile.url` and read ``Content-Length``.
 
-    >>> # Not run in CI: no "pride ftp-files" recording to replay yet.
-    >>> ftp = list_ftp_files("PXD000001")                       # doctest: +SKIP
-    >>> approximate_total_size_bytes(ftp) / 1e9                 # doctest: +SKIP
+    >>> ftp = list_ftp_files("PXD000001")
+    >>> round(approximate_total_size_bytes(ftp) / 1e9, 2)
     1.44
     """
     return sum(f.approximate_size_bytes for f in files)
