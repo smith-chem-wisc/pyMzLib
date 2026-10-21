@@ -273,6 +273,34 @@ public class StatisticsTests
     }
 
     [Test]
+    public void Fit_StatusCounts_KeyOnlyTheOutcomesALinearFitCanHave()
+    {
+        // mzLib 1.0.594 (#1367) added logistic and mixed-model outcomes to the same enum. A linear fit
+        // never reports them, so they must not appear as four keys that are always 0.
+        var (r, d) = WriteSmall(
+            "id\ta1\ta2\ta3\tb1\tb2\tb3\n" +
+            "up\t10\t10.2\t9.9\t12\t12.1\t11.8\n" +
+            "flat\t20\t20.1\t19.8\t20.2\t19.9\t20\n" +
+            "noise\t15\t15.5\t14.6\t15.2\t14.9\t15.4\n",
+            TwoGroupDesign);
+
+        JsonElement root = Run(Statistics.Fit, "treated\n", "stats", "fit", "--responses", r, "--design", d);
+
+        var keys = root.GetProperty("status_counts").EnumerateObject().Select(p => p.Name).ToList();
+        Assert.That(keys, Is.EqualTo(new[] { "fitted", "too_few_observations", "rank_deficient" }));
+        Assert.That(root.GetProperty("status_counts").EnumerateObject().Sum(p => p.Value.GetInt32()),
+            Is.EqualTo(root.GetProperty("feature_count").GetInt32()));
+    }
+
+    [Test]
+    public void StatusName_NamesEveryMzLibFitStatus_InSnakeCase()
+    {
+        // Fails on the repin that adds a FeatureFitStatus, before its C# name can reach the wire.
+        foreach (StatisticalModels.FeatureFitStatus status in Enum.GetValues<StatisticalModels.FeatureFitStatus>())
+            Assert.That(Statistics.StatusName(status), Does.Match("^[a-z]+(_[a-z]+)*$"), status.ToString());
+    }
+
+    [Test]
     public void Fit_CountsZeroCells_AsObservations_AndSaysSo()
     {
         var (r, d) = WriteSmall(

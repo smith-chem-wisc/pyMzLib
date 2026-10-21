@@ -80,6 +80,9 @@ def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
     live = call()
     assert_same_columns(live.columns, recorded["columns"])
     assert live.caveats == recorded["caveats"]
+    if "status_counts" in recorded:
+        # Its keys come from an mzLib enum; a repin that grows it must not slip past the recording.
+        assert live.status_counts == recorded["status_counts"]
 
 
 def test_the_meta_recording_is_what_the_bridge_returns_today():
