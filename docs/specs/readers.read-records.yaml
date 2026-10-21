@@ -3,6 +3,8 @@
 # 1.0.592). Every example fixture was recorded from, or diffed against, the live bridge on that branch.
 # Extended 2026-09-24 on feat/readers-bulk-1.0.592 (C1 readers batch): the per-file block (BULK.md
 # section 3), absent_fields, mzIdentML skipped items, excluded_fields verb pointers, and --paths-stdin.
+# Revised 2026-10-15 on pyMzLib bump/mzlib-1.0.595 (pin 2615953a, 1.0.595 content, untagged):
+# DiaNnReportParquet (#1384) and its absent_fields basis, #1403's pro_forma, #1371's moved citation.
 verb: readers read-records
 module: readers
 summary: >-
@@ -23,7 +25,7 @@ params:
     range: null
     default: null
     doc: >-
-      Any of the file types readers formats lists (38 at mzLib 1.0.593), including spectra files and
+      Any of the file types readers formats lists (39 at mzLib 1.0.595), including spectra files and
       the Bruker .d directories.
   - name: offset
     type: int
@@ -67,7 +69,7 @@ result:
     - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "the count is not meaningful for this format (only the psmtsv family and MSFragger are one line per record)", doc: "Data rows that did not become records; mzLib drops a malformed psmtsv line silently."}
     - {wire: retention_time_unit, type: "string", unit: null, nullable: true, null_means: "always: the columns are the format's own, and several formats carry more than one time column", doc: "Always null for this verb; use a typed view when units matter."}
     - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Always empty for this verb; the static caveats below apply."}
-    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns this file's header has no column for: the record type reads them from an [Optional] CsvHelper column the file lacks, so every value is mzLib's default and crosses null (e.g. mbr_score on a current FlashLFQ peaks table, #1345; q_value and pep_q_value on an MsPathFinderT targets file). Judged from mzLib's own [Name]/[Optional] attributes against the file's header; empty means none found or no basis to judge."}
+    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns this file's header has no column for: the record type reads them from an [Optional] CsvHelper column the file lacks, so every value is mzLib's default and crosses null (e.g. mbr_score on a current FlashLFQ peaks table, #1345; q_value and pep_q_value on an MsPathFinderT targets file). Judged from mzLib's own [Name]/[Optional] attributes against the file's header; empty means none found or no basis to judge. Always empty for a .parquet (DiaNnReportParquet): it has no text header, and mzLib maps its columns through a rename table it does not expose, so there is no basis without re-implementing that mapping."}
     - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path: a file that cannot be read fails the call instead", doc: "{kind, type, message}; non-null only in a files[] entry under on-error skip."}
     - {wire: skipped_count, type: "int", unit: "items", nullable: true, null_means: "the format keeps no skip list (every format but mzIdentML)", doc: "mzIdentML items mzLib did not represent as records (crosslinks, unresolvable modifications, substitutions; #1313)."}
     - {wire: skipped, type: "object[]", unit: null, nullable: true, null_means: "as skipped_count", doc: "{spectrum_identification_item_id, spectrum_id, reason} per skipped item."}
@@ -81,8 +83,8 @@ result:
   columns: per-format
   cell_rules:
     - "A cell is null when mzLib's value is null, when a double is NaN or infinite (JSON cannot carry it), or when the property threw (then named in failed_fields)."
-    - "-1 crosses unchanged: in a format's own columns it is often a real measurement. The one exception is retention_time and monoisotopic_mass on IQuantifiableRecord types (psmtsv, osmtsv, MsFraggerPsm, DiaNnReport), where mzLib documents -1 as absent; those are null, matching read-results."
-    - "Units are the writing tool's and are not normalised: retention time is minutes for psmtsv/osmtsv/MsFraggerPsm/DiaNnReport and undeclared for the rest. read-records carries no retention_time_unit; use a typed view when units matter."
+    - "-1 crosses unchanged: in a format's own columns it is often a real measurement. The one exception is retention_time and monoisotopic_mass on IQuantifiableRecord types (psmtsv, osmtsv, MsFraggerPsm, DiaNnReport, DiaNnReportParquet), where mzLib documents -1 as absent; those are null, matching read-results."
+    - "Units are the writing tool's and are not normalised: retention time is minutes for psmtsv/osmtsv/MsFraggerPsm/DiaNnReport/DiaNnReportParquet and undeclared for the rest. read-records carries no retention_time_unit; use a typed view when units matter."
     - "Enums cross as their member names, dates as ISO 8601 strings, and a list of scalars as ONE ';'-joined string, on the wire and in out alike; split it yourself. The one exception is an SDRF row, whose header and cells lists are excluded rather than joined (PYB-2): SDRF cells contain ';' themselves."
     - "A column named in absent_fields is null in every row, whatever default mzLib filled in."
   # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
@@ -127,7 +129,9 @@ caveats:
   - "Since mzLib 1.0.592 (#1346), pro_forma on psmtsv/osmtsv from MetaMorpheus 1.1.11 or earlier is computed from full_sequence instead of null; ambiguous or unconvertible rows stay null. Measured cost: 12.9 s -> 15.6 s on a 271,551-row psmtsv."
   - "Since mzLib 1.0.592 (#1345), mbr_score on FlashLFQQuantifiedPeak is null, not 0, when a peak has no score, and current-format peaks tables (no MBR Score column) read, with seven more columns."
   - "offset/limit window after a full parse; memory and time scale with the file, not the window."
-  - "pro_forma is never absent at mzLib 1.0.592: when a psmtsv has no ProForma column it is computed from Full Sequence, which the reader REQUIRES (SpectrumMatchFromTsv.cs:194), so a file without both fails to read instead."
+  - "pro_forma is never absent at mzLib 1.0.592: when a psmtsv has no ProForma column it is computed from Full Sequence, which the reader REQUIRES (SpectrumMatchFromTsv.cs:197), so a file without both fails to read instead."
+  - "Since mzLib 1.0.594 (#1403), a computed pro_forma names UniProt-sourced modifications by UNIMOD accession: BottomUpExample.psmtsv's first row reads YPIEH[UNIMOD:34]GIVTNWDDMEK where it read YPIEH[UniProt:Tele-methylhistidine on H]GIVTNWDDMEK. A pro_forma column the file carries is passed through as written."
+  - "A DIA-NN 2.x report.parquet (DiaNnReportParquet, mzLib #1384) reads into the TSV report's record type, DiaNnPrecursor, so the columns are the same; those for fields 2.x no longer writes (File.Name, PG.Quantity, MS2.Scan and others, DiaNnParquetReportFile.cs:16) hold mzLib's not-reported default: null, except ms2_scan_number, which reads 0. absent_fields does not name them (see absent_fields). Decoy rows (--report-decoys) are skipped by mzLib, so record_count counts targets."
   - "Many files: --paths-stdin needs every input to have the same record type (the long table has one column set); a mixed list is a usage error naming the groups. Otherwise as every bulk verb: one process, --threads at a time, output identical at any thread count."
 
 bindings:

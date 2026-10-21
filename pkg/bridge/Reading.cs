@@ -9,16 +9,17 @@ namespace MzLibBridge;
 /// </summary>
 /// <remarks>
 /// <para>
-/// mzLib's <c>Readers</c> recognises 38 file types written by a dozen different search and
+/// mzLib's <c>Readers</c> recognises 39 file types written by a dozen different search and
 /// deconvolution tools, and dispatches each to a parser it maintains. That dispatch is the whole
 /// value here — the bridge adds no parsing of its own; it asks mzLib what a path is
 /// (<see cref="SupportedFileTypeExtensions.ParseFileType"/>) and reports the answer.
 /// </para>
 /// <para>
 /// The important honesty in this verb is <c>views</c>. It is tempting to describe mzLib as reading
-/// 38 formats into one uniform shape; it does not. Only four types implement
+/// 39 formats into one uniform shape; it does not. Only five types implement
 /// <see cref="IQuantifiableResultFile"/> (MetaMorpheus <c>.psmtsv</c> and <c>.osmtsv</c>,
-/// MSFragger <c>psm.tsv</c>, and DIA-NN <c>report.tsv</c>); deconvolution features have their own interface
+/// MSFragger <c>psm.tsv</c>, and DIA-NN's <c>report.tsv</c> and its 2.x <c>report.parquet</c>);
+/// deconvolution features have their own interface
 /// (<see cref="IMs1FeatureFile"/>); spectra files are an <see cref="MsDataFile"/>; and several
 /// formats belong to no common interface at all. Rather than discovering that as a cast failure
 /// deep in a later call, a caller is told up front which views a given file actually supports.
@@ -75,9 +76,11 @@ internal static partial class Reading
     /// </para>
     /// <para>
     /// "Without parsing" is not quite "without reading". mzLib's own type detection opens the file
-    /// for three families: a bare <c>.tsv</c> is disambiguated by its first line, a <c>.mztab</c>
-    /// by its first five, and a <c>.d</c> by which analysis file the directory contains. So this
-    /// verb can fail on an unreadable file, which is why the path is checked first.
+    /// for five families: a bare <c>.tsv</c> is disambiguated by its first line, a <c>.txt</c> and
+    /// a <c>.mztab</c> by their first five, a <c>.parquet</c> by its column schema (a DIA-NN 2.x
+    /// report carries <c>Precursor.Id</c>, <c>Stripped.Sequence</c> and <c>Run</c>), and a
+    /// <c>.d</c> by which analysis file the directory contains. So this verb can fail on an
+    /// unreadable file, which is why the path is checked first.
     /// </para>
     /// <para>
     /// <b>No <c>software</c> field, deliberately.</b> <see cref="IResultFile.Software"/> looks like
@@ -210,7 +213,7 @@ internal static partial class Reading
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only the four file types offering the <c>quantifiable</c> view can be read this way; a file
+    /// Only the five file types offering the <c>quantifiable</c> view can be read this way; a file
     /// without it is rejected with a message naming the views it does have, rather than a cast
     /// failure. Use <c>readers identify</c> first to find out.
     /// </para>
@@ -411,7 +414,7 @@ internal static partial class Reading
             throw new Program.UsageException(
                 $"Cannot read '{path}' into the uniform record view. {detail} " +
                 "Identifying a file reports the views it supports; the formats listing names the " +
-                "four types that offer this one.");
+                "five types that offer this one.");
         }
     }
 
@@ -614,7 +617,9 @@ internal static partial class Reading
         // DiaNnPrecursor.RetentionTime is documented "Apex retention time in minutes. DIA-NN writes
         // retention times in minutes already, so this needs no conversion". Leaving it to fall
         // through to "unknown" would understate what is actually known about the format.
-        SupportedFileType.DiaNnReport => "minutes",
+        // DIA-NN 2.x's report.parquet (mzLib #1384) is read into the same DiaNnPrecursor record, its
+        // RT column under the same name and converted by nothing, so the same documentation covers it.
+        SupportedFileType.DiaNnReport or SupportedFileType.DiaNnReportParquet => "minutes",
         _ => "unknown",
     };
 
@@ -659,8 +664,8 @@ internal static partial class Reading
         [
             "monoisotopic_mass keeps only the FIRST candidate of an ambiguous identification: " +
             "mzLib splits the '|'-separated list and parses the leading value " +
-            "(SpectrumMatchFromTsv.cs:119). full_sequence does NOT - it is passed through whole " +
-            "(SpectrumMatchFromTsv.cs:194), so on an ambiguous row it carries every candidate " +
+            "(SpectrumMatchFromTsv.cs:122). full_sequence does NOT - it is passed through whole " +
+            "(SpectrumMatchFromTsv.cs:197), so on an ambiguous row it carries every candidate " +
             "joined by '|' and is not a single sequence. The two fields therefore disagree about " +
             "how many identifications the row holds; split full_sequence yourself before using it.",
             "monoisotopic_mass is the file's 'Peptide Monoisotopic Mass' - the THEORETICAL mass of " +

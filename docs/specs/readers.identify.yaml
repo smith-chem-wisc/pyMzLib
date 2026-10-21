@@ -32,7 +32,7 @@ errors:
   - {kind: service_unavailable, when: never}
 
 caveats:
-  - "Cheap but not pure: mzLib reads a bare .tsv's first line, a .mztab's first five and a .d directory's listing to dispatch them."
+  - "Cheap but not pure: mzLib reads a bare .tsv's first line, a .txt's and a .mztab's first five, a .parquet's column schema and a .d directory's listing to dispatch them. A .parquet without the DIA-NN report columns (Precursor.Id, Stripped.Sequence, Run) is a usage error, 'Parquet file type not supported' (mzLib 1.0.595, #1384)."
   - "No software field: mzLib's Software property is Unspecified for everything its factory builds; file_type already names the tool."
   - "Many paths: --paths-stdin (newline-delimited paths on stdin) with --threads N (default 1, -1 = one per core; the answer is identical at any value) and --on-error fail|skip answers {file_count, read_count, failed_count, on_error, files}, files[i] being path i's answer in input order with error set when it could not be identified under skip (readers_many_identify.json). There is no table and no --out."
 

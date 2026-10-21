@@ -619,9 +619,10 @@ def convert(
     becomes ``[UNIMOD:1]SEQK``. Nothing is converted in Python or in the bridge; every output and
     every status is mzLib's.
 
-    **Choose Unimod, not ProForma, for UniProt-sourced modifications.** mzLib's ProForma target
-    does not resolve them and writes them back under their mzLib name, status ``"converted"``. See
-    the caveats.
+    Both targets name UniProt-sourced modifications by their UNIMOD accession (the ProForma one
+    since mzLib #1403). They differ on a modification no list mzLib loads knows: ProForma writes it
+    back under its own name, status ``"converted"``, where Unimod fails the row or drops it,
+    depending on ``mode``. See the caveats.
 
     Args:
         sequences: Full sequences, one result row each, in order, duplicates included. Sent to

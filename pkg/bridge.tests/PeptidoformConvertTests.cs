@@ -8,9 +8,9 @@ namespace MzLibBridge.Tests;
 /// </summary>
 /// <remarks>
 /// The accessions are mzLib's. These tests pin the cases the verb exists for (UniProt-sourced
-/// modifications to Unimod), the ProForma gap the caveats describe (so an mzLib fix is noticed
-/// here), what each <c>SequenceConversionHandlingMode</c> does to a row, and that rows come back in
-/// input order at any thread count.
+/// modifications to Unimod), the ProForma target resolving them too since mzLib #1403 (a gap the
+/// caveats described until then), what each <c>SequenceConversionHandlingMode</c> does to a row,
+/// and that rows come back in input order at any thread count.
 /// </remarks>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -78,24 +78,28 @@ public class PeptidoformConvertTests
                 { "Chronologer", "Essential", "MassShift", "ProForma", "Unimod", "mzLib" }));
             Assert.That(Strings(data.GetProperty("column_names")), Is.EqualTo(new[]
                 { "input", "output", "status", "failure_reason", "incompatible_items", "warnings", "errors" }));
-            Assert.That(data.GetProperty("caveats").GetArrayLength(), Is.EqualTo(6));
+            // Six until the #1403 pin retired the ProForma UniProt caveat.
+            Assert.That(data.GetProperty("caveats").GetArrayLength(), Is.EqualTo(5));
             Assert.That(data.GetProperty("columns").GetProperty("output")[0].GetString(), Is.EqualTo("PEPTIDE"));
         });
     }
 
     [Test]
-    public void ProForma_LeavesUniProtModificationsUnresolved()
+    public void ProForma_ResolvesUniProtModificationsToUnimod()
     {
-        // The mzLib gap the first caveat describes. When mzLib fixes it this test fails, and the
-        // caveat, the spec and the guide come out together.
+        // Was ProForma_LeavesUniProtModificationsUnresolved, pinning the gap the first caveat
+        // described: '[UniProt:N-acetylserine on S]-SEQK' and the dimethyllysine written back by name.
+        // mzLib #1403 closed it (the serializer falls back to the global lookup), the test failed as
+        // designed, and the caveat came out of the bridge, the spec and the guide together. A
+        // modification no list knows is still written under its own name, which the next caveat says.
         JsonElement data = Invoke(Probe, "peptidoform", "convert", "--to", "ProForma");
         JsonElement columns = data.GetProperty("columns");
 
         Assert.Multiple(() =>
         {
             Assert.That(data.GetProperty("target_format").GetString(), Is.EqualTo("ProForma"));
-            Assert.That(columns.GetProperty("output")[0].GetString(), Is.EqualTo("[UniProt:N-acetylserine on S]-SEQK"));
-            Assert.That(columns.GetProperty("output")[1].GetString(), Is.EqualTo("PEPK[UniProt:N6,N6-dimethyllysine on K]R"));
+            Assert.That(columns.GetProperty("output")[0].GetString(), Is.EqualTo("[UNIMOD:1]-SEQK"));
+            Assert.That(columns.GetProperty("output")[1].GetString(), Is.EqualTo("PEPK[UNIMOD:36]R"));
             Assert.That(columns.GetProperty("output")[2].GetString(), Is.EqualTo("PEPM[UNIMOD:35]K"));
             Assert.That(columns.GetProperty("output")[3].GetString(), Is.EqualTo("PEPK[Made Up:Not a modification on K]R"));
             Assert.That(Strings(columns.GetProperty("status")), Is.All.EqualTo("converted"));

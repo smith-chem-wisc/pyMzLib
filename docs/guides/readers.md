@@ -74,13 +74,13 @@ straight from mzLib:
 ```pycon
 >>> from collections import Counter
 >>> Counter(view for f in pymzlib.readers.formats() for view in (f.views or ["(none)"]))
-Counter({'(none)': 19, 'spectra': 7, 'spectral_match': 6, 'quantifiable': 4, 'ms1_features': 2})
+Counter({'(none)': 19, 'spectra': 7, 'spectral_match': 6, 'quantifiable': 5, 'ms1_features': 2})
 
 ```
 
 | view | what it means | which formats |
 |---|---|---|
-| `quantifiable` | a cross-format record view: sequence, retention time, charge, mass, protein groups. What [`flashlfq.quantify()`](flashlfq.md) accepts. | MetaMorpheus `.psmtsv`/`.osmtsv`, MSFragger `psm.tsv`, DIA-NN `report.tsv` |
+| `quantifiable` | a cross-format record view: sequence, retention time, charge, mass, protein groups. What [`flashlfq.quantify()`](flashlfq.md) accepts. | MetaMorpheus `.psmtsv`/`.osmtsv`, MSFragger `psm.tsv`, DIA-NN `report.tsv` and DIA-NN 2.x `report.parquet` |
 | `ms1_features` | deconvolved MS1 features | TopFD `_ms1.feature`, Dinosaur |
 | `spectral_match` | records are identifications, but share no *file*-level interface | MsPathFinderT's three files, Casanovo, mzIdentML `.mzid`/`.mzid.gz` |
 | `spectra` | the file is spectra, not results | `.raw`, `.mzML`, `.mgf`, both `.d` types, both msalign types |
@@ -223,7 +223,8 @@ Values that changed between mzLib releases, for the same file, are on
 ## `read_results()`: the quantifiable view
 
 The formats offering `quantifiable` (MetaMorpheus `.psmtsv` and `.osmtsv`, MSFragger `psm.tsv`,
-DIA-NN `report.tsv`) read into one fixed shape that is safe to compare between files:
+DIA-NN `report.tsv`, and DIA-NN 2.x's `report.parquet`) read into one fixed shape that is safe to
+compare between files:
 
 ```pycon
 >>> r = pymzlib.readers.read_results("FraggerPsm_FragPipev21.1_psm.tsv", limit=2)
@@ -815,6 +816,7 @@ MetaMorpheusQuantifiedProteinGroups      QuantifiedProteinGroups.tsv  (none)
 FlashLFQQuantifiedPeptide                QuantifiedPeptides.tsv       (none)
 MetaMorpheusQuantifiedTranscriptGroups   QuantifiedTranscriptGroups.tsv (none)
 FlashLFQQuantifiedOligo                  QuantifiedOligos.tsv         (none)
+DiaNnReportParquet                       report.parquet               quantifiable
 
 ```
 
@@ -824,13 +826,23 @@ sometimes by reading the first line. Renaming a file changes how it parses. That
 hypothetical: mzLib's own Dinosaur test fixture is named `.features.tsv` and cannot be dispatched
 until it is renamed to `.feature.tsv`.
 
-`DiaNnReport` is one of two rows where the extension is **not** how dispatch works. mzLib reports
+`DiaNnReport` is one of three rows where the extension is **not** how dispatch works. mzLib reports
 its extension as `report.tsv`, the conventional DIA-NN name, but matches on the header instead: a
 file is a DIA-NN report if its first line carries `File.Name`, `Precursor.Id` and
 `Stripped.Sequence`. That is deliberate upstream: whoever ran the search routinely renames the
 report, and `File.Name` is what separates the long-format report from the `pr_matrix` reports
 DIA-NN writes beside it, which carry the other two columns but one column per run. So a renamed
 DIA-NN report still reads, and a `report.tsv` that is not one still will not.
+
+`DiaNnReportParquet` ([mzLib#1384](https://github.com/smith-chem-wisc/mzLib/pull/1384))
+is DIA-NN 2.x's main report, which it writes only as parquet. The same rule holds: any `.parquet`
+whose columns include `Precursor.Id`, `Stripped.Sequence` and `Run` is a DIA-NN report, whatever
+its name, and any other `.parquet` is refused with `Parquet file type not supported`. It reads into
+the same record as the TSV report, so `read_results()` treats the two alike and retention time is
+in minutes for both. A 2.x report no longer writes some columns the TSV had, such as `File.Name`,
+`PG.Quantity` and `MS2.Scan`; in `read_records()` those are `None`, except `ms2_scan_number`,
+which mzLib fills with 0. `absent_fields` does not name them for a parquet: it is judged from a
+text header, which a parquet does not have.
 
 `PytheasResult` is the other. Pytheas (RNA oligonucleotide search) writes its match output with no
 fixed name, so mzLib looks for a `#theoretical_digest` line in the first five lines of a `.txt`

@@ -10,7 +10,7 @@ peaks on request::
     >>> scans.scan_count, scans.columns["retention_time"][:2]
     (6, [38.92571663975, 38.92606115255])
 
-mzLib recognises 38 file types in all - the instrument and deconvolution formats above, plus the
+mzLib recognises 39 file types in all - the instrument and deconvolution formats above, plus the
 output of a dozen search tools: MetaMorpheus, MSFragger, TopPIC, TopFD, MsPathFinderT, Crux,
 Casanovo, FlashDeconv, Dinosaur, DIA-NN, FlashLFQ, Pytheas, and any mzIdentML writer - and
 dispatches each to a parser it maintains. This module asks it what a path is::
@@ -26,16 +26,16 @@ dispatches each to a parser it maintains. This module asks it what a path is::
     >>> table.record_type, len(table.column_names)
     ('ToppicPrsm', 36)
 
-**Every one of the 38 formats is readable** - :func:`read_records` reads any of them. What differs
+**Every one of the 39 formats is readable** - :func:`read_records` reads any of them. What differs
 between formats is not *whether* you can read them but *what the columns mean*, and that is what
-:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 38 formats into one
+:attr:`FileInfo.views` tells you. It is tempting to describe mzLib as reading 39 formats into one
 uniform shape; it does not. They fall into disjoint families, and several belong to no family at
 all:
 
 +---------------------+-------+------------------------+---------------------------------------+
 | view                | types | function               | columns                               |
 +=====================+=======+========================+=======================================+
-| ``"quantifiable"``  | 4     | :func:`read_results`   | uniform: sequence, RT, charge, mass,  |
+| ``"quantifiable"``  | 5     | :func:`read_results`   | uniform: sequence, RT, charge, mass,  |
 |                     |       |                        | protein groups. What                  |
 |                     |       |                        | :func:`pymzlib.flashlfq.quantify`     |
 |                     |       |                        | consumes.                             |
@@ -49,7 +49,7 @@ all:
 | ``"spectra"``       | 7     | :func:`read_spectra`   | uniform: scan headers, and peaks on   |
 |                     |       |                        | request.                              |
 +---------------------+-------+------------------------+---------------------------------------+
-| *(any)*             | 38    | :func:`read_records`   | **this format's own fields**, under   |
+| *(any)*             | 39    | :func:`read_records`   | **this format's own fields**, under   |
 |                     |       |                        | mzLib's names. Not uniform.           |
 +---------------------+-------+------------------------+---------------------------------------+
 
@@ -682,8 +682,8 @@ class ResultRecords(_Table):
         output: Where the table was written, or ``None`` if it was returned inline.
         reader: The mzLib class that parsed the file, e.g. ``"PsmFromTsvFile"``.
         absent_fields: Columns this view defines but **this file's format has no column for**, so
-            every value is ``None``: ``["is_decoy"]`` for MSFragger and DIA-NN, which write no
-            target/decoy label. See the module docstring's "four ways a field can have no value".
+            every value is ``None``: ``["is_decoy"]`` for MSFragger and both DIA-NN report
+            types, which give mzLib no target/decoy label. See the module docstring's "four ways a field can have no value".
         failed_fields: ``"field: ExceptionType"`` for each column whose read threw on some rows;
             those cells are ``None``.
         excluded_fields: Fields with no column shape. Always empty for this view.
@@ -1659,7 +1659,7 @@ def formats(timeout: float | None = 60) -> list[Format]:
     Examples:
         >>> quantifiable = [f.file_type for f in formats() if f.is_quantifiable]
         >>> quantifiable
-        ['psmtsv', 'osmtsv', 'MsFraggerPsm', 'DiaNnReport']
+        ['psmtsv', 'osmtsv', 'MsFraggerPsm', 'DiaNnReport', 'DiaNnReportParquet']
     """
     data = _bridge.invoke("readers", "formats", timeout=timeout)
     return [Format._from_wire(item) for item in (data.get("formats") or [])]
@@ -1670,8 +1670,10 @@ def identify(path: str | os.PathLike[str], timeout: float | None = 60) -> FileIn
 
     Cheap by design: mzLib resolves the type and stops, so identifying a million-row file costs no
     more than identifying an empty one. It is not, however, *pure* - mzLib disambiguates a bare
-    ``.tsv`` by reading its first line, a ``.mztab`` by its first five, and a Bruker ``.d`` by which
-    analysis file the directory holds. An unreadable file will therefore raise.
+    ``.tsv`` by reading its first line, a ``.txt`` and a ``.mztab`` by their first five, a
+    ``.parquet`` by its column schema (a DIA-NN 2.x report carries ``Precursor.Id``,
+    ``Stripped.Sequence`` and ``Run``; any other ``.parquet`` is refused), and a Bruker ``.d`` by
+    which analysis file the directory holds. An unreadable file will therefore raise.
 
     Args:
         path: Path to a result or spectra file. A Bruker ``.d`` directory is also accepted.
@@ -1757,7 +1759,7 @@ def read_results(
 ) -> ResultRecords:
     """Read a result file into the uniform record view.
 
-    Only the four file types offering the ``"quantifiable"`` view can be read this way - check
+    Only the five file types offering the ``"quantifiable"`` view can be read this way - check
     :func:`identify` first, or catch the error. A file without the view is rejected with a message
     naming the views it does have. :func:`read_results_many` reads a list of them into one table.
 
@@ -1766,8 +1768,8 @@ def read_results(
     file use ``out`` rather than paging: see the note on ``offset`` below.
 
     Args:
-        path: Path to a MetaMorpheus ``.psmtsv`` / ``.osmtsv``, an MSFragger ``psm.tsv`` or a
-            DIA-NN ``report.tsv``.
+        path: Path to a MetaMorpheus ``.psmtsv`` / ``.osmtsv``, an MSFragger ``psm.tsv``, or a
+            DIA-NN main report: ``report.tsv``, or DIA-NN 2.x's ``report.parquet``.
         limit: Maximum records to return. ``None`` (the default) returns all of them.
             :attr:`ResultRecords.truncated` reports whether anything was left behind.
         offset: Records to skip. **This is a window, not a cursor.** mzLib materializes the whole
@@ -1813,7 +1815,7 @@ def read_results_many(
 ) -> ReadBatch:
     """Read many result files into one long table of the uniform record view.
 
-    :func:`read_results` for a list, which may mix the four quantifiable formats: the columns are
+    :func:`read_results` for a list, which may mix the five quantifiable formats: the columns are
     the same for all of them. Their units need not be - use :meth:`ReadBatch.in_minutes` for
     ``retention_time`` - and each file's caveats are in its :class:`FileReport`.
 
@@ -1868,7 +1870,7 @@ def read_records(
     """Read **any** file mzLib recognises, into that format's own fields.
 
     This is the exhaustive verb: if :func:`identify` succeeds on a path, this reads it. All
-    thirty-eight file types, including the nineteen that belong to no cross-format view at all -
+    thirty-nine file types, including the nineteen that belong to no cross-format view at all -
     TopPIC, Crux, MSFragger's peptide and protein tables, the FlashDeconv formats, MetaMorpheus's
     protein-group and peptide tables and their RNA counterparts - which no other
     function here can touch.

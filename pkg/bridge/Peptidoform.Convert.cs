@@ -15,8 +15,10 @@ namespace MzLibBridge;
 /// <see cref="SequenceConversionHandlingMode"/> passed through as given. The bridge validates the
 /// two names against the service's own registry, reads mzLib's <see cref="ConversionWarnings"/>
 /// back out, and shapes one row per input. It resolves no modification itself and picks no
-/// lookup: which modifications a target can name is the serializer's business, and the ProForma
-/// target at the pin is known not to name UniProt-sourced ones (see the caveats).
+/// lookup: which modifications a target can name is the serializer's business. That is why the
+/// ProForma target's UniProt gap was a caveat here rather than a patch, and why it closed with no
+/// bridge change: since mzLib #1403 the ProForma serializer falls back from the MetaMorpheus list
+/// to every list mzLib loads, as the Unimod one does (ProFormaSequenceSerializer.cs:32).
 /// </para>
 /// <para>
 /// <b>ProForma is registered first.</b> mzLib keeps ProForma in <c>Readers</c> and registers it at
@@ -184,13 +186,8 @@ internal static partial class Peptidoform
 
     private static List<string> ConvertCaveats() => new()
     {
-        "ProForma does not resolve UniProt-sourced modifications at the bridge's mzLib pin: " +
-        "'[UniProt:N-acetylserine on S]SEQK' comes out as '[UniProt:N-acetylserine on S]-SEQK', status " +
-        "converted, not '[UNIMOD:1]-SEQK'. mzLib's ProForma serializer looks modifications up in the " +
-        "MetaMorpheus list only (ProFormaSequenceSerializer.cs:34, MzLibModificationLookup.cs:54); the " +
-        "Unimod target looks them up in every list mzLib loads, UniProt's included " +
-        "(GlobalModificationLookup.cs:23). Convert to Unimod when the sequences carry UniProt modifications.",
-
+        // A first caveat, "ProForma does not resolve UniProt-sourced modifications", was retired with
+        // the pin that carries mzLib #1403; ProForma_ResolvesUniProtModificationsToUnimod pins the fix.
         "ProForma writes a modification it cannot resolve under its mzLib name, and the row is still " +
         "converted: status converted does not mean every bracket in a ProForma output is a controlled " +
         "vocabulary term. Unimod either names a modification by its UNIMOD accession or reports it in " +

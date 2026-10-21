@@ -1,6 +1,8 @@
 # Written 2026-09-24 with the C1 readers batch, from pyMzLib pkg/bridge/Reading*.cs on branch
 # feat/readers-bulk-1.0.592 (stacked on pyMzLib#61/#62), mzLib pin 23c2490e (tag 1.0.592). Every
-# example fixture was recorded from the live bridge on that branch.
+# example fixture was recorded from the live bridge on that branch. Revised 2026-10-15 on pyMzLib
+# bump/mzlib-1.0.595 (pin 2615953a, 1.0.595 content, untagged): DiaNnReportParquet (#1384), and the
+# psmtsv citations #1371 moved.
 verb: readers read-results
 module: readers
 summary: >-
@@ -12,7 +14,7 @@ wraps:
 cite: []
 
 params:
-  - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "A MetaMorpheus .psmtsv/.osmtsv, an MSFragger psm.tsv or a DIA-NN report.tsv."}
+  - {name: path, type: "path", required: true, unit: null, range: null, default: null, doc: "A MetaMorpheus .psmtsv/.osmtsv, an MSFragger psm.tsv, or a DIA-NN main report: report.tsv, or DIA-NN 2.x's report.parquet (mzLib 1.0.595, #1384)."}
   - {name: offset, type: "int", required: false, unit: "records", range: ">= 0", default: 0, doc: "Skip this many records. A window, not a cursor: mzLib parses the whole file on every call, so paging re-reads it."}
   - {name: limit, type: "int", required: false, unit: "records", range: ">= 0", default: null, doc: "Return at most this many records. Absent means no limit; there is deliberately no default cap."}
   - {name: out, type: "path", required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created. Must end in .tsv, any case (PYB-1); any other extension, or none, is a usage error before any input is read, and no extension is appended."}
@@ -24,7 +26,7 @@ result:
     - {wire: reader, type: "string", unit: null, nullable: false, null_means: null, doc: "The mzLib reader class that parsed the file."}
     - {wire: record_count, type: "int", unit: "records", nullable: false, null_means: null, doc: "Records in the whole file, before the window."}
     - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "the count is not meaningful for this format (only the psmtsv family and MSFragger are one line per record)", doc: "Data rows that did not become records: mzLib drops a malformed line silently."}
-    - {wire: retention_time_unit, type: "string", unit: null, nullable: false, null_means: null, doc: "The unit of retention_time for THIS format: minutes for all four at mzLib 1.0.592, unknown when mzLib gives no basis."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: false, null_means: null, doc: "The unit of retention_time for THIS format: minutes for all five at mzLib 1.0.595 (DiaNnReportParquet shares DiaNnReport's record and RT column), unknown when mzLib gives no basis."}
     - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What this view cannot be trusted to mean for THIS file, each citing the mzLib source."}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Column order."}
     - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns the view defines that this file's format has no column or source for; null in every row (BULK.md section 4). Empty when every column has a source."}
@@ -45,7 +47,7 @@ result:
     - {wire: retention_time, type: "float", unit: "min", nullable: true, null_means: "mzLib's -1 'absent' sentinel, or a non-finite value", doc: "Retention time, in retention_time_unit."}
     - {wire: charge_state, type: "int", unit: "charge", nullable: false, null_means: null, doc: "Precursor charge."}
     - {wire: monoisotopic_mass, type: "float", unit: "Da", nullable: true, null_means: "mzLib's -1 'absent' sentinel", doc: "THEORETICAL peptide mass, not the observed precursor."}
-    - {wire: is_decoy, type: "bool", unit: null, nullable: true, null_means: "the format cannot report decoys: MSFragger and DIA-NN, where is_decoy is also in absent_fields", doc: "Decoy flag where the format carries one."}
+    - {wire: is_decoy, type: "bool", unit: null, nullable: true, null_means: "the format cannot report decoys: MSFragger and both DIA-NN report types, where is_decoy is also in absent_fields", doc: "Decoy flag where the format carries one."}
     - {wire: protein_accessions, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined accessions."}
     - {wire: gene_name, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined gene names."}
     - {wire: organism, type: "string", unit: null, nullable: false, null_means: null, doc: "';'-joined organisms."}
@@ -83,9 +85,9 @@ errors:
 
 caveats:
   - "No q-value, PEP or score: nothing here is FDR-filtered."
-  - "is_decoy is absent for MSFragger and DIA-NN, which write no target/decoy label; null there means unknown, not target."
+  - "is_decoy is absent for MSFragger and both DIA-NN report types, which give mzLib no per-row target/decoy label (a DIA-NN 2.x parquet written with --report-decoys has one, but mzLib skips its decoy rows); null there means unknown, not target."
   - "monoisotopic_mass is the theoretical mass in every format; the observed precursor is not in this view."
-  - "psmtsv: monoisotopic_mass keeps the first candidate of an ambiguous row while full_sequence keeps them all (SpectrumMatchFromTsv.cs:119, :194)."
+  - "psmtsv: monoisotopic_mass keeps the first candidate of an ambiguous row while full_sequence keeps them all (SpectrumMatchFromTsv.cs:122, :197)."
   - "A malformed psmtsv row is dropped silently by mzLib; rows_not_read counts them."
   - "Many files: --paths-stdin reads the list in ONE process, --threads at a time, into one long table with source_index and source_path first. The output does not depend on --threads (a tested property); the default of 1 is a memory choice, since every reader materialises the whole file."
 

@@ -29,7 +29,10 @@ params:
     doc: >-
       A quantifiable PSM result file mzLib can read: a MetaMorpheus .psmtsv/.osmtsv, an MSFragger
       psm.tsv (retention time converted to minutes by the reader since mzLib#1116), or a DIA-NN
-      report.tsv (FileReader.ReadQuantifiableResultFile at the pin). MSFragger combined results
+      main report, report.tsv or (since mzLib 1.0.595, #1384) DIA-NN 2.x's report.parquet, whose
+      runs are named by its Run column (FileReader.ReadQuantifiableResultFile at the pin; the
+      parquet is checked as far as run matching, since mzLib ships no spectra for its sample's
+      run). MSFragger combined results
       (MsFraggerCombinedResults) implement IQuantifiableResultFile but are not reachable: the path
       must be a file, and GetResultFileType never maps to that class. Every run the file names
       must have an mzML on stdin, matched by base file name.

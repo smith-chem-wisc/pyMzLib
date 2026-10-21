@@ -6,6 +6,30 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as well.
+
+### Added
+- **DIA-NN 2.x's `report.parquet` reads** (mzLib 1.0.595, #1384, file type `DiaNnReportParquet`).
+  DIA-NN 2.x writes its main report only as parquet. mzLib reads it into the same record as the
+  1.8/1.9 `report.tsv`, so it is a fifth quantifiable type: `read_results()`, `read_records()` and
+  `flashlfq.quantify()` take it. **`formats()` lists 39 types, up from 38, and 5 offer the
+  `quantifiable` view, up from 4**; 19 still offer none. Like the TSV report it is recognised by its
+  columns (`Precursor.Id`, `Stripped.Sequence`, `Run`), not its name, and any other `.parquet` is a
+  `UsageError`. **Its `retention_time_unit` is `'minutes'`**, as for the TSV report: same record,
+  same `RT` column, nothing converted. `absent_fields` is always empty for it, because there is no
+  text header to judge from, so the columns 2.x stopped writing (`File.Name`, `PG.Quantity`,
+  `MS2.Scan` and others) are `None` in `read_records()` without being named there, and
+  `ms2_scan_number` reads 0.
+
+### Changed
+- **`peptidoform.convert(target="ProForma")` names UniProt modifications by UNIMOD accession**
+  (mzLib 1.0.594, #1403). `[UniProt:N-acetylserine on S]SEQK` becomes `[UNIMOD:1]-SEQK`, where it
+  was written back by name; the caveat that said so is retired, so `convert()` returns five caveats,
+  not six. The `pro_forma` column `read_records()` computes for a `.psmtsv` written without one gains
+  the same accessions.
+- The psmtsv caveat on `read_results()` cites `SpectrumMatchFromTsv.cs:122` and `:197`; mzLib #1371
+  moved the lines it cited. The claim is unchanged.
+
 ## [0.4.0] - 2026-10-03
 
 Still built from mzLib 1.0.593. Adds `peptidoform.convert()`, mzLib's sequence-notation converter

@@ -60,8 +60,9 @@ public class ReadingCoverageTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Deliberately the SMALLEST usable fixture for each type: the whole map is about 1.2 MB
-    /// excluding timsTOF, so the suite reads real data without becoming slow.
+    /// Deliberately the SMALLEST usable fixture for each type: the whole map is about 1.7 MB
+    /// excluding timsTOF and the Pytheas file <see cref="FixtureFor"/> trims, so the suite reads
+    /// real data without becoming slow.
     /// </para>
     /// <para>
     /// <b><c>Tsv_Dinosaur</c> is the one type with no directly usable fixture.</b> mzLib's own file
@@ -71,7 +72,7 @@ public class ReadingCoverageTests
     /// member absent from mzLib's own <c>TestSupportedFileExtensions</c> cases, which is presumably
     /// how the naming slipped through. The fixture is therefore copied to a correctly-named
     /// temporary file by <see cref="FixtureFor"/> rather than skipped, so the coverage claim holds
-    /// for all thirty-eight; the upstream fixture is tracked in bridge/UPSTREAM.md.
+    /// for all thirty-nine; the upstream fixture is tracked in bridge/UPSTREAM.md.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<SupportedFileType, string> Fixtures = new()
@@ -123,6 +124,9 @@ public class ReadingCoverageTests
         // quantified-peptide readers, so these tables also open through the typed quant verbs.
         [SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_RNA_AllQuantifiedTranscriptGroups.tsv",
         [SupportedFileType.FlashLFQQuantifiedOligo] = "FileReadingTests/ExternalFileTypes/MetaMorpheus_RNA_AllQuantifiedOligos.tsv",
+        // mzLib #1384. DIA-NN 2.x writes its main report only as parquet; 532 precursors, 94 KB. Read
+        // into the same DiaNnPrecursor record as the TSV report above.
+        [SupportedFileType.DiaNnReportParquet] = "FileReadingTests/ExternalFileTypes/DiaNn2_report.parquet",
     };
 
     /// <summary>
@@ -517,6 +521,53 @@ public class ReadingCoverageTests
             "reader states at DiaNnPrecursor.RetentionTime. Letting this fall through to 'unknown' " +
             "would understate what is actually known, and would make the guide's claim that every " +
             "quantifiable format reports minutes false.");
+    }
+
+    [Test]
+    public void DiaNnParquetRetentionTimeUnitIsMinutes_BecauseItIsTheSameRecord()
+    {
+        // mzLib #1384 reads DIA-NN 2.x's report.parquet into DiaNnPrecursor, the TSV report's record,
+        // taking RT from the column of the same name and converting nothing. So the documentation the
+        // TSV test above relies on covers it too. It fell through to "unknown" until the bump added
+        // it to the unit map, which is the failure this pins.
+        JsonElement data = Invoke("readers", "read-results",
+            "--path", FixtureFor(SupportedFileType.DiaNnReportParquet), "--limit", "1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("file_type").GetString(), Is.EqualTo("DiaNnReportParquet"));
+            Assert.That(data.GetProperty("retention_time_unit").GetString(), Is.EqualTo("minutes"),
+                "the two DIA-NN report types share one record type and one RT column; they must not " +
+                "disagree about its unit");
+            // The decoy rule follows the record, not the file: DiaNnPrecursor is not on the allowlist,
+            // so is_decoy is absent here exactly as it is for the TSV report.
+            Assert.That(data.GetProperty("absent_fields").EnumerateArray().Select(f => f.GetString()),
+                Is.EqualTo(new[] { "is_decoy" }));
+        });
+    }
+
+    [Test]
+    public void DiaNnParquetAbsentFieldsHasNoBasis_SoItsUnreportedColumnsAreNotNamed()
+    {
+        // absent_fields is judged from a text header, and a parquet has none; its columns also reach
+        // DiaNnPrecursor through a rename table mzLib keeps private. So read-records reports no basis
+        // (an empty list) rather than re-implementing that mapping. The cost is pinned here: DIA-NN
+        // 2.x writes no MS2.Scan, and mzLib leaves ms2_scan_number at 0, which nothing flags. The day
+        // mzLib reports it as absent or null, this fails and the spec note comes out.
+        JsonElement data = Invoke("readers", "read-records",
+            "--path", FixtureFor(SupportedFileType.DiaNnReportParquet), "--limit", "2");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("absent_fields").GetArrayLength(), Is.Zero);
+            Assert.That(data.GetProperty("columns").GetProperty("ms2_scan_number").EnumerateArray()
+                .Select(v => v.GetInt32()), Is.All.EqualTo(0));
+            // A removed string column is null, not "": File.Name is gone in 2.x, and Run names the run.
+            Assert.That(data.GetProperty("columns").GetProperty("spectra_file_path").EnumerateArray()
+                .Select(v => v.ValueKind), Is.All.EqualTo(JsonValueKind.Null));
+            Assert.That(data.GetProperty("columns").GetProperty("file_name")[0].GetString(),
+                Is.EqualTo(data.GetProperty("columns").GetProperty("run")[0].GetString()));
+        });
     }
 
     [Test]
@@ -970,8 +1021,8 @@ public class ReadingCoverageTests
         [
             ("MsFraggerPsm.cs:231", "IsDecoy"),
             ("MsFraggerPsm.cs:233", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:119", "MonoisotopicMass"),
-            ("SpectrumMatchFromTsv.cs:194", "FullSequence"),
+            ("SpectrumMatchFromTsv.cs:122", "MonoisotopicMass"),
+            ("SpectrumMatchFromTsv.cs:197", "FullSequence"),
             ("SpectrumMatchTsvReader.cs:71", "catch"),
             ("PsmFromTsvFile.cs:17", "warnings"),
             ("Ms1Feature.cs:84", "ChargeState"),

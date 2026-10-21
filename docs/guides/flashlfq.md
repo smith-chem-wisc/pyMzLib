@@ -36,8 +36,8 @@ Blocks titled **Not run** say why.
 
 ```
 
-**Any quantifiable search result works**, not only MetaMorpheus's: an MSFragger `psm.tsv` or a
-DIA-NN `report.tsv` too. Since mzLib#1116, mzLib converts MSFragger's retention times from seconds
+**Any quantifiable search result works**, not only MetaMorpheus's: an MSFragger `psm.tsv`, or a
+DIA-NN `report.tsv` or DIA-NN 2.x `report.parquet`, too. Since mzLib#1116, mzLib converts MSFragger's retention times from seconds
 to minutes as it reads them, so FlashLFQ searches the right window.
 
 ## What you get back
