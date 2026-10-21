@@ -22,6 +22,15 @@ Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as we
   `ms2_scan_number` reads 0.
 
 ### Changed
+- **`pride.list_files()` and `pride.search()` leave the page size to mzLib.** `page_size` now
+  defaults to `None`, and pyMzLib sends none, so mzLib's own paging default applies (100 today, as
+  before). The results never depended on it. On the wire, `pride files --page-size` below one is now
+  a usage error, as it already was for `pride search`, instead of crossing as mzLib's
+  `ArgumentOutOfRangeException`.
+- **A number option written without a value is a usage error on the wire,** not its default. No
+  pyMzLib call sends one; this protects other callers of the bridge.
+- **The "too large to return as one document" error counts the records in the answer,** not the
+  whole file's, so a read already narrowed with `limit` no longer reports the file's total.
 - **`peptidoform.fragments()` takes its defaults from mzLib, so a call that names no protease or
   dissociation type gives different peptides and ions.** Each digestion option you leave out is now
   `None`, pyMzLib sends nothing for it, and mzLib's `DigestionParams` default applies. Two of the old

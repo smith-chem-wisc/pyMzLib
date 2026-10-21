@@ -423,10 +423,20 @@ def test_flag_like_filter_values_are_refused(tmp_path, value):
         pride.download("PXD000001", tmp_path, category=value)
 
 
-@pytest.mark.parametrize("page_size", ["100", None, 2.5, 2_147_483_648])
+@pytest.mark.parametrize("page_size", ["100", 2.5, 2_147_483_648])
 def test_bad_page_sizes_are_usage_errors(page_size):
     with pytest.raises(pymzlib.UsageError):
         pride.list_files("PXD000001", page_size=page_size)
+
+
+def test_list_files_without_a_page_size_sends_none_so_mzlibs_default_applies(monkeypatch):
+    seen: dict = {}
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: seen.update(args=a) or {"files": []})
+
+    with pytest.raises(pride.ProjectNotFoundError):  # an empty manifest; only the call matters here
+        pride.list_files("PXD000001")
+
+    assert seen["args"] == ("pride", "files", "--accession", "PXD000001")
 
 
 # --------------------------------------------------------------------------- download_files
@@ -650,6 +660,15 @@ def test_search_sends_the_keyword_and_page_size(monkeypatch):
     pride.search("phospho", page_size=25)
 
     assert seen["args"] == ("pride", "search", "--keyword", "phospho", "--page-size", "25")
+
+
+def test_search_without_a_page_size_sends_none_so_mzlibs_default_applies(monkeypatch):
+    seen: dict = {}
+    monkeypatch.setattr(_bridge, "invoke", lambda *a, **k: seen.update(args=a) or {"results": []})
+
+    pride.search("phospho")
+
+    assert seen["args"] == ("pride", "search", "--keyword", "phospho")
 
 
 def test_no_hits_is_an_empty_list_not_an_error(monkeypatch):

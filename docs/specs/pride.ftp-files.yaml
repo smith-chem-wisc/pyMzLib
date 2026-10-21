@@ -48,7 +48,7 @@ errors:
   - {kind: correctness, when: "no project has that accession, or it has no publication date to locate its directory (MzLibException; the bindings re-map it to their not-found error); a directory listing answering any other status; nesting deeper than 64 levels (MzLibException: the listing may be cyclic)"}
 
 caveats:
-  - "This is the complete file list; pride files (PRIDE's REST manifest) omits files, for PXD000001 six of 14 (on 2026-10-03) including the two largest. The price is metadata: no category, checksum or CV locations here."
+  - "This is the complete file list; pride files (PRIDE's REST manifest) omits files, for PXD000001 five of 14 on 2026-10-21, including the two largest. The price is metadata: no category, checksum or CV locations here."
   - "Sizes are approximate (rounded autoindex values), so approximate_total_size_bytes is an estimate, but an estimate over every file, unlike pride files' total_size_bytes."
   - "A listing surface only: pride download selects from the REST manifest, so a file that appears only here cannot be fetched by pride download. Fetch it from its url with an ordinary HTTPS client."
   - "One HTTP request per directory: the walk's cost grows with the tree, not the file count."

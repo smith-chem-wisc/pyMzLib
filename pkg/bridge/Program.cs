@@ -446,6 +446,22 @@ public static partial class Program
     }
 
     /// <summary>
+    /// <c>--page-size</c> for the paged PRIDE verbs, or null when it is absent, so mzLib's own default
+    /// applies. A given value is checked here rather than left to mzLib: its
+    /// ArgumentOutOfRangeException would cross as a correctness failure by its type name, when a page
+    /// size below one is the caller's mistake.
+    /// </summary>
+    private static int? OptionalPageSize(Arguments arguments)
+    {
+        if (!arguments.WasProvided("page-size"))
+            return null;
+        int pageSize = arguments.OptionalInt("page-size", 0);
+        if (pageSize <= 0)
+            throw new UsageException($"Option --page-size must be greater than zero; got {pageSize}.");
+        return pageSize;
+    }
+
+    /// <summary>
     /// <c>pride files --accession PXD000001 [--page-size 100]</c> — PRIDE's REST file manifest for a
     /// project, with paging already resolved by mzLib. This is what the REST API publishes, which is
     /// knowingly incomplete for some projects (see <see cref="PrideFtpFilesAsync"/>, which walks the
@@ -454,11 +470,12 @@ public static partial class Program
     private static async Task<object> PrideFilesAsync(Arguments arguments)
     {
         string accession = arguments.Required("accession");
-        int pageSize = arguments.OptionalInt("page-size", 100);
+        int? pageSize = OptionalPageSize(arguments);
 
         using PrideArchiveClient client = PrideClientFactory();
-        List<PrideArchiveFile> files = await client
-            .GetProjectFilesAsync(accession, pageSize, CancellationToken.None)
+        List<PrideArchiveFile> files = await (pageSize is int size
+                ? client.GetProjectFilesAsync(accession, size, CancellationToken.None)
+                : client.GetProjectFilesAsync(accession, cancellationToken: CancellationToken.None))
             .ConfigureAwait(false);
 
         return new
@@ -634,7 +651,7 @@ public static partial class Program
     private static async Task<object> PrideSearchAsync(Arguments arguments)
     {
         string keyword = arguments.Required("keyword");
-        int pageSize = arguments.OptionalInt("page-size", 100);
+        int? pageSize = OptionalPageSize(arguments);
 
         // Both limits are checked HERE as well as in mzLib, because mzLib raises ArgumentException
         // and this boundary would classify that by its type name rather than as a usage error. The
@@ -646,12 +663,11 @@ public static partial class Program
                 $"Option --keyword may be at most {PrideArchiveClient.MaxKeywordLength} characters, " +
                 $"but this one is {keyword.Length}. PRIDE answers a longer keyword with HTTP 500, " +
                 "which cannot be told apart from the service being down.");
-        if (pageSize <= 0)
-            throw new UsageException($"Option --page-size must be greater than zero; got {pageSize}.");
 
         using PrideArchiveClient client = PrideClientFactory();
-        List<PrideProjectSearchResult> hits = await client
-            .SearchProjectsAsync(keyword, pageSize, CancellationToken.None)
+        List<PrideProjectSearchResult> hits = await (pageSize is int size
+                ? client.SearchProjectsAsync(keyword, size, CancellationToken.None)
+                : client.SearchProjectsAsync(keyword, cancellationToken: CancellationToken.None))
             .ConfigureAwait(false);
 
         return new
@@ -801,8 +817,9 @@ public static partial class Program
     /// <see cref="OutOfMemoryException"/> is caught, because it is what the measurement produced; an
     /// <see cref="ArgumentOutOfRangeException"/> from a getter is a real fault and stays one. Nothing
     /// reaches stdout until the document is whole, so the refusal is the only envelope written.
-    /// Refusing before serialising (part 2) needs a size threshold measured per format, and is not
-    /// done here.
+    /// Refusing before serialising (part 2) needs a size threshold, and one per record will not do
+    /// (dataRepo measured 725 and 805 characters per record in two psmtsv files), so it is not done
+    /// here.
     /// </para>
     /// </remarks>
     internal static (string Json, int ExitCode) SuccessJson(object data)
@@ -820,19 +837,25 @@ public static partial class Program
         }
     }
 
-    /// <summary>The parsed record count a read reported, or null when the answer carries none.</summary>
+    /// <summary>
+    /// The records this answer holds: its <c>returned_count</c>, or the parsed <c>record_count</c>
+    /// when it reports no window, or null when it carries neither. The window, not the file, is what
+    /// was too large: a caller who already passed --limit must not be told the file's total.
+    /// </summary>
     private static long? RecordCountOf(object data)
     {
-        object? count = data is IReadOnlyDictionary<string, object?> table
-            ? table.GetValueOrDefault("record_count")
-            : data.GetType().GetProperty("record_count")?.GetValue(data);
+        object? Field(string name) => data is IReadOnlyDictionary<string, object?> table
+            ? table.GetValueOrDefault(name)
+            : data.GetType().GetProperty(name)?.GetValue(data);
 
-        return count switch
+        static long? AsCount(object? count) => count switch
         {
             int value => value,
             long value => value,
             _ => null,
         };
+
+        return AsCount(Field("returned_count")) ?? AsCount(Field("record_count"));
     }
 
     private static string ErrorJson(string type, string message) =>
@@ -939,7 +962,7 @@ public static partial class Program
 
         public int OptionalInt(string name, int fallback)
         {
-            string? raw = Optional(name);
+            string? raw = NumberText(name);
             if (raw == null)
                 return fallback;
             if (!int.TryParse(raw, out int parsed))
@@ -949,7 +972,7 @@ public static partial class Program
 
         public double OptionalDouble(string name, double fallback)
         {
-            string? raw = Optional(name);
+            string? raw = NumberText(name);
             if (raw == null)
                 return fallback;
             // Invariant culture, matching the executable's InvariantGlobalization: a caller passing
@@ -959,5 +982,14 @@ public static partial class Program
                 throw new UsageException($"Option --{name} must be a number; got '{raw}'.");
             return parsed;
         }
+
+        /// <summary>
+        /// A numeric option's text, or null when it is absent. Written without a value, it lands among
+        /// the flags, and taking the default then would read as the caller's choice when it was not.
+        /// </summary>
+        private string? NumberText(string name) =>
+            _flags.Contains(name)
+                ? throw new UsageException($"Option --{name} was given without a value.")
+                : Optional(name);
     }
 }

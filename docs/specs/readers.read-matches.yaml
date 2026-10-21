@@ -89,7 +89,7 @@ errors:
   - {kind: usage, when: "with on-error fail, an input that is missing or not this view: the usage error of that input, prefixed 'Input <i> (<path>)'"}
   - {kind: correctness, when: "with on-error fail, mzLib failing to parse an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
   - {kind: usage, when: "out (with path or paths-stdin) whose extension is not .tsv, any case, including none (PYB-1); checked before any input is opened"}
-  - {kind: usage, when: "the answer is too large to return as one JSON document (PYB-3 part 1; measured: past the ~1.07 G-character .NET string ceiling, not RAM). Message: 'this read (N records) is too large to return as one document; use --limit/--offset or --out', N the parsed record_count"}
+  - {kind: usage, when: "the answer is too large to return as one JSON document (PYB-3 part 1; measured: past the ~1.07 G-character .NET string ceiling, not RAM). Message: 'this read (N records) is too large to return as one document; use --limit/--offset or --out', N the records this answer holds (its returned_count, or record_count where the envelope has none)"}
   - {kind: service_unavailable, when: never}
 
 caveats:

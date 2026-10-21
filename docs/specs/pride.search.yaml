@@ -33,10 +33,11 @@ params:
     required: false
     unit: projects
     range: ">= 1"
-    default: 100
+    default: null
     doc: >-
       Hits requested per underlying API call. Changes how many requests the fetch takes, never
-      what comes back.
+      what comes back. Absent, the bridge sends none and SearchProjectsAsync's default applies
+      (100 at d10017ce).
 
 result:
   envelope_fields:
@@ -83,7 +84,7 @@ result:
     - {wire: organic_count, type: int, unit: downloads, nullable: false, null_means: null, doc: "Downloads attributed to ordinary human traffic. 0 means not reported."}
 
 errors:
-  - {kind: usage, when: "keyword missing or blank; keyword longer than 1000 characters; page-size not an integer or <= 0 (both checked by the bridge before mzLib)"}
+  - {kind: usage, when: "keyword missing or blank; keyword longer than 1000 characters; page-size not an integer, given without a value, or <= 0 (all checked by the bridge before mzLib)"}
   - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout or cancellation, a socket failure, a request that never got a response (refused connection, DNS, TLS), an HTTP 408, 429 or 5xx, or a body cut off in transit"}
   - {kind: correctness, when: "any other HTTP status; a paging contract violation (MzLibException: an identical page while total_records says more remain); the page limit (mzLib MaxPages) exceeded"}
 

@@ -120,6 +120,23 @@ public class ArgumentsTests
         Assert.That(ex!.Message, Does.Contain("lots"), "the bad value should appear in the message");
     }
 
+    [TestCase("v --page-size", Description = "the last argument")]
+    [TestCase("v --page-size --keyword x", Description = "followed by another option")]
+    public void ANumberOptionWrittenWithoutAValueIsAUsageError_NotItsDefault(string commandLine)
+    {
+        // Parsed as a flag, it once fell back to its default silently, which reads as the caller's
+        // choice (G-bridge-defects-from-specs).
+        var arguments = new Program.Arguments(commandLine.Split(' '));
+
+        Assert.Multiple(() =>
+        {
+            var asInt = Assert.Throws<Program.UsageException>(() => arguments.OptionalInt("page-size", 100));
+            Assert.That(asInt!.Message, Is.EqualTo("Option --page-size was given without a value."));
+            var asDouble = Assert.Throws<Program.UsageException>(() => arguments.OptionalDouble("page-size", 1.0));
+            Assert.That(asDouble!.Message, Is.EqualTo("Option --page-size was given without a value."));
+        });
+    }
+
     [Test]
     public void SingleDashIsAcceptedAsWellAsDouble()
     {
