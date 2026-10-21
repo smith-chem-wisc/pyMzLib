@@ -101,37 +101,40 @@ internal static partial class Peptidoform
     }
 
     /// <summary>
-    /// <c>peptidoform fragments --accession P02768 [--protease trypsin] [--dissociation ETD]
+    /// <c>peptidoform fragments --accession P02768 [--protease trypsin] [--dissociation HCD]
     /// [--no-modifications] [--missed-cleavages 2] [--min-length 7] [--max-length 0]
-    /// [--max-mods 2] [--terminus Both]</c>
+    /// [--max-mods 2] [--max-isoforms 1024] [--terminus Both]</c>
     /// </summary>
     public static async Task<object> FragmentsAsync(Program.Arguments arguments)
     {
         string accession = arguments.Required("accession");
 
-        // Default to the classic Keil rule — cleave after K/R except before proline — because that
-        // is what a mass spectrometrist means by "trypsin".
-        //
-        // The naming here is a genuine trap and is worth stating plainly. In mzLib, "trypsin" is
-        // K|,R| and cleaves before proline, while "trypsin|P" is K[P]|,R[P]| and does not: the
-        // bracket denotes a PREVENTING residue. That is the opposite of the MaxQuant and Mascot
-        // convention, where "Trypsin/P" means the proline rule is *ignored*. Someone reaching for
-        // the familiar-looking name gets the opposite of their intent, in either direction, with
-        // no indication anything happened.
-        string protease = arguments.Optional("protease") ?? "trypsin|P";
-        string dissociationName = arguments.Optional("dissociation") ?? "ETD";
-        string terminusName = arguments.Optional("terminus") ?? "Both";
-        bool applyModifications = !arguments.Flag("no-modifications");
-        int missedCleavages = arguments.OptionalInt("missed-cleavages", 2);
-        int minLength = arguments.OptionalInt("min-length", 7);
-        int maxLength = arguments.OptionalInt("max-length", 0);
-        int maxMods = arguments.OptionalInt("max-mods", 2);
+        // An option the caller leaves out takes mzLib's DigestionParams default, read from a
+        // default instance, so the bridge holds no copy of its own. What each protease name cuts
+        // is mzLib's too (proteases.tsv): "trypsin" cuts before proline and "trypsin|P" does not,
+        // the reverse of MaxQuant's and Mascot's "Trypsin/P". The spec states both motifs.
+        var mzLibDefaults = new DigestionParams();
+        string protease = arguments.Optional("protease") ?? mzLibDefaults.Protease.Name;
 
-        // DigestionParams caps modification isoforms per peptide at 1024 by default and truncates
-        // silently when it binds. On a histone at three or more modifications that ceiling is
-        // reachable, and the caller would receive a short list with no indication it was cut.
-        // Exposed so it can be raised, and reported below so it can at least be noticed.
-        int maxIsoforms = arguments.OptionalInt("max-isoforms", 1024);
+        // mzLib's Fragment requires a dissociation type and names no default. HCD is the bridge's
+        // stop-gap until mzLib names one (mzLib#1488), and the only default chosen here.
+        string dissociationName = arguments.Optional("dissociation") ?? nameof(DissociationType.HCD);
+        string? terminusName = arguments.Optional("terminus");
+        bool applyModifications = !arguments.Flag("no-modifications");
+        int missedCleavages = arguments.OptionalInt("missed-cleavages", mzLibDefaults.MaxMissedCleavages);
+        int minLength = arguments.OptionalInt("min-length", mzLibDefaults.MinLength);
+        int maxMods = arguments.OptionalInt("max-mods", mzLibDefaults.MaxMods);
+
+        // On the wire 0 means unbounded, which DigestionParams spells int.MaxValue (its default).
+        int maxLength = arguments.OptionalInt("max-length", mzLibDefaults.MaxLength);
+        if (maxLength <= 0)
+            maxLength = int.MaxValue;
+
+        // DigestionParams caps modification isoforms per peptide and truncates silently when the
+        // cap binds. On a histone at three or more modifications its default is reachable, and the
+        // caller would receive a short list with no indication it was cut. Exposed so it can be
+        // raised, and reported below so it can at least be noticed.
+        int maxIsoforms = arguments.OptionalInt("max-isoforms", mzLibDefaults.MaxModificationIsoforms);
 
         if (!ProteaseDictionary.Dictionary.ContainsKey(protease))
             throw new Program.UsageException(
@@ -143,7 +146,8 @@ internal static partial class Peptidoform
                 $"Unknown dissociation type '{dissociationName}'. Known types: " +
                 string.Join(", ", Enum.GetNames<DissociationType>()) + ".");
 
-        if (!Enum.TryParse(terminusName, ignoreCase: true, out FragmentationTerminus terminus))
+        FragmentationTerminus terminus = mzLibDefaults.FragmentationTerminus;
+        if (terminusName is not null && !Enum.TryParse(terminusName, ignoreCase: true, out terminus))
             throw new Program.UsageException(
                 $"Unknown terminus '{terminusName}'. Known values: " +
                 string.Join(", ", Enum.GetNames<FragmentationTerminus>()) + ".");
@@ -167,7 +171,7 @@ internal static partial class Peptidoform
             protease: protease,
             maxMissedCleavages: missedCleavages,
             minPeptideLength: minLength,
-            maxPeptideLength: maxLength > 0 ? maxLength : int.MaxValue,
+            maxPeptideLength: maxLength,
             maxModsForPeptides: maxMods,
             maxModificationIsoforms: maxIsoforms,
             fragmentationTerminus: terminus);

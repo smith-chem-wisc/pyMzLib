@@ -22,6 +22,19 @@ Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as we
   `ms2_scan_number` reads 0.
 
 ### Changed
+- **`peptidoform.fragments()` takes its defaults from mzLib, so a call that names no protease or
+  dissociation type gives different peptides and ions.** Each digestion option you leave out is now
+  `None`, pyMzLib sends nothing for it, and mzLib's `DigestionParams` default applies. Two of the old
+  defaults were pyMzLib's own and change:
+  - **protease:** mzLib's default is `"trypsin"`, which also cuts before proline. The old default
+    was `"trypsin|P"`, which does not. Albumin's default digest goes from 303 to 310 peptidoforms.
+  - **dissociation:** mzLib names no default, so HCD (b and y ions) is used until it does
+    (smith-chem-wisc/mzLib#1488). The old default was ETD (c and z• ions).
+
+  The other defaults (missed cleavages, length window, modification and isoform caps, terminus)
+  have the same values as before, now set by mzLib. To keep the old results, pass
+  `protease="trypsin|P", dissociation="ETD"`. The docs' histone counts are re-measured; UniProt's
+  annotations had moved them even under the old protease.
 - **`peptidoform.convert(target="ProForma")` names UniProt modifications by UNIMOD accession**
   (mzLib 1.0.594, #1403). `[UniProt:N-acetylserine on S]SEQK` becomes `[UNIMOD:1]-SEQK`, where it
   was written back by name; the caveat that said so is retired, so `convert()` returns five caveats,

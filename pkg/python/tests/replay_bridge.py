@@ -19,7 +19,8 @@ recorded for different arguments:
 * a ``--paths-stdin`` call fits only a bulk recording (``files`` + ``read_count``, BULK.md), and a
   one-path call only a one-document recording;
 * a recording with a ``written`` key fits a ``--out`` call only if ``written`` is set, and a call
-  without ``--out`` only if it is null.
+  without ``--out`` only if it is null;
+* a recording listed in ``RECORDED_WITH`` fits only a call that sends the options it was made with.
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -72,6 +73,15 @@ ECHOED_AS = {
     "peptides": "peptides_file",
     "from": "source_format",
     "to": "target_format",
+}
+
+
+#: Recordings made with an option the call must send as well. The echo alone cannot say so: a call
+#: that leaves the option out takes a default (mzLib's) that the replay does not know, and the echo
+#: of a value that was given looks the same as the echo of a default. So a call without
+#: --max-mods cannot be answered from the max-mods 1 albumin digest.
+RECORDED_WITH = {
+    "peptidoform_P02768_small.json": {"max-mods": "1"},
 }
 
 
@@ -187,6 +197,9 @@ def answer(argv: list, stdin: str = "") -> dict:
             data = json.load(fh)
         data = data["data"] if isinstance(data, dict) and "ok" in data and "data" in data else data
         why = mismatch(data, options) if isinstance(data, dict) else ""
+        for name, value in RECORDED_WITH.get(base(fixture), {}).items():
+            if not why and options.get(name) != value:
+                why = f"recorded with --{name} {value}, which the call does not send"
         if not why and verb in STDIN_ECHO and isinstance(data, dict):
             why = stdin_mismatch(data, stdin, verb)
         if why:

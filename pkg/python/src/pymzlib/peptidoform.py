@@ -8,10 +8,10 @@ I see for this protein's peptides?* — in one call:
     >>> digest.accession, digest.sequence_length
     ('P02768', 609)
 
-The defaults are opinions, not placeholders. Tryptic with the proline rule, two missed cleavages,
-ETD, both termini, UniProt's annotated modifications applied. They are the choices this lab makes
-when it does not have a reason to choose otherwise, so the common question needs no parameters —
-and every one of them is reachable, because the point is to open the doors, not to hide them.
+The defaults are mzLib's, not this package's. A digestion option you leave out takes mzLib's own
+default (its ``DigestionParams``), and UniProt's annotated modifications are applied. mzLib names
+no default dissociation type, so HCD is used until it does (smith-chem-wisc/mzLib#1488). The
+common question needs no parameters, and every one of them can be changed.
 
 :func:`convert` rewrites full sequences from one notation to another with mzLib's
 ``SequenceConversionService``: a MetaMorpheus full sequence ``[UniProt:N-acetylserine on S]SEQK``
@@ -268,12 +268,15 @@ class Digest:
         full_name: Recommended protein name, e.g. ``"Albumin"``.
         organism: Scientific name of the source organism.
         sequence_length: Length of the full precursor sequence, in residues.
-        protease: The protease used, as mzLib names it.
-        dissociation: The dissociation type used, which decides the fragment series.
+        protease: The protease used, as mzLib names it: the one passed, or mzLib's default.
+        dissociation: The dissociation type used, which decides the fragment series: the one
+            passed, or ``"HCD"``.
         terminus: Which fragment termini were generated: ``"Both"``, ``"N"`` or ``"C"``.
         modifications_applied: ``False`` when ``modifications=False`` was passed.
-        max_modifications: The ``max_modifications`` cap, echoed, in modifications per peptidoform.
-        max_isoforms: The ``max_isoforms`` cap, echoed, in peptidoforms per peptide position.
+        max_modifications: The ``max_modifications`` cap used, in modifications per peptidoform:
+            the value passed, or mzLib's default.
+        max_isoforms: The ``max_isoforms`` cap used, in peptidoforms per peptide position: the
+            value passed, or mzLib's default.
         peptides_at_cap: Peptide positions whose peptidoforms reached ``max_isoforms``. Non-zero
             means the list is **truncated**; :attr:`truncated` is the same fact as a yes/no.
         modification_census: What UniProt annotates against what mzLib applied: distinct residue
@@ -321,32 +324,37 @@ class Digest:
 
 def fragments(
     accession: str,
-    protease: str = "trypsin|P",
-    dissociation: str = "ETD",
+    protease: str | None = None,
+    dissociation: str | None = None,
     modifications: bool = True,
-    missed_cleavages: int = 2,
-    min_length: int = 7,
+    missed_cleavages: int | None = None,
+    min_length: int | None = None,
     max_length: int | None = None,
-    max_modifications: int = 2,
-    max_isoforms: int = 1024,
-    terminus: str = "Both",
+    max_modifications: int | None = None,
+    max_isoforms: int | None = None,
+    terminus: str | None = None,
     timeout: float | None = 300,
 ) -> Digest:
     """Fetch a UniProt entry, digest it, and fragment every peptide.
 
+    Every digestion option left as ``None`` takes mzLib's own default (its ``DigestionParams``).
+    The ``peptidoform fragments`` table in the wire reference gives each value at the pinned
+    mzLib. The result echoes the protease, dissociation type, terminus and caps that were used.
+
     Args:
         accession: A UniProtKB accession, e.g. ``"P02768"``.
-        protease: **Read this if you are coming from MaxQuant or Mascot.** mzLib's ``"trypsin|P"``
-            applies the classic Keil rule — cleave after K/R *except* before proline — and is the
-            default here because it is what a mass spectrometrist usually means. mzLib's plain
-            ``"trypsin"`` cleaves before proline too. That is the **reverse** of the MaxQuant and
-            Mascot convention, where ``Trypsin/P`` denotes ignoring the proline rule. On serum
-            albumin the two differ by 7 peptides out of about 200 (195 vs 202; tryptic, 2
-            missed cleavages, min length 7) - a small count hiding a large semantic
-            difference, since which peptides you get changes wherever a K/R precedes a
-            proline.
+        protease: A protease name, as mzLib names it. ``None`` means mzLib's default protease.
+
+            **Read this if you are coming from MaxQuant or Mascot.** The names and what each one
+            cuts are mzLib's. mzLib's ``"trypsin"`` cuts after K and R even before proline, and
+            ``"trypsin|P"`` does not cut before proline: the ``P`` names a residue that prevents
+            the cut. That is the **reverse** of MaxQuant's and Mascot's ``Trypsin/P``, which
+            ignores the proline rule. On serum albumin the two give 202 and 195 distinct
+            peptides, a small count hiding a large difference: which peptides you get changes
+            wherever K or R precedes a proline.
         dissociation: ``"HCD"``/``"CID"`` (b and y ions), ``"ETD"``, and the rest of mzLib's
-            dissociation types.
+            dissociation types. ``None`` means ``"HCD"``. mzLib names no default here, so HCD is
+            the bridge's choice until mzLib names one (smith-chem-wisc/mzLib#1488).
 
             ``"ETD"`` returns the c and zDot series (radical N-Ca cleavage yields c/z*, not the
             b/y of vibrational activation). Note that z* ions are suppressed N-terminal to
@@ -356,29 +364,30 @@ def fragments(
 
             Pass ``False`` for the bare sequences — a clean control, since the digest's
             distinct backbones are unchanged and only the modified variants of them go
-            away. The peptidoform count drops a long way; on albumin from 303 to 195.
+            away. The peptidoform count drops a long way; on albumin from 310 to 202.
 
             This once carried a caveat saying ``False`` was *not* a clean control, because
             it discarded UniProt's whole feature table and with it the signal-peptide and
             propeptide boundaries mzLib digests at — costing albumin two peptides and
             changing the peptide list, not just the modifications on it (issue #8). That
-            was true and is no longer: verified against the published bridge, both peptides
-            are present either way and albumin gives 195 distinct base sequences with
-            modifications on or off.
-        missed_cleavages: Maximum missed cleavage sites per peptide.
-        min_length: Shortest peptide to keep, in residues. The default of 7 silently discards shorter
-            peptides — roughly a third of a histone digest — so pass ``min_length=1`` when you
-            mean *every* peptide.
-        max_length: Longest peptide to keep, in residues. ``None`` means unbounded.
-        max_modifications: Maximum modifications considered per peptide. Modification isoforms
-            are enumerated combinatorially: histone H3.1 yields 49 bare tryptic peptides, 2,563
-            at two modifications and 7,040 at three.
-        max_isoforms: Maximum modification isoforms per peptide position. mzLib's default of 1024
-            **truncates silently** when it binds — on H3.1 at four modifications it discards
-            about 30% of the Peptidoforms (13,700 down to 9,536). :attr:`Digest.peptides_at_cap`
-            reports how many peptides hit it, so a truncated answer is visible rather than
-            merely short.
-        terminus: ``"Both"``, ``"N"`` or ``"C"``.
+            was true and is no longer: both peptides are present either way, and albumin
+            gives 202 distinct base sequences with modifications on or off.
+        missed_cleavages: Maximum missed cleavage sites per peptide. ``None`` means mzLib's
+            default.
+        min_length: Shortest peptide to keep, in residues. ``None`` means mzLib's default, which
+            silently discards shorter peptides: histone H3.1 keeps 49 of the 96 peptides it gives
+            at ``min_length=1``. Pass ``min_length=1`` when you mean *every* peptide.
+        max_length: Longest peptide to keep, in residues. ``None`` means mzLib's default, which
+            is unbounded.
+        max_modifications: Maximum modifications considered per peptide. ``None`` means mzLib's
+            default. Modification isoforms are enumerated combinatorially: histone H3.1's 49
+            peptides give 2,419 peptidoforms at two modifications and 6,580 at three.
+        max_isoforms: Maximum modification isoforms per peptide position. ``None`` means mzLib's
+            default, and mzLib **truncates silently** when the cap binds: on H3.1 at four
+            modifications the default keeps 8,644 of 12,808 peptidoforms, losing about a third.
+            :attr:`Digest.peptides_at_cap` reports how many peptides hit it, so a truncated
+            answer is visible rather than merely short.
+        terminus: ``"Both"``, ``"N"`` or ``"C"``. ``None`` means mzLib's default.
         timeout: Seconds to allow. Large proteins with many modification isoforms take longer.
 
     Returns:
@@ -408,23 +417,27 @@ def fragments(
         raise _bridge.UsageError(f"max_length must be a whole number or None; got {max_length!r}.")
     for name, value in (("missed_cleavages", missed_cleavages), ("min_length", min_length),
                         ("max_modifications", max_modifications), ("max_isoforms", max_isoforms)):
+        if value is None:
+            continue
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise _bridge.UsageError(f"{name} must be a non-negative whole number; got {value!r}.")
-    if max_isoforms < 1:
+    if max_isoforms is not None and max_isoforms < 1:
         raise _bridge.UsageError(f"max_isoforms must be at least 1; got {max_isoforms}.")
 
-    args = [
-        "peptidoform", "fragments",
-        "--accession", canonical,
-        "--protease", protease,
-        "--dissociation", dissociation,
-        "--terminus", terminus,
-        "--missed-cleavages", str(missed_cleavages),
-        "--min-length", str(min_length),
-        "--max-length", str(max_length if max_length else 0),
-        "--max-mods", str(max_modifications),
-        "--max-isoforms", str(max_isoforms),
-    ]
+    # Only what the caller chose goes on the wire. Anything left out is mzLib's to decide.
+    args = ["peptidoform", "fragments", "--accession", canonical]
+    for option, value in (
+        ("--protease", protease),
+        ("--dissociation", dissociation),
+        ("--terminus", terminus),
+        ("--missed-cleavages", missed_cleavages),
+        ("--min-length", min_length),
+        ("--max-length", max_length),
+        ("--max-mods", max_modifications),
+        ("--max-isoforms", max_isoforms),
+    ):
+        if value is not None:
+            args += [option, str(value)]
     if not modifications:
         args.append("--no-modifications")
 

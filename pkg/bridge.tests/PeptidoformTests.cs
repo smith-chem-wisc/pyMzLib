@@ -300,15 +300,68 @@ public class PeptidoformTests
     }
 
     [Test]
-    public async Task TheDefaultProteaseAppliesTheProlineRule()
+    public async Task Fragments_LeavesTheDigestionDefaultsToMzLib()
     {
-        // mzLib's "trypsin|P" is the Keil rule and "trypsin" is not — the reverse of the
-        // MaxQuant/Mascot convention. The default here must be the one a mass spectrometrist means.
+        // The defaults are mzLib's DigestionParams', so the expected values are read from mzLib
+        // here, never written down. The bridge once chose "trypsin|P" where mzLib's is "trypsin".
+        UseXml(MiniEntryXml);
+        var mzLib = new Proteomics.ProteolyticDigestion.DigestionParams();
+
+        JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("protease").GetString(), Is.EqualTo(mzLib.Protease.Name));
+            Assert.That(data.GetProperty("terminus").GetString(), Is.EqualTo(mzLib.FragmentationTerminus.ToString()));
+            Assert.That(data.GetProperty("max_modifications").GetInt32(), Is.EqualTo(mzLib.MaxMods));
+            Assert.That(data.GetProperty("max_modification_isoforms").GetInt32(),
+                Is.EqualTo(mzLib.MaxModificationIsoforms));
+        });
+    }
+
+    [Test]
+    public async Task Fragments_WithNoOptions_DigestsExactlyAsWithMzLibsDefaultsGiven()
+    {
+        // Missed cleavages and lengths are not echoed, so compare the whole result with a call
+        // that names every DigestionParams default explicitly.
+        UseXml(MiniEntryXml);
+        var mzLib = new Proteomics.ProteolyticDigestion.DigestionParams();
+        string Text(int value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        JsonElement absent = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
+        JsonElement given = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00001",
+            "--protease", mzLib.Protease.Name,
+            "--missed-cleavages", Text(mzLib.MaxMissedCleavages),
+            "--min-length", Text(mzLib.MinLength),
+            "--max-length", Text(mzLib.MaxLength),
+            "--max-mods", Text(mzLib.MaxMods),
+            "--max-isoforms", Text(mzLib.MaxModificationIsoforms),
+            "--terminus", mzLib.FragmentationTerminus.ToString(),
+            "--dissociation", "HCD");
+
+        Assert.That(absent.GetRawText(), Is.EqualTo(given.GetRawText()));
+    }
+
+    [Test]
+    public async Task Fragments_WithoutADissociationType_UsesHcd_UntilMzLibNamesADefault()
+    {
+        // mzLib's Fragment requires a dissociation type and names no default. HCD is the bridge's
+        // stop-gap until mzLib#1488 gives one; it was ETD.
         UseXml(MiniEntryXml);
 
         JsonElement data = await InvokeAsync("peptidoform", "fragments", "--accession", "P00001");
 
-        Assert.That(data.GetProperty("protease").GetString(), Is.EqualTo("trypsin|P"));
+        string[] productTypes = data.GetProperty("peptides").EnumerateArray()
+            .SelectMany(p => p.GetProperty("fragments").EnumerateArray())
+            .Select(f => f.GetProperty("product_type").GetString()!)
+            .Distinct().OrderBy(s => s, StringComparer.Ordinal).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("dissociation").GetString(), Is.EqualTo("HCD"));
+            Assert.That(productTypes, Is.EqualTo(new[] { "b", "y" }));
+        });
     }
 
     [Test]
