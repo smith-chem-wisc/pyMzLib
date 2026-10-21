@@ -69,8 +69,10 @@ internal static class Statistics
             throw new Program.UsageException(
                 "Option --spline-basis only shapes the intensity trend; give --trend as well, or omit --spline-basis.");
         RequireValueIfProvided(arguments, "spline-basis");
-        int splineBasis = arguments.OptionalInt("spline-basis", EmpiricalBayes.DefaultSplineBasisCount);
-        if (splineBasis < 1)
+        // Absent, ask for nothing: mzLib then applies limma's own rule for the feature count (#1398).
+        // The bridge does not choose a number of its own.
+        int? splineBasis = arguments.WasProvided("spline-basis") ? arguments.OptionalInt("spline-basis", 0) : null;
+        if (splineBasis is < 1)
             throw new Program.UsageException($"Option --spline-basis must be 1 or more; got {splineBasis}.");
         int threads = Proteins.ThreadsFrom(arguments);
 
