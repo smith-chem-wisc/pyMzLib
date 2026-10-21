@@ -10,8 +10,9 @@ summary: >-
 since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: LinearModel.Fit, path: mzLib/StatisticalModels/LinearModel.cs, pin: 0a808fec}
-  - {symbol: EmpiricalBayes.Moderate, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: 0a808fec}
+  - {symbol: EmpiricalBayes.Moderate, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
   - {symbol: EmpiricalBayes.FitPrior, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: 0a808fec}
+  - {symbol: EmpiricalBayes.DefaultSplineBasisCount, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
   - {symbol: MultipleTesting.BenjaminiHochberg, path: mzLib/StatisticalModels/MultipleTesting.cs, pin: 0a808fec}
 cite:
   - {doi: "10.2202/1544-6115.1027", for: "the empirical-Bayes moderated t this verb computes (Smyth, Stat Appl Genet Mol Biol 3:3, 2004)"}
@@ -51,7 +52,7 @@ params:
       The coefficients to test, one design column name per line. Each gets its own moderated test
       and its own Benjamini-Hochberg family. The model always fits every design column.
   - {name: trend, type: flag, required: false, unit: null, range: null, default: false, doc: "Let the prior variance trend with each feature's average response (limma's trend = TRUE), as a natural cubic spline."}
-  - {name: spline-basis, type: int, required: false, unit: basis functions, range: ">= 1; only with --trend", default: 4, doc: "Basis functions of the trend spline, intercept included. mzLib caps it at the distinct average responses and the fitted features minus one; prior.spline_basis_count reports what was used."}
+  - {name: spline-basis, type: int, required: false, unit: basis functions, range: ">= 1; only with --trend", default: null, doc: "Basis functions of the trend spline, intercept included. Absent, the bridge sends none and mzLib chooses by limma's fitFDist rule (EmpiricalBayes.DefaultSplineBasisCount, mzLib 1.0.594 #1398): 1 + (n >= 3) + (n >= 6) + (n >= 30) for n fitted features, so 4 only from 30 features. A given value is capped at the fitted features minus one. mzLib caps either at the distinct average responses and may merge coinciding knots; prior.spline_basis_count reports what was used."}
   - {name: threads, type: int, required: false, unit: threads, range: ">= 1, or -1 for every core", default: 1, doc: "Features fitted at once. The bridge default is 1 (BULK.md); mzLib's own default is -1. Results are identical at any value."}
 
 result:

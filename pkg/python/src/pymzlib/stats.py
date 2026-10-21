@@ -394,9 +394,10 @@ def fit(
             Benjamini-Hochberg family.
         trend: Let the prior variance follow average response (limma's ``trend = TRUE``), for data
             whose low-abundance features are noisier.
-        spline_basis: Basis functions of the trend spline, intercept included (default 4). Only
-            with ``trend=True``; mzLib may use fewer, and :attr:`VariancePrior.spline_basis_count`
-            reports what it used.
+        spline_basis: Basis functions of the trend spline, intercept included. Only with
+            ``trend=True``. Leave it out to let mzLib choose, as limma does, for the number of
+            features; mzLib may also use fewer than you ask for. Either way
+            :attr:`VariancePrior.spline_basis_count` reports what it used.
         threads: Features fitted at once (threads), or ``-1`` for every core. The answer is
             identical at any value.
         timeout: Seconds to allow. ``None`` waits indefinitely.

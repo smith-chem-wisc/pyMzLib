@@ -27,6 +27,12 @@ Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as we
   was written back by name; the caveat that said so is retired, so `convert()` returns five caveats,
   not six. The `pro_forma` column `read_records()` computes for a `.psmtsv` written without one gains
   the same accessions.
+- **`stats.fit(trend=True)` on fewer than 30 features now sizes its trend as limma does**
+  (mzLib 1.0.594, #1398). Without `spline_basis`, the bridge used to ask mzLib for 4 basis
+  functions every time. It now asks for none, and mzLib follows limma's `fitFDist` rule, so a
+  small trend fit's prior and moderated statistics change to limma's. `prior.spline_basis_count`
+  says what was used. A table of 30 or more features is unchanged, and so is any call that passes
+  `spline_basis`.
 - The psmtsv caveat on `read_results()` cites `SpectrumMatchFromTsv.cs:122` and `:197`; mzLib #1371
   moved the lines it cited. The claim is unchanged.
 

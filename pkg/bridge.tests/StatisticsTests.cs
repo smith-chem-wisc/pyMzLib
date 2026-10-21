@@ -301,6 +301,28 @@ public class StatisticsTests
     }
 
     [Test]
+    public void Fit_Trend_LeavesTheSplineSizeToMzLib_WhichFollowsLimma()
+    {
+        // mzLib 1.0.594 (#1398) follows limma's fitFDist rule when no size is asked for: 3 basis
+        // functions for 6 to 29 features. The bridge used to ask for 4 every time.
+        var rows = new StringBuilder("id\ta1\ta2\ta3\tb1\tb2\tb3\n");
+        for (int i = 0; i < 10; i++)
+        {
+            double m = 10 + i, s = 0.1 + 0.05 * i;
+            rows.Append(CultureInfo.InvariantCulture,
+                $"f{i}\t{m}\t{m + s}\t{m - s}\t{m + 1}\t{m + 1 + 2 * s}\t{m + 1 - s}\n");
+        }
+        var (r, d) = WriteSmall(rows.ToString(), TwoGroupDesign);
+
+        JsonElement chosen = Run(Statistics.Fit, "treated\n", "stats", "fit", "--responses", r, "--design", d, "--trend");
+        JsonElement asked = Run(Statistics.Fit, "treated\n", "stats", "fit", "--responses", r, "--design", d,
+            "--trend", "--spline-basis", "4");
+
+        Assert.That(chosen.GetProperty("prior").GetProperty("spline_basis_count").GetInt32(), Is.EqualTo(3));
+        Assert.That(asked.GetProperty("prior").GetProperty("spline_basis_count").GetInt32(), Is.EqualTo(4));
+    }
+
+    [Test]
     public void Fit_CountsZeroCells_AsObservations_AndSaysSo()
     {
         var (r, d) = WriteSmall(
