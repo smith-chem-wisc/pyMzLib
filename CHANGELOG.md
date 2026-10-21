@@ -6,6 +6,27 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+- **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,
+  `pride.list_ftp_files()` and `pride.search()` defaulted to `timeout=300`, which turned a PRIDE
+  outage that hangs into a `BridgeTimeoutError`. mzLib already bounds each request (#1412: three
+  retries after 5, 20 and 60 s, each attempt up to 100 s), so they now default to `None` and a hang
+  is reported as `ServiceUnavailableError`. Pass `timeout=300` for the old limit.
+
+### Fixed
+- **`stats.fit()` on fewer than 3 features no longer reports one feature's variance as the prior.**
+  mzLib fits no prior below 3 features (#1398, as limma's `squeezeVar`), so `prior.scale` is now
+  `None` there and `prior.df` is 0; each feature's own variance is in `prior_variance`.
+
+### Documentation
+- **Every result mzLib 1.0.594 and 1.0.595 changed is now documented**, in the upgrading guide's
+  0.5.0 section and the reference pages: ProForma input refusals (#1462), SUMO and TMTpro names
+  (#1432, #1419), the Lactylation mass (#1417), entrapment flags and `entrapment_fraction`
+  (#1371), FlashLFQ normalization and gapped designs (#1422, #1424), `|P` proteases at sequence
+  ends (#1320), `stats.fit()` below 3 features (#1398), and PRIDE's retries, resumable `.partial`
+  files and missing download checks (#1412, #1427, #1449). Each was checked with the bridge at
+  `d10017ce`.
+
 ## [0.5.0] - 2026-10-21
 
 Built from mzLib 1.0.595 (tag commit `d10017ce`), so it carries mzLib 1.0.594 as well. Adds DIA-NN
@@ -13,7 +34,8 @@ Built from mzLib 1.0.595 (tag commit `d10017ce`), so it carries mzLib 1.0.594 as
 `peptidoform.fragments()` takes mzLib's digestion defaults, which gives a different protease and
 fragment series when you name neither, and a small `stats.fit(trend=True)` sizes its trend as limma
 does. [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md) lists
-every change to a result.
+every change to a result. mzLib 1.0.594 and 1.0.595 changed more results than this section first
+named; the upgrading guide's 0.5.0 section has all of them, added after the release.
 
 ### Added
 - **DIA-NN 2.x's `report.parquet` reads** (mzLib 1.0.595, #1384, file type `DiaNnReportParquet`).

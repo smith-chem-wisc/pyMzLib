@@ -323,6 +323,34 @@ public class StatisticsTests
     }
 
     [Test]
+    public void Fit_WithFewerThanThreeFeatures_FitsNoPrior_AndReportsNoSharedScale()
+    {
+        // mzLib 1.0.594 (#1398), as limma's squeezeVar: with fewer than 3 features there is no prior to
+        // fit, so each feature keeps its own variance. The bridge once reported the first feature's own
+        // variance as "the" prior variance.
+        var (r, d) = WriteSmall(
+            "id\ta1\ta2\ta3\tb1\tb2\tb3\n" +
+            "f1\t10\t10.2\t9.9\t12\t12.1\t11.8\n" +
+            "f2\t20\t20.4\t19.5\t20.2\t19.9\t20.6\n",
+            TwoGroupDesign);
+        JsonElement root = Run(Statistics.Fit, "treated\n", "stats", "fit", "--responses", r, "--design", d);
+        JsonElement prior = root.GetProperty("prior");
+        JsonElement columns = root.GetProperty("columns");
+        double[] priorVariance = columns.GetProperty("prior_variance").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+        double[] posteriorVariance = columns.GetProperty("posterior_variance").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+        double[] sigma = columns.GetProperty("sigma").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(prior.GetProperty("df").GetDouble(), Is.Zero);
+            Assert.That(prior.GetProperty("scale").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(priorVariance.Distinct().Count(), Is.EqualTo(2), "each feature keeps its own variance");
+            for (int i = 0; i < sigma.Length; i++)
+                Assert.That(posteriorVariance[i], Is.EqualTo(sigma[i] * sigma[i]).Within(1e-12).Percent);
+        });
+    }
+
+    [Test]
     public void Fit_CountsZeroCells_AsObservations_AndSaysSo()
     {
         var (r, d) = WriteSmall(

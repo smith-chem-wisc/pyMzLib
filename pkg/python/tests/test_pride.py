@@ -710,3 +710,24 @@ def test_a_keyword_that_looks_like_an_option_is_refused():
 def test_search_rejects_a_bad_page_size(page_size):
     with pytest.raises(pymzlib.UsageError):
         pride.search("phospho", page_size=page_size)
+
+
+@pytest.mark.parametrize("call", [
+    lambda: pride.list_files("PXD000001"),
+    lambda: pride.list_ftp_files("PXD000001"),
+    lambda: pride.search("phospho"),
+])
+def test_pride_metadata_calls_add_no_timeout_of_their_own(monkeypatch, call):
+    """mzLib bounds each PRIDE request itself (#1412: retries after 5, 20 and 60 s, up to 100 s per
+    attempt). A shorter limit of pyMzLib's own once turned a hanging outage into a BridgeTimeoutError
+    instead of a ServiceUnavailableError."""
+    seen: dict = {}
+
+    def capturing_invoke(*args, timeout="unset", **kwargs):
+        seen["timeout"] = timeout
+        raise pymzlib.ServiceUnavailableError("ServiceUnavailable", "PRIDE is down")
+
+    monkeypatch.setattr(_bridge, "invoke", capturing_invoke)
+    with pytest.raises(pymzlib.ServiceUnavailableError):
+        call()
+    assert seen["timeout"] is None

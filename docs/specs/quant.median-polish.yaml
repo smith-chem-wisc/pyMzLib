@@ -11,7 +11,8 @@ summary: >-
   polish, under a new experimental design, without re-reading any spectra.
 since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
-  - {symbol: FlashLfqResults.CalculateProteinResultsMedianPolish, path: mzLib/FlashLFQ/FlashLFQResults.cs, pin: 23c2490e}
+  - {symbol: FlashLfqResults.CalculateProteinResultsMedianPolish, path: mzLib/FlashLFQ/FlashLFQResults.cs, pin: d10017ce}
+  - {symbol: MedianPolishRollUp.QuantifyGroup, path: mzLib/Quantification/Strategies/RollUp/MedianPolishRollUp.cs, pin: d10017ce}
   - {symbol: FlashLfqResults.WriteResults, path: mzLib/FlashLFQ/FlashLFQResults.cs, pin: 23c2490e}
   - {symbol: ProteinGroup, path: mzLib/FlashLFQ/ProteinGroup.cs, pin: 23c2490e}
   - {symbol: SpectraFileInfo, path: mzLib/MassSpectrometry/SpectraFileInfo.cs, pin: 23c2490e}
@@ -78,6 +79,7 @@ errors:
   - {kind: service_unavailable, when: never}
 
 caveats:
+  - "Since mzLib 1.0.595 (#1424), the sample matrix is keyed by condition and biorep as a pair, not as one joined string, so condition A1 biorep 0 beside condition A biorep 10 quantifies; it threw IndexOutOfRangeException, which crossed as correctness."
   - "Detection types: where the table has no Detection Type_ column for a run (or the cell is blank), a positive intensity is treated as MSMS and 0 as NotDetected. That is this verb's only inference; a present but unrecognised value is an error, not a guess."
   - "Protein intensity null means unquantifiable, 0 means not measured; neither is a measured zero."
   - "Runs are names, not files: nothing but the peptide table is opened, and peak-level information (MBR peaks, retention times) is not available here. Use quant flashlfq for those."

@@ -327,7 +327,7 @@ def _page_size_args(page_size: int | None) -> list[str]:
 
 
 def list_files(
-    accession: str, page_size: int | None = None, timeout: float | None = 300
+    accession: str, page_size: int | None = None, timeout: float | None = None
 ) -> list[PrideFile]:
     """Return the file manifest of a PRIDE Archive project.
 
@@ -346,6 +346,12 @@ def list_files(
         page_size: How many files to request per underlying API call. Only affects how the
             manifest is fetched, never what you get back. ``None`` means mzLib's default.
         timeout: Seconds to allow for the whole fetch.
+            ``None`` (the default) adds no limit of pyMzLib's own, because mzLib already bounds
+            every request: it retries a transient failure three times, after 5, 20 and 60 s, and
+            each attempt can take up to 100 s. An outage that hangs is therefore reported as
+            :class:`~pymzlib.ServiceUnavailableError` after about 8 minutes per request. A number
+            cuts the whole call off after that many seconds with
+            :class:`~pymzlib.BridgeTimeoutError`.
 
     Returns:
         Every file in the project, in repository order. An unknown accession yields an empty
@@ -375,7 +381,7 @@ def list_files(
     return files
 
 
-def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtpFile]:
+def list_ftp_files(accession: str, timeout: float | None = None) -> list[PrideFtpFile]:
     """Return the **complete** file list of a PRIDE project, read from its FTP directory tree.
 
     This is the authoritative counterpart to :func:`list_files`. Where ``list_files`` returns
@@ -405,6 +411,12 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
         timeout: Seconds to allow for the whole walk, which spans one request per directory.
+            ``None`` (the default) adds no limit of pyMzLib's own, because mzLib already bounds
+            every request: it retries a transient failure three times, after 5, 20 and 60 s, and
+            each attempt can take up to 100 s. An outage that hangs is therefore reported as
+            :class:`~pymzlib.ServiceUnavailableError` after about 8 minutes per request. A number
+            cuts the whole call off after that many seconds with
+            :class:`~pymzlib.BridgeTimeoutError`.
 
     Returns:
         Every file under the project's FTP root, subdirectories included, in the order the walk
@@ -866,7 +878,7 @@ class PrideProjectSearchResult:
 def search(
     keyword: str,
     page_size: int | None = None,
-    timeout: float | None = 300,
+    timeout: float | None = None,
 ) -> list[PrideProjectSearchResult]:
     """Find PRIDE projects by keyword.
 
@@ -884,6 +896,12 @@ def search(
         page_size: How many projects to request per underlying API call. Only affects how the
             result set is fetched, never what you get back. ``None`` means mzLib's default.
         timeout: Seconds to allow for the whole fetch.
+            ``None`` (the default) adds no limit of pyMzLib's own, because mzLib already bounds
+            every request: it retries a transient failure three times, after 5, 20 and 60 s, and
+            each attempt can take up to 100 s. An outage that hangs is therefore reported as
+            :class:`~pymzlib.ServiceUnavailableError` after about 8 minutes per request. A number
+            cuts the whole call off after that many seconds with
+            :class:`~pymzlib.BridgeTimeoutError`.
 
     Returns:
         Every matching project. **An empty list is a real answer** — PRIDE reports no hits as an
