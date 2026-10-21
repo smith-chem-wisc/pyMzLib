@@ -48,8 +48,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.adjust}
-  rust: {name: "mzlib::stats::adjust", note: "planned; not yet shipped"}
-  r: {name: stats_adjust, note: "in mzLibR #29, not yet released. NA in the input crosses as an empty line."}
+  rust: {name: "mzlib::stats::adjust", note: "on main (mzLibRust #31), not yet released"}
+  r: {name: stats_adjust, note: "on main (mzLibR #31), not yet released. NA in the input crosses as an empty line."}
 
 examples:
   - fixture: stats_adjust.json
@@ -57,5 +57,4 @@ examples:
     rust: "let adjusted = mzlib::stats::adjust(&[Some(0.0002), Some(0.004), Some(0.019), None, Some(0.031), Some(0.2), None, Some(0.74)])?;"
     r: "adjusted <- stats_adjust(c(0.0002, 0.004, 0.019, NA, 0.031, 0.2, NaN, 0.74))"
 
-open_questions:
-  - "Rust and R spellings are proposals until those bindings ship the verb."
+open_questions: []

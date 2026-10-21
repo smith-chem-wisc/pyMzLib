@@ -89,4 +89,4 @@ examples:
     r: "pooled <- sdrf_pool(c(malaria = 'PXD000070.sdrf.tsv', colon = 'PXD026824.sdrf.tsv'), limit = 4)"
 
 open_questions:
-  - "out has no extension check, unlike the reader verbs, sdrf design and proteins annotate-go (PYB-1). It writes an SDRF, conventionally .sdrf.tsv; should it share their .tsv-only rule? Behaviour unchanged until decided (noted on pyMzLib #76)."
+  - "Decided in bridge 010 (PYB-4): out takes the .tsv-only rule, through Program.RequireTsvOutput, before any input is read. Not built yet: at pyMzLib main b18f013, Sdrf.Pool reads --out with no check. When PYB-4 merges, delete this, and add the rule to out's doc and to the usage errors."

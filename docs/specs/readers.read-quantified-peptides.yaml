@@ -103,4 +103,4 @@ examples:
 open_questions:
   - "quant median-polish still parses QuantifiedPeptides.tsv with a private reader (Quantification.cs); switching it to mzLib's QuantifiedPeptideFile is out of this verb's scope."
   - "No IsoTracker fixture exists, so retention_time and peak_order have only been seen absent."
-  - "PYB-3 part 2: refusing a too-large answer BEFORE serialising, when the parsed record count already predicts it, is not built. It needs a characters-per-record threshold measured per format (dataRepo's ~805 per record is one file type); part 1 catches the failure after serialising."
+  - "PYB-3 part 2: refusing a too-large answer BEFORE serialising is not built (pyMzLib main b18f013, Program.cs SuccessJson); part 1 catches the failure after serialising. A threshold per record will not work: dataRepo's re-run on 0.4.0 (dataRepo to pyMzLib 018, 2026-10-04) measured 725 and 805 characters per record in two psmtsv files from one producer. It proposed source size instead, 0.63 to 0.71 output characters per source byte, which puts the limit at about 1.51 to 1.70 GB of source text. That is two files of one format, and no threshold has been agreed."

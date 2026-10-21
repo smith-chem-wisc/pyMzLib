@@ -71,4 +71,4 @@ examples:
 
 open_questions:
   - "A second verb could read reporter intensities out of spectra through IsobaricMassTag.GetReporterIonIntensities; not built."
-  - "Not yet ported: mzLibRust and mzLibR names above are proposals until their ports land (parity order)."
+  - "Ported, unreleased: mzLibRust #31 and mzLibR #28 (merged 2026-10-03) ship mzlib::isobaric::kits and isobaric_kits as named above. Set since.mzlibrust / since.mzlibr when they release."

@@ -2,6 +2,7 @@
 # DecompressedSha256) on branch feat/proteins-1.0.592 (stacked on pyMzLib#61), mzLib pin 23c2490e
 # (1.0.592). The example fixture was recorded from the live bridge through
 # pymzlib.proteins.resolve_genes, against a hand-built three-gene GTF (mzLib ships none at the pin).
+# In it, O43653 (PSCA) is off_primary_only only because PSCA's gene is left out of the three-gene GTF.
 verb: genes resolve
 module: genes
 summary: >-
@@ -89,6 +90,4 @@ examples:
     r: "genes <- proteins_resolve_genes(c(xml, fasta), contaminants = bovine, gtf = gtf, xref = xref)"
 
 open_questions:
-  - "The wire module is 'genes' but every binding projects it in its proteins module (BULK.md §6); confirm."
   - "No verb writes the compact gene set (EnsemblGeneSetWriter); callers need mzLib or a future 'genes gene-set' verb to make one."
-  - "The example gene set is a hand-built three-gene GTF in Ensembl's layout; O43653 is off_primary_only only because PSCA is left out of it."

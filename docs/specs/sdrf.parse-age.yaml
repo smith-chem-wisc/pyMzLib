@@ -51,7 +51,7 @@ caveats:
   - "Every cell costs one line, not one process: send all cells in one call."
 
 bindings:
-  py: {name: pymzlib.sdrf.parse_ages}
+  py: {name: pymzlib.sdrf.parse_ages, note: "Plural in all three bindings because it takes a list of cells; the verb is singular because each stdin line is one cell."}
   rust: {name: "mzlib::sdrf::parse_ages"}
   r: {name: sdrf_parse_ages, note: "NA in the input crosses as an empty line, as Python maps None."}
 
@@ -63,4 +63,3 @@ examples:
 
 open_questions:
   - "The refusal reason is a bridge-side classification of TryParse's false; see sdrf.samples.yaml. An upstream TryParse(cell, out age, out reason) would retire it."
-  - "Binding name is parse_ages (plural) for the verb parse-age (one cell per line). Kept because the function takes a list; revisit if a binding wants the wire name."
