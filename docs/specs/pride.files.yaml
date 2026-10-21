@@ -32,11 +32,12 @@ params:
     required: false
     unit: files
     range: ">= 1"
-    default: 100
+    default: null
     doc: >-
       Files requested per underlying API call. Changes how many requests the fetch takes, never
-      what comes back: mzLib pages until the manifest is complete. Leave it at the default; above
-      PRIDE's server-side cap the manifest is complete only while PRIDE reports total_records.
+      what comes back: mzLib pages until the manifest is complete. Absent, the bridge sends none
+      and GetProjectFilesAsync's default applies (100 at d10017ce). Leave it absent; above PRIDE's
+      server-side cap the manifest is complete only while PRIDE reports total_records.
 
 result:
   envelope_fields:
@@ -58,12 +59,12 @@ result:
     - {wire: updated_date, type: string, unit: null, nullable: false, null_means: null, doc: "As submission_date."}
 
 errors:
-  - {kind: usage, when: "accession missing or blank; page-size not an integer"}
+  - {kind: usage, when: "accession missing or blank; page-size not an integer, given without a value, or <= 0 (checked by the bridge before mzLib)"}
   - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout or cancellation, a socket failure, an HttpRequestException with no status but an inner cause (refused connection, DNS, TLS), an HTTP 408, 429 or 5xx, or a response body cut off in transit"}
-  - {kind: correctness, when: "any other HTTP status (e.g. 404), a paging contract violation (MzLibException: an identical page while total_records says more remain), the MaxPages backstop (an HttpRequestException mzLib composes with no status and no inner exception, which ClassifyHttpFailure deliberately does not excuse as an outage), or page-size <= 0 (mzLib's ArgumentOutOfRangeException; the bridge does not check it first)"}
+  - {kind: correctness, when: "any other HTTP status (e.g. 404), a paging contract violation (MzLibException: an identical page while total_records says more remain), the MaxPages backstop (an HttpRequestException mzLib composes with no status and no inner exception, which ClassifyHttpFailure deliberately does not excuse as an outage)"}
 
 caveats:
-  - "This is PRIDE's REST manifest, which is knowingly incomplete: for PXD000001 it lists 8 files while the FTP tree held 14 on 2026-10-03, omitting six including the two largest. Use pride ftp-files when completeness or the true project size matters."
+  - "This is PRIDE's REST manifest, which is knowingly incomplete: for PXD000001 on 2026-10-21 it listed 9 of the 14 files in the FTP tree, omitting five including the two largest (on 2026-10-03, when the fixtures were recorded, it listed 8). Use pride ftp-files when completeness or the true project size matters."
   - "An unknown accession and a private project both return file_count 0, not an error. The bindings raise their not-found error on an empty manifest; the wire does not."
   - "total_size_bytes is not the number of bytes a download transfers: PRIDE reports some compressed files at their decompressed size, and the sum covers only the files the manifest lists. The two errors run in opposite directions and do not cancel."
   - "Dates are timestamps with an offset here, unlike pride search, whose dates are bare calendar dates."
@@ -80,6 +81,4 @@ examples:
     r: "files <- pride_list_files('PXD000001')"
 
 open_questions:
-  - "page-size <= 0 crosses as a correctness failure (ArgumentOutOfRangeException) because the bridge, unlike pride search, does not check it before calling mzLib. Every binding rejects it first, so no binding user sees it; the wire should say usage."
   - "An absent PRIDE date crosses as 0001-01-01T00:00:00+00:00, not null (PrideArchiveFile's dates are non-nullable DateTimeOffset, and ToWireFile does not map default to null as pride search's ToWireDate does). Not observed on a real manifest; unverified whether PRIDE ever omits one."
-  - "An option given with no value (e.g. --page-size followed by another option) is parsed as a flag and silently defaulted: OptionalInt does not consult WasProvided."

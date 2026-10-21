@@ -106,6 +106,49 @@ public class VerbHandlerTests
         Assert.That(seen, Does.Contain("pageSize=7"));
     }
 
+    [TestCase("GetProjectFilesAsync", "files", "--accession", "PXD012345")]
+    [TestCase("SearchProjectsAsync", "search", "--keyword", "phospho")]
+    public async Task Pride_WithoutAPageSize_SendsMzLibsDefault(string method, string verb, string option, string value)
+    {
+        // The default is mzLib's, read from its signature here, never written down: the bridge once
+        // passed a 100 of its own to both.
+        object mzLibDefault = typeof(PrideArchiveClient).GetMethod(method)!.GetParameters()
+            .Single(p => p.Name == "pageSize").DefaultValue!;
+        string? seen = null;
+        Program.PrideClientFactory = () =>
+        {
+            var handler = new StubHandler(request => { seen = request.RequestUri!.AbsoluteUri; return Json("[]"); });
+            return new PrideArchiveClient(new HttpClient(handler) { BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress) });
+        };
+
+        await InvokeAsync("pride", verb, option, value);
+
+        Assert.That(seen, Does.Contain($"pageSize={mzLibDefault}"));
+    }
+
+    [TestCase("0")]
+    [TestCase("-5")]
+    public void PrideFiles_APageSizeBelowOne_IsAUsageError(string pageSize)
+    {
+        // Left to mzLib, it crossed as a correctness failure (its ArgumentOutOfRangeException).
+        UseStub(_ => Json("[]"));
+
+        var ex = Assert.ThrowsAsync<Program.UsageException>(
+            async () => await InvokeAsync("pride", "files", "--accession", "PXD012345", "--page-size", pageSize));
+        Assert.That(ex!.Message, Does.Contain("--page-size must be greater than zero"));
+    }
+
+    [TestCase("files", "--accession", "PXD012345")]
+    [TestCase("search", "--keyword", "phospho")]
+    public void Pride_APageSizeWithoutAValue_IsAUsageError(string verb, string option, string value)
+    {
+        UseStub(_ => Json("[]"));
+
+        var ex = Assert.ThrowsAsync<Program.UsageException>(
+            async () => await InvokeAsync("pride", verb, option, value, "--page-size"));
+        Assert.That(ex!.Message, Is.EqualTo("Option --page-size was given without a value."));
+    }
+
     /// <summary>
     /// A PRIDE manifest whose <c>total_records</c> UNDERSTATES the truth must still arrive whole.
     /// </summary>

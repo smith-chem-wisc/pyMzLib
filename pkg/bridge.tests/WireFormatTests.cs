@@ -207,6 +207,24 @@ public class WireFormatTests
     }
 
     [Test]
+    public void ATooLargeWindowNamesItsOwnRecords_NotTheWholeFiles()
+    {
+        // A caller who already passed --limit 1000 must not be told the file holds 842130 records.
+        var data = new Dictionary<string, object?>
+        {
+            ["record_count"] = 842130,
+            ["returned_count"] = 1000,
+            ["columns"] = new TooLargeToSerialize(),
+        };
+
+        (string json, int _) = Program.SuccessJson(data);
+        JsonElement envelope = JsonSerializer.Deserialize<JsonElement>(json);
+
+        Assert.That(envelope.GetProperty("error").GetProperty("message").GetString(), Does.StartWith(
+            "this read (1000 records) is too large to return as one document"));
+    }
+
+    [Test]
     public void ATooLargeAnswerWithNoRecordCountStillSaysWhatToDo()
     {
         (string json, int exitCode) = Program.SuccessJson(new { columns = new TooLargeToSerialize() });

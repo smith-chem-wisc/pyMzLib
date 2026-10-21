@@ -311,13 +311,31 @@ class PrideFtpFile:
         )
 
 
-def list_files(accession: str, page_size: int = 100, timeout: float | None = 300) -> list[PrideFile]:
+def _page_size_args(page_size: int | None) -> list[str]:
+    """The wire's ``--page-size`` pair, or nothing for ``None`` so mzLib's own default applies."""
+    if page_size is None:
+        return []
+    if isinstance(page_size, bool) or not isinstance(page_size, int):
+        raise _bridge.UsageError(
+            f"page_size must be a whole number or None; got {type(page_size).__name__} ({page_size!r})."
+        )
+    if page_size <= 0:
+        raise _bridge.UsageError(f"page_size must be positive; got {page_size}.")
+    if page_size > 2_147_483_647:
+        raise _bridge.UsageError(f"page_size is larger than the API allows; got {page_size}.")
+    return ["--page-size", str(page_size)]
+
+
+def list_files(
+    accession: str, page_size: int | None = None, timeout: float | None = 300
+) -> list[PrideFile]:
     """Return the file manifest of a PRIDE Archive project.
 
     **This is what PRIDE's REST API publishes, which is not always everything in the
-    project.** For PXD000001 the API returns **8** files while the FTP tree holds **13**, and
-    the five it omits include the two largest: ``...60min_01-20141210.mzML`` (450 MB) and the
-    matching ``.mzXML`` (472 MB), exactly the modern open-format conversions most people want.
+    project.** On 2026-10-21, for PXD000001, the API listed **9** of the **14** files in the FTP
+    tree, and the five it omits include the two largest: ``...60min_01-20141210.mzML`` (450 MB)
+    and the matching ``.mzXML`` (472 MB), exactly the modern open-format conversions most people
+    want.
     The omission is PRIDE's, not mzLib's. **If completeness matters, use :func:`list_ftp_files`,**
     which walks the project's FTP directory and returns everything it actually holds.
 
@@ -326,7 +344,7 @@ def list_files(accession: str, page_size: int = 100, timeout: float | None = 300
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
         page_size: How many files to request per underlying API call. Only affects how the
-            manifest is fetched, never what you get back.
+            manifest is fetched, never what you get back. ``None`` means mzLib's default.
         timeout: Seconds to allow for the whole fetch.
 
     Returns:
@@ -338,19 +356,12 @@ def list_files(accession: str, page_size: int = 100, timeout: float | None = 300
         BridgeError: PRIDE returned an error status or was unreachable.
     """
     canonical = _normalise_accession(accession)
-    if isinstance(page_size, bool) or not isinstance(page_size, int):
-        raise _bridge.UsageError(
-            f"page_size must be a whole number; got {type(page_size).__name__} ({page_size!r})."
-        )
-    if page_size <= 0:
-        raise _bridge.UsageError(f"page_size must be positive; got {page_size}.")
-    if page_size > 2_147_483_647:
-        raise _bridge.UsageError(f"page_size is larger than the API allows; got {page_size}.")
+    paging = _page_size_args(page_size)
 
     data = _bridge.invoke(
         "pride", "files",
         "--accession", canonical,
-        "--page-size", str(page_size),
+        *paging,
         timeout=timeout,
     )
     files = [PrideFile._from_wire(item, canonical) for item in data.get("files", [])]
@@ -368,8 +379,8 @@ def list_ftp_files(accession: str, timeout: float | None = 300) -> list[PrideFtp
     """Return the **complete** file list of a PRIDE project, read from its FTP directory tree.
 
     This is the authoritative counterpart to :func:`list_files`. Where ``list_files`` returns
-    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 six of the
-    14 files the project held on 2026-10-03, including the two largest — this walks the FTP directory (subdirectories
+    PRIDE's REST manifest — which is knowingly incomplete, omitting for PXD000001 five of the
+    project's 14 files on 2026-10-21, including the two largest — this walks the FTP directory (subdirectories
     included) and returns everything the project actually holds. Reach for it whenever completeness
     or a true project size matters; use :func:`list_files` when you want the rich metadata (category,
     checksum, controlled-vocabulary locations) that the REST manifest carries and the directory
@@ -854,7 +865,7 @@ class PrideProjectSearchResult:
 
 def search(
     keyword: str,
-    page_size: int = 100,
+    page_size: int | None = None,
     timeout: float | None = 300,
 ) -> list[PrideProjectSearchResult]:
     """Find PRIDE projects by keyword.
@@ -871,7 +882,7 @@ def search(
             descriptions, keywords, organisms and more — :attr:`~PrideProjectSearchResult.highlights`
             on each hit says which fields actually matched.
         page_size: How many projects to request per underlying API call. Only affects how the
-            result set is fetched, never what you get back.
+            result set is fetched, never what you get back. ``None`` means mzLib's default.
         timeout: Seconds to allow for the whole fetch.
 
     Returns:
@@ -910,19 +921,12 @@ def search(
             "service being down."
         )
 
-    if isinstance(page_size, bool) or not isinstance(page_size, int):
-        raise _bridge.UsageError(
-            f"page_size must be a whole number; got {type(page_size).__name__} ({page_size!r})."
-        )
-    if page_size <= 0:
-        raise _bridge.UsageError(f"page_size must be positive; got {page_size}.")
-    if page_size > 2_147_483_647:
-        raise _bridge.UsageError(f"page_size is larger than the API allows; got {page_size}.")
+    paging = _page_size_args(page_size)
 
     data = _bridge.invoke(
         "pride", "search",
         "--keyword", canonical,
-        "--page-size", str(page_size),
+        *paging,
         timeout=timeout,
     )
     return [PrideProjectSearchResult._from_wire(item) for item in data.get("results", [])]
