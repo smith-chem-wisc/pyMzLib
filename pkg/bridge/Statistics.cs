@@ -137,7 +137,7 @@ internal static class Statistics
             }
         }
 
-        var statusCounts = Enum.GetValues<FeatureFitStatus>().ToDictionary(
+        var statusCounts = LinearFitStatuses.ToDictionary(
             StatusName, s => fit.Status.Count(x => x == s));
 
         return new
@@ -449,13 +449,29 @@ internal static class Statistics
 
     // ---- output ----------------------------------------------------------------------------------
 
-    /// <summary>mzLib's <see cref="FeatureFitStatus"/> as the wire writes it.</summary>
+    /// <summary>
+    /// The outcomes <see cref="LinearModel.Fit"/> can give a feature, and so the keys of
+    /// <c>status_counts</c>. mzLib's <see cref="FeatureFitStatus"/> is shared with its logistic and
+    /// mixed models (mzLib 1.0.594, #1367), whose outcomes a linear fit never reports.
+    /// </summary>
+    internal static readonly FeatureFitStatus[] LinearFitStatuses =
+        { FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient };
+
+    /// <summary>
+    /// mzLib's <see cref="FeatureFitStatus"/> as the wire writes it. Every value is named here, so a
+    /// value mzLib adds fails a test on the repin instead of reaching the wire under its C# name.
+    /// </summary>
     internal static string StatusName(FeatureFitStatus status) => status switch
     {
         FeatureFitStatus.Fitted => "fitted",
         FeatureFitStatus.TooFewObservations => "too_few_observations",
         FeatureFitStatus.RankDeficient => "rank_deficient",
-        _ => status.ToString(),
+        FeatureFitStatus.Separated => "separated",
+        FeatureFitStatus.NotConverged => "not_converged",
+        FeatureFitStatus.TooFewGroups => "too_few_groups",
+        FeatureFitStatus.VarianceRatioAtLimit => "variance_ratio_at_limit",
+        _ => throw new InvalidOperationException(
+            $"FeatureFitStatus.{status} has no wire name. Name it in Statistics.StatusName."),
     };
 
     private static List<string> FitCaveats(LinearModelFit fit, bool dfDiffer, int zeroCount, VariancePrior prior)
