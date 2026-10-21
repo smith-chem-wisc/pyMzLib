@@ -6,7 +6,14 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
-Built from mzLib 1.0.595 (tag commit `d10017ce`). It carries mzLib 1.0.594 as well.
+## [0.5.0] - 2026-10-21
+
+Built from mzLib 1.0.595 (tag commit `d10017ce`), so it carries mzLib 1.0.594 as well. Adds DIA-NN
+2.x's `report.parquet`, and stops choosing defaults that are mzLib's to set:
+`peptidoform.fragments()` takes mzLib's digestion defaults, which gives a different protease and
+fragment series when you name neither, and a small `stats.fit(trend=True)` sizes its trend as limma
+does. [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md) lists
+every change to a result.
 
 ### Added
 - **DIA-NN 2.x's `report.parquet` reads** (mzLib 1.0.595, #1384, file type `DiaNnReportParquet`).
@@ -509,7 +516,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.4.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.5.0...main
+[0.5.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.5.0
 [0.4.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.4.0
 [0.3.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.3.0
 [0.2.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.2.0

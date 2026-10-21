@@ -9,9 +9,10 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
-## Unreleased (built from mzLib 1.0.595)
+## 0.5.0 (built from mzLib 1.0.595)
 
-This release moves mzLib from 1.0.593 to 1.0.595, so it carries 1.0.594's changes too.
+This release moves mzLib from 1.0.593 to 1.0.595, so it carries 1.0.594's changes too. Two of the
+changes below are pyMzLib's own: it stopped choosing defaults that are mzLib's to set.
 
 ### Files that used to be refused now read
 
@@ -31,6 +32,22 @@ This release moves mzLib from 1.0.593 to 1.0.595, so it carries 1.0.594's change
   `read_records()` on a `.psmtsv` written without a ProForma column changes the same way. A string
   comparison of ProForma across the upgrade will see these peptides as different. `convert()`
   returns five caveats instead of six, because the one describing this gap is gone.
+- **`peptidoform.fragments()` without `protease` or `dissociation`** (pyMzLib #83). Each digestion
+  option you leave out now takes mzLib's default. Two of those differ from what 0.4.0 chose:
+  - the protease is mzLib's `"trypsin"`, which also cuts before proline, where 0.4.0 used
+    `"trypsin|P"`, which does not;
+  - the fragments are HCD's b and y ions, where 0.4.0 gave ETD's c and z• ions. mzLib names no
+    default dissociation type, so HCD is used until it does
+    ([mzLib#1488](https://github.com/smith-chem-wisc/mzLib/issues/1488)).
+
+  Serum albumin's default digest goes from 303 to 310 peptidoforms. For the 0.4.0 answer, pass
+  `protease="trypsin|P", dissociation="ETD"`. The other defaults have the same values as before.
+- **`stats.fit(trend=True)` on fewer than 30 features**
+  ([mzLib#1398](https://github.com/smith-chem-wisc/mzLib/pull/1398), pyMzLib #82). Without
+  `spline_basis`, the trend spline now has limma's number of basis functions,
+  1 + (n ≥ 3) + (n ≥ 6) + (n ≥ 30) for n features, where 0.4.0 always used 4. A small trend fit's
+  prior and moderated statistics change to limma's. Thirty or more features give the same answer,
+  and `spline_basis=4` gives the 0.4.0 answer at any size.
 
 ## 0.4.0 (still built from mzLib 1.0.593)
 
