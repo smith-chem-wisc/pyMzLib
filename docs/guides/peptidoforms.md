@@ -28,31 +28,32 @@ numbers you see are the numbers pyMzLib gives. Blocks titled **Not run** say why
 >>> digest.full_name, digest.organism, digest.sequence_length
 ('Albumin', 'Homo sapiens', 609)
 >>> len(digest.peptides), len(digest.modified_peptides)
-(303, 108)
+(310, 108)
 
 ```
 
-## The defaults are opinions, not placeholders
+## The defaults are mzLib's
 
-The one-argument call made several decisions. They are the choices this lab makes when it has no
-reason to choose otherwise, and each is a parameter you can change:
+The one-argument call leaves the digestion to mzLib. Each option you do not pass (the protease,
+missed cleavages, the length window, the modification and isoform caps, and the terminus) takes
+the default of mzLib's `DigestionParams`, and pyMzLib sends nothing for it. The
+[`fragments` reference](../reference/peptidoform.md#fragments) gives each value at the pinned
+mzLib. Two choices are not digestion defaults:
 
-| Default | Meaning |
-|---|---|
-| `protease="trypsin|P"` | Tryptic with the Keil rule: cleave after K/R **except** before proline. |
-| `dissociation="ETD"` | c and z• fragment ions. |
-| `modifications=True` | Apply UniProt's annotated modifications. |
-| `missed_cleavages=2` | Up to two missed cleavage sites per peptide. |
-| `min_length=7` | **Discards peptides shorter than seven residues.** See the trap below. |
-| `max_modifications=2` | Consider up to two modifications per peptide. |
-| `max_isoforms=1024` | Cap on modification isoforms per peptide. See the trap below. |
-| `terminus="Both"` | Fragment from both ends. |
+- **`modifications=True`** applies UniProt's annotated modifications.
+- **`dissociation`** decides the fragment series. mzLib names no default dissociation type, so HCD
+  (b and y ions) is used until it does
+  ([smith-chem-wisc/mzLib#1488](https://github.com/smith-chem-wisc/mzLib/issues/1488)).
+
+Two of mzLib's defaults drop peptides without saying so ([below](#two-defaults-that-bite-silently)),
+and its default protease may not be the trypsin you expect
+([below](#protease-naming-read-this-if-you-come-from-maxquant-or-mascot)).
 
 The result echoes the settings it ran with, so a saved `Digest` says how it was made:
 
 ```pycon
 >>> digest.protease, digest.dissociation, digest.max_modifications, digest.max_isoforms
-('trypsin|P', 'ETD', 2, 1024)
+('trypsin', 'HCD', 2, 1024)
 
 ```
 
@@ -80,12 +81,12 @@ Each fragment carries a **neutral** mass, not an m/z:
 ```pycon
 >>> f = p.fragments[0]
 >>> f.product_type, f.fragment_number, round(f.neutral_mass, 4)
-('c', 1, 118.0742)
+('b', 1, 101.0477)
 
 ```
 
-`fragment_number` counts residues from the fragment's own terminus: c1 is the first residue from
-the N-terminus, z•1 the first from the C-terminus.
+`fragment_number` counts residues from the fragment's own terminus: b1 is the first residue from
+the N-terminus, y1 the first from the C-terminus.
 
 ## Modifications: what was annotated, and what could be used
 
@@ -160,8 +161,8 @@ most studied histone modifications there is. A peptide with a fixed charge is ob
 charge with no protonation at all, so `charge` may not be **below** `fixed_charges`.
 
 !!! note "Fragments deliberately have no `mz()`"
-    Converting a fragment correctly needs the fixed charge *within that fragment's span*: a c or z
-    ion carries only the charged modifications on the residues it contains, not the whole peptide's
+    Converting a fragment correctly needs the fixed charge *within that fragment's span*: a b, y, c or
+    z ion carries only the charged modifications on the residues it contains, not the whole peptide's
     `fixed_charges`. That per-fragment accounting is not provided yet, so `Fragment` has
     `neutral_mass` only. For an unmodified or neutrally modified peptide,
     `(neutral_mass + z × 1.007276) / z` is correct.
@@ -171,11 +172,11 @@ charge with no protonation at all, so `charge` may not be **below** `fixed_charg
 Both produce a *short* answer that looks exactly like a *complete* one, so they are worth knowing
 before you trust a count.
 
-### `min_length=7` drops short peptides
+### The minimum length drops short peptides
 
-The default digest discards every peptide shorter than seven residues. On a histone that is about a
-third of the tryptic peptides, including short, heavily modified ones you may care about most. If
-you asked for "every peptide", pass `min_length=1`:
+mzLib's default minimum length discards every shorter peptide. On histone H3.1 the default digest
+keeps 49 of the 96 peptides that `min_length=1` gives, and the ones it drops include short, heavily
+modified peptides you may care about most. If you asked for "every peptide", pass `min_length=1`:
 
 ```python title="Not run: a full histone digest at min_length=1 is a multi-megabyte recording"
 digest = pymzlib.peptidoform.fragments("P68431", min_length=1)   # histone H3.1, every peptide
@@ -183,11 +184,12 @@ digest = pymzlib.peptidoform.fragments("P68431", min_length=1)   # histone H3.1,
 
 ### The isoform cap truncates silently
 
-Modification isoforms are enumerated combinatorially, and the count grows fast: histone H3.1 gives
-49 bare tryptic peptides, 2,563 peptidoforms at two modifications, and 7,040 at three.
-`max_isoforms=1024` caps the isoforms considered *per peptide position*, and when it binds mzLib
-discards the excess **without an error**. On H3.1 at four modifications it drops about 30% of the
-peptidoforms.
+Modification isoforms are enumerated combinatorially, and the count grows fast: histone H3.1's 49
+peptides give 2,419 peptidoforms at two modifications and 6,580 at three. `max_isoforms` caps the
+isoforms considered *per peptide position*, and when the cap binds mzLib discards the excess
+**without an error**. On H3.1 at four modifications, mzLib's default cap keeps 8,644 of 12,808
+peptidoforms, losing about a third. (These histone counts were measured on 2026-10-21. UniProt
+revises its annotations, so a later digest can differ.)
 
 `Digest` says when this happened. Albumin at the defaults is complete:
 
@@ -210,30 +212,36 @@ Check `digest.truncated` before you treat a peptidoform list as exhaustive.
 
 ## Protease naming: read this if you come from MaxQuant or Mascot
 
-The default `protease="trypsin|P"` means the **reverse** of what the same-looking name means
-elsewhere:
+Protease names, and what each one cuts, are mzLib's: they come from its `proteases.tsv`. Two of
+them look like names you know from MaxQuant and Mascot and mean the **reverse**:
 
-| pyMzLib and mzLib | Behaviour | The MaxQuant and Mascot name for it |
+| mzLib name | What it cuts | The MaxQuant and Mascot name for it |
 |---|---|---|
-| `"trypsin|P"` | Cleave after K/R **except** before proline (the Keil rule) | plain `Trypsin` |
-| `"trypsin"` | Cleave after K/R, **including** before proline | `Trypsin/P` |
+| `"trypsin"` (mzLib's default) | After K/R, **including** before proline | `Trypsin/P` |
+| `"trypsin|P"` | After K/R **except** before proline (the Keil rule) | plain `Trypsin` |
 
-The difference is real. On serum albumin, without modifications, `"trypsin|P"` gives 195 distinct
-peptides and `"trypsin"` gives 202. The counts differ by 7, but the lists differ by 37: 15 peptides
-are only in the first and 22 only in the second, because every K/R before a proline moves a
-cleavage site. `"trypsin|P"` is the default because it is what a mass spectrometrist usually means
-by "trypsin". If you expected MaxQuant's `Trypsin/P` (ignore the proline rule), pass `"trypsin"`.
+In mzLib's `"trypsin|P"`, the `P` names a residue that *prevents* the cut. In MaxQuant's
+`Trypsin/P`, it names a rule that is *ignored*.
+
+The difference is real. On serum albumin, without modifications, `"trypsin"` gives 202 distinct
+peptides and `"trypsin|P"` gives 195. The counts differ by 7, but the lists differ by 37: 22
+peptides are only in the first and 15 only in the second, because every K/R before a proline moves
+a cleavage site. If you want the Keil rule (MaxQuant's plain `Trypsin`), pass
+`protease="trypsin|P"`.
 
 ## Tuning the digest
 
-Every default can be changed. The common adjustments:
+Every option can be set. The common adjustments:
 
 ```python title="Not run: each of these digests is its own megabyte-scale recording"
 # The bare sequence, no modifications: a clean control
 pymzlib.peptidoform.fragments("P02768", modifications=False)
 
-# HCD or CID b and y ions instead of ETD c and z•
-pymzlib.peptidoform.fragments("P02768", dissociation="HCD")
+# ETD c and z• ions instead of HCD b and y
+pymzlib.peptidoform.fragments("P02768", dissociation="ETD")
+
+# The Keil rule: no cleavage before proline
+pymzlib.peptidoform.fragments("P02768", protease="trypsin|P")
 
 # A tighter length window and no missed cleavages
 pymzlib.peptidoform.fragments("P02768", missed_cleavages=0, min_length=6, max_length=40)

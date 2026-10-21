@@ -253,14 +253,11 @@ def test_no_truncation_when_nothing_hit_the_cap(recorded_digest):
 # --------------------------------------------------------------------------- the call itself
 
 
-def test_defaults_are_the_labs_opinion_and_reach_the_bridge(captured):
+def test_the_defaults_are_mzlibs_so_nothing_is_sent_for_them(captured):
+    """A caller who chooses nothing sends nothing: the bridge applies mzLib's DigestionParams
+    defaults, and HCD until mzLib names a dissociation default (smith-chem-wisc/mzLib#1488)."""
     peptidoform.fragments("P02768")
-    args = captured["args"]
-    assert args[:2] == ["peptidoform", "fragments"]
-    assert args[args.index("--protease") + 1] == "trypsin|P", "the Keil rule, not mzLib's plain trypsin"
-    assert args[args.index("--dissociation") + 1] == "ETD"
-    assert args[args.index("--max-isoforms") + 1] == "1024"
-    assert "--no-modifications" not in args
+    assert captured["args"] == ["peptidoform", "fragments", "--accession", "P02768"]
 
 
 def test_every_default_is_reachable(captured):

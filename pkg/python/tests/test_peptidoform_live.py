@@ -39,7 +39,8 @@ def test_the_workflow_still_answers_end_to_end():
 def test_etd_produces_c_and_z_ions_not_b_and_y():
     """The dissociation type must reach mzLib, or the caller silently gets the wrong chemistry."""
     with external_service("UniProt"):
-        digest = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=0, min_length=20)
+        digest = pymzlib.peptidoform.fragments(
+            ALBUMIN, dissociation="ETD", max_modifications=0, min_length=20)
 
     kinds = {f.product_type for p in digest.peptides for f in p.fragments}
     assert any(k.startswith("c") for k in kinds), f"expected c ions from ETD, got {sorted(kinds)}"
@@ -54,7 +55,8 @@ def test_fragment_series_close_on_the_precursor_mass():
     fragment table with sensible spacings and monotonic series that is nonetheless wrong.
     """
     with external_service("UniProt"):
-        digest = pymzlib.peptidoform.fragments(ALBUMIN, max_modifications=0, min_length=15)
+        digest = pymzlib.peptidoform.fragments(
+            ALBUMIN, dissociation="ETD", max_modifications=0, min_length=15)
 
     checked = 0
     for peptide in digest.peptides[:5]:
