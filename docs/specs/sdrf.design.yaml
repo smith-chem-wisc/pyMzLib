@@ -94,6 +94,7 @@ caveats:
   - "The table is 0-based, as SpectraFileInfo and the quant verbs take it. ExperimentalDesign.tsv is 1-based; mzLib converts when it writes."
   - "notes is the only record of a renumbering; read it."
   - "A factor holding not available or not applicable is refused: it would pair samples nobody said were alike."
+  - "A fraction or technical replicate of not available is refused as not an integer of 1 or more (SdrfDesignRules.ReadPositiveInteger). Since mzLib 1.0.594 (#1378) SdrfBuilder can write one, for a run with no design (MetaMorpheus #2816 will), so an SDRF mzLib itself wrote can be refused here."
   - "MetaMorpheus finds the design only as a file named ExperimentalDesign.tsv beside the spectra; --out writes any .tsv path."
 
 bindings:

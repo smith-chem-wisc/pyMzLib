@@ -88,18 +88,18 @@ result:
     - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted", doc: "Two-sided p-value."}
     - {wire: bh_adjusted, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted (not in the family)", doc: "Benjamini-Hochberg adjusted p-value over this coefficient's fitted features. Not a target-decoy q-value."}
     - {wire: posterior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted", doc: "The moderated residual variance (d0 s0^2 + d s^2) / (d0 + d)."}
-    - {wire: prior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted (the feature did not enter the prior)", doc: "s0^2 for this feature: one value for every feature without --trend, varying with average_response with it."}
+    - {wire: prior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted (the feature did not enter the prior)", doc: "s0^2 for this feature: one value for every feature without --trend, varying with average_response with it. With fewer than 3 features it is the feature's own variance, because no prior is fitted."}
     - {wire: sigma, type: float, unit: "response units", nullable: true, null_means: "not fitted", doc: "Residual standard deviation, sqrt(RSS / df_residual), before moderation."}
     - {wire: df_residual, type: int, unit: null, nullable: true, null_means: "not fitted", doc: "Observed samples minus coefficients."}
     - {wire: observed, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a finite response for this feature."}
     - {wire: average_response, type: float, unit: "response units", nullable: true, null_means: "the feature has no finite response at all", doc: "Mean of the feature's observed responses: the covariate --trend fits on."}
   tables:
     prior:
-      - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "infinite: df_infinite is true", doc: "Prior degrees of freedom d0."}
+      - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "infinite: df_infinite is true", doc: "Prior degrees of freedom d0. 0 with fewer than 3 features, where mzLib fits no prior (mzLib#1398, as limma's squeezeVar), so moderation leaves each feature's variance and t as they are."}
       - {wire: df_infinite, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the residual variances are no more dispersed than sampling alone explains, so every feature takes the prior variance."}
       - {wire: trended, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether s0^2 varies with average_response."}
       - {wire: spline_basis_count, type: int, unit: basis functions, nullable: false, null_means: null, doc: "Basis functions the trend used, intercept included; 1 without a trend."}
-      - {wire: scale, type: float, unit: "squared response units", nullable: true, null_means: "trended: s0^2 is per feature, in the prior_variance column", doc: "s0^2, the prior variance."}
+      - {wire: scale, type: float, unit: "squared response units", nullable: true, null_means: "s0^2 differs by feature, so it is in the prior_variance column: trended, or no prior was fitted (fewer than 3 features; mzLib#1398, as limma's squeezeVar)", doc: "s0^2, the prior variance, when every fitted feature shares one. With fewer than 3 features mzLib fits no prior: df is 0 and each feature keeps its own variance. Bridges before pyMzLib 0.5.1 reported the first feature's own variance here in that case."}
 
 errors:
   - {kind: usage, when: "responses or design missing, blank or not found; a table empty, header-only or with too few columns; a row whose field count differs from its header; an empty or repeated feature id, sample or coefficient name; a response cell that is not a number (other than blank, NA, NaN); a design cell that is not a finite number"}
@@ -110,7 +110,7 @@ errors:
 
 caveats:
   - "This is limma's LEGACY empirical-Bayes estimator (eBayes(legacy = TRUE)). Since limma 3.61, eBayes defaults to a different estimator whenever residual df differ between features, which omitting missing values causes; residual_df_differ says when that applies."
-  - "Not implemented: robust = TRUE, contrasts, the B-statistic, observation weights. Write a contrast as its own design column instead."
+  - "Not implemented: robust = TRUE, the B-statistic, observation weights. mzLib has contrasts since 1.0.595 (EmpiricalBayes.ModerateContrasts, #1452), but this verb does not expose them yet: write a contrast as its own design column instead."
   - "A 0 is an observation. Log-transform intensities first, and blank any cell that means 'not measured'."
   - "bh_adjusted adjusts for the false discovery rate among the features tested. It is not a target-decoy q-value for identifications."
 

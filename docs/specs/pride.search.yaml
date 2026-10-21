@@ -89,6 +89,7 @@ errors:
   - {kind: correctness, when: "any other HTTP status; a paging contract violation (MzLibException: an identical page while total_records says more remain); the page limit (mzLib MaxPages) exceeded"}
 
 caveats:
+  - "Since mzLib 1.0.594 (#1412), PrideArchiveClient retries a transient failure, that request alone, after 5, 20 and 60 s (a 429 or 503 Retry-After of up to 60 s replaces the wait); transient means no HTTP status at all, 408, 429, any 5xx, or a 403 from ftp.pride.ebi.ac.uk, EBI's rate limit. Each attempt can take up to the client's 100 s timeout, so a service that hangs takes up to about 485 s per request before the failure is reported. A binding's own timeout shorter than that reports a hanging outage as a timeout, not as service_unavailable."
   - "A hit is NOT a project's metadata: PRIDE serves search from an Elasticsearch projection in which every controlled-vocabulary field is flattened to a display string, contacts to names and references to citation strings. Follow the accession for the vocabulary."
   - "A zero or an empty list means 'not reported', never a measured zero. Several fields are genuinely sparse (sampled over 1,600 hits: project_tags 2.6%, sdrf 2.4%, other_omics_links 18%, the bot/hub/organic trio under half)."
   - "Dates are bare calendar dates, unlike pride files' timestamps with offsets; a binding must not widen them to a midnight timestamp."

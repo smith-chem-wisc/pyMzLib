@@ -46,8 +46,8 @@ result:
     - {wire: organism, type: "string", unit: null, nullable: true, null_means: "the file has no Organism column (then also in absent_fields) or the cell is blank", doc: "Organism as written."}
     - {wire: decoy_contaminant_target, type: "string", unit: null, nullable: false, null_means: null, doc: "T, D, C, or entrapment ET/ED, as written."}
     - {wire: is_decoy, type: "bool", unit: null, nullable: false, null_means: null, doc: "decoy_contaminant_target contains D (mzLib's IsDecoy)."}
-    - {wire: is_contaminant, type: "bool", unit: null, nullable: false, null_means: null, doc: "decoy_contaminant_target is C."}
-    - {wire: is_entrapment, type: "bool", unit: null, nullable: false, null_means: null, doc: "decoy_contaminant_target starts with E."}
+    - {wire: is_contaminant, type: "bool", unit: null, nullable: false, null_means: null, doc: "Any |-joined parent label is C (DecoyContaminantTargetLabel.IsContaminant), so T|C is a contaminant. Before mzLib 1.0.595 (#1371) the label had to be exactly C."}
+    - {wire: is_entrapment, type: "bool", unit: null, nullable: false, null_means: null, doc: "Any |-joined parent label is entrapment, ET or ED (DecoyContaminantTargetLabel.IsEntrapment), so T|ET is entrapment. Before mzLib 1.0.595 (#1371) the label had to start with E."}
     - {wire: q_value, type: "float", unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The group's q-value; the table is unfiltered and this is what filtering reads."}
     - {wire: sample_label, type: "string", unit: null, nullable: true, null_means: "the file has no per-sample columns: the group is one row and this is in absent_fields", doc: "The sample group this row measures."}
     - {wire: spectral_count, type: "int", unit: "PSMs", nullable: true, null_means: "the cell is blank, or the file has no SpectralCount_ columns (then in absent_fields); an isobaric intensity-only label has none", doc: "PSMs from this sample group assigned to the group (SpectralCount_)."}

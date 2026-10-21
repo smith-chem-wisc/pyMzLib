@@ -163,9 +163,10 @@ internal static class Statistics
                 df_infinite = double.IsPositiveInfinity(prior.Df),
                 trended = prior.Trended,
                 spline_basis_count = prior.SplineBasisCount,
-                // One value without a trend; with a trend it varies per feature and is the
-                // prior_variance column instead.
-                scale = prior.Trended ? null : FirstFinite(prior.Scale),
+                // The one s0^2 every fitted feature shares. With a trend, or with fewer than 3 features,
+                // where mzLib fits no prior and each feature keeps its own variance (#1398, as limma's
+                // squeezeVar), it differs by feature and is the prior_variance column instead.
+                scale = prior.Trended ? null : SharedScale(prior.Scale),
             },
             row_count = table.RowCount,
             column_names = table.Names,
@@ -507,11 +508,19 @@ internal static class Statistics
 
     private static double? Finite(double value) => double.IsFinite(value) ? value : null;
 
-    private static double? FirstFinite(IReadOnlyList<double> values)
+    /// <summary>The finite value every entry shares, or null when there is none or they differ.</summary>
+    private static double? SharedScale(IReadOnlyList<double> values)
     {
+        double? shared = null;
         foreach (double value in values)
-            if (double.IsFinite(value))
-                return value;
-        return null;
+        {
+            if (!double.IsFinite(value))
+                continue;
+            if (shared is null)
+                shared = value;
+            else if (value != shared)
+                return null;
+        }
+        return shared;
     }
 }

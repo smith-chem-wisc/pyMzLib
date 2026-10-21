@@ -332,14 +332,33 @@ re-running after an interruption picks up where it stopped.
 ### Interruptions don't corrupt anything
 
 Each file streams to a temporary `.partial` name and moves into place only once complete. A
-cancelled or crashed download leaves no truncated file for a later run to mistake for a good one.
-That matters: a silently truncated `.raw` produces a search that runs to completion and gives wrong
-answers.
+cancelled or crashed download leaves no truncated file under its real name for a later run to
+mistake for a good one. That matters: a silently truncated `.raw` produces a search that runs to
+completion and gives wrong answers.
 
-## Timeouts
+A transfer that fails after mzLib's retries leaves `<name>.partial` and `<name>.partial.validator`
+in the folder on purpose: the next call for that file resumes from them instead of starting again
+(mzLib#1412). Leave them in place, or delete both to start over.
 
-`list_files()` and `search()` default to a 300-second timeout. `download()` has **no** timeout by
-default, because multi-gigabyte transfers can take hours:
+### Check large files yourself
+
+mzLib can check a download against PRIDE's checksums, and since 1.0.595 it also catches an EBI
+error page served at the right size (mzLib#1427, #1449). That check is not yet on the path
+`download()` uses, so a file can be reported as downloaded when its bytes are wrong. For files
+that matter, compare their sizes with `list_files()` and their checksums with PRIDE's before you
+search them.
+
+## Retries and timeouts
+
+**mzLib retries for you.** A request that fails in a way that can pass (no answer, an HTTP 408,
+429 or 5xx, or a 403 from EBI's FTP host, its rate limit) is retried three times, after 5, 20 and
+60 seconds, and that request alone (mzLib#1412). A paged manifest retries only the page that
+failed, and a download resumes where it stopped.
+
+**pyMzLib adds no timeout of its own by default**, on any PRIDE function. Each attempt is already
+limited to 100 seconds, so an outage that hangs is reported as `ServiceUnavailableError` after
+about 8 minutes per request. Pass `timeout=` to cut a call off sooner; it then raises
+`BridgeTimeoutError`, which is not a `ServiceUnavailableError`:
 
 ```python title="Not run: contacts PRIDE"
 pymzlib.pride.list_files("PXD000001", timeout=60)          # give up after a minute
@@ -375,7 +394,7 @@ print(f"Wrote {len(paths)} files")
 | `UsageError` | The accession is blank or malformed, `page_size` is not positive, or a filter matched nothing. Raised before any network call where it can be. |
 | `ProjectNotFoundError` | PRIDE has no project with that accession, or it has no files. |
 | `ServiceUnavailableError` | PRIDE was down, rate-limiting or timed out, **or the connection dropped part-way through a transfer**. **Not your bug**: retry later. |
-| `BridgeError` with `error_type='HttpRequestException'` | PRIDE answered with a client error such as 404. Something about the request is wrong. |
+| `BridgeError` with `error_type='HttpRequestException'` | PRIDE answered with a client error such as 404, so something about the request is wrong. **Two exceptions** look the same but are EBI failures: an FTP listing that came back empty, and a 403 from EBI's FTP host, each still failing after mzLib's retries. Treat those as an outage. |
 | `BridgeError` with `error_type='NotSupportedException'` | A selected file has no HTTPS location (Aspera-only). Filter on `downloadable` first. |
 
 Since mzLib#1350, every PRIDE transport failure reaches the bridge as an `HttpRequestException`,
@@ -386,22 +405,20 @@ drops mid-download is still an outage, so it still raises `ServiceUnavailableErr
     A request that fails outright reports a status code. One that fails **after** the response has
     begun has no status left to report, because the server already said 200, so it surfaces as a
     truncated stream. Both are the same thing from your side, and both raise
-    `ServiceUnavailableError`, so the retry loop below covers `download()` as well as `list_files()`.
+    `ServiceUnavailableError`, so the handling below covers `download()` as well as `list_files()`.
 
 `ServiceUnavailableError` is a subclass of `BridgeError`, so catching `BridgeError` catches
-everything. Separating them lets you retry the failures worth retrying and report the rest:
+everything. By the time it reaches you, mzLib has already retried, so retrying again at once
+rarely helps. Wait minutes, not seconds:
 
 ```python title="Not run: shows how to handle a PRIDE outage, which a recording cannot produce"
 import time
 
-for attempt in range(3):
-    try:
-        files = pymzlib.pride.list_files("PXD000001")
-        break
-    except pymzlib.ServiceUnavailableError:
-        time.sleep(30)      # EBI's problem; it may well pass
-else:
-    raise SystemExit("PRIDE unavailable after three attempts")
+try:
+    files = pymzlib.pride.list_files("PXD000001")
+except pymzlib.ServiceUnavailableError:
+    time.sleep(600)         # mzLib retried already; give EBI ten minutes
+    files = pymzlib.pride.list_files("PXD000001")
 
 try:
     pymzlib.pride.download("PXD000001", "downloads")

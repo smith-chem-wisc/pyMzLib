@@ -106,13 +106,16 @@ class VariancePrior:
     Attributes:
         df: Prior degrees of freedom d0, or ``None`` when it is infinite (see ``df_infinite``).
             Larger means the features' variances agree, so each is shrunk harder toward ``scale``.
+            0 with fewer than 3 features: mzLib then fits no prior, as limma's ``squeezeVar``
+            does, so each feature keeps its own variance.
         df_infinite: ``True`` when the residual variances are no more dispersed than sampling alone
             explains, so every feature takes the prior variance.
         trended: Whether s0² varies with each feature's average response (``trend=True``).
         spline_basis_count: Basis functions the trend spline used, intercept included; 1 without a
             trend.
-        scale: s0², the prior variance, in squared response units; ``None`` when trended, in which
-            case it is per feature, in the ``prior_variance`` column.
+        scale: s0², the prior variance, in squared response units, when every feature shares
+            one. ``None`` when it differs by feature, which is then in the ``prior_variance``
+            column: with a trend, or with fewer than 3 features, where no prior is fitted.
     """
 
     df: float | None

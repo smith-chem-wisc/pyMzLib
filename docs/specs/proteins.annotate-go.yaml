@@ -40,7 +40,7 @@ result:
     - {wire: groups_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the protein-group table."}
     - {wire: groups_file_sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the table's bytes; also the header's source_file_sha256."}
     - {wire: table_row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in the table, decoys included."}
-    - {wire: decoy_group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Decoy rows (label contains D, so an entrapment decoy ED too), skipped: decoys carry no GO."}
+    - {wire: decoy_group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Decoy rows, skipped: decoys carry no GO. A row is a decoy when any |-joined parent label is D or the entrapment decoy ED (DecoyContaminantTargetLabel.IsDecoy, mzLib 1.0.595 #1371)."}
     - {wire: group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Groups annotated: every non-decoy group, contaminants included, each once even when MetaMorpheus wrote it twice (mzLib #1366)."}
     - {wire: annotation_database, type: object, unit: null, nullable: false, null_means: null, doc: "{path, file_type (UniProtXml), reader, protein_count, sha256 (of the DECOMPRESSED bytes), caveats}."}
     - {wire: go, type: object, unit: null, nullable: false, null_means: null, doc: "{source_file_name, sha256, release (the data-version; null when the file has none), term_count (obsolete terms included)}."}
