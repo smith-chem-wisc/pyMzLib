@@ -106,6 +106,32 @@ public class PrideLiveCanaryTests
             });
         });
 
+    [Test]
+    public Task TheChecksumListStillParsesAndCoversTheSubmittedFiles() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE Archive", async () =>
+        {
+            // mzLib #1427. Asserted as relations to the FTP listing rather than counts, so it
+            // survives PRIDE re-curating the project: every row is a root file of the FTP tree, the
+            // generated/ files have none, and each row carries a real MD5 and size.
+            JsonElement sums = await InvokeAsync("pride", "checksums", "--accession", CanaryAccession);
+            JsonElement ftp = await InvokeAsync("pride", "ftp-files", "--accession", CanaryAccession);
+
+            JsonElement[] rows = sums.GetProperty("files").EnumerateArray().ToArray();
+            HashSet<string> ftpPaths = ftp.GetProperty("files").EnumerateArray()
+                .Select(f => f.GetProperty("relative_path").GetString()!).ToHashSet(StringComparer.Ordinal);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(rows, Is.Not.Empty, "PRIDE has always listed checksums for PXD000001; an empty list means the route changed");
+                Assert.That(rows.All(r => ftpPaths.Contains(r.GetProperty("file_name").GetString()!)), Is.True,
+                    "every checksum row should name a file at the project's FTP root");
+                Assert.That(ftpPaths.Where(p => p.StartsWith("generated/", StringComparison.Ordinal)), Is.Not.Empty,
+                    "the canary project should still hold generated/ files, which the checksum list never covers");
+                Assert.That(rows.All(r => r.GetProperty("md5").GetString()!.Length == 32), Is.True);
+                Assert.That(rows.All(r => r.GetProperty("size_bytes").GetInt64() > 0), Is.True);
+            });
+        });
+
     private static async Task<JsonElement> InvokeAsync(params string[] args)
     {
         object data = await Program.DispatchAsync(args);

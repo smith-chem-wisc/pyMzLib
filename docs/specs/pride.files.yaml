@@ -48,8 +48,8 @@ result:
   # Fields of each entry in `files` (a list of records, not a column dict).
   columns:
     - {wire: file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The file's name as PRIDE lists it, e.g. TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw."}
-    - {wire: file_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "Size as PRIDE reports it. For compressed files PRIDE often reports the DECOMPRESSED size (PXD000001's .mgf.gz: 16448103 reported vs 5984662 transferred)."}
-    - {wire: checksum, type: string, unit: null, nullable: false, null_means: null, doc: "The repository's checksum; the empty string when PRIDE provides none (never null)."}
+    - {wire: file_size_bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "Size as PRIDE reports it, which is not the download length. For compressed files PRIDE often reports the DECOMPRESSED size (PXD000001's .mgf.gz: 16448103 reported vs 5984662 transferred; its .xml.gz: 10,677,205 reported vs 10,668,000). pride checksums gives the exact length."}
+    - {wire: checksum, type: string, unit: null, nullable: false, null_means: null, doc: "The repository's checksum; the empty string when PRIDE provides none (never null). It is a SHA-1 where PRIDE gives one (40 hex digits; measured 2026-10-21 by hashing PXD010820's Maxquant_Output.zip), not the MD5 that pride checksums lists, and it is empty for every PXD000001 file."}
     - {wire: category, type: string, unit: null, nullable: false, null_means: null, doc: "PRIDE file category value, e.g. RAW, PEAK, SEARCH, RESULT, OTHER."}
     - {wire: category_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The category's PRIDE CV accession, e.g. PRIDE:0000410."}
     - {wire: https_url, type: string, unit: null, nullable: true, null_means: "the file has no location reachable over HTTPS (for example Aspera-only); pride download cannot fetch it", doc: "Direct HTTPS URL: the FTP location scheme-upgraded to HTTPS on PRIDE's FTP host."}

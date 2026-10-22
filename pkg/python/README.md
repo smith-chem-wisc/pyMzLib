@@ -46,7 +46,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 
 | Area | Status |
 |---|---|
-| PRIDE Archive — list project files, filtered download | ✅ |
+| PRIDE Archive — list project files, filtered download, the MD5 and exact size to check each download against | ✅ |
 | Peptidoforms — digest an annotated protein, apply its modifications, fragment every peptide; convert full sequences to Unimod or ProForma | ✅ |
 | Quantification — FlashLFQ label-free quant with match-between-runs, and median-polish protein roll-up | ✅ |
 | Readers — read spectra from **mzML**, Thermo `.raw`, Bruker `.d`, timsTOF `.d`, MGF and msalign; identify and read every file type mzLib knows, search results included; many files in one call; MetaMorpheus protein groups, FlashLFQ peptides and PTM site occupancy as long tables, RNA transcript groups and oligos included | ✅ |

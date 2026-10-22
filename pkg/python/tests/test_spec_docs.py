@@ -6,8 +6,8 @@ the prose. This test holds the prose to the facts:
 
 * every spec param is a keyword of the Python function and is described under ``Args:``;
 * every spec result field is described under ``Attributes:`` of the class the function returns
-  (or, when the function returns a list of row objects, every per-row field is described on the
-  row class);
+  (or, when the function returns a list of row objects, or a dict of them keyed by name, every
+  per-row field is described on the row class);
 * a param or field whose spec ``unit`` is not null mentions that unit in its description, so
   "Skip this many" cannot ship without saying "scans".
 
@@ -120,11 +120,17 @@ def resolve(dotted: str):
 
 
 def returned(module, func):
-    """(class, is_list) for the function's return annotation, resolved in its module."""
+    """(class, is_list) for the function's return annotation, resolved in its module.
+
+    ``is_list`` is true for rows: a ``list[Row]``, or a ``dict[str, Row]`` keyed by a row field
+    (``pride.file_checksums()``, which keeps mzLib's map from file name to checksum).
+    """
     annotation = inspect.signature(func).return_annotation
     if not isinstance(annotation, str):
         annotation = getattr(annotation, "__name__", str(annotation))
-    match = re.fullmatch(r"\s*(?:list|List)\[\s*(\w+)\s*\]\s*", annotation)
+    match = re.fullmatch(r"\s*(?:list|List)\[\s*(\w+)\s*\]\s*", annotation) or re.fullmatch(
+        r"\s*(?:dict|Dict)\[\s*str\s*,\s*(\w+)\s*\]\s*", annotation
+    )
     if match:
         return getattr(module, match.group(1), None), True
     return getattr(module, annotation.strip(), None), False

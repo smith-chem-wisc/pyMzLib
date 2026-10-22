@@ -6,6 +6,19 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Added
+- **`pride.file_checksums()`: the MD5 and exact size PRIDE recorded for each file deposited in a
+  project** (mzLib 1.0.595, #1427, `PrideArchiveClient.GetFileChecksumsAsync`). It returns a dict
+  of `PrideFileChecksum` keyed by file name, which is what a download is checked against.
+  `download()` does not check downloads yet, so the PRIDE guide now shows the check: the size,
+  then the MD5 with `hashlib`. **It is a third list, not a view of the other two.** PRIDE's
+  `generated/` files have no row, it names files `list_files()` omits, and it can list server
+  debris such as an `.nfs` temp file. **`size_bytes` is the exact download length**, which
+  `list_files()` can get wrong (PXD000001's `.xml.gz`: 10,677,205 against a 10,668,000-byte
+  download). **`md5` is not `PrideFile.checksum`**, which is a SHA-1 where PRIDE fills it in. An
+  empty dict means the project exists but PRIDE holds no checksums for it. An unknown accession, or
+  a project not yet published, raises `ProjectNotFoundError`. Wire verb `pride checksums`.
+
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,
   `pride.list_ftp_files()` and `pride.search()` defaulted to `timeout=300`, which turned a PRIDE

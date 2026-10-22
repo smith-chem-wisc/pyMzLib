@@ -13,6 +13,8 @@ Run with ``pytest -m network``.
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 import pymzlib
@@ -142,3 +144,47 @@ def test_the_ftp_total_size_is_populated_and_consistent():
 
     total = pymzlib.pride.approximate_total_size_bytes(ftp)
     assert total >= max(f.approximate_size_bytes for f in ftp) > 0
+
+
+# ------------------------------------------------------------------- checksums
+
+
+def test_the_checksum_list_still_parses_and_covers_the_deposited_files():
+    """mzLib #1427. Asserted as relations to the FTP tree rather than counts, so it survives PRIDE
+    re-curating the project: every row names a file at the project's root, and none names one of
+    PRIDE's generated/ files."""
+    with external_service():
+        checksums = pymzlib.pride.file_checksums(CANARY_ACCESSION)
+        ftp = pymzlib.pride.list_ftp_files(CANARY_ACCESSION)
+
+    assert checksums, "PRIDE has always listed checksums for the canary; an empty list means the route changed"
+    root = {f.relative_path for f in ftp if "/" not in f.relative_path}
+    generated = {f.relative_path for f in ftp if f.relative_path.startswith("generated/")}
+    assert set(checksums) <= root, f"rows outside the FTP root: {sorted(set(checksums) - root)}"
+    assert generated, "the canary should still hold generated/ files, which have no checksum row"
+    assert all(len(c.md5) == 32 and c.size_bytes > 0 for c in checksums.values())
+
+
+def test_a_checksum_row_matches_the_bytes_a_download_delivers(tmp_path):
+    """The point of the list: its size and MD5 are those of the file a download writes. A small
+    file in both the REST manifest and the checksum list keeps this fast."""
+    with external_service():
+        checksums = pymzlib.pride.file_checksums(CANARY_ACCESSION)
+        files = pymzlib.pride.list_files(CANARY_ACCESSION)
+        chosen = min(
+            (f for f in files if f.downloadable and f.file_name in checksums),
+            key=lambda f: checksums[f.file_name].size_bytes,
+        )
+        (written,) = pymzlib.pride.download_files([chosen], tmp_path)
+
+    expected = checksums[chosen.file_name]
+    assert written.stat().st_size == expected.size_bytes
+    assert hashlib.md5(written.read_bytes()).hexdigest() == expected.md5.lower()
+
+
+def test_an_unknown_accession_raises_rather_than_reporting_no_checksums():
+    """PRIDE answers an unknown accession with an empty list, as it does a project with no
+    checksums. mzLib asks for the project to tell them apart, so a typo is not '0 files to check'."""
+    with external_service():
+        with pytest.raises(pymzlib.pride.ProjectNotFoundError):
+            pymzlib.pride.file_checksums("PXD999999999")

@@ -14,6 +14,7 @@ resolution, the same safe-download behaviour.
 | Size a project before downloading it | [`approximate_total_size_bytes()`](#sizing-up-a-project-before-you-commit) | `TotalApproximateSizeBytes` |
 | Download the files you picked | [`download_files()`](#downloading-what-you-selected) | `PrideArchiveClient.DownloadFilesAsync` |
 | Download by category or extension | [`download()`](#downloading-a-whole-project) | `WhereCategory`, `WhereExtension` |
+| Check a download against the MD5 and exact size PRIDE recorded | [`file_checksums()`](#checking-a-download-against-prides-checksums) | `PrideArchiveClient.GetFileChecksumsAsync` |
 
 Every `>>>` example on this page runs in CI against answers recorded from the live PRIDE Archive
 through the real bridge. Blocks titled **Not run** download files or show retry logic, and say so.
@@ -247,7 +248,9 @@ True
 manifest carries (category, checksum, controlled-vocabulary locations); it is what `download()` and
 `download_files()` select from. Use `list_ftp_files()` when completeness or a true project size
 matters. An unknown accession **raises** `ProjectNotFoundError` there too: mzLib resolves the
-project before walking it, so a typo fails loudly rather than returning an empty list.
+project before walking it, so a typo fails loudly rather than returning an empty list. To check a
+file you downloaded, use the third list,
+[`file_checksums()`](#checking-a-download-against-prides-checksums).
 
 !!! warning "Downloading a file that only the FTP listing found"
     `download()` and `download_files()` work on the **REST manifest**, so a file that appears *only*
@@ -327,7 +330,8 @@ pymzlib.pride.download("PXD000001", "downloads", overwrite=False)
 ```
 
 With `overwrite=False`, a file already present at the destination is skipped without a request, so
-re-running after an interruption picks up where it stopped.
+re-running after an interruption picks up where it stopped. The file it skips is not checked, so a
+damaged copy stays damaged. [Check it](#checking-a-download-against-prides-checksums) first.
 
 ### Interruptions don't corrupt anything
 
@@ -345,8 +349,158 @@ in the folder on purpose: the next call for that file resumes from them instead 
 mzLib can check a download against PRIDE's checksums, and since 1.0.595 it also catches an EBI
 error page served at the right size (mzLib#1427, #1449). That check is not yet on the path
 `download()` uses, so a file can be reported as downloaded when its bytes are wrong. For files
-that matter, compare their sizes with `list_files()` and their checksums with PRIDE's before you
-search them.
+that matter, check each one against `file_checksums()` before you search it, as the next section
+shows.
+
+## Checking a download against PRIDE's checksums
+
+**Is the file on your disk the file PRIDE holds?** `download()` cannot tell you yet. PRIDE records
+an MD5 and the exact size of every file a submitter deposits, and `file_checksums()` returns that
+record:
+
+```pycon
+>>> checksums = pymzlib.pride.file_checksums("PXD000001")
+>>> len(checksums)
+12
+>>> raw = checksums["TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw"]
+>>> raw.md5, raw.size_bytes
+('c567cecbb9866796e690a4958746f7b6', 220475548)
+
+```
+
+It is a dict keyed by file name, so look a file up by the name it was downloaded under. Each value
+is a [`PrideFileChecksum`][pymzlib.pride.PrideFileChecksum]:
+
+- `md5` is 32 hexadecimal characters, as PRIDE wrote them. Compare it without regard to case.
+- `size_bytes` is the exact length a download of the file comes to. Neither other listing gives
+  you that. `list_ftp_files()` rounds its sizes, and `list_files()` can be wrong:
+
+```pycon
+>>> rest = next(f for f in files if f.file_name == "PRIDE_Exp_Complete_Ac_22134.xml.gz")
+>>> rest.file_size_bytes, checksums[rest.file_name].size_bytes
+(10677205, 10668000)
+
+```
+
+The download is 10,668,000 bytes, the checksum list's number. Because each size is exact, so is
+their sum: what the deposited files weigh, which the other two listings can only estimate. It
+leaves out the `generated/` files, which have no row (below).
+
+```pycon
+>>> round(sum(c.size_bytes for c in checksums.values()) / 1e9, 2)
+1.43
+
+```
+
+### The check
+
+A file is PRIDE's when its length and its MD5 both match. The length costs nothing to check. The
+MD5 reads the whole file, which takes a few seconds per gigabyte. Check both, because the length
+alone does not prove the bytes: on 7 and 8 October 2026, EBI served about 23 of about 70 large
+transfers at the right size with its own error text written over part of them (mzLib#1449).
+
+```pycon
+>>> import hashlib
+>>> from pathlib import Path
+>>> def check(path, expected):
+...     """None when the file is the one PRIDE recorded, otherwise what is wrong with it."""
+...     size = path.stat().st_size
+...     if size != expected.size_bytes:
+...         return f"{size} bytes where PRIDE records {expected.size_bytes}"
+...     md5 = hashlib.md5()
+...     with path.open("rb") as handle:
+...         for block in iter(lambda: handle.read(1 << 20), b""):
+...             md5.update(block)
+...     if md5.hexdigest() != expected.md5.lower():
+...         return f"MD5 {md5.hexdigest()} where PRIDE records {expected.md5}"
+...     return None
+
+```
+
+Here it is on two damaged copies of the project's 1,645-byte `README.txt`. The first was cut short.
+The second is the right size with EBI's error text inside, and only the MD5 catches it:
+
+```pycon
+>>> readme = checksums["README.txt"]
+>>> damaged = Path("README.txt")
+>>> _ = damaged.write_bytes(b"x" * 1000)
+>>> check(damaged, readme)
+'1000 bytes where PRIDE records 1645'
+>>> _ = damaged.write_bytes(b"<Error><Code>ConnectionClosedException</Code></Error>".ljust(1645, b"."))
+>>> check(damaged, readme)
+'MD5 6a8f1a7d39089d34bf9bc9b19e553dd4 where PRIDE records 492753137013825025e6729c8798664f'
+
+```
+
+After a real download, check every file it wrote:
+
+```python title="Not run: downloads files from PRIDE"
+paths = pymzlib.pride.download("PXD000001", "downloads", category="RAW")
+checksums = pymzlib.pride.file_checksums("PXD000001")
+for path in paths:
+    expected = checksums.get(path.name)
+    if expected is None:
+        print(f"{path.name}: PRIDE has no checksum for it, so it cannot be checked")
+        continue
+    problem = check(path, expected)
+    if problem:
+        print(f"{path.name}: {problem}. Download it again.")
+```
+
+To download a damaged file again, use `download_files()` with that file, or `download()` with
+`overwrite=True`, the default. `overwrite=False` would skip it, because it is already there.
+
+### What the list covers
+
+It covers the files the submitter deposited at the project's root. It is a third list, not a view
+of either of the others, and three things follow from that.
+
+**PRIDE's own `generated/` files have no row.** A file without a row cannot be checked; that does
+not make it invalid. In PXD000001 those are the two files under `generated/`:
+
+```pycon
+>>> [f.relative_path for f in ftp if f.relative_path not in checksums]   # doctest: +NORMALIZE_WHITESPACE
+['generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz',
+ 'generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz']
+
+```
+
+`list_files()` names those two without their folder, so the same two are the manifest's files
+without a row:
+
+```pycon
+>>> [f.file_name for f in files if f.file_name not in checksums]
+['PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz', 'PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz']
+
+```
+
+**It names files the REST manifest omits,** such as the 450 MB `.mzML` that only the FTP listing
+showed above:
+
+```pycon
+>>> "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzML" in checksums
+True
+
+```
+
+**It can name files that are not deposits at all.** PXD015239's list includes a 2.3 GB NFS temp
+file, `.nfs80360b91005fae5300002478`. Look up the files you have by name; do not read the list as
+the project's contents.
+
+### Two traps
+
+**`PrideFile.checksum` is not this MD5.** Where PRIDE fills it in, it is a 40-character SHA-1, a
+different digest of the same bytes. For every PXD000001 file it is empty:
+
+```pycon
+>>> {f.checksum for f in files}
+{''}
+
+```
+
+**An empty dict is an answer.** It means the project exists but PRIDE holds no checksums for it,
+so nothing can be checked. An accession PRIDE does not know raises `ProjectNotFoundError`, and so
+does a project not yet published: PRIDE holds no checksums before publication.
 
 ## Retries and timeouts
 
@@ -392,10 +546,11 @@ print(f"Wrote {len(paths)} files")
 | Exception | Means |
 |---|---|
 | `UsageError` | The accession is blank or malformed, `page_size` is not positive, or a filter matched nothing. Raised before any network call where it can be. |
-| `ProjectNotFoundError` | PRIDE has no project with that accession, or it has no files. |
+| `ProjectNotFoundError` | PRIDE has no project with that accession, or it has no files. From `file_checksums()`, also a project not yet published. |
 | `ServiceUnavailableError` | PRIDE was down, rate-limiting or timed out, **or the connection dropped part-way through a transfer**. **Not your bug**: retry later. |
 | `BridgeError` with `error_type='HttpRequestException'` | PRIDE answered with a client error such as 404, so something about the request is wrong. **Two exceptions** look the same but are EBI failures: an FTP listing that came back empty, and a 403 from EBI's FTP host, each still failing after mzLib's retries. Treat those as an outage. |
 | `BridgeError` with `error_type='NotSupportedException'` | A selected file has no HTTPS location (Aspera-only). Filter on `downloadable` first. |
+| `BridgeError` with `error_type='MzLibException'` from `file_checksums()` | PRIDE sent a checksum list mzLib cannot read: a new header, a malformed row, or a name listed twice. Not your bug; mzLib does not retry it, so report it. |
 
 Since mzLib#1350, every PRIDE transport failure reaches the bridge as an `HttpRequestException`,
 carrying its HTTP status where there was one, and no message carries a URL. A connection that

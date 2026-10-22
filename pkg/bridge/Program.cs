@@ -266,6 +266,7 @@ public static partial class Program
             "pride ftp-files" => await PrideFtpFilesAsync(arguments).ConfigureAwait(false),
             "pride download" => await PrideDownloadAsync(arguments).ConfigureAwait(false),
             "pride search" => await PrideSearchAsync(arguments).ConfigureAwait(false),
+            "pride checksums" => await PrideChecksumsAsync(arguments).ConfigureAwait(false),
             "peptidoform fragments" => await Peptidoform.FragmentsAsync(arguments).ConfigureAwait(false),
             "peptidoform convert" => Peptidoform.Convert(arguments),
             "quant flashlfq" => Quantification.FlashLfq(arguments),
@@ -516,6 +517,63 @@ public static partial class Program
             files = files.Select(ToWireFtpFile).ToList(),
         };
     }
+
+    /// <summary>
+    /// <c>pride checksums --accession PXD000001</c> — the MD5 and exact size PRIDE recorded for each
+    /// file deposited in a project (mzLib #1427, <see cref="PrideArchiveClient.GetFileChecksumsAsync"/>):
+    /// what a caller needs to check a download, or to tell whether a file already on disk is complete.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is a third list, not a view of either of the other two. It covers the files submitted to
+    /// the project's root, so none of PRIDE's <c>generated/</c> files has a row; its sizes are the
+    /// bytes a download delivers, which the REST manifest's are not; and it can carry server debris
+    /// such as an NFS temp file. mzLib documents all three, and the rows cross as mzLib returns them.
+    /// </para>
+    /// <para>
+    /// An empty list is an answer, not "not found". PRIDE answers an accession it does not know with
+    /// an empty body, exactly as it answers a project with no checksums, so mzLib then asks for the
+    /// project and throws <see cref="MzLibException"/> when there is none (a project not yet public
+    /// included). The bindings re-map that one message to their not-found error.
+    /// </para>
+    /// <para>
+    /// mzLib returns a map keyed by file name, which has no order. The rows are sorted by file name
+    /// (ordinal) so the same list crosses the same way on every run; nothing is added, dropped or
+    /// rewritten. There is no total size: mzLib has none over this list, and a sum made here would
+    /// be the bridge's number, not mzLib's.
+    /// </para>
+    /// </remarks>
+    private static async Task<object> PrideChecksumsAsync(Arguments arguments)
+    {
+        string accession = arguments.Required("accession");
+
+        using PrideArchiveClient client = PrideClientFactory();
+        IReadOnlyDictionary<string, PrideFileChecksum> checksums = await client
+            .GetFileChecksumsAsync(accession, CancellationToken.None)
+            .ConfigureAwait(false);
+
+        return new
+        {
+            accession,
+            file_count = checksums.Count,
+            files = checksums.Values
+                .OrderBy(checksum => checksum.FileName, StringComparer.Ordinal)
+                .Select(ToWireChecksum)
+                .ToList(),
+        };
+    }
+
+    /// <summary>
+    /// One row of PRIDE's checksum list on the wire. <c>md5</c> is PRIDE's text as written (32
+    /// hexadecimal characters, lower case in every list seen; mzLib's own checks compare it without
+    /// regard to case), and <c>size_bytes</c> is a 64-bit count: raw files pass 2 GiB.
+    /// </summary>
+    internal static object ToWireChecksum(PrideFileChecksum checksum) => new
+    {
+        file_name = checksum.FileName,
+        md5 = checksum.Md5,
+        size_bytes = checksum.SizeBytes,
+    };
 
     /// <summary>
     /// <c>pride download --accession PXD000001 --dest DIR [--category RAW] [--ext .raw,.mzML]

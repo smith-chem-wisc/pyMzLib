@@ -13,6 +13,8 @@ that list's `len()`, and its size totals are `total_size_bytes(files)` and
 `approximate_total_size_bytes(files)`. Python also spells three download options differently:
 `destination=` for `dest`, `extensions=` (a list) for `ext`, and `overwrite=False` for
 `no-overwrite`. Selecting exact files by name is its own function, `download_files()`.
+`file_checksums()` returns its rows as a dict keyed by `file_name`, the shape mzLib's own
+`GetFileChecksumsAsync` returns, so `file_count` is that dict's `len()`.
 
 ## `list_files`
 
@@ -21,6 +23,15 @@ that list's `len()`, and its size totals are `total_size_bytes(files)` and
 ## `list_ftp_files`
 
 --8<-- "docs/reference/_generated/pride.ftp-files.md"
+
+## `file_checksums`
+
+`file_checksums()` makes one request, or two when the list is empty: mzLib then asks for the
+project, to tell a project with no checksums from an accession PRIDE does not know. The guide's
+[checking a download](../guides/pride.md#checking-a-download-against-prides-checksums) section
+shows how to compare a file with its row.
+
+--8<-- "docs/reference/_generated/pride.checksums.md"
 
 ## `search`
 

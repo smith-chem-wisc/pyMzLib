@@ -234,6 +234,159 @@ def test_list_ftp_files_transport_failure_stays_a_bridge_error(monkeypatch):
     assert not isinstance(caught.value, pride.ProjectNotFoundError)
 
 
+# --------------------------------------------------------------- offline: checksums
+
+#: PRIDE's checksum list for PXD000001, recorded live through the bridge (mzLib #1427).
+CHECKSUMS_FIXTURE = Path(__file__).parent / "fixtures" / "pride_PXD000001_checksums.json"
+
+
+@pytest.fixture()
+def checksums_bridge(monkeypatch):
+    """Answer ``pride checksums`` from a payload, recording the call and the verb guard."""
+    seen: dict = {}
+
+    def use(payload=None, error=None):
+        def fake_invoke(*args, timeout="unset", **kwargs):
+            seen["args"] = args
+            seen["timeout"] = timeout
+            if error is not None:
+                raise error
+            return copy.deepcopy(payload)
+
+        monkeypatch.setattr(_bridge, "invoke", fake_invoke)
+        monkeypatch.setattr(
+            _bridge, "require_verb", lambda verb, since: seen.setdefault("guard", (verb, since))
+        )
+        return seen
+
+    return use
+
+
+def _recorded_checksums() -> dict:
+    return json.loads(CHECKSUMS_FIXTURE.read_text(encoding="utf-8"))
+
+
+def test_file_checksums_keys_every_row_by_its_file_name(checksums_bridge):
+    payload = _recorded_checksums()
+    checksums_bridge(payload)
+
+    checksums = pride.file_checksums("PXD000001")
+
+    assert len(checksums) == payload["file_count"] == 12
+    assert all(isinstance(c, pride.PrideFileChecksum) for c in checksums.values())
+    assert all(name == c.file_name for name, c in checksums.items())
+    # The wire's order (sorted by name) is kept, so iterating the dict is deterministic.
+    assert list(checksums) == [row["file_name"] for row in payload["files"]]
+    assert list(checksums) == sorted(checksums)
+
+
+def test_file_checksum_fields_are_typed_and_carry_the_project(checksums_bridge):
+    checksums_bridge(_recorded_checksums())
+
+    raw = pride.file_checksums("PXD000001")["TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw"]
+
+    assert raw.md5 == "c567cecbb9866796e690a4958746f7b6"
+    assert raw.size_bytes == 220475548 and isinstance(raw.size_bytes, int)
+    assert raw.project_accession == "PXD000001"
+    assert raw.as_dict() == {
+        "file_name": raw.file_name,
+        "md5": raw.md5,
+        "size_bytes": raw.size_bytes,
+        "project_accession": "PXD000001",
+    }
+
+
+def test_the_generated_files_have_no_checksum_row(checksums_bridge):
+    """The list covers deposits only: the FTP tree's generated/ files have no row (mzLib #1427)."""
+    checksums_bridge(_recorded_checksums())
+    checksums = pride.file_checksums("PXD000001")
+    ftp = json.loads((CHECKSUMS_FIXTURE.parent / "pride_PXD000001_ftp_files.json").read_text("utf-8"))
+
+    unchecked = [f["relative_path"] for f in ftp["files"] if f["relative_path"] not in checksums]
+
+    assert unchecked == [
+        "generated/PRIDE_Exp_Complete_Ac_22134.pride.mgf.gz",
+        "generated/PRIDE_Exp_Complete_Ac_22134.pride.mztab.gz",
+    ]
+
+
+def test_file_checksums_sends_the_verb_and_the_normalised_accession(checksums_bridge):
+    seen = checksums_bridge(_recorded_checksums())
+
+    pride.file_checksums("  pxd000001 ", timeout=42)
+
+    args = seen["args"]
+    assert args[:2] == ("pride", "checksums")
+    # PRIDE's checksum route is case-sensitive: pxd000001 is an unknown accession there.
+    assert args[args.index("--accession") + 1] == "PXD000001"
+    assert len(args) == 4, "nothing but the accession is sent"
+    assert seen["timeout"] == 42
+    assert seen["guard"] == ("pride checksums", "0.6.0")
+
+
+@pytest.mark.parametrize("accession", ["", "   ", "not-an-accession", 12345, None])
+def test_file_checksums_rejects_a_bad_accession_before_any_work(accession, monkeypatch):
+    def must_not_run(*a, **k):
+        raise AssertionError("validation was bypassed: file_checksums reached the bridge")
+
+    monkeypatch.setattr(_bridge, "invoke", must_not_run)
+    monkeypatch.setattr(_bridge, "require_verb", must_not_run)
+    with pytest.raises(_bridge.UsageError):
+        pride.file_checksums(accession)
+
+
+def test_an_existing_project_with_no_checksums_is_an_empty_dict_not_an_error(checksums_bridge):
+    # mzLib has already asked whether the project exists, so an empty list is an answer.
+    checksums_bridge({"accession": "PXD000001", "file_count": 0, "files": []})
+
+    assert pride.file_checksums("PXD000001") == {}
+
+
+def test_file_checksums_unknown_project_raises_project_not_found(checksums_bridge):
+    checksums_bridge(error=_bridge.BridgeError(
+        "MzLibException", "PRIDE Archive has no project with accession 'PXD999999999'."
+    ))
+
+    with pytest.raises(pride.ProjectNotFoundError, match="no public project 'PXD999999999'"):
+        pride.file_checksums("PXD999999999")
+
+
+@pytest.mark.parametrize("message", [
+    "PRIDE Archive's checksum list for 'PXD000001' starts with 'File-Name,MD5', not the expected "
+    "'File-Name,File-MD5Checksum,File-Size'.",
+    "PRIDE Archive's checksum list for 'PXD000001' lists 'run1.raw' twice.",
+])
+def test_a_list_mzlib_cannot_read_is_not_reported_as_a_typo(checksums_bridge, message):
+    # Also an MzLibException, but the project exists and its list is broken. "Check for a typo"
+    # would send the caller looking for the wrong mistake.
+    checksums_bridge(error=_bridge.BridgeError("MzLibException", message))
+
+    with pytest.raises(_bridge.BridgeError) as caught:
+        pride.file_checksums("PXD000001")
+    assert not isinstance(caught.value, pride.ProjectNotFoundError)
+    assert caught.value.error_type == "MzLibException"
+
+
+def test_a_checksum_outage_stays_service_unavailable(checksums_bridge):
+    checksums_bridge(error=pymzlib.ServiceUnavailableError(
+        "ServiceUnavailable", "PRIDE Archive request failed with status 503"
+    ))
+
+    with pytest.raises(pymzlib.ServiceUnavailableError):
+        pride.file_checksums("PXD000001")
+
+
+def test_a_row_without_its_md5_fails_rather_than_defaulting(checksums_bridge):
+    # Defaulting it to "" would make every later check of that file blame the download.
+    checksums_bridge({
+        "accession": "PXD000001", "file_count": 1,
+        "files": [{"file_name": "run1.raw", "size_bytes": 10}],
+    })
+
+    with pytest.raises(KeyError):
+        pride.file_checksums("PXD000001")
+
+
 def test_aspera_only_file_is_not_downloadable():
     """A file with no HTTPS location must report itself as not downloadable, not crash."""
     aspera_only = pride.PrideFile._from_wire(
@@ -716,6 +869,7 @@ def test_search_rejects_a_bad_page_size(page_size):
     lambda: pride.list_files("PXD000001"),
     lambda: pride.list_ftp_files("PXD000001"),
     lambda: pride.search("phospho"),
+    lambda: pride.file_checksums("PXD000001"),
 ])
 def test_pride_metadata_calls_add_no_timeout_of_their_own(monkeypatch, call):
     """mzLib bounds each PRIDE request itself (#1412: retries after 5, 20 and 60 s, up to 100 s per
@@ -728,6 +882,8 @@ def test_pride_metadata_calls_add_no_timeout_of_their_own(monkeypatch, call):
         raise pymzlib.ServiceUnavailableError("ServiceUnavailable", "PRIDE is down")
 
     monkeypatch.setattr(_bridge, "invoke", capturing_invoke)
+    # The verb guard's own `version` call has its own short limit; it is not the PRIDE call.
+    monkeypatch.setattr(_bridge, "require_verb", lambda verb, since: None)
     with pytest.raises(pymzlib.ServiceUnavailableError):
         call()
     assert seen["timeout"] is None
