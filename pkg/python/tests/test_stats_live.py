@@ -81,7 +81,12 @@ def test_meta_matches_metafor_from_python():
 def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
     recorded = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     live = call()
-    assert_same_columns(live.columns, recorded["columns"])
+    # The marginal-likelihood prior is a minimum found by Brent's search over log d0. Near a
+    # minimum the likelihood is flat, so the last bits of Math.Log (MathNet's GammaLn is built on
+    # it), which differ between platforms' math libraries, move it by about sqrt(eps) relative:
+    # more than 1e-9, far less than the 1e-6 the mixed-model recordings are held to likewise.
+    relative = 1e-6 if "marginal" in fixture else 1e-9
+    assert_same_columns(live.columns, recorded["columns"], relative)
     assert live.caveats == recorded["caveats"]
     if "status_counts" in recorded:
         # Its keys come from an mzLib enum; a repin that grows it must not slip past the recording.
@@ -94,7 +99,7 @@ def test_the_meta_recording_is_what_the_bridge_returns_today():
     assert_same_columns(stats.meta(studies).columns, recorded["columns"])
 
 
-def assert_same_columns(live: dict, recorded: dict) -> None:
+def assert_same_columns(live: dict, recorded: dict, relative: float = 1e-9) -> None:
     """Equal, except that floats may differ in their last bits.
 
     The recordings were made on one platform and CI replays them on others; the last digits of a
@@ -106,7 +111,7 @@ def assert_same_columns(live: dict, recorded: dict) -> None:
         assert len(live[name]) == len(values), name
         for i, (a, b) in enumerate(zip(live[name], values)):
             if isinstance(b, float) and isinstance(a, (int, float)) and not isinstance(a, bool):
-                assert abs(a - b) <= 1e-9 * max(abs(b), 1e-300), (name, i, a, b)
+                assert abs(a - b) <= relative * max(abs(b), 1e-300), (name, i, a, b)
             else:
                 assert a == b, (name, i, a, b)
 
