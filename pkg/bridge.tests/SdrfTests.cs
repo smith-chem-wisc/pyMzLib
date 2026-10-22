@@ -242,6 +242,33 @@ public class SdrfTests
     }
 
     [Test]
+    public void Pool_ReportsTheFileMzLibWrote_NotTheNameGiven()
+    {
+        // WriteResults adds .sdrf.tsv to a name it would not read back as an SDRF, so x.tsv is
+        // written as x.tsv.sdrf.tsv. written.path once reported x.tsv, a file that does not exist.
+        string output = Path.Combine(Path.GetTempPath(), $"pymzlib-pool-{Guid.NewGuid():N}.tsv");
+        string actual = output + ".sdrf.tsv";
+        try
+        {
+            JsonElement data = InvokeWithStdin(
+                $"{Sdrf("PXD000070.sdrf.tsv")}\tmalaria\n{Sdrf("PXD026824.sdrf.tsv")}\tcolon",
+                "sdrf", "pool", "--out", output);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(data.GetProperty("written").GetProperty("path").GetString(), Is.EqualTo(actual));
+                Assert.That(File.Exists(actual), Is.True);
+                Assert.That(File.Exists(output), Is.False);
+            });
+        }
+        finally
+        {
+            File.Delete(output);
+            File.Delete(actual);
+        }
+    }
+
+    [Test]
     public void Pool_WhatItWritesCanBeReadBackAsSdrf()
     {
         // The round trip is the point of writing at all: a pooled table nothing can reopen is a

@@ -117,7 +117,7 @@ internal static partial class Sdrf
             // transport convenience for the payload; writing only the visible rows would produce a
             // file that silently disagrees with the one the caller asked to pool.
             merged.WriteResults(outputPath);
-            written = new { path = outputPath, row_count = all.Count };
+            written = new { path = WrittenSdrfPath(merged, outputPath), row_count = all.Count };
         }
 
         return new

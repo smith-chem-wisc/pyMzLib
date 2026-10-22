@@ -97,8 +97,9 @@ the kits that exist, rather than quietly resolved to whichever kit's name it hap
   (`IsobaricMassTag.GetReporterIonIntensities`), but no wire verb projects it yet. Read the spectra
   with [`pymzlib.readers.read_spectra`](readers.md) and match against `mz_min`/`mz_max` only for a
   quick look; for a quantification, use MetaMorpheus.
-- **Build an isobaric design.** [`pymzlib.sdrf.design()`](sdrf.md#turn-an-sdrf-into-a-quantification-design)
-  is label-free only.
+- **Build an isobaric design here.** That is
+  [`pymzlib.sdrf.isobaric_design()`](sdrf.md#read-an-isobaric-tmt-design): it reads which sample is
+  in which channel out of an SDRF, for a kit named exactly as `kits()` names it.
 
 ## Cite
 

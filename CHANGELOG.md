@@ -133,6 +133,24 @@ envelope is not a breaking change unless Python callers can see it.
   an entrapments table with each entrapment's partner. `ratio=` is required (mzLib has no default);
   `paired` is reported only at a ratio of exactly 1. Left out, `thresholds=` is mzLib's default
   sweep, 0.001 to 0.100. Wire verb `stats entrapment-fdp`.
+- **`sdrf.isobaric_design()`: a TMT, TMTpro, iTRAQ or DiLeu design read out of an SDRF, or every
+  reason it was refused** (mzLib 1.0.594, #1380, `SdrfIsobaricDesign`). One row per file and
+  annotated channel: plex, plex number, sample, channel, condition, biological replicate,
+  fraction and technical replicate. **The numbers are 1-based, as the SDRF writes them, where
+  `design()`'s are 0-based**; that split is mzLib's, and nothing converts either. Nothing is
+  guessed: you name the kit (`kit=`, resolved exactly as `isobaric.kits()` resolves it) and
+  exactly one plex source (`plex_column=`, `plex_file_name_pattern=` or `single_plex=`), and
+  leaving either out is mzLib's refusal, not an exception. `out=` names a folder, and mzLib writes
+  MetaMorpheus's `TmtDesign.txt` inside it. Wire verb `sdrf isobaric-design`.
+- **`sdrf.restrict()`: an SDRF cut to the files one search read** (mzLib 1.0.595, #1451,
+  `SdrfSearchScope.Restrict`). Searched files join their acquisition by stem, so `X-calib.mzML`
+  finds the row naming `X.raw`; pass a `{searched: acquired}` mapping where you know the
+  acquisition. Kept rows are carried cell for cell, with the searched name in a new
+  `comment[searched data file]` column, which `design()` and `isobaric_design()` then key on. The
+  result is an `SdrfDocument` plus mzLib's reports: searched files with no row, data files the
+  search did not read, ambiguous claims and runs the SDRF lists twice. `out=` writes the whole
+  document through mzLib (it adds `.sdrf.tsv` to a name that lacks it; `written.path` says which
+  file). Wire verb `sdrf restrict`.
 
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,
@@ -142,6 +160,9 @@ envelope is not a breaking change unless Python callers can see it.
   is reported as `ServiceUnavailableError`. Pass `timeout=300` for the old limit.
 
 ### Fixed
+- **`sdrf.pool(out=...)` reports the file it wrote.** mzLib adds `.sdrf.tsv` to a name that does not
+  end in it, so `out="x.tsv"` writes `x.tsv.sdrf.tsv`; `written.path` reported `x.tsv`, a file that
+  does not exist. It now names the real file, as `sdrf.restrict()` does.
 - **`stats.fit()` on fewer than 3 features no longer reports one feature's variance as the prior.**
   mzLib fits no prior below 3 features (#1398, as limma's `squeezeVar`), so `prior.scale` is now
   `None` there and `prior.df` is 0; each feature's own variance is in `prior_variance`.

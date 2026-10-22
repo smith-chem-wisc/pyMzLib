@@ -53,18 +53,7 @@ internal static partial class Sdrf
         if (!File.Exists(path))
             throw new Program.UsageException($"SDRF file not found: '{path}'.");
 
-        List<string>? conditionColumns = null;
-        if (arguments.WasProvided("condition-columns"))
-        {
-            conditionColumns = (arguments.Optional("condition-columns") ?? string.Empty)
-                .Split('\t')
-                .Select(c => c.Trim())
-                .ToList();
-            if (conditionColumns.Count == 0 || conditionColumns.Any(c => c.Length == 0))
-                throw new Program.UsageException(
-                    "Option --condition-columns needs one or more factor value[...] column names, " +
-                    "separated by tabs, with none blank.");
-        }
+        List<string>? conditionColumns = ConditionColumnsFrom(arguments);
 
         List<string>? searchedFiles = arguments.Flag("searched-files-stdin")
             ? Program.ReadStdinLines()
@@ -108,6 +97,25 @@ internal static partial class Sdrf
             written,
             caveats = DesignCaveats(),
         };
+    }
+
+    /// <summary>
+    /// <c>--condition-columns</c>, shared by <c>sdrf design</c> and <c>sdrf isobaric-design</c>: null
+    /// when absent (mzLib then chooses), else the tab-separated names, none blank.
+    /// </summary>
+    private static List<string>? ConditionColumnsFrom(Program.Arguments arguments)
+    {
+        if (!arguments.WasProvided("condition-columns"))
+            return null;
+        List<string> conditionColumns = (arguments.Optional("condition-columns") ?? string.Empty)
+            .Split('\t')
+            .Select(c => c.Trim())
+            .ToList();
+        if (conditionColumns.Count == 0 || conditionColumns.Any(c => c.Length == 0))
+            throw new Program.UsageException(
+                "Option --condition-columns needs one or more factor value[...] column names, " +
+                "separated by tabs, with none blank.");
+        return conditionColumns;
     }
 
     private static List<string> DesignCaveats() => new()

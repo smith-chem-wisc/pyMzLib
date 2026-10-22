@@ -1,0 +1,207 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Sdrf.IsobaricDesign.cs (IsobaricDesign,
+# IsobaricDesignCaveats) on branch feat/sdrf-isobaric-restrict (off main eaf10e1), mzLib pin d10017ce
+# (tag 1.0.595; SdrfIsobaricDesign is from #1380, first in 1.0.594). The kit is resolved by
+# Isobaric.ResolveKit, the code path isobaric kits --kit uses. Example fixtures recorded from the
+# staged bridge on that branch. The SDRFs are mzLib's own isobaric design fixtures
+# (Test/FileReadingTests/ExternalFileTypes/SdrfDesign, cut from bigbio/sdrf-annotated-datasets,
+# Apache-2.0, at 4f823dc), copied byte for byte; PXD008841_searched.sdrf.tsv is PXD008841.subset
+# restricted by sdrf restrict --out (fixture sdrf_restrict_PXD008841_out.json). mzLib master
+# b0c14891d (#1426, #1442) changes neither SdrfIsobaricDesign nor SdrfDesignRules.
+verb: sdrf isobaric-design
+module: sdrf
+summary: >-
+  Read an isobaric (TMT, TMTpro, iTRAQ, DiLeu) experimental design out of an SDRF, one row per file
+  and annotated channel, in MetaMorpheus's terms, or every reason it was refused.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfIsobaricDesign.Read, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: SdrfIsobaricDesign.WriteTmtDesign, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: SdrfIsobaricDesign.PlexIds, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: SdrfIsobaricDesignOptions, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: SdrfIsobaricFile, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: SdrfIsobaricChannel, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
+  - {symbol: IsobaricMassTag.TryGetTagType, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: d10017ce}
+  - {symbol: IsobaricMassTag.TryGetIsobaricMassTag, path: mzLib/Omics/Modifications/IsobaricMassTag.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics, the format read (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: path
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: One .sdrf.tsv file. A file that does not exist is a usage error.
+  - name: kit
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The kit the search used, resolved exactly as isobaric kits --kit resolves it: mzLib's
+      IsobaricMassTag.TryGetTagType, whole name, case-insensitive, optionally followed by " on
+      <motif>" (TMT10, tmt10, TMT6-plex, TMT11 on K), never a substring. It is SdrfIsobaricDesignOptions.Tag,
+      which supplies the channel list and their reporter m/z order. A blank or unknown name is a
+      usage error naming the known kits. Absent: mzLib is given no tag and refuses ("No isobaric tag
+      was given"), because the kit is never guessed from the labels.
+  - name: plex-column
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      SdrfIsobaricDesignOptions.PlexColumn: the column each row's plex is read from, by its exact
+      name. A column not in the SDRF, or a cell that is empty or not available, is mzLib's refusal.
+      Given with no value is a usage error. mzLib needs exactly one of plex-column,
+      plex-file-name-pattern and single-plex; none, or several, is mzLib's refusal, not a usage error.
+  - name: plex-file-name-pattern
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      SdrfIsobaricDesignOptions.PlexFileNamePattern: a .NET regular expression matched, ignoring case,
+      against each row's file name (the key column's, comment[searched data file] else comment[data
+      file]). The plex is its group named plex, else its first group. A pattern that does not parse,
+      has no group, or does not match a file name is mzLib's refusal. Given with no value is a usage
+      error.
+  - name: single-plex
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      SdrfIsobaricDesignOptions.SinglePlex: the name of the one plex every file belongs to. Given with
+      no value is a usage error.
+  - name: condition-columns
+    type: string
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      SdrfIsobaricDesignOptions.ConditionColumns, exactly as sdrf design takes it: the factor
+      value[...] columns the condition is built from, by exact name, separated by TAB characters, in
+      join order; the condition is their values joined with "_". Absent: mzLib uses the document's
+      only factor column, and refuses a document with several. Given but blank, or with a blank name,
+      is a usage error.
+  - name: searched-files-stdin
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      SdrfIsobaricDesignOptions.SearchedFiles, exactly as sdrf design takes it: stdin holds the files
+      the search will read, one per line, as paths or bare names. Each must be named EXACTLY (case
+      and extension) by some row; rows for other files are dropped and reported in notes; the
+      searched paths become full_path. A search that read X-calib.mzML for an SDRF naming X.raw
+      matches no row: run sdrf restrict first, which writes the searched name into comment[searched
+      data file], the column this reader keys on first.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: "a folder; an existing file is refused"
+    default: null
+    doc: >-
+      A FOLDER, created when missing (bridge thread 010, PYB-5). mzLib's
+      SdrfIsobaricDesign.WriteTmtDesign writes MetaMorpheus's TmtDesign.txt inside it, replacing one
+      already there: 1-based, one row per file and annotated channel, header
+      SdrfIsobaricDesign.TmtDesignHeader. The file name is MetaMorpheus's
+      (GlobalVariables.TmtExperimentalDesignFileName); mzLib has no constant for it at the pin, so
+      the bridge holds the one copy. Written only when is_valid; a refused design writes nothing and
+      creates no folder, and written is null. A path that is an existing file, or no value, is a
+      usage error, checked before the SDRF is read.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The SDRF path as given.}
+    - {wire: is_valid, type: bool, unit: null, nullable: false, null_means: null, doc: "No refusals. False is an answer, not an error: the table is then empty."}
+    - {wire: kit, type: string, unit: null, nullable: true, null_means: "--kit was not given (mzLib then refuses)", doc: "The --kit name exactly as given."}
+    - {wire: kit_type, type: string, unit: null, nullable: true, null_means: "--kit was not given", doc: "The IsobaricMassTagType member the kit resolved to (TMT6, TMT10, TMT11, TMT16, TMT18, iTRAQ4, iTRAQ8, diLeu4, diLeu12 at d10017ce), as isobaric kits names it."}
+    - {wire: kit_channels, type: "string[]", unit: null, nullable: true, null_means: "--kit was not given", doc: "Every channel label of the kit, in reporter m/z order (IsobaricMassTag.ChannelLabels). A channel here and absent from the table is one the SDRF does not annotate."}
+    - {wire: plex_column, type: string, unit: null, nullable: true, null_means: "--plex-column was not given", doc: "The plex column as given."}
+    - {wire: plex_file_name_pattern, type: string, unit: null, nullable: true, null_means: "--plex-file-name-pattern was not given", doc: "The pattern as given."}
+    - {wire: single_plex, type: string, unit: null, nullable: true, null_means: "--single-plex was not given", doc: "The single plex as given."}
+    - {wire: plex_source, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricDesign.PlexSource: where the plex was read from, as mzLib's report prints it; (not declared) when no single source could be used."}
+    - {wire: plex_ids, type: object, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricDesign.PlexIds: plex name to its IsobaricQuantSampleInfo.PlexId, 1..N in case-insensitive name order (MetaMorpheus's ToMzLibDesign rule), listed in id order. Empty when refused."}
+    - {wire: plex_count, type: int, unit: plexes, nullable: false, null_means: null, doc: "Entries in plex_ids; 0 when refused."}
+    - {wire: file_key_column, type: string, unit: null, nullable: true, null_means: "the SDRF has neither comment[searched data file] nor comment[data file], so no row names a file (also a refusal)", doc: "The column files were keyed on: comment[searched data file] when present, else comment[data file] (MAP-12)."}
+    - {wire: condition_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The factor columns the condition was built from, in join order; empty when none could be chosen."}
+    - {wire: condition_columns_declared, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --condition-columns was given."}
+    - {wire: searched_files_given, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --searched-files-stdin was given."}
+    - {wire: file_count, type: int, unit: files, nullable: false, null_means: null, doc: "Files in the design (SdrfIsobaricDesign.Files); 0 when refused."}
+    - {wire: record_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in the table: one per file and annotated channel; 0 when refused."}
+    - {wire: refusals, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every reason the design was refused, all at once, in mzLib's words. Empty when valid."}
+    - {wire: notes, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What was dropped or filled on the way to a valid design: rows dropped because the search does not read their file, and a file with no row of its own for one of its plex's channels."}
+    - {wire: report, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's human-readable account (SdrfIsobaricDesign.Report): counts and kit, key column, plex source, condition columns, sample type, notes, refusals."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per file and annotated channel: files in SDRF row order, then each file's channels in reporter m/z order."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "--out was not given, or the design was refused and nothing was written", doc: "{path, file_count, record_count} of the TmtDesign.txt written; path is the --out folder joined with TmtDesign.txt."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Eight static caveats.}
+  columns:
+    - {wire: full_path, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricFile.FilePath: the matching searched path when --searched-files-stdin was given, else the file name the key column gives."}
+    - {wire: plex, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricFile.Plex: the plex as the declared source gives it (a column cell, a pattern's group, or the single plex)."}
+    - {wire: plex_id, type: int, unit: null, nullable: false, null_means: null, doc: "The plex's entry in plex_ids, 1-based: the PlexId mzLib's quantification design gives it."}
+    - {wire: sample_name, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricChannel.SampleName: the SDRF source name."}
+    - {wire: channel, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricChannel.Label: the channel as the kit spells it (127N), whatever form the SDRF's comment[label] used (TMT127N, NT=TMT127N;AC=...)."}
+    - {wire: condition, type: string, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricChannel.Condition: the condition columns' values joined with _."}
+    - {wire: biological_replicate, type: int, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricChannel.BiologicalReplicate: 1-based, as the SDRF writes it, never ranked or shifted."}
+    - {wire: fraction, type: int, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricFile.Fraction: 1-based, as written; 1 when the SDRF has no comment[fraction identifier] column (mzLib's SdrfDesignRules)."}
+    - {wire: technical_replicate, type: int, unit: null, nullable: false, null_means: null, doc: "SdrfIsobaricFile.TechnicalReplicate: 1-based, as written; 1 when the SDRF has no comment[technical replicate] column."}
+
+errors:
+  - {kind: usage, when: "path missing or the file does not exist"}
+  - {kind: usage, when: "--kit without a value, or a name mzLib cannot resolve (the same message isobaric kits --kit gives)"}
+  - {kind: usage, when: "--plex-column, --plex-file-name-pattern or --single-plex without a value; --condition-columns without a value or with a blank name"}
+  - {kind: usage, when: "--out without a value, or naming an existing file (checked before the SDRF is read)"}
+  - {kind: correctness, when: "mzLib cannot parse the SDRF at all, or the --out folder cannot be created or written"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "1-BASED, as written. fraction, technical_replicate and biological_replicate are the SDRF's own numbers, as mzLib's SdrfIsobaricDesign keeps them and TmtDesign.txt holds them. sdrf design is 0-based (mzLib's SpectraFileInfo). The split is mzLib's, and the bridge converts neither table: never mix the two without adding or removing 1."
+  - "is_valid = false is an answer: refusals lists every reason at once and the table is empty. A missing kit, no plex source, two plex sources and a bad pattern are refusals, not errors."
+  - "Nothing is guessed. The kit is only the one named, because one kit's labels can be a subset of another's (TMT11 with 131C unannotated reads exactly like TMT10). The plex is only the source declared; comment[sample preparation batch] is often not a plex (in PXD061609 it holds three fractionation arms of one plex)."
+  - "Rows are the annotated channels only. mzLib's quantification design (ToExperimentalDesign) carries every kit channel, an unannotated one with biological replicate 0 and no sample; that design is not on the wire."
+  - "A plex is one channel-to-sample map: every file of a plex carries all of its channels, so fractions share their samples."
+  - "Sample type is not read (mzLib MAP-08): every annotated channel is a study sample, a reference or pool channel included."
+  - "--out names a folder. MetaMorpheus reads TmtDesign.txt only from the folder of the first spectra file, and refuses a folder that also holds ExperimentalDesign.tsv. mzLib's writer replaces an existing TmtDesign.txt; MetaMorpheus's own --sdrfDesign never does."
+  - "TMT16 is mzLib's TMTpro 16-plex. MetaMorpheus searches it with its TMT18 label; a TMT16 design is read as is by such a run, with 134C and 135N empty."
+
+bindings:
+  py: {name: pymzlib.sdrf.isobaric_design}
+  rust: {name: "mzlib::sdrf::isobaric_design_with", options: IsobaricDesignOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
+  r: {name: sdrf_isobaric_design, note: "Planned name: ported after a pyMzLib release carries the verb. The fraction, replicate and plex_id numbers stay 1-based in R too: they are the SDRF's numbers, not row indexes."}
+
+examples:
+  - fixture: sdrf_isobaric_design_PXD008841.json
+    py: "design = pymzlib.sdrf.isobaric_design('PXD008841.subset.sdrf.tsv', kit='TMT10', plex_file_name_pattern=r'TMT_?pool(?<plex>\\d+)')"
+    rust: "let design = mzlib::sdrf::isobaric_design_with(\"PXD008841.subset.sdrf.tsv\", &IsobaricDesignOptions { kit: Some(\"TMT10\".into()), plex_file_name_pattern: Some(r\"TMT_?pool(?<plex>\\d+)\".into()), ..Default::default() })?;"
+    r: "design <- sdrf_isobaric_design('PXD008841.subset.sdrf.tsv', kit = 'TMT10', plex_file_name_pattern = 'TMT_?pool(?<plex>\\\\d+)')"
+  - fixture: sdrf_isobaric_design_PXD008841_noplex.json
+    py: "design = pymzlib.sdrf.isobaric_design('PXD008841.subset.sdrf.tsv', kit='TMT10')"
+    rust: "let design = mzlib::sdrf::isobaric_design_with(\"PXD008841.subset.sdrf.tsv\", &IsobaricDesignOptions { kit: Some(\"TMT10\".into()), ..Default::default() })?;"
+    r: "design <- sdrf_isobaric_design('PXD008841.subset.sdrf.tsv', kit = 'TMT10')"
+  - fixture: sdrf_isobaric_design_PXD061609.json
+    py: "design = pymzlib.sdrf.isobaric_design('PXD061609.subset.sdrf.tsv', kit='TMT18', plex_column='comment[sample preparation batch]')"
+    rust: "let design = mzlib::sdrf::isobaric_design_with(\"PXD061609.subset.sdrf.tsv\", &IsobaricDesignOptions { kit: Some(\"TMT18\".into()), plex_column: Some(\"comment[sample preparation batch]\".into()), ..Default::default() })?;"
+    r: "design <- sdrf_isobaric_design('PXD061609.subset.sdrf.tsv', kit = 'TMT18', plex_column = 'comment[sample preparation batch]')"
+  - fixture: sdrf_isobaric_design_PXD061609_oneplex.json
+    py: "design = pymzlib.sdrf.isobaric_design('PXD061609.subset.sdrf.tsv', kit='TMT18', single_plex='tube1')"
+    rust: "let design = mzlib::sdrf::isobaric_design_with(\"PXD061609.subset.sdrf.tsv\", &IsobaricDesignOptions { kit: Some(\"TMT18\".into()), single_plex: Some(\"tube1\".into()), ..Default::default() })?;"
+    r: "design <- sdrf_isobaric_design('PXD061609.subset.sdrf.tsv', kit = 'TMT18', single_plex = 'tube1')"
+  - fixture: sdrf_isobaric_design_searched.json
+    py: "design = pymzlib.sdrf.isobaric_design('PXD008841_searched.sdrf.tsv', kit='TMT10', plex_file_name_pattern=r'TMT_?pool(?<plex>\\d+)', searched_files=searched, out='design')"
+    rust: "let design = mzlib::sdrf::isobaric_design_with(\"PXD008841_searched.sdrf.tsv\", &IsobaricDesignOptions { kit: Some(\"TMT10\".into()), plex_file_name_pattern: Some(r\"TMT_?pool(?<plex>\\d+)\".into()), searched_files: Some(searched), out: Some(\"design\".into()), ..Default::default() })?;"
+    r: "design <- sdrf_isobaric_design('PXD008841_searched.sdrf.tsv', kit = 'TMT10', plex_file_name_pattern = 'TMT_?pool(?<plex>\\\\d+)', searched_files = searched, out = 'design')"
+
+open_questions:
+  - "PUSH-TO-MAINLAND: TmtDesign.txt is MetaMorpheus's name (GlobalVariables.TmtExperimentalDesignFileName), and mzLib publishes no constant for it at d10017ce, so the bridge holds the one copy (Sdrf.TmtDesignFileName). Ask mzLib for SdrfIsobaricDesign.TmtDesignFileName, or a WriteTmtDesign overload that takes the folder, and read the name from there."
+  - "No --paths-stdin form, for the reason sdrf design gives: the kit, the plex source, the condition columns and the searched files are per-deposit facts."
+  - "mzLib's quantification design (ToExperimentalDesign: every kit channel with its reporter m/z, an unannotated one with biological replicate 0) is not projected. Add it when a bridge verb quantifies reporter ions from it."

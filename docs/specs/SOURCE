@@ -1,8 +1,8 @@
 # Written by scripts/sync_specs.py. Do not edit; re-run the script.
 repository: trishorts/bridge (private)
 path: design/verbs
-commit: 1353eb9a1deebbaf882dfd11e0161a06d24a30f3
+commit: d7669556d42f7a97f94ee5e16e4ca18bbcf1aef2
 uncommitted_changes: no
 synced: 2026-10-21
-specs: 50
-not_vendored: genes.orthology.yaml, modifications.resolve.yaml, sdrf.isobaric-design.yaml, sdrf.restrict.yaml
+specs: 52
+not_vendored: genes.orthology.yaml, modifications.resolve.yaml

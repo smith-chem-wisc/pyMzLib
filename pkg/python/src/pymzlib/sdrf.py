@@ -62,6 +62,11 @@ own answer, projected once in the bridge for all three bindings:
 - :func:`parse_ages` - ``SdrfAge.TryParse`` over any age cells, SDRF or not.
 - :func:`design` - *can this file drive a quantification?* ``SdrfLabelFreeDesign``: the
   label-free experimental design MetaMorpheus and FlashLFQ take, or every reason it was refused.
+- :func:`isobaric_design` - the same question for a TMT, iTRAQ or DiLeu experiment:
+  ``SdrfIsobaricDesign``, one row per file and annotated channel, **1-based** where
+  :func:`design` is 0-based.
+- :func:`restrict` - *which rows did my search read?* ``SdrfSearchScope``: the SDRF cut to one
+  search's files, joining ``X-calib.mzML`` to the row naming ``X.raw``.
 
 The first three are blind in different places, which is why there are three. A file of
 ``"not available"`` validates cleanly and lints clean, and only :func:`assess` sees that it says
@@ -85,9 +90,11 @@ from .readers import _Table
 __all__ = [
     "SdrfDocument",
     "PooledSdrf",
+    "RestrictedSdrf",
     "WrittenSdrf",
     "read",
     "pool",
+    "restrict",
     "FileError",
     "ValidationMessage",
     "SdrfValidation",
@@ -112,6 +119,9 @@ __all__ = [
     "DesignedFile",
     "SdrfDesign",
     "design",
+    "DesignedChannel",
+    "SdrfIsobaricDesign",
+    "isobaric_design",
     "VERDICTS",
     "AGE_PRECISIONS",
     "AGE_REFUSALS",
@@ -120,12 +130,15 @@ __all__ = [
 
 @dataclass(frozen=True)
 class WrittenSdrf:
-    """Where :func:`pool` wrote the merged document, when asked to write one.
+    """Where :func:`pool` or :func:`restrict` wrote its document, when asked to write one.
 
     Attributes:
-        path: The path written.
-        row_count: Rows written - the **whole** merged document, not the windowed slice. ``limit``
-            and ``offset`` shape what comes back over the wire; they never shorten the file.
+        path: The file mzLib actually wrote, which is not always the name you gave: mzLib adds
+            ``.sdrf.tsv`` to a name that does not already end in it, so ``out="x.tsv"`` writes
+            ``x.tsv.sdrf.tsv``. Bridges before pyMzLib 0.6.0 reported the name as given for
+            :func:`pool`.
+        row_count: Rows written - the **whole** document, not the windowed slice. ``limit`` and
+            ``offset`` shape what comes back over the wire; they never shorten the file.
     """
 
     path: str
@@ -302,6 +315,82 @@ class PooledSdrf(SdrfDocument):
         )
 
 
+@dataclass(frozen=True)
+class RestrictedSdrf(SdrfDocument):
+    """An SDRF restricted to the files one search read, and what the restriction could not place.
+
+    Everything :class:`SdrfDocument` offers, over the **restricted** document: the input's rows for
+    the acquisitions the search read, carried cell for cell, with ``comment[searched data file]``
+    added directly after ``comment[data file]``. A kept row shorter than the header is padded with
+    empty cells, so unlike :func:`read` the rows are never ragged.
+
+    Attributes:
+        path: The SDRF path that was restricted, as given.
+        columns: The restricted header, a list that may repeat names.
+        rows: One list of raw cells per returned row, in the input's row order.
+        row_count: Rows kept, in the **whole** restricted document, regardless of ``limit`` or
+            ``offset``.
+        returned_count: Rows actually carried back in :attr:`rows`.
+        offset: The offset that was applied, in rows.
+        truncated: Whether rows were left behind by ``limit`` or ``offset``.
+        caveats: How the join works and what it cannot tell you.
+        searched_files: The searched files as sent, in order.
+        acquired_name_count: How many searched files you named an acquired file for, a count of
+            files.
+        input_row_count: Rows in the SDRF before the restriction.
+        searched_without_row: Searched files (file names) the SDRF has no row for. Reported, never
+            invented.
+        dropped_data_files: Acquired files the SDRF describes that this search did not read. A row
+            naming no file is dropped too, and not listed.
+        ambiguous: Acquisitions two or more searched files claimed, as ``"stem: searched,
+            searched"``. The first in name order kept the rows; the others have none and are not in
+            :attr:`searched_without_row`.
+        shared_stem: Searched files whose rows name two or more **different** acquired files (one
+            run listed as ``X.raw`` and ``X.mzML``), as ``"searched: acquired, acquired"``. Every such
+            row is kept, so the document can describe one run twice.
+        written: Where the whole restricted document was written, when ``out`` was given. ``None``
+            otherwise.
+    """
+
+    searched_files: list[str] = field(default_factory=list)
+    acquired_name_count: int = 0
+    input_row_count: int = 0
+    searched_without_row: list[str] = field(default_factory=list)
+    dropped_data_files: list[str] = field(default_factory=list)
+    ambiguous: list[str] = field(default_factory=list)
+    shared_stem: list[str] = field(default_factory=list)
+    written: WrittenSdrf | None = None
+
+    #: The column :func:`restrict` writes the searched file's name into.
+    SEARCHED_DATA_FILE_COLUMN = "comment[searched data file]"
+
+    def searched_data_files(self) -> list[str | None]:
+        """The searched file each returned row was joined to (its name, no folder)."""
+        return self.value(self.SEARCHED_DATA_FILE_COLUMN)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> "RestrictedSdrf":
+        written = data.get("written")
+        return cls(
+            path=data.get("path", ""),
+            columns=list(data.get("column_names") or []),
+            rows=[list(r) for r in (data.get("rows") or [])],
+            row_count=int(data.get("row_count", 0)),
+            returned_count=int(data.get("returned_count", 0)),
+            offset=int(data.get("offset", 0)),
+            truncated=bool(data.get("truncated", False)),
+            caveats=list(data.get("caveats") or []),
+            searched_files=list(data.get("searched_files") or []),
+            acquired_name_count=int(data.get("acquired_name_count", 0)),
+            input_row_count=int(data.get("input_row_count", 0)),
+            searched_without_row=list(data.get("searched_without_row") or []),
+            dropped_data_files=list(data.get("dropped_data_files") or []),
+            ambiguous=list(data.get("ambiguous") or []),
+            shared_stem=list(data.get("shared_stem") or []),
+            written=WrittenSdrf._from_wire(written) if written else None,
+        )
+
+
 def _window(limit: int | None, offset: int) -> list[str]:
     """Validates and renders the shared limit/offset options. Mirrors :mod:`pymzlib.readers`."""
     args: list[str] = []
@@ -383,7 +472,8 @@ def pool(
     Args:
         documents: The files to pool - a sequence of paths, or a ``{path: label}`` mapping.
         out: Write the merged document here as SDRF. The **whole** document is written regardless
-            of ``limit`` and ``offset``.
+            of ``limit`` and ``offset``. A name that does not end in ``.sdrf.tsv`` gets it added;
+            :attr:`WrittenSdrf.path` says which file was written.
         limit: Maximum rows to return over the wire. ``None`` (the default) returns all of them.
         offset: Rows to skip.
         timeout: Seconds to allow. ``None`` waits indefinitely.
@@ -410,6 +500,123 @@ def pool(
 
     data = _bridge.invoke(*args, stdin="\n".join(lines), timeout=timeout)
     return PooledSdrf._from_wire(data)
+
+
+def restrict(
+    path: str | os.PathLike[str],
+    searched_files: Sequence[str | os.PathLike[str]] | Mapping[str | os.PathLike[str], str | os.PathLike[str] | None],
+    *,
+    out: str | os.PathLike[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    timeout: float | None = 60,
+) -> RestrictedSdrf:
+    r"""Restrict an SDRF to the files one search read, and report what could not be placed.
+
+    Calls mzLib's ``SdrfSearchScope.Restrict``. A search reads ``X-calib.mzML`` while the SDRF names
+    the acquired ``X.raw``; mzLib joins them **by stem**, ignoring case, after removing the
+    derivative suffixes MetaMorpheus writes (``-calib``, ``-averaged``, in any order and number).
+    Each kept row is carried cell for cell, with the searched file's name in a new
+    ``comment[searched data file]`` column; nothing is renumbered.
+
+    **Restrict first, then read a design.** :func:`design` and :func:`isobaric_design` match
+    ``searched_files`` by exact name, and key on ``comment[searched data file]`` when a document
+    has it, so a restricted document joins the search's own file names.
+
+    Args:
+        path: Path to a ``.sdrf.tsv`` file.
+        searched_files: The files the search read, as paths or bare names. Pass a
+            ``{searched: acquired}`` mapping to name the acquired file a searched one came from
+            when you know it (``None`` for one you do not); that overrides the suffix rule.
+        out: Also write the **whole** restricted document here as SDRF, whatever ``limit`` and
+            ``offset`` are. Must end in ``.tsv``; name it ``.sdrf.tsv``, because mzLib adds that to
+            a name that does not end in it. :attr:`RestrictedSdrf.written` names the file written.
+        limit: Maximum rows to return over the wire. ``None`` (the default) returns all of them.
+        offset: Rows to skip.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`RestrictedSdrf`.
+
+    Raises:
+        UsageError: the path is blank or the file does not exist; no searched file was given, or
+            one is blank or holds a tab or newline; ``out`` is blank or does not end in ``.tsv``;
+            or the bridge in use predates this function.
+        BridgeError: the SDRF has no ``comment[data file]`` column (``error_type``
+            ``"ArgumentException"``), or mzLib could not read it.
+
+    Examples:
+        Two calibrated runs, the raw file of one of them as well, a renamed file whose
+        acquisition you know, and one the SDRF does not describe:
+
+        >>> pool1 = "HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr0"
+        >>> pool5 = "HJOSLO2U_QEHF_20150329_TMT_pool5_300ugIPG37-49_7of15ul_fr0"
+        >>> scoped = restrict("PXD008841.subset.sdrf.tsv", {
+        ...     rf"D:\search\{pool1}1-calib.mzML": None,
+        ...     f"{pool1}2-calib.mzML": None,
+        ...     f"{pool1}2.raw": None,
+        ...     "sample_A.mzML": f"{pool5}1.raw",
+        ...     "not_in_sdrf.mzML": None,
+        ... }, limit=2)
+        >>> scoped.input_row_count, scoped.row_count, scoped.returned_count
+        (40, 30, 2)
+        >>> scoped.searched_data_files()  # doctest: +NORMALIZE_WHITESPACE
+        ['HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01-calib.mzML',
+         'HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01-calib.mzML']
+        >>> scoped.searched_without_row
+        ['not_in_sdrf.mzML']
+        >>> scoped.dropped_data_files
+        ['HJOSLO2U_QEHF_20150329_TMT_pool5_300ugIPG37-49_7of15ul_fr02.raw']
+        >>> print(scoped.ambiguous[0])  # doctest: +NORMALIZE_WHITESPACE
+        HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02:
+        HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02-calib.mzML,
+        HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02.raw
+    """
+    if isinstance(searched_files, (str, os.PathLike)):
+        raise _bridge.UsageError(
+            "searched_files takes a list of paths, or a {searched: acquired} mapping, e.g. "
+            "['X-calib.mzML'] or {'sample_A.mzML': 'X.raw'}."
+        )
+    if isinstance(searched_files, Mapping):
+        pairs = list(searched_files.items())
+    elif isinstance(searched_files, Sequence):
+        pairs = [(f, None) for f in searched_files]
+    else:
+        raise _bridge.UsageError(
+            f"searched_files must be a list of paths or a {{searched: acquired}} mapping; got {searched_files!r}."
+        )
+    if not pairs:
+        raise _bridge.UsageError("restrict() needs at least one searched file.")
+
+    lines = []
+    for searched, acquired in pairs:
+        searched_text = _bridge.path_text(searched)
+        if not searched_text:
+            raise _bridge.UsageError(f"Every searched file must be a non-blank str or PathLike; got {searched!r}.")
+        fields = [searched_text]
+        if acquired is not None:
+            acquired_text = _bridge.path_text(acquired)
+            if not acquired_text:
+                raise _bridge.UsageError(
+                    f"The acquired file for '{searched_text}' must be a non-blank str or PathLike, "
+                    f"or None; got {acquired!r}."
+                )
+            fields.append(acquired_text)
+        for text in fields:
+            if "\t" in text or "\n" in text or "\r" in text:
+                raise _bridge.UsageError(f"A searched or acquired file contains a tab or newline: {text!r}.")
+        lines.append("\t".join(fields))
+
+    args = ["sdrf", "restrict", "--path", _one_path(path), *_window(limit, offset)]
+    if out is not None:
+        out_text = _bridge.path_text(out)
+        if not out_text:
+            raise _bridge.UsageError("out must be a file path ending in .tsv, e.g. 'searched.sdrf.tsv'.")
+        args += ["--out", out_text]
+
+    _bridge.require_verb("sdrf restrict", since=_ISOBARIC_RESTRICT_SINCE)
+    data = _bridge.invoke(*args, stdin="\n".join(lines) + "\n", timeout=timeout)
+    return RestrictedSdrf._from_wire(data)
 
 
 
@@ -1708,47 +1915,8 @@ def design(
         22 -> 1, 23 -> 2, 24 -> 3.
     """
     args = ["sdrf", "design", "--path", _one_path(path)]
-
-    if condition_columns is not None:
-        if isinstance(condition_columns, str):
-            raise _bridge.UsageError(
-                "condition_columns takes a list of column names, e.g. ['factor value[treatment]']."
-            )
-        names = []
-        for name in condition_columns:
-            if not isinstance(name, str) or not name.strip():
-                raise _bridge.UsageError(
-                    f"Every condition column must be a non-blank str; got {name!r}."
-                )
-            if "\t" in name or "\n" in name or "\r" in name:
-                raise _bridge.UsageError(
-                    f"A condition column may not contain a tab or newline: {name!r}."
-                )
-            names.append(name)
-        if not names:
-            raise _bridge.UsageError(
-                "condition_columns is empty; pass None to use the document's only factor column."
-            )
-        args += ["--condition-columns", "\t".join(names)]
-
-    stdin = None
-    if searched_files is not None:
-        if isinstance(searched_files, (str, os.PathLike)):
-            raise _bridge.UsageError(
-                "searched_files takes a list of paths, e.g. ['run1.raw', 'run2.raw']."
-            )
-        lines = []
-        for f in searched_files:
-            text = _bridge.path_text(f)
-            if not text:
-                raise _bridge.UsageError(
-                    f"Every searched file must be a non-blank str or PathLike; got {f!r}."
-                )
-            if "\n" in text or "\r" in text:
-                raise _bridge.UsageError(f"A searched file contains a newline: {text!r}.")
-            lines.append(text)
-        args.append("--searched-files-stdin")
-        stdin = "\n".join(lines) + "\n"
+    args += _condition_columns_args(condition_columns)
+    stdin = _searched_files_stdin(searched_files, args)
 
     if out is not None:
         out_text = _bridge.path_text(out)
@@ -1760,3 +1928,301 @@ def design(
 
     data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
     return SdrfDesign._from_wire(data)
+
+
+def _condition_columns_args(condition_columns: Sequence[str] | None) -> list[str]:
+    """``--condition-columns`` for :func:`design` and :func:`isobaric_design`: nothing for ``None``."""
+    if condition_columns is None:
+        return []
+    if isinstance(condition_columns, str):
+        raise _bridge.UsageError(
+            "condition_columns takes a list of column names, e.g. ['factor value[treatment]']."
+        )
+    names = []
+    for name in condition_columns:
+        if not isinstance(name, str) or not name.strip():
+            raise _bridge.UsageError(f"Every condition column must be a non-blank str; got {name!r}.")
+        if "\t" in name or "\n" in name or "\r" in name:
+            raise _bridge.UsageError(f"A condition column may not contain a tab or newline: {name!r}.")
+        names.append(name)
+    if not names:
+        raise _bridge.UsageError(
+            "condition_columns is empty; pass None to use the document's only factor column."
+        )
+    return ["--condition-columns", "\t".join(names)]
+
+
+def _searched_files_stdin(
+    searched_files: Sequence[str | os.PathLike[str]] | None, args: list[str]
+) -> str | None:
+    """Appends ``--searched-files-stdin`` to ``args`` and returns the stdin, or ``None`` for ``None``."""
+    if searched_files is None:
+        return None
+    if isinstance(searched_files, (str, os.PathLike)):
+        raise _bridge.UsageError("searched_files takes a list of paths, e.g. ['run1.raw', 'run2.raw'].")
+    lines = []
+    for f in searched_files:
+        text = _bridge.path_text(f)
+        if not text:
+            raise _bridge.UsageError(f"Every searched file must be a non-blank str or PathLike; got {f!r}.")
+        if "\n" in text or "\r" in text:
+            raise _bridge.UsageError(f"A searched file contains a newline: {text!r}.")
+        lines.append(text)
+    args.append("--searched-files-stdin")
+    return "\n".join(lines) + "\n"
+
+
+# ---- isobaric design ------------------------------------------------------------------------------
+
+#: The first pyMzLib release whose bridge has ``sdrf isobaric-design`` and ``sdrf restrict``.
+_ISOBARIC_RESTRICT_SINCE = "0.6.0"
+
+
+@dataclass(frozen=True)
+class DesignedChannel:
+    """One annotated channel of one file in an isobaric design, as mzLib reads it.
+
+    **Every number here is 1-based, as the SDRF writes it** - unlike :class:`DesignedFile`, whose
+    numbers are 0-based. That is mzLib's own split (``SdrfIsobaricDesign`` against
+    ``SpectraFileInfo``), and pyMzLib converts neither.
+
+    Attributes:
+        full_path: The file: the searched path you passed for it, else the file name the SDRF gives.
+        plex: The plex, as the source you declared gives it (a column cell, a pattern's group, or
+            the single plex).
+        plex_id: The plex's number in :attr:`SdrfIsobaricDesign.plex_ids`, 1-based.
+        sample_name: The SDRF ``source name`` of the sample in this channel.
+        channel: The channel as the kit spells it, e.g. ``127N``.
+        condition: The condition columns' values joined with ``_``.
+        biological_replicate: 1-based, exactly as written; never ranked.
+        fraction: 1-based, as written; 1 when the SDRF has no fraction column.
+        technical_replicate: 1-based, as written; 1 when the SDRF has no technical-replicate column.
+    """
+
+    full_path: str
+    plex: str
+    plex_id: int
+    sample_name: str
+    channel: str
+    condition: str
+    biological_replicate: int
+    fraction: int
+    technical_replicate: int
+
+
+@dataclass(frozen=True)
+class SdrfIsobaricDesign(_Table):
+    """An isobaric (TMT, TMTpro, iTRAQ, DiLeu) design read from an SDRF, or the reasons it was refused.
+
+    **A refusal is an answer, not an exception.** When ``is_valid`` is ``False``, ``refusals`` lists
+    every reason at once and the table is empty. A missing kit, no plex source, two plex sources
+    and a bad pattern are refusals too.
+
+    ``columns`` maps ``full_path``, ``plex``, ``plex_id``, ``sample_name``, ``channel``,
+    ``condition``, ``biological_replicate``, ``fraction`` and ``technical_replicate`` to one value
+    per file and annotated channel; :attr:`channels` gives the same rows as
+    :class:`DesignedChannel` objects. **All of the numbers are 1-based.**
+
+    Attributes:
+        path: The SDRF path as given.
+        is_valid: ``True`` when there are no refusals.
+        kit: The kit name exactly as you gave it, or ``None`` when you gave none.
+        kit_type: mzLib's name for the kit it resolved to (``TMT10``, ``TMT18``, ``iTRAQ4``, ...),
+            as :func:`pymzlib.isobaric.kits` names it. ``None`` when no kit was given.
+        kit_channels: Every channel of the kit, in reporter m/z order. A channel here and absent
+            from the table is one the SDRF does not annotate. ``None`` when no kit was given.
+        plex_column: The plex column you gave, or ``None``.
+        plex_file_name_pattern: The plex pattern you gave, or ``None``.
+        single_plex: The single plex you gave, or ``None``.
+        plex_source: Where mzLib read the plex from, as its report prints it; ``"(not declared)"``
+            when no single source could be used.
+        plex_ids: Plex name to its number, 1..N in case-insensitive name order (the order
+            MetaMorpheus numbers plexes in). Empty when refused.
+        plex_count: Plexes in the design, a count of plexes; ``0`` when refused.
+        file_key_column: The column files were keyed on - ``comment[searched data file]`` when the
+            SDRF has it, else ``comment[data file]`` - or ``None`` when it has neither.
+        condition_columns: The ``factor value[...]`` columns the condition was built from.
+        condition_columns_declared: Whether you passed ``condition_columns``.
+        searched_files_given: Whether you passed ``searched_files``.
+        file_count: Files in the design, a count of files; ``0`` when refused.
+        record_count: Rows in the table, one per file and annotated channel; ``0`` when refused.
+        refusals: Every reason the design was refused, in mzLib's words. Empty when valid.
+        notes: What was dropped or filled on the way: rows for files the search does not read,
+            and a file with no row of its own for one of its plex's channels.
+        report: mzLib's human-readable account of all of the above. Print it.
+        column_names: The table's columns, in order.
+        columns: Column name to one value per row: files in SDRF row order, then each file's
+            channels in reporter m/z order.
+        written: ``{"path", "file_count", "record_count"}`` of the ``TmtDesign.txt`` written, or
+            ``None`` when ``out`` was not given or the design was refused.
+        caveats: What the design does and does not cover - read these once.
+    """
+
+    path: str
+    is_valid: bool
+    kit: str | None
+    kit_type: str | None
+    kit_channels: list[str] | None
+    plex_column: str | None
+    plex_file_name_pattern: str | None
+    single_plex: str | None
+    plex_source: str
+    plex_ids: dict[str, int]
+    plex_count: int
+    file_key_column: str | None
+    condition_columns: list[str]
+    condition_columns_declared: bool
+    searched_files_given: bool
+    file_count: int
+    record_count: int
+    refusals: list[str]
+    notes: list[str]
+    report: str
+    column_names: list[str]
+    columns: dict[str, list[Any]]
+    written: dict[str, Any] | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def channels(self) -> list[DesignedChannel]:
+        """Every row as a :class:`DesignedChannel`: files in SDRF order, channels in m/z order."""
+        return [DesignedChannel(**row) for row in self.records]
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> "SdrfIsobaricDesign":
+        names, columns = _columns(data)
+        kit_channels = data.get("kit_channels")
+        return cls(
+            path=data.get("path", ""),
+            is_valid=bool(data.get("is_valid", False)),
+            kit=data.get("kit"),
+            kit_type=data.get("kit_type"),
+            kit_channels=list(kit_channels) if kit_channels is not None else None,
+            plex_column=data.get("plex_column"),
+            plex_file_name_pattern=data.get("plex_file_name_pattern"),
+            single_plex=data.get("single_plex"),
+            plex_source=data.get("plex_source", ""),
+            plex_ids={str(k): int(v) for k, v in (data.get("plex_ids") or {}).items()},
+            plex_count=int(data.get("plex_count", 0)),
+            file_key_column=data.get("file_key_column"),
+            condition_columns=list(data.get("condition_columns") or []),
+            condition_columns_declared=bool(data.get("condition_columns_declared", False)),
+            searched_files_given=bool(data.get("searched_files_given", False)),
+            file_count=int(data.get("file_count", 0)),
+            record_count=int(data.get("record_count", 0)),
+            refusals=list(data.get("refusals") or []),
+            notes=list(data.get("notes") or []),
+            report=data.get("report", ""),
+            column_names=names,
+            columns=columns,
+            written=data.get("written"),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+def _optional_text(value: str | None, name: str, example: str) -> list[str]:
+    """``--<name> value`` for a string option, nothing for ``None``; a blank value is refused."""
+    if value is None:
+        return []
+    if not isinstance(value, str) or not value.strip():
+        raise _bridge.UsageError(f"{name} must be a non-blank str or None, e.g. {example!r}; got {value!r}.")
+    if "\n" in value or "\r" in value:
+        raise _bridge.UsageError(f"{name} may not contain a newline: {value!r}.")
+    return ["--" + name.replace("_", "-"), value]
+
+
+def isobaric_design(
+    path: str | os.PathLike[str],
+    *,
+    kit: str | None = None,
+    plex_column: str | None = None,
+    plex_file_name_pattern: str | None = None,
+    single_plex: str | None = None,
+    condition_columns: Sequence[str] | None = None,
+    searched_files: Sequence[str | os.PathLike[str]] | None = None,
+    out: str | os.PathLike[str] | None = None,
+    timeout: float | None = 60,
+) -> SdrfIsobaricDesign:
+    """Read an isobaric (TMT, TMTpro, iTRAQ, DiLeu) design out of an SDRF, or every reason it cannot be read.
+
+    Calls mzLib's ``SdrfIsobaricDesign.Read``. It runs MetaMorpheus's own checks on a TMT design -
+    one plex, fraction and technical replicate per file; a channel described once per plex; no
+    sample twice at one fraction in a plex - and **refuses rather than repairs**, reporting every
+    failure at once. **It guesses nothing:** not the kit, because one kit's labels can be a subset
+    of another's, and not the plex, which you declare with exactly one of ``plex_column``,
+    ``plex_file_name_pattern`` and ``single_plex``. Giving none, or several, is mzLib's refusal.
+
+    **The numbers are 1-based, as the SDRF writes them.** :func:`design`'s are 0-based. That split
+    is mzLib's, and pyMzLib converts neither.
+
+    Args:
+        path: Path to a ``.sdrf.tsv`` file.
+        kit: The kit the search used, named as :func:`pymzlib.isobaric.kits` takes it (``"TMT10"``,
+            ``"tmt18"``, ``"TMT6-plex"``, ``"TMT11 on K"``). ``None`` sends none, and mzLib then
+            refuses: the kit is never guessed from the labels.
+        plex_column: The column each row's plex is read from, by its exact name.
+        plex_file_name_pattern: A .NET regular expression matched, ignoring case, against each
+            row's file name; the plex is its group named ``plex``, else its first group, e.g.
+            ``r"TMT_?pool(?<plex>\\d+)"``.
+        single_plex: The name of the one plex every file belongs to.
+        condition_columns: The ``factor value[...]`` columns that make up the condition, exactly as
+            for :func:`design`. ``None`` uses the document's only factor column.
+        searched_files: The files the search will read, exactly as for :func:`design`: each must be
+            named **exactly** by some row. A search that read ``X-calib.mzML`` for an SDRF naming
+            ``X.raw`` matches nothing; :func:`restrict` the SDRF first.
+        out: A **folder**, created when missing. mzLib writes MetaMorpheus's ``TmtDesign.txt``
+            (1-based) inside it, replacing one already there, but only when the design is valid.
+            MetaMorpheus reads it only from the folder of the first spectra file.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        An :class:`SdrfIsobaricDesign`: ``is_valid``, the refusals or the channel rows, and notes.
+
+    Raises:
+        UsageError: the path is blank or the file does not exist; ``kit`` is not a kit mzLib can
+            name (the same message as :func:`pymzlib.isobaric.kits`); a plex option, condition
+            column or searched file is blank or holds a newline; ``out`` is blank or names an
+            existing file; or the bridge in use predates this function.
+        BridgeError: mzLib could not parse the SDRF at all, or ``out`` could not be written.
+
+    Examples:
+        PXD008841 writes no plex column; the plex survives only in the file names, spelled two
+        ways (``TMTpool1``, ``TMT_pool5``), so one pattern reads both:
+
+        >>> d = isobaric_design(
+        ...     "PXD008841.subset.sdrf.tsv", kit="TMT10",
+        ...     plex_file_name_pattern=r"TMT_?pool(?<plex>\\d+)",
+        ... )
+        >>> d.is_valid, d.file_count, d.plex_ids, d.record_count
+        (True, 4, {'1': 1, '5': 2}, 40)
+        >>> c = d.channels[9]
+        >>> c.channel, c.sample_name, c.plex_id, c.fraction, c.biological_replicate
+        ('131N', 'pool', 1, 1, 1)
+
+        Declare no plex source and mzLib refuses rather than guess one:
+
+        >>> refused = isobaric_design("PXD008841.subset.sdrf.tsv", kit="TMT10")
+        >>> refused.is_valid, refused.record_count
+        (False, 0)
+        >>> print(refused.refusals[0])  # doctest: +ELLIPSIS
+        No plex source was declared. Name the column that holds the plex, ...
+    """
+    args = ["sdrf", "isobaric-design", "--path", _one_path(path)]
+    args += _optional_text(kit, "kit", "TMT10")
+    args += _optional_text(plex_column, "plex_column", "comment[plex]")
+    args += _optional_text(plex_file_name_pattern, "plex_file_name_pattern", r"TMT_?pool(?<plex>\d+)")
+    args += _optional_text(single_plex, "single_plex", "plex1")
+    args += _condition_columns_args(condition_columns)
+    stdin = _searched_files_stdin(searched_files, args)
+
+    if out is not None:
+        out_text = _bridge.path_text(out)
+        if not out_text:
+            raise _bridge.UsageError(
+                "out must name a folder; TmtDesign.txt is written inside it, e.g. 'design'."
+            )
+        args += ["--out", out_text]
+
+    _bridge.require_verb("sdrf isobaric-design", since=_ISOBARIC_RESTRICT_SINCE)
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return SdrfIsobaricDesign._from_wire(data)

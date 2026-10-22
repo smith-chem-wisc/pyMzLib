@@ -38,15 +38,7 @@ internal static class Isobaric
         if (arguments.WasProvided("kit"))
         {
             requested = arguments.Optional("kit");
-            if (string.IsNullOrWhiteSpace(requested))
-                throw new Program.UsageException("Option --kit needs a kit name, e.g. 'TMT10' or 'iTRAQ-4plex'.");
-            if (!IsobaricMassTag.TryGetTagType(requested, out IsobaricMassTagType type))
-                throw new Program.UsageException(
-                    $"mzLib knows no isobaric kit named '{requested}'. Known kits: " +
-                    $"{string.Join(", ", Enum.GetNames<IsobaricMassTagType>())}; MetaMorpheus modification " +
-                    "names such as 'TMT6-plex' or 'iTRAQ-4plex on K' are accepted too. The name must match " +
-                    "whole: 'TMT10plex' is not 'TMT10'.");
-            types = new List<IsobaricMassTagType> { type };
+            types = new List<IsobaricMassTagType> { ResolveKitType(requested) };
         }
         else
         {
@@ -57,10 +49,7 @@ internal static class Isobaric
         var kits = new List<object>(types.Count);
         foreach (IsobaricMassTagType type in types)
         {
-            if (!IsobaricMassTag.TryGetIsobaricMassTag(type, out IsobaricMassTag? tag) || tag is null)
-                throw new InvalidOperationException(
-                    $"mzLib could not build the {type} kit from its embedded modifications (its Multiplex " +
-                    "Label entry is missing, has no HCD diagnostic ions, or has the wrong ion count).");
+            IsobaricMassTag tag = BuildKit(type);
 
             for (int i = 0; i < tag.ReporterIonMzs.Length; i++)
                 table.Add(type.ToString(), i, tag.ChannelLabels[i], tag.ReporterIonMzs[i],
@@ -80,6 +69,37 @@ internal static class Isobaric
             columns = table.Columns(),
             caveats = KitCaveats(),
         };
+    }
+
+    /// <summary>
+    /// The kit a <c>--kit</c> name names, resolved by mzLib's <see cref="IsobaricMassTag.TryGetTagType"/>
+    /// and built by <see cref="IsobaricMassTag.TryGetIsobaricMassTag(IsobaricMassTagType, out IsobaricMassTag?)"/>.
+    /// The one resolution path for every verb that takes <c>--kit</c> (<c>isobaric kits</c> and
+    /// <c>sdrf isobaric-design</c>), so a name one accepts the other never refuses. A blank or
+    /// unknown name is a usage error naming the known kits.
+    /// </summary>
+    internal static IsobaricMassTag ResolveKit(string? requested) => BuildKit(ResolveKitType(requested));
+
+    private static IsobaricMassTagType ResolveKitType(string? requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+            throw new Program.UsageException("Option --kit needs a kit name, e.g. 'TMT10' or 'iTRAQ-4plex'.");
+        if (!IsobaricMassTag.TryGetTagType(requested, out IsobaricMassTagType type))
+            throw new Program.UsageException(
+                $"mzLib knows no isobaric kit named '{requested}'. Known kits: " +
+                $"{string.Join(", ", Enum.GetNames<IsobaricMassTagType>())}; MetaMorpheus modification " +
+                "names such as 'TMT6-plex' or 'iTRAQ-4plex on K' are accepted too. The name must match " +
+                "whole: 'TMT10plex' is not 'TMT10'.");
+        return type;
+    }
+
+    private static IsobaricMassTag BuildKit(IsobaricMassTagType type)
+    {
+        if (!IsobaricMassTag.TryGetIsobaricMassTag(type, out IsobaricMassTag? tag) || tag is null)
+            throw new InvalidOperationException(
+                $"mzLib could not build the {type} kit from its embedded modifications (its Multiplex " +
+                "Label entry is missing, has no HCD diagnostic ions, or has the wrong ion count).");
+        return tag;
     }
 
     private static List<string> KitCaveats() => new()
