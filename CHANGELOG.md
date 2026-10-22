@@ -7,6 +7,32 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **`diff.design()`: a sample sheet to mzLib's design matrix, per stratum** (mzLib 1.0.595, #1450,
+  `AnalysisDesign`). Name the sheet's columns as `factors=` (`FactorSpec`, with a reference
+  level), `covariates=` (`CovariateSpec`, with a stored unit, and a scale, scaled unit and centre
+  when you want them), `interactions=`, `strata=` and `batch=`. mzLib builds each stratum's
+  matrix, equal to R's `model.matrix` for the same formula (held on mzLib's fourteen reference
+  designs), with its rank, its aliased terms, its warnings and the contrasts it cannot run. One row
+  per default contrast (each level against its reference, every pair without one, each slope),
+  with its weights and **mzLib's verdict on whether these samples can estimate it at all**:
+  `estimable`, `not_estimable:confounded` or `not_estimable:rank_deficient`. With `out=` it writes
+  `design_<i>.tsv`, which `stats.fit()` reads as it is (the MALAT1 dilution series gives the same
+  fit as its hand-made design), and `contrasts_<i>.tsv`, each estimable contrast's weights on the
+  same columns, the form mzLib's `EmpiricalBayes.ModerateContrasts` takes. Contrast ids are
+  numbered within each stratum. Wire verb `diff design`.
+- **`diff.observations()`: every peptide in every biological sample, from a FlashLFQ or
+  MetaMorpheus peptide table** (mzLib 1.0.595, #1455, `FlashLfqObservations.FromPeptideTable`).
+  You give the runs (file, sample, fraction, technical replicate) and the `basis`, `"msms_only"`
+  or `"mbr_kept"`, which has no default. One row per (peptide, sample): log2 intensity, with
+  fractions summed and technical replicates averaged in log2, or **`None`, never 0, with the
+  reason in `state`** (`quantified`, `mbr_transferred`, `ambiguous_peak`,
+  `identified_not_quantified`, `not_detected`). With `protein_groups=` each group carries its
+  q-value and decoy, contaminant and entrapment flags. mzLib's shared-peptide median normalization
+  is always measured and reported, and subtracted with `normalize=True`; below its floor of 100
+  shared peptides it shifts nothing. `responses_out=` writes the peptide-by-sample table
+  `stats.fit()` reads; `samples=` narrows to one stratum. mzLib does not yet roll peptides up to
+  proteins, so neither does this. New module `pymzlib.diff` and a guide. Wire verb
+  `diff observations`.
 - **`library.read()`: an mzLib spectral library (`.msl`) as a table** (`MslFileTypeHandler.Open`,
   `MslLibrary.GetEntry`; the entrapment flag and a working `rt_is_calibrated` are mzLib 1.0.595,
   #1383). One row per precursor, in the library's stored order (`precursor_index`, not m/z

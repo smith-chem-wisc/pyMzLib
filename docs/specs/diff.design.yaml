@@ -1,0 +1,159 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Differential.Design.cs (Design, ReadModel,
+# ReadSampleSheet, DesignCaveats) and Differential.cs on branch feat/diff-verbs (off main eaf10e1,
+# pyMzLib 0.5.0 plus library read), mzLib pin d10017ce (tag 1.0.595; AnalysisDesign is from #1450, first
+# in 1.0.595). Example fixtures recorded from the live bridge on that branch. The sample sheets are
+# mzLib's own (Test/Quantification/Differential/ReferenceData, and AnalysisDesignTests'
+# SamplesAreSplitByStratum samples plus two kidney samples), and the MALAT1 dilution series of
+# stats fit's example as a sheet (derived from malat_dilution_design.tsv by the rule in
+# DifferentialTests.PythonInputs_AreMzLibsFilesOrTheirRule). Agreement with base R 4.6.1's
+# stats::model.matrix is held through the wire on mzLib's fourteen reference designs by
+# DifferentialTests.Design_MatrixEqualsRsModelMatrix_ThroughTheWire; the pairing with stats fit and
+# EmpiricalBayes.ModerateContrasts by Design_TheDesignFileIsWhatStatsFitReads and
+# Design_TheContrastsFileIsWhatModerateContrastsTakes.
+verb: diff design
+module: diff
+summary: >-
+  Turn a sample sheet and a model (factors with reference levels, covariates with units, batch,
+  interactions, strata) into mzLib's design per stratum: the design matrix, its rank and aliased
+  terms, the default contrasts with their estimability, and the design and contrast tables stats fit
+  reads.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: AnalysisDesign.ByStratum, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.Create, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.DefaultContrasts, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.Estimability, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.FittedMatrix, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.FittedWeights, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.CovariateCentre, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisSample, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: d10017ce}
+  - {symbol: FactorSpec, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: d10017ce}
+  - {symbol: CovariateSpec, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: d10017ce}
+  - {symbol: DesignSpec, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: d10017ce}
+  - {symbol: Contrast, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: d10017ce}
+cite:
+  - {doi: "10.2307/2346786", for: "the model-formula notation (main effects and a:b interactions) that R's stats::model.matrix implements and mzLib's design matrix equals (Wilkinson and Rogers, Appl Stat 22:392, 1973)"}
+
+params:
+  - name: samples
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The sample sheet: a TSV with a header row and one row per biological sample. The first column
+      is the sample id (unique, any header). Every other column is available to the model by its
+      header; a column the model does not name is ignored and listed in unused_columns. Cells are
+      trimmed. A factor, stratum or batch cell is used as text, exactly as written. A covariate cell
+      is a number in the covariate's stored unit; a blank, NA or NaN covariate cell is no value, and
+      mzLib refuses that sample by name.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: "one model term per line; fields tab-separated"
+    default: null
+    doc: >-
+      The model, one term per line, its fields separated by tabs; an empty optional field is not
+      given, so mzLib's default applies. factor NAME, optionally then REFERENCE: a condition factor
+      treatment-coded against REFERENCE (FactorSpec); with no REFERENCE every pair of its levels is
+      compared and mzLib warns. covariate NAME UNIT, optionally then SCALE, SCALED_UNIT and CENTRE: a
+      numeric column entered as (value - CENTRE) / SCALE (CovariateSpec). UNIT is the stored unit
+      (years); SCALE is stored units per scaled unit (10), default 1; SCALED_UNIT names the unit a
+      slope is per (decade), default SCALE stored units; CENTRE is in the stored unit, default the
+      stratum's mean. interaction FIRST SECOND: the two-factor interaction of two named factors.
+      stratum NAME: a column whose value splits the samples into strata, each designed on its own.
+      batch NAME: the column holding each sample's batch, fitted as a fixed block whenever it is named
+      (mzLib's DesignSpec.FitBatch default; the bridge never sets it). Factors and covariates enter in
+      the order given. A column has one role, and is named once.
+  - {name: out, type: path, required: false, unit: null, range: null, default: null, doc: "A directory (created if absent) to write the pivot files into: for stratum i in the order of strata, design_i.tsv and, when any contrast is estimable there, contrasts_i.tsv. Files are numbered, not named by stratum key, because a key can hold any character a sheet cell can; each strata entry names its files. Files of the same name are overwritten. Absent, nothing is written."}
+
+result:
+  envelope_fields:
+    - {wire: samples_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the sample sheet."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples read from the sheet, across every stratum."}
+    - {wire: factors, type: "object[]", unit: null, nullable: false, null_means: null, doc: "The factors given, in order: name and reference_level (null when none was given, so every pair of levels is compared)."}
+    - {wire: covariates, type: "object[]", unit: null, nullable: false, null_means: null, doc: "The covariates given, in order: name, unit, and scale, scaled_unit and centre as given (each null when not given, so mzLib's default applied)."}
+    - {wire: interactions, type: "object[]", unit: null, nullable: false, null_means: null, doc: "The interactions given, in order, each as first and second."}
+    - {wire: stratum_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stratum columns given; empty for one stratum."}
+    - {wire: batch_column, type: string, unit: null, nullable: true, null_means: "no batch line: batch is not in the model", doc: "The batch column given."}
+    - {wire: unused_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Sheet columns after the sample id that the model does not name, in sheet order."}
+    - {wire: stratum_count, type: int, unit: strata, nullable: false, null_means: null, doc: "Designs built: one per distinct stratum key, or 1."}
+    - {wire: strata, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One object per stratum, in mzLib's order (ordinal by stratum key); fields under result.tables.strata."}
+    - {wire: estimability_counts, type: "map<string,int>", unit: contrasts, nullable: false, null_means: null, doc: "Default contrasts per verdict across strata: estimable, not_estimable:confounded, not_estimable:rank_deficient."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "no --out: nothing was written", doc: "directory (absolute) and file_count, the design and contrast files written."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Default contrasts across strata: the table's row count."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (stratum, default contrast): strata in order, each stratum's contrasts in mzLib's order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Five static caveats, plus one when any contrast is not estimable (with counts) and one when any stratum cannot run a contrast the model asks for."}
+  columns:
+    - {wire: stratum, type: string, unit: null, nullable: false, null_means: null, doc: "The stratum key (AnalysisDesign.StratumKey): the stratum columns sorted by name, each name=value, joined by ';', with %, ; and = in a value escaped as %25, %3B and %3D; all when there is no stratum column."}
+    - {wire: contrast_id, type: string, unit: null, nullable: false, null_means: null, doc: "c1, c2, ... in mzLib's default order, numbered within the stratum. The name a contrasts file gives the contrast."}
+    - {wire: label, type: string, unit: null, nullable: false, null_means: null, doc: "Readable: factor=level vs factor=reference for a level, the covariate's column name for a slope (age (per decade))."}
+    - {wire: numerator, type: string, unit: null, nullable: true, null_means: "a slope", doc: "The numerator level as factor=level."}
+    - {wire: denominator, type: string, unit: null, nullable: true, null_means: "a slope", doc: "The reference (or earlier) level as factor=level."}
+    - {wire: covariate, type: string, unit: null, nullable: true, null_means: "not a slope", doc: "For a slope, the covariate."}
+    - {wire: covariate_unit, type: string, unit: null, nullable: true, null_means: "not a slope", doc: "For a slope, the unit the effect is per: SCALED_UNIT, or SCALE stored units (10 years), or the stored unit at scale 1."}
+    - {wire: covariate_scale, type: string, unit: null, nullable: true, null_means: "not a slope", doc: "For a slope, mzLib's statement of how the stored covariate became that unit, e.g. years/10, centred at 50 years."}
+    - {wire: estimability, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's verdict: estimable | not_estimable:confounded (the direction it needs is shared by two or more terms, e.g. a condition only ever in one batch) | not_estimable:rank_deficient (it needs a column no sample informs, e.g. an empty interaction cell). Judged on the columns divided by their lengths, so the same in any unit."}
+    - {wire: weights, type: "float[]", unit: "contrast weight per design column (unitless)", nullable: false, null_means: null, doc: "One weight per entry of the stratum's column_names: the contrast is the weighted sum of the coefficients."}
+    - {wire: fitted_weights, type: "float[]", unit: "contrast weight per fitted column (unitless)", nullable: true, null_means: "not estimable: no fit gives it an estimate", doc: "AnalysisDesign.FittedWeights: the weights on the stratum's fitted_column_names, the row the contrasts file writes. A fit of the fitted matrix gives with them the estimate and standard error every least-squares fit of the full matrix gives."}
+  tables:
+    strata:
+      - {wire: stratum, type: string, unit: null, nullable: false, null_means: null, doc: "The stratum key, as the table's stratum column."}
+      - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples in the stratum."}
+      - {wire: sample_ids, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The rows of matrix and of the design file, ordinal by sample id."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "mzLib's columns: intercept; factor=level for each non-reference level; batch=level; name (per unit) for a covariate; a=level:b=level for an interaction."}
+      - {wire: fitted_column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "AnalysisDesign.FittedColumns by name: every column at full rank, else each column kept unless it is redundant with those kept before it. The design file's coefficient columns."}
+      - {wire: rank, type: int, unit: columns, nullable: false, null_means: null, doc: "The numerical rank, by LinearModel's own full-rank test: the number of fitted columns."}
+      - {wire: aliased_terms, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Terms (factor names, batch, covariate names, intercept) that share a direction with another term and so cannot be separated from it; empty at full rank."}
+      - {wire: warnings, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What mzLib left out of the model or changed from the specification here, in plain words: a factor with one level, a reference level with no sample, one batch, no reference declared."}
+      - {wire: not_run, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Contrasts the model asks for that this stratum cannot run, each with label and reason (not_in_stratum)."}
+      - {wire: covariate_centres, type: "map<string,float>", unit: "the covariate's stored unit", nullable: false, null_means: null, doc: "The centre subtracted from each covariate here: the one given, else the stratum's mean."}
+      - {wire: matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.Matrix, one row per sample_ids entry and one value per column_names entry. Equals R's stats::model.matrix for the same formula and level order."}
+      - {wire: fitted_matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.FittedMatrix: matrix with only the fitted columns. It has full column rank, so LinearModel.Fit takes it; it is the design file's body."}
+      - {wire: design_file, type: string, unit: null, nullable: true, null_means: "no --out", doc: "Absolute path of design_i.tsv: header sample then fitted_column_names, then one row per sample, the fitted matrix in round-trip decimal. Exactly what stats fit --design reads."}
+      - {wire: contrasts_file, type: string, unit: null, nullable: true, null_means: "no --out, or no contrast is estimable in this stratum", doc: "Absolute path of contrasts_i.tsv: header contrast then fitted_column_names (the design file's coefficient columns, same order), then one row per estimable contrast: contrast_id and fitted_weights. Each row is the ContrastWeights(name, weights) mzLib's EmpiricalBayes.ModerateContrasts takes for a fit of the design file."}
+
+errors:
+  - {kind: usage, when: "--samples missing, blank or not found; --out given without a directory; the sheet empty, header-only, with an empty or repeated column name, an empty or repeated sample id (repeats across strata included), or a row whose field count differs from its header; a covariate cell that is not a number (other than blank, NA, NaN)"}
+  - {kind: usage, when: "a stdin line that is not factor, covariate, interaction, stratum or batch, or has the wrong number of fields; an empty name or unit; a SCALE or CENTRE that is not a finite number; a column named twice or in two roles; a second batch line; an interaction given twice; a named column the sheet does not have"}
+  - {kind: usage, when: "mzLib refuses the input (its ArgumentException, reclassified): a sample with no value for a factor or covariate, a non-positive scale, batch on some samples only, an interaction naming a factor that is not in the model"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Each stratum's matrix is mzLib's AnalysisDesign: an intercept; each factor treatment-coded against its reference level, its other levels in ordinal order; batch against its first level; each covariate as (value - centre) / scale; then any interactions. It equals R's stats::model.matrix for the same formula and level order."
+  - "Only mzLib's default contrasts are listed (AnalysisDesign.DefaultContrasts): each level against its factor's reference, every pair of levels when a factor has no reference, and each covariate's slope. With an interaction in the model, a factor's contrast is its effect at the reference level of the other factor."
+  - "Contrast ids (c1, c2, ...) are numbered within each stratum, so one id can name different comparisons in two strata. Match contrasts across strata by label."
+  - "A design file holds only the fitted columns (fitted_column_names): mzLib leaves out a column that is redundant with earlier ones, because LinearModel.Fit refuses a design without full column rank. A contrast that is not estimable has no fitted weights and is not in the contrasts file."
+  - "Strata are never columns: each stratum gets its own design and nothing is shared between them. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept."
+
+bindings:
+  py: {name: pymzlib.diff.design}
+  rust: {name: "mzlib::diff::design_with", options: DesignOptions, note: "not yet ported"}
+  r: {name: diff_design, note: "not yet ported"}
+
+examples:
+  - fixture: diff_design_malat.json
+    py: "design = pymzlib.diff.design('malat_dilution_samples.tsv', factors=[pymzlib.diff.FactorSpec('malat_load', '500ng')], out='malat_design')"
+    rust: "let design = mzlib::diff::design_with(\"malat_dilution_samples.tsv\", &DesignOptions { factors: vec![FactorSpec::new(\"malat_load\", Some(\"500ng\"))], out: Some(\"malat_design\".into()), ..Default::default() })?;"
+    r: "design <- diff_design('malat_dilution_samples.tsv', factors = list(factor_spec('malat_load', '500ng')), out = 'malat_design')"
+  - fixture: diff_design_factor_batch_covariate.json
+    py: "design = pymzlib.diff.design('design_factor_batch_covariate_samples.tsv', factors=[pymzlib.diff.FactorSpec('condition', 'ctrl')], covariates=[pymzlib.diff.CovariateSpec('age', 'years', scale=10, scaled_unit='decade', centre=50)], batch='batch')"
+    rust: "let design = mzlib::diff::design_with(\"design_factor_batch_covariate_samples.tsv\", &DesignOptions { factors: vec![FactorSpec::new(\"condition\", Some(\"ctrl\"))], covariates: vec![CovariateSpec::new(\"age\", \"years\").scale(10.0).scaled_unit(\"decade\").centre(50.0)], batch: Some(\"batch\".into()), ..Default::default() })?;"
+    r: "design <- diff_design('design_factor_batch_covariate_samples.tsv', factors = list(factor_spec('condition', 'ctrl')), covariates = list(covariate_spec('age', 'years', scale = 10, scaled_unit = 'decade', centre = 50)), batch = 'batch')"
+  - fixture: diff_design_confounded.json
+    py: "design = pymzlib.diff.design('design_confounded_samples.tsv', factors=[pymzlib.diff.FactorSpec('condition', 'A')], batch='batch')"
+    rust: "let design = mzlib::diff::design_with(\"design_confounded_samples.tsv\", &DesignOptions { factors: vec![FactorSpec::new(\"condition\", Some(\"A\"))], batch: Some(\"batch\".into()), ..Default::default() })?;"
+    r: "design <- diff_design('design_confounded_samples.tsv', factors = list(factor_spec('condition', 'A')), batch = 'batch')"
+  - fixture: diff_design_strata.json
+    py: "design = pymzlib.diff.design('stratified_samples.tsv', factors=[pymzlib.diff.FactorSpec('condition', 'A')], strata=['organism part'])"
+    rust: "let design = mzlib::diff::design_with(\"stratified_samples.tsv\", &DesignOptions { factors: vec![FactorSpec::new(\"condition\", Some(\"A\"))], strata: vec![\"organism part\".into()], ..Default::default() })?;"
+    r: "design <- diff_design('stratified_samples.tsv', factors = list(factor_spec('condition', 'A')), strata = 'organism part')"
+
+open_questions:
+  - "stats fit does not read a contrasts file yet (no --contrasts at this bridge). The file's pairing with mzLib is held directly: DifferentialTests.Design_TheContrastsFileIsWhatModerateContrastsTakes fits the design file with LinearModel.Fit and passes each row to EmpiricalBayes.ModerateContrasts. Until stats fit takes it, a default contrast against a reference level is one coefficient (fitted_weights holds a single 1), which stats fit tests by its design column name."
+  - "Only DefaultContrasts is exposed. mzLib's AnalysisDesign.Between (any two levels) and Custom (weights by column name) have no wire form yet; with no reference declared, DefaultContrasts already gives every pair."
+  - "AnalysisSample.FromExperimentalDesign is not reachable: mzLib has no reader from MetaMorpheus's ExperimentalDesign.tsv to an IExperimentalDesign (MetaMorpheus's EngineLayer.ExperimentalDesign has one), so this verb starts from a sample sheet."

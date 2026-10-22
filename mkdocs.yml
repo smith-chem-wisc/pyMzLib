@@ -102,6 +102,7 @@ nav:
       - Isobaric kits: guides/isobaric.md
       - Spectral libraries: guides/library.md
       - Differential abundance: guides/stats.md
+      - "Differential design and observations": guides/diff.md
   - API reference:
       - Python API: reference.md
       - Errors: errors.md
@@ -115,6 +116,7 @@ nav:
       - "Wire verbs: isobaric": reference/isobaric.md
       - "Wire verbs: library": reference/library.md
       - "Wire verbs: stats": reference/stats.md
+      - "Wire verbs: diff": reference/diff.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

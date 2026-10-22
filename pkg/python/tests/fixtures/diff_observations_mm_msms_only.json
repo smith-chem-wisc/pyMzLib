@@ -1,0 +1,765 @@
+{
+ "peptides_file": "E:\\CodeReview\\wt-py-diff-verbs\\pkg\\python\\tests\\fixtures\\diff\\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv",
+ "protein_groups_file": "E:\\CodeReview\\wt-py-diff-verbs\\pkg\\python\\tests\\fixtures\\diff\\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv",
+ "samples_file": null,
+ "basis": "msms_only",
+ "normalize": false,
+ "min_peptides": null,
+ "run_count": 18,
+ "runs": [
+  {
+   "file_name": "QE-002106_GM1_a",
+   "sample_id": "QE-002106_GM1_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002107_GM1_b",
+   "sample_id": "QE-002107_GM1_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002108_GM1_c",
+   "sample_id": "QE-002108_GM1_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002110_GM2_a",
+   "sample_id": "QE-002110_GM2_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002111_GM2_b",
+   "sample_id": "QE-002111_GM2_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002112_GM2_c",
+   "sample_id": "QE-002112_GM2_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002114_GM3_a",
+   "sample_id": "QE-002114_GM3_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002115_GM3_b",
+   "sample_id": "QE-002115_GM3_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002116_GM3_c",
+   "sample_id": "QE-002116_GM3_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002118_GM6_a",
+   "sample_id": "QE-002118_GM6_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002119_GM6_b",
+   "sample_id": "QE-002119_GM6_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002120_GM6_c",
+   "sample_id": "QE-002120_GM6_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002122_GM7_a",
+   "sample_id": "QE-002122_GM7_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002123_GM7_b",
+   "sample_id": "QE-002123_GM7_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002124_GM7_c",
+   "sample_id": "QE-002124_GM7_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002126_GM8_a",
+   "sample_id": "QE-002126_GM8_a",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002128_GM8_b",
+   "sample_id": "QE-002128_GM8_b",
+   "fraction": 0,
+   "technical_replicate": 0
+  },
+  {
+   "file_name": "QE-002129_GM8_c",
+   "sample_id": "QE-002129_GM8_c",
+   "fraction": 0,
+   "technical_replicate": 0
+  }
+ ],
+ "sample_count": 18,
+ "samples": [
+  "QE-002106_GM1_a",
+  "QE-002107_GM1_b",
+  "QE-002108_GM1_c",
+  "QE-002110_GM2_a",
+  "QE-002111_GM2_b",
+  "QE-002112_GM2_c",
+  "QE-002114_GM3_a",
+  "QE-002115_GM3_b",
+  "QE-002116_GM3_c",
+  "QE-002118_GM6_a",
+  "QE-002119_GM6_b",
+  "QE-002120_GM6_c",
+  "QE-002122_GM7_a",
+  "QE-002123_GM7_b",
+  "QE-002124_GM7_c",
+  "QE-002126_GM8_a",
+  "QE-002128_GM8_b",
+  "QE-002129_GM8_c"
+ ],
+ "samples_without_values": [
+  "QE-002106_GM1_a",
+  "QE-002108_GM1_c",
+  "QE-002110_GM2_a",
+  "QE-002111_GM2_b",
+  "QE-002112_GM2_c",
+  "QE-002114_GM3_a",
+  "QE-002115_GM3_b",
+  "QE-002116_GM3_c",
+  "QE-002118_GM6_a",
+  "QE-002119_GM6_b"
+ ],
+ "peptide_count": 3,
+ "protein_group_count": 6,
+ "protein_groups": [
+  {
+   "name": "P68363",
+   "q_value": 0,
+   "is_decoy": false,
+   "is_contaminant": false,
+   "is_entrapment": false,
+   "genes": "TUBA1B"
+  },
+  {
+   "name": "P05141",
+   "q_value": 0,
+   "is_decoy": false,
+   "is_contaminant": false,
+   "is_entrapment": false,
+   "genes": "SLC25A5"
+  },
+  {
+   "name": "P0C0S5|Q71UI9",
+   "q_value": 0,
+   "is_decoy": false,
+   "is_contaminant": false,
+   "is_entrapment": false,
+   "genes": "H2AZ1|H2AZ2"
+  },
+  {
+   "name": "P02769",
+   "q_value": 0,
+   "is_decoy": false,
+   "is_contaminant": true,
+   "is_entrapment": false,
+   "genes": "ALB"
+  },
+  {
+   "name": "P63104",
+   "q_value": 0,
+   "is_decoy": false,
+   "is_contaminant": false,
+   "is_entrapment": false,
+   "genes": "YWHAZ"
+  },
+  {
+   "name": "DECOY_P62750",
+   "q_value": 0.0011299435028248588,
+   "is_decoy": true,
+   "is_contaminant": false,
+   "is_entrapment": false,
+   "genes": "RPL23A"
+  }
+ ],
+ "state_counts": {
+  "quantified": 8,
+  "mbr_transferred": 1,
+  "ambiguous_peak": 0,
+  "identified_not_quantified": 0,
+  "not_detected": 45
+ },
+ "normalization": {
+  "setting": "none",
+  "reference_set_size": 1,
+  "minimum_reference_set_size": 100,
+  "shifts": {
+   "QE-002106_GM1_a": null,
+   "QE-002107_GM1_b": null,
+   "QE-002108_GM1_c": null,
+   "QE-002110_GM2_a": null,
+   "QE-002111_GM2_b": null,
+   "QE-002112_GM2_c": null,
+   "QE-002114_GM3_a": null,
+   "QE-002115_GM3_b": null,
+   "QE-002116_GM3_c": null,
+   "QE-002118_GM6_a": null,
+   "QE-002119_GM6_b": null,
+   "QE-002120_GM6_c": null,
+   "QE-002122_GM7_a": null,
+   "QE-002123_GM7_b": null,
+   "QE-002124_GM7_c": null,
+   "QE-002126_GM8_a": null,
+   "QE-002128_GM8_b": null,
+   "QE-002129_GM8_c": null
+  },
+  "warnings": [
+   "0 reference peptide(s) have a value in every sample and 1 in at least half, under the floor of 100, so no sample is shifted (none)."
+  ]
+ },
+ "warnings": [
+  "2 protein group(s) named by peptides are not in the protein-group table, so their q-value and decoy/contaminant status are unknown: Q16643, Q9UI26."
+ ],
+ "written": null,
+ "responses_written": null,
+ "row_count": 54,
+ "column_names": [
+  "full_sequence",
+  "base_sequence",
+  "protein_groups",
+  "unique_protein_group",
+  "sample",
+  "log2_intensity",
+  "state"
+ ],
+ "columns": {
+  "full_sequence": [
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AC[Common Fixed:Carbamidomethyl on C]ASHVAK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AILTTLIHLVQGLGADSK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK",
+   "[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]C[Common Fixed:Carbamidomethyl on C]AADDKEAC[Common Fixed:Carbamidomethyl on C]FAVEGPK"
+  ],
+  "base_sequence": [
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CACASHVAK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CAILTTLIHLVQGLGADSK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK",
+   "CCAADDKEACFAVEGPK"
+  ],
+  "protein_groups": [
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q16643"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "Q9UI26"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ],
+   [
+    "P02769"
+   ]
+  ],
+  "unique_protein_group": [
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q16643",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "Q9UI26",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769",
+   "P02769"
+  ],
+  "sample": [
+   "QE-002106_GM1_a",
+   "QE-002107_GM1_b",
+   "QE-002108_GM1_c",
+   "QE-002110_GM2_a",
+   "QE-002111_GM2_b",
+   "QE-002112_GM2_c",
+   "QE-002114_GM3_a",
+   "QE-002115_GM3_b",
+   "QE-002116_GM3_c",
+   "QE-002118_GM6_a",
+   "QE-002119_GM6_b",
+   "QE-002120_GM6_c",
+   "QE-002122_GM7_a",
+   "QE-002123_GM7_b",
+   "QE-002124_GM7_c",
+   "QE-002126_GM8_a",
+   "QE-002128_GM8_b",
+   "QE-002129_GM8_c",
+   "QE-002106_GM1_a",
+   "QE-002107_GM1_b",
+   "QE-002108_GM1_c",
+   "QE-002110_GM2_a",
+   "QE-002111_GM2_b",
+   "QE-002112_GM2_c",
+   "QE-002114_GM3_a",
+   "QE-002115_GM3_b",
+   "QE-002116_GM3_c",
+   "QE-002118_GM6_a",
+   "QE-002119_GM6_b",
+   "QE-002120_GM6_c",
+   "QE-002122_GM7_a",
+   "QE-002123_GM7_b",
+   "QE-002124_GM7_c",
+   "QE-002126_GM8_a",
+   "QE-002128_GM8_b",
+   "QE-002129_GM8_c",
+   "QE-002106_GM1_a",
+   "QE-002107_GM1_b",
+   "QE-002108_GM1_c",
+   "QE-002110_GM2_a",
+   "QE-002111_GM2_b",
+   "QE-002112_GM2_c",
+   "QE-002114_GM3_a",
+   "QE-002115_GM3_b",
+   "QE-002116_GM3_c",
+   "QE-002118_GM6_a",
+   "QE-002119_GM6_b",
+   "QE-002120_GM6_c",
+   "QE-002122_GM7_a",
+   "QE-002123_GM7_b",
+   "QE-002124_GM7_c",
+   "QE-002126_GM8_a",
+   "QE-002128_GM8_b",
+   "QE-002129_GM8_c"
+  ],
+  "log2_intensity": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   16.83862886134654,
+   18.668505098749208,
+   18.695604976999913,
+   18.297911610689884,
+   null,
+   null,
+   null,
+   null,
+   17.473245099938868,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   21.38467049076293,
+   21.25674456961679,
+   20.920805759287536
+  ],
+  "state": [
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "mbr_transferred",
+   "not_detected",
+   "quantified",
+   "quantified",
+   "quantified",
+   "quantified",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "quantified",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "not_detected",
+   "quantified",
+   "quantified",
+   "quantified"
+  ]
+ },
+ "caveats": [
+  "A missing value is null, never 0, and state says why. Fractions of one technical replicate are summed on the linear scale, then a sample's technical replicates are averaged on the log2 scale (mzLib's ObservationTable).",
+  "Under msms_only a match-between-runs value enters no sum, but its cell still says mbr_transferred; under mbr_kept it enters, and the cell says mbr_transferred.",
+  "The peptide table does not record the design FlashLFQ quantified with, so mzLib cannot check that these runs group the files as FlashLFQ did. FlashLFQ withholds every fraction of a sample whose strongest fraction is ambiguous; give the runs the design it quantified with, or a value it withheld can become a partial sum.",
+  "FlashLFQ writes its peptide table in the culture of the machine it ran on and mzLib reads it as invariant (a decimal point), so a table written where the decimal separator is a comma does not read correctly.",
+  "Every peptide is a row: decoy, contaminant and entrapment peptides, and peptides of groups at any q-value, included. mzLib does not yet choose the rows a differential test uses, or roll peptides up to proteins, so --responses-out is peptide by sample only. Filter rows with protein_groups and unique_protein_group.",
+  "The normalization shifts are always measured (SharedPeptideNormalization.Measure) over every sample of the table, after --samples; they are subtracted only with --normalize. Measure one stratum at a time. A sample whose shift is null is not shifted.",
+  "Too few reference peptides were found to measure a shift (setting none); normalization.warnings says how many."
+ ]
+}

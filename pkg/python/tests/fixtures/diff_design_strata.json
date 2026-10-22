@@ -1,0 +1,254 @@
+{
+ "samples_file": "E:\\CodeReview\\wt-py-diff-verbs\\pkg\\python\\tests\\fixtures\\diff\\stratified_samples.tsv",
+ "sample_count": 8,
+ "factors": [
+  {
+   "name": "condition",
+   "reference_level": "A"
+  }
+ ],
+ "covariates": [],
+ "interactions": [],
+ "stratum_columns": [
+  "organism part"
+ ],
+ "batch_column": null,
+ "unused_columns": [],
+ "stratum_count": 3,
+ "strata": [
+  {
+   "stratum": "organism part=kidney",
+   "sample_count": 2,
+   "sample_ids": [
+    "s7",
+    "s8"
+   ],
+   "column_names": [
+    "intercept"
+   ],
+   "fitted_column_names": [
+    "intercept"
+   ],
+   "rank": 1,
+   "aliased_terms": [],
+   "warnings": [
+    "Factor 'condition' has one level ('A') in stratum 'organism part=kidney', so it is not in the model and none of its contrasts is run there."
+   ],
+   "not_run": [
+    {
+     "label": "condition (one level: A)",
+     "reason": "not_in_stratum"
+    }
+   ],
+   "covariate_centres": {},
+   "matrix": [
+    [
+     1
+    ],
+    [
+     1
+    ]
+   ],
+   "fitted_matrix": [
+    [
+     1
+    ],
+    [
+     1
+    ]
+   ],
+   "design_file": null,
+   "contrasts_file": null
+  },
+  {
+   "stratum": "organism part=liver",
+   "sample_count": 3,
+   "sample_ids": [
+    "s1",
+    "s3",
+    "s5"
+   ],
+   "column_names": [
+    "intercept",
+    "condition=B"
+   ],
+   "fitted_column_names": [
+    "intercept",
+    "condition=B"
+   ],
+   "rank": 2,
+   "aliased_terms": [],
+   "warnings": [],
+   "not_run": [],
+   "covariate_centres": {},
+   "matrix": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "fitted_matrix": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "design_file": null,
+   "contrasts_file": null
+  },
+  {
+   "stratum": "organism part=muscle",
+   "sample_count": 3,
+   "sample_ids": [
+    "s2",
+    "s4",
+    "s6"
+   ],
+   "column_names": [
+    "intercept",
+    "condition=B"
+   ],
+   "fitted_column_names": [
+    "intercept",
+    "condition=B"
+   ],
+   "rank": 2,
+   "aliased_terms": [],
+   "warnings": [],
+   "not_run": [],
+   "covariate_centres": {},
+   "matrix": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "fitted_matrix": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "design_file": null,
+   "contrasts_file": null
+  }
+ ],
+ "estimability_counts": {
+  "estimable": 2,
+  "not_estimable:confounded": 0,
+  "not_estimable:rank_deficient": 0
+ },
+ "written": null,
+ "row_count": 2,
+ "column_names": [
+  "stratum",
+  "contrast_id",
+  "label",
+  "numerator",
+  "denominator",
+  "covariate",
+  "covariate_unit",
+  "covariate_scale",
+  "estimability",
+  "weights",
+  "fitted_weights"
+ ],
+ "columns": {
+  "stratum": [
+   "organism part=liver",
+   "organism part=muscle"
+  ],
+  "contrast_id": [
+   "c1",
+   "c1"
+  ],
+  "label": [
+   "condition=B vs condition=A",
+   "condition=B vs condition=A"
+  ],
+  "numerator": [
+   "condition=B",
+   "condition=B"
+  ],
+  "denominator": [
+   "condition=A",
+   "condition=A"
+  ],
+  "covariate": [
+   null,
+   null
+  ],
+  "covariate_unit": [
+   null,
+   null
+  ],
+  "covariate_scale": [
+   null,
+   null
+  ],
+  "estimability": [
+   "estimable",
+   "estimable"
+  ],
+  "weights": [
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    1
+   ]
+  ],
+  "fitted_weights": [
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    1
+   ]
+  ]
+ },
+ "caveats": [
+  "Each stratum's matrix is mzLib's AnalysisDesign: an intercept; each factor treatment-coded against its reference level, its other levels in ordinal order; batch against its first level; each covariate as (value - centre) / scale; then any interactions. It equals R's stats::model.matrix for the same formula and level order.",
+  "Only mzLib's default contrasts are listed (AnalysisDesign.DefaultContrasts): each level against its factor's reference, every pair of levels when a factor has no reference, and each covariate's slope. With an interaction in the model, a factor's contrast is its effect at the reference level of the other factor.",
+  "Contrast ids (c1, c2, ...) are numbered within each stratum, so one id can name different comparisons in two strata. Match contrasts across strata by label.",
+  "A design file holds only the fitted columns (fitted_column_names): mzLib leaves out a column that is redundant with earlier ones, because LinearModel.Fit refuses a design without full column rank. A contrast that is not estimable has no fitted weights and is not in the contrasts file.",
+  "Strata are never columns: each stratum gets its own design and nothing is shared between them. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept.",
+  "1 contrast(s) the model asks for cannot run in a stratum; each stratum's not_run says which and why."
+ ]
+}
