@@ -1,0 +1,170 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Proteins.Align.cs on branch
+# feat/proteins-align (off main b6a90d7, pyMzLib 0.5.0), mzLib pin d10017ce (tag 1.0.595), which
+# carries mzLib #1428. The defaults are read from mzLib's PairwiseAligner constructor at that pin and
+# pinned by the bridge test OptionsLeftOut_AreMzLibsDefaults_AndTheEnvelopeSaysWhichWereUsed. Example
+# fixtures recorded from the live bridge on that branch; the real pairs are the DYNC1I2 isoforms and
+# the human and bovine albumins in pyMzLib's committed FASTA fixtures. The proposal this replaces is
+# design/scouting/2026-10-20/inv-readers-mods.md, verb surface item 1.
+verb: proteins align
+module: proteins
+summary: >-
+  Align protein sequences pairwise with mzLib's global affine-gap aligner, and map every residue of
+  each sequence to its counterpart in the other, or to none.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: PairwiseAligner, path: mzLib/Omics/SequenceAlignment/PairwiseAligner.cs, pin: d10017ce}
+  - {symbol: PairwiseAligner.Align, path: mzLib/Omics/SequenceAlignment/PairwiseAligner.cs, pin: d10017ce}
+  - {symbol: PairwiseAligner.Id, path: mzLib/Omics/SequenceAlignment/PairwiseAligner.cs, pin: d10017ce}
+  - {symbol: PairwiseAlignment.TryMapSourceToTarget, path: mzLib/Omics/SequenceAlignment/PairwiseAlignment.cs, pin: d10017ce}
+  - {symbol: PairwiseAlignment.TryMapTargetToSource, path: mzLib/Omics/SequenceAlignment/PairwiseAlignment.cs, pin: d10017ce}
+  - {symbol: SubstitutionMatrix.Blosum62, path: mzLib/Omics/SequenceAlignment/SubstitutionMatrix.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1016/0022-2836(70)90057-4", for: "Global alignment by dynamic programming (Needleman and Wunsch 1970, J Mol Biol 48:443)"}
+  - {doi: "10.1016/0022-2836(82)90398-9", for: "Affine gap costs in the same time and memory order, the form mzLib implements (Gotoh 1982, J Mol Biol 162:705)"}
+  - {doi: "10.1073/pnas.89.22.10915", for: "BLOSUM62, the substitution matrix and its half-bit units (Henikoff and Henikoff 1992, PNAS 89:10915)"}
+
+params:
+  - name: pairs
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 pair; each line exactly one tab"
+    default: null
+    doc: >-
+      Read from stdin (not an option): one pair per line, the source sequence, a tab, the target
+      sequence, as one-letter residue codes. Each sequence reaches mzLib exactly as given, case and
+      all. Either sequence may be empty, but not both, because a blank line is skipped. One row per
+      line, in input order, duplicates included. Sequences always travel on stdin, never argv: two
+      titin isoforms are about 70,000 characters, past argv's 32 KB ceiling on Windows.
+  - name: gap-open
+    type: int
+    required: false
+    unit: "half-bits (BLOSUM62 score units)"
+    range: ">= 0 (mzLib refuses a negative value)"
+    default: 11
+    doc: >-
+      The cost of opening a gap, charged once per gap. A gap of length k costs gap-open plus k times
+      gap-extend, BLAST's convention. Absent: nothing is sent and mzLib's PairwiseAligner default
+      applies, which is 11 at d10017ce (BLASTP's default with BLOSUM62).
+  - name: gap-extend
+    type: int
+    required: false
+    unit: "half-bits (BLOSUM62 score units)"
+    range: ">= 1 (mzLib refuses 0 or less)"
+    default: 1
+    doc: >-
+      The cost of each residue in a gap, the first included. Absent: mzLib's default, 1 at d10017ce.
+  - name: end-gaps
+    type: string
+    required: false
+    unit: null
+    range: "free | charged (case-insensitive)"
+    default: free
+    doc: >-
+      free: a gap at either end of either sequence costs nothing, so one sequence may overhang the
+      other (a signal peptide, a longer C-terminus) without penalty, as EMBOSS needle scores end gaps
+      by default. charged: every gap costs. mzLib's PairwiseAligner.FreeEndGaps, true or false.
+      Absent: mzLib's default, free (true) at d10017ce. The spelling is mzLib's own, from its aligner id.
+  - name: max-cells
+    type: int
+    required: false
+    unit: cells
+    range: "1 to 2147483591 (Array.MaxLength; mzLib refuses anything outside)"
+    default: 200000000
+    doc: >-
+      The largest dynamic-programming table mzLib will build, (source length + 1) x (target length +
+      1) cells of one byte each. A larger pair is refused rather than allowed to exhaust memory.
+      Absent: mzLib's default, 200,000,000 cells (about 200 MB) at d10017ce.
+  - name: no-residue-map
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: false
+    doc: >-
+      Leave out the residue map (residue_map is then null). The pairs table is unchanged. For a
+      batch where only the scores and counts are wanted: the map has one row per residue of both
+      sequences.
+
+result:
+  envelope_fields:
+    - {wire: aligner_id, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's PairwiseAligner.Id, naming the method and every parameter, e.g. global-affine;BLOSUM62;open=11;extend=1;end-gaps=free. Store it with any mapped position."}
+    - {wire: matrix, type: string, unit: null, nullable: false, null_means: null, doc: "The substitution matrix's name, always BLOSUM62: mzLib's default, the only one the wire offers."}
+    - {wire: gap_open, type: int, unit: "half-bits (BLOSUM62 score units)", nullable: false, null_means: null, doc: "The gap-open cost the aligner used: the option's value, or mzLib's default when it was absent."}
+    - {wire: gap_extend, type: int, unit: "half-bits (BLOSUM62 score units)", nullable: false, null_means: null, doc: The gap-extension cost the aligner used.}
+    - {wire: end_gaps, type: string, unit: null, nullable: false, null_means: null, doc: "free or charged: the end-gap rule the aligner used."}
+    - {wire: max_cells, type: int, unit: cells, nullable: false, null_means: null, doc: The table limit the aligner used.}
+    - {wire: record_count, type: int, unit: pairs, nullable: false, null_means: null, doc: "Rows: the input pairs."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The pairs table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per pair, in input order."}
+    - {wire: residue_map, type: object, unit: null, nullable: true, null_means: "--no-residue-map was given", doc: "{row_count, column_names, columns}: one row per residue of each sequence of each pair, pair by pair, each pair's source residues (positions 1 to its length) and then its target residues (typed under result.tables.residue_map)."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Seven static caveats.}
+  columns:
+    - {wire: pair_index, type: int, unit: null, nullable: false, null_means: null, doc: "0-based position of the pair among the non-blank stdin lines."}
+    - {wire: source_length, type: int, unit: residues, nullable: false, null_means: null, doc: The source sequence's length.}
+    - {wire: target_length, type: int, unit: residues, nullable: false, null_means: null, doc: The target sequence's length.}
+    - {wire: score, type: int, unit: "half-bits (BLOSUM62 score units)", nullable: false, null_means: null, doc: "PairwiseAlignment.Score: substitution scores summed over the paired residues, less every charged gap. A raw score, not a bit score, an E-value or an identity; compare it only between alignments with the same aligner_id."}
+    - {wire: identical, type: int, unit: residues, nullable: false, null_means: null, doc: "Paired residues that are the same letter, compared case-insensitively (PairwiseAlignment.Identical)."}
+    - {wire: substituted, type: int, unit: residues, nullable: false, null_means: null, doc: Paired residues that differ (PairwiseAlignment.Substituted).}
+    - {wire: source_residues_facing_gap, type: int, unit: residues, nullable: false, null_means: null, doc: "Source residues with no target counterpart: an extra or deleted stretch, or an overhang."}
+    - {wire: target_residues_facing_gap, type: int, unit: residues, nullable: false, null_means: null, doc: Target residues with no source counterpart.}
+    - {wire: aligned_source, type: string, unit: null, nullable: false, null_means: null, doc: "The source as given with '-' wherever it faces a target residue across a gap; as long as aligned_target."}
+    - {wire: aligned_target, type: string, unit: null, nullable: false, null_means: null, doc: "The target as given with '-' wherever it faces a source residue across a gap."}
+  tables:
+    residue_map:
+      - {wire: pair_index, type: int, unit: null, nullable: false, null_means: null, doc: The pair the residue belongs to.}
+      - {wire: sequence, type: string, unit: null, nullable: false, null_means: null, doc: "source or target: which sequence position is in."}
+      - {wire: position, type: int, unit: null, nullable: false, null_means: null, doc: "1-based position in that sequence, as everywhere in mzLib."}
+      - {wire: residue, type: string, unit: null, nullable: false, null_means: null, doc: "The residue at position, one letter, as given."}
+      - {wire: mapped_position, type: int, unit: null, nullable: true, null_means: "the residue faces a gap, so it has no counterpart (mzLib's TryMap returned false); never the nearest residue", doc: "1-based position of the paired residue in the other sequence: TryMapSourceToTarget for a source row, TryMapTargetToSource for a target row."}
+      - {wire: mapped_residue, type: string, unit: null, nullable: true, null_means: "the residue faces a gap", doc: "The paired residue, one letter, as given. Different from residue on a substitution."}
+
+errors:
+  - {kind: usage, when: "no pairs on stdin; a line that is not exactly two tab-separated fields (the message names the pair)"}
+  - {kind: usage, when: "--gap-open, --gap-extend or --max-cells not an integer, or given without a value; a value mzLib's PairwiseAligner constructor refuses (gap-open below 0, gap-extend below 1, max-cells below 1 or above 2147483591), with mzLib's message and the option named; --end-gaps not free or charged, or given without a value"}
+  - {kind: usage, when: "mzLib refused a pair: a sequence holding a gap character ('-' or '.'), or a table larger than max-cells. The message names the pair and quotes mzLib, which gives the cell count. The whole call fails on the first such pair, in input order."}
+  - {kind: correctness, when: "never seen at d10017ce: mzLib's aligner throws nothing else for non-null input"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "score is a raw substitution-matrix score in BLOSUM62's half-bit units, summed over the alignment: it grows with length and is not a bit score, an E-value or a percent identity. Compare scores only between alignments with the same aligner_id."
+  - "Global alignment: every residue of both sequences is in the alignment, paired or facing a gap. With end gaps free (mzLib's default) an overhang at either end costs nothing, so a short sequence is placed on the best-scoring stretch of a long one even when it has no real match there."
+  - "A residue facing a gap has no counterpart: its mapped_position is null, never the nearest residue."
+  - "One optimal alignment is returned. Where several score the same, mzLib's traceback prefers a residue pair, then a gap in the target, then a gap in the source, so the same input always gives the same alignment; a residue beside an indel may sit on the other side of the gap in another aligner's equally good answer. DYNC1I2 isoform 2B lacks six residues of the canonical sequence: V76 and V82 of the canonical are both V, either could pair with the isoform's V76, and mzLib pairs V82."
+  - "mzLib refuses only the gap characters '-' and '.'. Any other character BLOSUM62 does not name (selenocysteine U, pyrrolysine O, J, a digit, a space, a bracket) is scored as X, so pass bare one-letter sequences. Letters are compared case-insensitively; aligned_source, aligned_target and the residue columns keep the case given."
+  - "Time and memory grow with the product of the two lengths: mzLib builds a (source length + 1) x (target length + 1) table of one byte per cell and refuses a pair larger than max_cells. Two identical sequences free of X and * are aligned residue for residue without the table, so max_cells does not limit them."
+  - "Each stdin line is one pair, aligned in input order; blank lines are skipped. mzLib's aligner takes no thread count, so pairs are aligned one after another."
+
+bindings:
+  py: {name: pymzlib.proteins.align_many, note: "pymzlib.proteins.align(source, target) is the one-pair form: the same call, returning one Alignment."}
+  rust: {name: "mzlib::proteins::align_with", options: AlignOptions, note: "planned; not yet ported"}
+  r: {name: proteins_align, note: "planned; not yet ported"}
+
+examples:
+  - fixture: proteins_align_deletion.json
+    py: "aln = pymzlib.proteins.align('MKTAYIAKQRQISFVKSHFSRQ', 'MKTAYIAKISFVKSHFSRQ')"
+    rust: "let alns = mzlib::proteins::align_with(&[(source, target)], &AlignOptions::default())?;"
+    r: "alns <- proteins_align(list(c(source, target)))"
+  - fixture: proteins_align_many.json
+    py: "alns = pymzlib.proteins.align_many([('MKTAYIAKQRQISFVKSHFSRQ', 'MKTAYIAKISFVKSHFSRQ'), ('MLLLPEPTIDE', 'PEPTIDE')])"
+    rust: "let alns = mzlib::proteins::align_with(&pairs, &AlignOptions::default())?;"
+    r: "alns <- proteins_align(pairs)"
+  - fixture: proteins_align_charged.json
+    py: "charged = pymzlib.proteins.align('MLLLPEPTIDE', 'PEPTIDE', end_gaps='charged')"
+    rust: "let charged = mzlib::proteins::align_with(&pairs, &AlignOptions { end_gaps: Some(EndGaps::Charged), ..Default::default() })?;"
+    r: "charged <- proteins_align(pairs, end_gaps = 'charged')"
+  - fixture: proteins_align_dync1i2.json
+    py: "isoforms = pymzlib.proteins.align_many([(seq['Q13409'], seq['Q13409-2']), (seq['Q13409'], seq['Q13409-3'])])"
+    rust: "let isoforms = mzlib::proteins::align_with(&pairs, &AlignOptions::default())?;"
+    r: "isoforms <- proteins_align(pairs)"
+  - fixture: proteins_align_albumin.json
+    py: "orthologs = pymzlib.proteins.align(seq['P02768'], seq['P02769'])"
+    rust: "let orthologs = mzlib::proteins::align_with(&[(human, bovine)], &AlignOptions::default())?;"
+    r: "orthologs <- proteins_align(list(c(human, bovine)))"
+
+open_questions:
+  - "A substitution matrix other than BLOSUM62 is not offered. mzLib can read one (SubstitutionMatrix.Parse(name, TextReader), NCBI's text format), but it needs a name for the aligner id, which the bridge would have to invent, and the units of every score would then be that matrix's. Whether to add --matrix FILE, and where its name comes from, is open."
+  - "mzLib scores any character BLOSUM62 does not name as X, digits and spaces included, so a sequence with a stray modification bracket or a number aligns without complaint. Whether PairwiseAligner.Align should refuse non-letters, as it refuses '-' and '.', is an mzLib question, not raised upstream yet."
+  - "Pairs are aligned one at a time: PairwiseAligner takes no degree of parallelism, so the wire has no --threads (PARALLELISM.md). A batch aligner with one (for proteome-wide ortholog or isoform maps) would be an mzLib addition."
+  - "residue_map is not validated by tools/check_verbs.py, which checks only 'columns' and 'bulk'. The bridge test ADeletion_LeavesItsResiduesUnmappedAndMapsAcrossTheGap pins its column order."
+  - "Not yet ported to mzLibRust or mzLibR; the binding names above are proposals."

@@ -8,6 +8,7 @@ apart - a renamed wire key, a stdin section the bridge no longer splits, a colum
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -85,3 +86,65 @@ def test_classify_peptides_separates_bovine_from_human_albumin():
 def test_a_modified_peptide_is_refused_by_mzlib_as_a_usage_error():
     with pytest.raises(pymzlib.UsageError, match="base sequence"):
         proteins.classify_peptides(["PEPT[Phospho]IDEK"], HUMAN_XML)
+
+
+def _sequences() -> dict[str, str]:
+    db = proteins.read(HUMAN_FASTA, contaminants=BOVINE_ALBUMIN, sequences=True)
+    return dict(zip(db.columns["accession"], db.columns["sequence"]))
+
+
+def test_align_leaves_every_option_to_mzlib_and_says_what_it_used():
+    aln = proteins.align_many([("MLLLPEPTIDE", "PEPTIDE")])
+
+    assert (aln.matrix, aln.gap_open, aln.gap_extend, aln.end_gaps, aln.max_cells) == (
+        "BLOSUM62", 11, 1, "free", 200_000_000)
+    assert aln.aligner_id == "global-affine;BLOSUM62;open=11;extend=1;end-gaps=free"
+    assert aln.columns["score"] == [39]
+
+
+def test_align_maps_canonical_dync1i2_onto_its_isoforms_as_recorded():
+    seq = _sequences()
+    live = proteins.align_many([(seq["Q13409"], seq["Q13409-2"]), (seq["Q13409"], seq["Q13409-3"])])
+    recorded = json.loads((Path(__file__).parent / "fixtures" / "proteins_align_dync1i2.json").read_text("utf-8"))
+
+    assert live.columns == recorded["columns"]
+    assert live.residue_map.columns == recorded["residue_map"]["columns"]
+    assert live.alignments[0].map_source_to_target(82) == 76
+
+
+def test_align_options_reach_mzlib():
+    aln = proteins.align("MLLLPEPTIDE", "PEPTIDE", gap_open=5, gap_extend=2, end_gaps="charged")
+
+    assert aln.aligner_id == "global-affine;BLOSUM62;open=5;extend=2;end-gaps=charged"
+    assert aln.score == 39 - (5 + 4 * 2)
+
+
+@pytest.mark.parametrize(
+    ("pairs", "kwargs", "match"),
+    [
+        ([("PEP-TIDE", "PEPTIDE")], {}, "gap character"),
+        ([("PEPTIDE", "PEPTIDE"), ("AAAA", "AAAC")], {"max_cells": 1}, "Pair 1 was refused"),
+        ([("PEPTIDE", "PEPTIDE")], {"gap_open": -1}, "--gap-open was refused by mzLib"),
+        ([("PEPTIDE", "PEPTIDE")], {"gap_extend": 0}, "--gap-extend was refused by mzLib"),
+    ],
+)
+def test_mzlibs_refusals_are_usage_errors(pairs, kwargs, match):
+    with pytest.raises(pymzlib.UsageError, match=match):
+        proteins.align_many(pairs, **kwargs)
+
+
+def test_parse_accessions_never_repairs_what_it_is_given():
+    parsed = proteins.parse_accessions(["P04637-2", " P04637", "P04637 ", "NP_000537.3_R72P", "P04637_2"])
+
+    assert parsed.columns["input"] == ["P04637-2", " P04637", "P04637 ", "NP_000537.3_R72P", "P04637_2"]
+    assert parsed.columns["namespace"] == ["uniprot", "unrecognized", "unrecognized", "refseq", "unrecognized"]
+    assert parsed.columns["applied_variants"] == [None, None, None, "R72P", None]
+
+
+def test_parse_accessions_and_resolve_genes_share_one_namespace_vocabulary():
+    genes = proteins.resolve_genes(HUMAN_XML, gtf=GTF)
+    parsed = proteins.parse_accessions(genes.columns["accession"])
+
+    assert parsed.columns["namespace"] == genes.columns["namespace"]
+    assert parsed.columns["entry_accession"] == genes.columns["entry_accession"]
+    assert parsed.columns["isoform"] == genes.columns["isoform"]

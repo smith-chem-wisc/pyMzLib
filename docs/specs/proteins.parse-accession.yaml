@@ -1,0 +1,80 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Proteins.Accessions.cs on branch
+# feat/proteins-align (off main b6a90d7, pyMzLib 0.5.0), mzLib pin d10017ce (tag 1.0.595), which
+# carries mzLib #1382 (and #1338's ProteinAccession, since 1.0.593). Every caveat's example was run
+# through the bridge at that pin (bridge test EveryProbeAccession_ReadsAsMzLibParsesIt). Example
+# fixture recorded from the live bridge on that branch. The proposal this replaces is
+# design/scouting/2026-10-20/inv-readers-mods.md, verb surface item 2.
+verb: proteins parse-accession
+module: proteins
+summary: >-
+  Read protein accessions back into their entry, isoform or version, and applied sequence variants,
+  with mzLib's accession grammars, never repairing one that does not fit.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: VariantApplication.ParseAccession, path: mzLib/Omics/BioPolymer/VariantApplication.cs, pin: d10017ce}
+  - {symbol: ProteoformAccession, path: mzLib/Omics/BioPolymer/ProteoformAccession.cs, pin: d10017ce}
+  - {symbol: ProteinAccession.Parse, path: mzLib/MzLibUtil/ProteinAccession.cs, pin: d10017ce}
+  - {symbol: AccessionNamespace, path: mzLib/MzLibUtil/ProteinAccession.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1093/nar/gkae1010", for: "UniProt, whose published accession grammar (and -n isoform suffix) mzLib matches (UniProt Consortium 2025, NAR)"}
+  - {doi: "10.1093/nar/gkv1189", for: "RefSeq, whose protein accession prefixes and .n versions mzLib matches (O'Leary et al. 2016, NAR)"}
+
+params:
+  - name: accessions
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line"
+    default: null
+    doc: >-
+      Read from stdin (not an option): one accession per line, given to mzLib exactly as read, with
+      no trimming, case folding or splitting. Blank lines are skipped. One row per line, in input
+      order, duplicates included.
+
+result:
+  envelope_fields:
+    - {wire: record_count, type: int, unit: accessions, nullable: false, null_means: null, doc: "Rows: the input accessions."}
+    - {wire: namespace_counts, type: "map<string,int>", unit: accessions, nullable: false, null_means: null, doc: "Namespace -> accessions in it; all three keys (unrecognized, uniprot, refseq) always present, zeros included."}
+    - {wire: with_applied_variants_count, type: int, unit: accessions, nullable: false, null_means: null, doc: Accessions that name applied variants (has_applied_variants true).}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: The table's columns in order.}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per input, in input order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Seven static caveats.}
+  columns:
+    - {wire: input, type: string, unit: null, nullable: false, null_means: null, doc: "The line exactly as read (ProteoformAccession.Verbatim)."}
+    - {wire: entry_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The UniProt entry or unversioned RefSeq accession (ProteinAccession.EntryAccession): P04637 for P04637-2_S70N, NP_000537 for NP_000537.3_R72P. Equal to input when unrecognized. Names an entry, not a sequence."}
+    - {wire: isoform, type: int, unit: null, nullable: true, null_means: "no UniProt -n isoform suffix (always null for RefSeq and unrecognized), or a number too large for a 32-bit integer", doc: "The UniProt isoform number (ProteinAccession.Isoform)."}
+    - {wire: version, type: int, unit: null, nullable: true, null_means: "no RefSeq .n version (always null for UniProt and unrecognized), or a number too large for a 32-bit integer", doc: "The RefSeq version (ProteinAccession.Version)."}
+    - {wire: namespace, type: string, unit: null, nullable: false, null_means: null, doc: "uniprot, refseq or unrecognized: mzLib's AccessionNamespace, lower case as genes resolve and mzLib's GeneResolutionTsv write it."}
+    - {wire: parent_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The accession of the entry the variants were applied to, as written, isoform or version kept (ProteoformAccession.Entry.Verbatim): P04637-2 for P04637-2_Q5*. Equal to input when there are no applied variants."}
+    - {wire: applied_variants, type: string, unit: null, nullable: true, null_means: "the accession names no applied variant", doc: "The variant suffix as written, without the leading '_' (ProteoformAccession.AppliedVariants): S70N, or S70N_A80T for several."}
+    - {wire: has_applied_variants, type: bool, unit: null, nullable: false, null_means: null, doc: "ProteoformAccession.HasAppliedVariants: applied_variants is not null."}
+
+errors:
+  - {kind: usage, when: "no accessions on stdin"}
+  - {kind: correctness, when: "never expected: ParseAccession does not throw"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Parses, never repairs (mzLib's rule): an accession outside the UniProt and RefSeq protein grammars is unrecognized and kept verbatim, entry_accession equal to input. That includes lower case, surrounding spaces, a FASTA header (sp|P04637|P53_HUMAN), a decoy, contaminant or entrapment prefix (DECOY_P04637), and ProteinDbLoader's collision counter (P04637_2, which names a different entry whose accession collided)."
+  - "entry_accession names the entry, not a sequence: P04637 and P04637-2 share it but are different sequences, and the isoform UniProt displays for an entry can carry any number. It answers 'same entry', never 'same sequence'."
+  - "A protein-group accession joined with '|' (P04637|P02768) is unrecognized as a whole: mzLib does not split it. Split protein groups first."
+  - "Only RefSeq protein accessions (NP_, XP_, YP_, WP_, AP_) are recognized; a RefSeq transcript (NM_) or an Ensembl id (ENSP...) is unrecognized."
+  - "A variant suffix is read only after an entry mzLib recognizes, in the form mzLib's GetAccession writes: '_', the original residues, a 1-based position, the variant residues (S70N; a deletion A80; a stop gain Q5*), repeated for several (S70N_A80T). applied_variants is that suffix as written: it is not checked against any sequence."
+  - "An isoform or version number too large for a 32-bit integer (over 2147483647) reads as null while the accession still counts as UniProt or RefSeq: mzLib keeps the entry and drops the number."
+  - "Each stdin line is one accession, given to mzLib exactly as read; blank lines are skipped. One row per line, in input order, duplicates included."
+
+bindings:
+  py: {name: pymzlib.proteins.parse_accessions, note: "Plural because it takes a list; the verb is singular because each stdin line is one accession, as sdrf parse-age."}
+  rust: {name: "mzlib::proteins::parse_accessions", note: "planned; not yet ported"}
+  r: {name: proteins_parse_accessions, note: "planned; not yet ported"}
+
+examples:
+  - fixture: proteins_parse_accession.json
+    py: "parsed = pymzlib.proteins.parse_accessions(['P04637', 'P04637-2', 'Q13409-2', 'NP_000537.3_R72P', 'P04637_S70N_A80T', 'P04637_2', 'DECOY_P02768', 'sp|P04637|P53_HUMAN', 'P04637|P02768'])"
+    rust: "let parsed = mzlib::proteins::parse_accessions(&accessions)?;"
+    r: "parsed <- proteins_parse_accessions(accessions)"
+
+open_questions:
+  - "Whether to split '|'-joined protein-group accessions before parsing: mzLib does not, so the verb does not either. Splitting is a grouping rule, and it belongs in mzLib if anywhere."
+  - "An isoform or version past int.MaxValue is dropped with no signal while the namespace still reads uniprot or refseq (ProteinAccession.NumberOrNull). Whether mzLib should leave such an accession unrecognized instead is an mzLib question, not raised upstream yet."
+  - "Not yet ported to mzLibRust or mzLibR; the binding names above are proposals."
