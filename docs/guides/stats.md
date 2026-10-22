@@ -21,11 +21,16 @@ files pyMzLib ships in `pkg/python/tests/fixtures/stats/`.
 | What is one feature's effect, pooled across studies? | [`stats.meta`][pymzlib.stats.meta] | `RandomEffectsMeta.Pool` | DerSimonian and Laird 1986, as metafor `rma(method = "DL")` |
 | What do several studies' p-values for a feature say together? | [`stats.combine_p`][pymzlib.stats.combine_p] | `PValueCombination.Fisher` / `.Stouffer`, with `.OneSided` for signed tests | Fisher 1925; Stouffer 1949; as R's `pchisq` / `qnorm` |
 | Which features rise or fall with a per-sample trait (age, dose, load)? | [`stats.correlate`][pymzlib.stats.correlate] | `SpearmanCorrelation.Correlate` / `.PartialCorrelate` | Spearman 1904, as R's `cor.test`; partial as ppcor `pcor.test` |
+| Does a feature's detection (or any 0/1 outcome) follow a coefficient? | [`stats.fit_logistic`][pymzlib.stats.fit_logistic] | `LogisticRegression.Fit` | logistic regression by IRLS, as R's `glm(family = binomial)` |
+| Which features change, when the samples come in groups (days, donors, studies)? | [`stats.fit_mixed`][pymzlib.stats.fit_mixed] | `MixedModel.Fit` | random-intercept mixed model, as `nlme::lme` with one random intercept per group |
+| Does my search really control its FDR? | [`stats.entrapment_fdp`][pymzlib.stats.entrapment_fdp] | `EntrapmentFdp.Sweep` | entrapment FDP estimates, Wen et al. 2025, as FDRBench |
 
 `fit` already adjusts its own p-values, so you need `adjust` only for p-values from somewhere else,
 and `meta` only when you have one estimate per study and want them combined. `combine_p` is for
 when you have only p-values (and the direction of each effect), and `correlate` for a trait measured
-on a scale rather than in groups.
+on a scale rather than in groups. `fit_logistic` models a yes/no outcome, such as whether a protein
+was detected; `fit_mixed` is `fit` for samples that share a baseline within groups; and
+`entrapment_fdp` checks a search's identifications rather than its quantities.
 
 ## 1. Check it against limma
 
@@ -457,6 +462,328 @@ Before you trust a correlation:
   adjusted = pymzlib.stats.adjust(result.columns["p_value"])
   ```
 
+## 8. Is a feature's detection related to the condition?
+
+Missing values in label-free data are rarely random. A protein near the detection limit is missed
+more often where there is less of it, and an analysis that ignores the missing cells is then
+biased. Before you choose how to handle them, ask the data: **does each feature's chance of being
+detected depend on the condition?** That is a logistic regression per feature, on a table of 1
+(measured) and 0 (not measured). `fit_logistic` runs one per feature with mzLib's
+`LogisticRegression.Fit`, which is R's `glm(family = binomial)` per feature, and tests each
+coefficient with a Wald z.
+
+The dilution series from section 2 has a detection table ready. It is derived from the responses
+file by one rule, held in the bridge's tests: 1 where the responses file has a value, 0 where it is
+blank. The design is section 2's:
+
+```pycon
+>>> with open("malat_dilution_detected.tsv") as fh:
+...     header, *oligos = [line.rstrip("\n").split("\t") for line in fh]
+>>> sorted({cell for oligo in oligos for cell in oligo[1:]})
+['0', '1']
+>>> detected = pymzlib.stats.fit_logistic("malat_dilution_detected.tsv", "malat_dilution_design.tsv",
+...                                       ["malat_250ng", "malat_125ng"])
+>>> detected.status_counts
+{'fitted': 191, 'too_few_observations': 0, 'rank_deficient': 0, 'separated': 301, 'not_converged': 0}
+
+```
+
+Every oligo has an outcome in every run, because 0 is an outcome here, not a missing value. So none
+is `too_few_observations`. But most are **separated**, and that word needs reading before the
+rest. Per transcript, at a quarter of the MALAT1 load:
+
+```pycon
+>>> for transcript in ["MALAT1", "FLuc", "20mer2"]:
+...     rows = [r for r in detected.rows("malat_125ng") if r["feature"].split(":")[0] == transcript]
+...     fitted = [r for r in rows if r["status"] == "fitted"]
+...     line = f"{transcript:>6}  {len(rows):>3} oligos  {len(fitted):>3} fitted"
+...     if fitted:
+...         change = statistics.median(r["estimate"] for r in fitted)
+...         line += f"  median log-odds {change:+.2f}  p < 0.05: {sum(r['p_value'] < 0.05 for r in fitted)}"
+...     print(line)
+MALAT1  345 oligos  113 fitted  median log-odds -0.18  p < 0.05: 4
+  FLuc  138 oligos   77 fitted  median log-odds +0.41  p < 0.05: 3
+20mer2    6 oligos    0 fitted
+
+```
+
+`estimate` is a change in the **log-odds** of detection per unit of the coefficient. For a 0/1
+column it is the log of the odds ratio against the 500 ng runs. Quartering MALAT1 moves its
+oligos' odds of detection by a median factor of exp(-0.18), about 0.84, and only 4 of 113 oligos
+pass an unadjusted p of 0.05. In this table, MALAT1's missing values follow its load only weakly:
+they are mostly about how close each oligo sits to the detection limit in every run. FLuc's odds
+rise a little as MALAT1 falls, plausibly from less competition for the same signal.
+
+What each row says:
+
+- `z` is the Wald statistic, `estimate / standard_error`. `p_value` is two-sided and **not
+  adjusted across features**: send one coefficient's column to `adjust`.
+- `deviance` is -2 times the log-likelihood at the estimate, the same in every coefficient's block.
+- `events` counts the runs with a 1, and `observed` the runs with a 0 or a 1.
+- `iterations` is how many reweighted least-squares steps mzLib took. It is 0 when no fit was
+  attempted.
+
+**A separated feature has no estimate, and that is not the same as no effect.** When the design
+splits a feature's 0s from its 1s, the likelihood keeps rising as a coefficient runs to infinity,
+so no maximum-likelihood estimate exists. R's `glm` prints a huge coefficient and a warning there;
+mzLib reports `separated` and `None`. With three load groups, an oligo seen in a handful of runs is
+almost always missing from every run of one group, and so is separated:
+
+```pycon
+>>> separated = [r for r in detected.rows("malat_125ng") if r["status"] == "separated"]
+>>> Counter(r["events"] for r in separated).most_common(4)
+[(0, 64), (2, 55), (1, 54), (3, 37)]
+
+```
+
+Sixty-four were never detected at all, and most of the rest in one to three runs. Here separation
+means "too sparse to say". In a cleaner experiment the same status can mark the strongest result
+in the table: a protein detected in every treated sample and in no control. Read `events` and
+`observed` before you discard one. Firth's penalized likelihood (R's `logistf`), which gives a
+finite estimate there, is not implemented.
+
+**Check it against R.** pyMzLib ships mzLib's own reference input (simulated binary features) and
+R's `glm` output for it:
+
+```pycon
+>>> def relative_worst(pairs):
+...     return max(abs(ours - float(theirs)) / abs(float(theirs)) for ours, theirs in pairs)
+>>> reference = pymzlib.stats.fit_logistic("glm_reference_responses.tsv", "glm_reference_design.tsv",
+...                                        ["Intercept", "x", "grp"])
+>>> with open("glm_reference_fit.tsv", newline="") as fh:
+...     glm = list(csv.DictReader(fh, delimiter="\t"))
+>>> rows = list(zip(reference.rows("grp"), glm))
+>>> relative_worst((ours["estimate"], r["b2"]) for ours, r in rows if r["status"] == "fitted") < 1e-8
+True
+>>> [ours["status"] for ours, r in rows if r["status"] == "separated"]
+['separated', 'separated', 'separated', 'separated']
+
+```
+
+The estimates agree with R to better than one part in 10^8, and the standard errors and p-values
+to 1e-6, because `summary.glm` takes its weights from the step before the estimate. Where R's own
+fitted probabilities came within 1e-10 of 0 or 1, mzLib reports `separated` too.
+
+Before you trust a logistic fit:
+
+- **Wald tests are weakest exactly where they matter.** Near separation, and in small samples, the
+  standard error grows faster than the estimate, and z shrinks. No likelihood-ratio test is
+  offered.
+- **A 0 is an outcome.** Blank only a cell you genuinely do not know.
+- **`max_iterations` and `tolerance` are mzLib's when you leave them out,** and the result then
+  echoes `None` for them. mzLib's default tolerance is tighter than `glm`'s default `epsilon` of
+  1e-8, so default `glm` output can differ in the late digits.
+
+## 9. When samples come in groups
+
+Runs acquired on different days, replicates from one donor, studies pooled into one analysis: each
+group can sit at its own baseline. `fit` treats every sample as independent, so a day-to-day shift
+either inflates its residual variance or, when the days are unbalanced, leaks into the effect. A
+**mixed model** gives every group its own baseline, a random intercept with variance tau², and
+estimates each coefficient *within* groups. `fit_mixed` runs one per feature with mzLib's
+`MixedModel.Fit`, which is `nlme::lme(y ~ ..., random = ~ 1 | group)` per feature.
+
+The dilution series' runs were acquired on five days, and each run's name begins with its date. A
+**groups** table says which group each sample is in: the sample name, then one label column whose
+header names the grouping. This one is derived from the run names by a rule held in the bridge's
+tests:
+
+```pycon
+>>> with open("malat_dilution_day.tsv") as fh:
+...     header, *runs = [line.rstrip("\n").split("\t") for line in fh]
+>>> header, Counter(day for _, day in runs)
+(['run', 'day'], Counter({'2026_09_24': 8, '2026_09_18': 6, '2026_09_27': 6, '2026_09_26': 4, '2026_09_25': 3}))
+>>> mixed = pymzlib.stats.fit_mixed("malat_dilution_log2_vs_fluc.tsv", "malat_dilution_design.tsv",
+...                                 "malat_dilution_day.tsv", ["malat_250ng", "malat_125ng"])
+>>> mixed.estimator, mixed.group_count
+('reml', 5)
+>>> mixed.status_counts
+{'fitted': 210, 'too_few_observations': 214, 'rank_deficient': 66, 'too_few_groups': 2, 'variance_ratio_at_limit': 0, 'not_converged': 0}
+
+```
+
+The design is section 2's, unchanged. Do not add a column per day: the random intercept replaces
+it. `estimator` is `"reml"` because none was given and that is mzLib's default. Two oligos were
+seen on only one day, or on no day twice, so their day variance cannot be told from their residual
+variance: `too_few_groups`.
+
+Compare the same MALAT1 oligos under both models:
+
+```pycon
+>>> linear = pymzlib.stats.fit("malat_dilution_log2_vs_fluc.tsv", "malat_dilution_design.tsv",
+...                            ["malat_250ng", "malat_125ng"])
+>>> def malat(result, coefficient):
+...     return {r["feature"]: r for r in result.rows(coefficient)
+...             if r["status"] == "fitted" and r["feature"].startswith("MALAT1:")}
+>>> malat(mixed, "malat_250ng").keys() == malat(linear, "malat_250ng").keys()
+True
+>>> for coefficient in ["malat_250ng", "malat_125ng"]:
+...     for name, result in [("fit", linear), ("fit_mixed", mixed)]:
+...         rows = malat(result, coefficient).values()
+...         estimate = statistics.median(r["estimate"] for r in rows)
+...         error = statistics.median(r["standard_error"] for r in rows)
+...         print(f"{coefficient}  {name:>9}  {len(rows)} oligos  median estimate {estimate:+.2f}  "
+...               f"median standard error {error:.2f}")
+malat_250ng        fit  116 oligos  median estimate -0.89  median standard error 1.00
+malat_250ng  fit_mixed  116 oligos  median estimate -1.05  median standard error 0.71
+malat_125ng        fit  116 oligos  median estimate -1.01  median standard error 1.09
+malat_125ng  fit_mixed  116 oligos  median estimate -1.09  median standard error 0.70
+
+```
+
+**Halving MALAT1 now reads as -1.05 against a known -1, with smaller standard errors.** Part of
+what section 2 counted as noise was the days. The quarter load still reads about -1 against a
+known -2, so that compression is not a day effect. How much the days matter is in the variance
+columns, which are the same in every coefficient's block:
+
+```pycon
+>>> by_day = malat(mixed, "malat_250ng").values()
+>>> round(statistics.median(r["group_variance"] for r in by_day), 2)
+0.32
+>>> round(statistics.median(r["residual_variance"] for r in by_day), 2)
+0.55
+
+```
+
+A typical MALAT1 oligo's day-to-day variance is more than half its run-to-run variance within a
+day.
+
+What each row says:
+
+- `estimate` is the effect within groups, in response units per coefficient unit: a log2 fold
+  change here. `standard_error` and `t` are as in `fit`.
+- `df` is the t test's denominator degrees of freedom, by nlme's **containment** rule: observed runs
+  minus observed days minus the coefficients that vary within a day. It is small for an oligo seen
+  in few runs:
+
+  ```pycon
+  >>> Counter(r["df"] for r in by_day).most_common(4)
+  [(1, 26), (2, 18), (None, 12), (4, 11)]
+
+  ```
+
+  A `None` df means the coefficient was constant within every day the oligo was seen on, so it can
+  only be tested between days, and too few days are left to test it. `t` is still reported, and
+  `p_value` is `None`.
+- `residual_variance` is sigma², within groups, and `group_variance` is tau², between them, both in
+  squared response units. A `group_variance` of 0 is the boundary: no day effect at all, and the fit
+  is ordinary least squares. nlme cannot reach 0 and prints a tiny positive number there instead.
+- `log_likelihood` is restricted under `"reml"`, so compare it only between models with the same
+  fixed effects. Pass `estimator="ml"` to compare designs.
+
+**Check it against nlme.** mzLib's reference input has 29 simulated samples in seven unequal
+groups, with a group-level covariate `wp` (constant within each group) beside `age`, which varies
+within groups:
+
+```pycon
+>>> reference = pymzlib.stats.fit_mixed("lmm_reference_responses.tsv", "lmm_reference_design.tsv",
+...                                     "lmm_reference_groups.tsv", ["Intercept", "age", "wp"])
+>>> with open("lmm_reference_fit.tsv", newline="") as fh:
+...     nlme = [r for r in csv.DictReader(fh, delimiter="\t") if r["method"] == "REML"]
+>>> relative_worst((ours["estimate"], r["b1"]) for ours, r in zip(reference.rows("age"), nlme)) < 1e-5
+True
+>>> all(ours["df"] == float(r["df2"]) for ours, r in zip(reference.rows("wp"), nlme))
+True
+
+```
+
+Estimates, standard errors, variances and log-likelihoods agree with nlme to 1e-5 relative, which
+is nlme's own optimizer precision, and every df is identical.
+
+Before you trust a mixed model:
+
+- **The df are nlme's containment df,** not Satterthwaite's or Kenward-Roger's, so `lmerTest` and
+  `pbkrtest` report different p-values.
+- **One random intercept, nothing more.** No random slopes, and no nested or crossed groupings.
+- **A feature the fixed effects fit exactly is reported fitted,** with a residual variance near
+  1e-16 and a t in the millions: mzLib's guard catches only an exactly zero residual. A constant
+  feature is the usual case. Check `residual_variance` before you believe a tiny p-value.
+- **Not adjusted across features.** As everywhere on this page, send `p_value` to `adjust`.
+
+## 10. Does a search really control its FDR?
+
+A search engine reports q-values, and a 1% threshold should mean that about 1% of the discoveries
+are false. **Entrapment** checks that claim. Peptides that cannot be in the sample, from another
+species or made from the real ones, are added to the search database, so every entrapment the
+search reports is a known false discovery. `entrapment_fdp` turns those counts into estimates of
+the false discovery proportion (FDP) at each q-value threshold, with mzLib's
+`EntrapmentFdp.Sweep`, following Wen et al. 2025 (the method FDRBench implements).
+
+It reads two tables, one row per unit you are estimating for (precursor, peptide or protein group),
+decoys removed, each with its best q-value:
+
+- **targets**: the columns `score` and `q_value`, and no others;
+- **entrapments**: `score` and `q_value`, then `partner_score` and `partner_q_value`, the score and
+  q-value of the one target it was made from when the search identified that target, both blank
+  otherwise. An optional `foreign` column marks entrapments with no partner by construction.
+
+pyMzLib ships mzLib's hand-built test search: seven targets and four entrapments, one entrapment
+for each case the paired estimate tells apart.
+
+```pycon
+>>> with open("entrapment_reference_entrapments.tsv", newline="") as fh:
+...     for row in csv.DictReader(fh, delimiter="\t"):
+...         print(dict(row))
+{'score': '85', 'q_value': '0.003', 'partner_score': '100', 'partner_q_value': '0.001'}
+{'score': '75', 'q_value': '0.006', 'partner_score': '70', 'partner_q_value': '0.008'}
+{'score': '65', 'q_value': '0.01', 'partner_score': '', 'partner_q_value': ''}
+{'score': '55', 'q_value': '0.03', 'partner_score': '20', 'partner_q_value': '0.5'}
+>>> fdp = pymzlib.stats.entrapment_fdp("entrapment_reference_targets.tsv",
+...                                    "entrapment_reference_entrapments.tsv", ratio=1.0)
+>>> fdp.thresholds_given, fdp.threshold_count, fdp.thresholds[:3], fdp.thresholds[-1]
+(False, 100, [0.001, 0.002, 0.003], 0.1)
+>>> for q in [0.003, 0.006, 0.01, 0.05]:
+...     r = fdp.at(q)
+...     print(f"q {q:<5}  targets {r['target_count']}  entrapments {r['entrapment_count']}  "
+...           f"lower {r['lower_bound']:.3f}  combined {r['combined']:.3f}  paired {r['paired']:.3f}")
+q 0.003  targets 2  entrapments 1  lower 0.333  combined 0.667  paired 0.333
+q 0.006  targets 3  entrapments 2  lower 0.400  combined 0.800  paired 0.600
+q 0.01   targets 4  entrapments 3  lower 0.429  combined 0.857  paired 0.857
+q 0.05   targets 6  entrapments 4  lower 0.400  combined 0.800  paired 0.800
+
+```
+
+Without `thresholds`, mzLib sweeps its default thresholds and the result echoes them. The three
+estimates answer different questions:
+
+- **`lower_bound`** is N_E / (N_T + N_E). Above the FDR you claimed, the search **fails** to
+  control it. Below, it proves nothing.
+- **`combined`** is N_E (1 + 1/r) / (N_T + N_E), with r the entrapment-to-target database size
+  ratio. It is an upper bound: at or below the claimed FDR, it is **evidence of control**.
+- **`paired`** is a tighter upper bound for 1:1 pairing. It asks of each discovered entrapment
+  whether its own target was discovered too, and ranked ahead of it. At q = 0.003 it equals the
+  lower bound, because the one entrapment's partner was found first.
+
+None is capped at 1. This toy search fails badly: at 1%, three of its seven discoveries are
+entrapments.
+
+**`paired` needs a ratio of exactly 1.** With any other ratio, or when every entrapment is
+foreign, mzLib does not report it:
+
+```pycon
+>>> doubled = pymzlib.stats.entrapment_fdp("entrapment_reference_targets.tsv",
+...                                        "entrapment_reference_entrapments.tsv", ratio=2.0,
+...                                        thresholds=[0.01, 0.05])
+>>> [(r["q_value_threshold"], round(r["combined"], 3), r["paired"]) for r in doubled.records]
+[(0.01, 0.643, None), (0.05, 0.6, None)]
+
+```
+
+For 1:1 pairing pass 1 itself, not a ratio computed from the database sizes after the generator's
+exclusions: 0.9998 is not 1, and `paired` disappears.
+
+Before you trust an entrapment estimate:
+
+- **One row per unit, at its best q-value, decoys removed.** mzLib does not deduplicate. Estimate
+  at the level your FDR claim is made at.
+- **The partner columns are copies.** mzLib does not check them against the targets file, so build
+  both files from the same table.
+- **Exclusions go in opposite directions.** An entrapment that is really a target peptide comes
+  out of the entrapments file. A target that cannot be traced to one target stays in the targets
+  file, but is nobody's partner (mzLib's `EntrapmentFdp.ClassifyExclusion`).
+- **The "sample" estimator N_E / (r N_T) is deliberately absent:** it is invalid in both
+  directions. The k-fold paired estimator, for k entrapments per target, is not implemented.
+
 ## What these functions will not do
 
 - **No imputation.** A missing value is left out of its feature's fit. If your pipeline imputes,
@@ -469,6 +796,11 @@ Before you trust a correlation:
   for two or three studies. Treat such pooled estimates with care.
 - **`combine_p` gives no two-sided combined p-value and no effect size**, and `correlate` does not
   report how many covariates mzLib kept. Neither adjusts across features: that is `adjust`.
+- **`fit_logistic` has no Firth correction and no likelihood-ratio test**, so a separated feature
+  gets no estimate. **`fit_mixed` has one random intercept** and nlme's containment df: no random
+  slopes, no Satterthwaite or Kenward-Roger. Neither adjusts across features.
+- **`entrapment_fdp` estimates; it does not build the entrapment database** or decide which
+  generator exclusions apply. It has no "sample" estimator and no k-fold paired estimator.
 - **pyMzLib does no arithmetic.** Every number on this page came from mzLib's
   `StatisticalModels`; pyMzLib parses the bridge's answer into the classes documented in the
   [API reference](../reference.md#pymzlibstats).
@@ -478,6 +810,8 @@ Before you trust a correlation:
 - [stats wire verbs](../reference/stats.md): every parameter, field, unit, error and caveat, as all
   three bindings publish them.
 - [FlashLFQ](flashlfq.md) and [Readers](readers.md): where intensity tables come from.
+- [Protein databases](proteins.md): which proteins mzLib marks as entrapment (`is_entrapment`),
+  for building the `entrapment_fdp` tables.
 
 ## Cite
 

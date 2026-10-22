@@ -76,25 +76,11 @@ internal static partial class Statistics
             throw new Program.UsageException($"Option --spline-basis must be 1 or more; got {splineBasis}.");
         int threads = Proteins.ThreadsFrom(arguments);
 
-        List<string> tested = Program.ReadStdinLines().Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        List<string> tested = ReadTestedCoefficients();
 
         ResponseTable responses = ReadResponses(responsesPath);
         DesignTable design = ReadDesign(designPath, responses.SampleNames);
-
-        if (tested.Count == 0)
-            throw new Program.UsageException(
-                "No coefficient to test was given on stdin. Give one name per line; the design has: " +
-                string.Join(", ", design.CoefficientNames) + ".");
-        string? duplicate = tested.GroupBy(c => c, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1)?.Key;
-        if (duplicate != null)
-            throw new Program.UsageException($"Coefficient '{duplicate}' was given more than once on stdin.");
-        foreach (string coefficient in tested)
-        {
-            if (!design.CoefficientNames.Contains(coefficient, StringComparer.Ordinal))
-                throw new Program.UsageException(
-                    $"No coefficient named '{coefficient}' in the design. The design has: " +
-                    string.Join(", ", design.CoefficientNames) + ".");
-        }
+        CheckTestedCoefficients(tested, design);
 
         LinearModelFit fit;
         var tests = new List<ModeratedTest>(tested.Count);
@@ -434,6 +420,49 @@ internal static partial class Statistics
         if (!double.IsFinite(value))
             throw new Program.UsageException($"{what} must be a finite number; got '{raw.Trim()}'.");
         return value;
+    }
+
+    /// <summary>The coefficients to test, from stdin: one design column name per line, blank lines skipped.</summary>
+    private static List<string> ReadTestedCoefficients() =>
+        Program.ReadStdinLines().Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+
+    /// <summary>At least one coefficient, none named twice, each a column of the design.</summary>
+    private static void CheckTestedCoefficients(List<string> tested, DesignTable design)
+    {
+        if (tested.Count == 0)
+            throw new Program.UsageException(
+                "No coefficient to test was given on stdin. Give one name per line; the design has: " +
+                string.Join(", ", design.CoefficientNames) + ".");
+        string? duplicate = tested.GroupBy(c => c, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1)?.Key;
+        if (duplicate != null)
+            throw new Program.UsageException($"Coefficient '{duplicate}' was given more than once on stdin.");
+        foreach (string coefficient in tested)
+        {
+            if (!design.CoefficientNames.Contains(coefficient, StringComparer.Ordinal))
+                throw new Program.UsageException(
+                    $"No coefficient named '{coefficient}' in the design. The design has: " +
+                    string.Join(", ", design.CoefficientNames) + ".");
+        }
+    }
+
+    /// <summary>
+    /// mzLib's refusal of an argument, as the caller's mistake: its message without .NET's
+    /// "(Parameter ...)" and "Actual value" tails. A refusal that names a cell by its 0-based
+    /// position ("feature 3, sample 5", "Sample 4") is also told by the names the caller wrote, since
+    /// the bridge passed features in file order and samples in the responses header's order.
+    /// </summary>
+    private static string MzLibRefusal(ArgumentException invalid, ResponseTable responses)
+    {
+        string message = invalid.Message.Split(" (Parameter")[0].Split(Environment.NewLine)[0];
+        var cell = System.Text.RegularExpressions.Regex.Match(message, @"feature (\d+), sample (\d+)");
+        if (cell.Success
+            && int.TryParse(cell.Groups[1].Value, out int f) && f < responses.FeatureIds.Count
+            && int.TryParse(cell.Groups[2].Value, out int s) && s < responses.SampleNames.Count)
+            return $"{message} That is feature '{responses.FeatureIds[f]}', sample '{responses.SampleNames[s]}'.";
+        var sample = System.Text.RegularExpressions.Regex.Match(message, @"^Sample (\d+) ");
+        if (sample.Success && int.TryParse(sample.Groups[1].Value, out int t) && t < responses.SampleNames.Count)
+            return $"{message} That is sample '{responses.SampleNames[t]}'.";
+        return message;
     }
 
     private static string RequireFile(Program.Arguments arguments, string name)

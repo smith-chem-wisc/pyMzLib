@@ -1,0 +1,59 @@
+{
+ "targets_file": "E:\\CodeReview\\wt-py-stats-models\\pkg\\python\\tests\\fixtures\\stats\\entrapment_reference_targets.tsv",
+ "entrapments_file": "E:\\CodeReview\\wt-py-stats-models\\pkg\\python\\tests\\fixtures\\stats\\entrapment_reference_entrapments.tsv",
+ "ratio": 2,
+ "thresholds": [
+  0.01,
+  0.05
+ ],
+ "thresholds_given": true,
+ "target_candidate_count": 7,
+ "entrapment_candidate_count": 4,
+ "foreign_count": 0,
+ "partnered_count": 3,
+ "threshold_count": 2,
+ "empty_threshold_count": 0,
+ "row_count": 2,
+ "column_names": [
+  "q_value_threshold",
+  "target_count",
+  "entrapment_count",
+  "lower_bound",
+  "combined",
+  "paired"
+ ],
+ "columns": {
+  "q_value_threshold": [
+   0.01,
+   0.05
+  ],
+  "target_count": [
+   4,
+   6
+  ],
+  "entrapment_count": [
+   3,
+   4
+  ],
+  "lower_bound": [
+   0.42857142857142855,
+   0.4
+  ],
+  "combined": [
+   0.6428571428571429,
+   0.6
+  ],
+  "paired": [
+   null,
+   null
+  ]
+ },
+ "caveats": [
+  "Wen et al. 2025 (Nat Methods 22:1454), as FDRBench implements it. lower_bound, N_E / (N_T + N_E), can only show that a search fails to control its FDR. combined, N_E (1 + 1/r) / (N_T + N_E), is an upper bound: evidence that it does. paired is a tighter upper bound for 1:1 pairing, each target with exactly one entrapment made from it. None is capped at 1.",
+  "A candidate is discovered when its q-value is at or below the threshold. A partner counts as discovered by its own q-value. When an entrapment and its partner are both discovered they are ranked as FDRBench ranks discoveries, lower q-value first and then higher score, and an exact tie counts the entrapment ahead, the conservative choice for an upper bound.",
+  "Give one row per unit estimated (precursor, peptide or protein group), decoys removed, each with its best q-value: mzLib does not deduplicate. A partner's score and q-value are copies of its target's row; mzLib does not check them against the targets file.",
+  "paired is reported only when the ratio is exactly 1 and some entrapment is not foreign. For 1:1 pairing give 1 itself, not a ratio computed from database sizes after exclusions. The sample estimator N_E / (r N_T), invalid in both directions, is deliberately absent, and the k-fold paired estimator for k entrapments per target is not implemented.",
+  "An entrapment generator's exclusions change the inputs in opposite directions (mzLib's EntrapmentFdp.ClassifyExclusion): an entrapment that is really a target peptide comes out of the entrapments file; a target that cannot be traced to one target stays in the targets file but is nobody's partner.",
+  "paired is null at every threshold. Here the ratio is 2 and 0 of 4 entrapments are foreign."
+ ]
+}

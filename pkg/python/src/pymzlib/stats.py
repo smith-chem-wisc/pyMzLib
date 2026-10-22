@@ -1,17 +1,22 @@
 """Differential abundance with no R: limma's moderated t-test, Benjamini-Hochberg, random-effects
-meta-analysis, p-value combination and Spearman correlation, computed by mzLib.
+meta-analysis, p-value combination, Spearman correlation, logistic and mixed models, and entrapment
+FDP estimates, computed by mzLib.
 
-Five questions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1446):
+Eight questions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1385,
+#1446):
 
-==========================================================  =====================  =============================================
-You want to know                                            Call                   mzLib computes it with
-==========================================================  =====================  =============================================
-Which features change with a coefficient, and how surely?   :func:`fit`            ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
-Which of these p-values survive a false discovery rate?     :func:`adjust`         ``MultipleTesting.BenjaminiHochberg``
-What is one feature's effect, pooled across studies?        :func:`meta`           ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
-What do several studies' p-values say together?             :func:`combine_p`      ``PValueCombination.Fisher`` / ``.Stouffer``
-Which features rise or fall with a per-sample trait?        :func:`correlate`      ``SpearmanCorrelation.Correlate`` / ``.PartialCorrelate``
-==========================================================  =====================  =============================================
+==========================================================  ======================  =============================================
+You want to know                                            Call                    mzLib computes it with
+==========================================================  ======================  =============================================
+Which features change with a coefficient, and how surely?   :func:`fit`             ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
+Which of these p-values survive a false discovery rate?     :func:`adjust`          ``MultipleTesting.BenjaminiHochberg``
+What is one feature's effect, pooled across studies?        :func:`meta`            ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
+What do several studies' p-values say together?             :func:`combine_p`       ``PValueCombination.Fisher`` / ``.Stouffer``
+Which features rise or fall with a per-sample trait?        :func:`correlate`       ``SpearmanCorrelation.Correlate`` / ``.PartialCorrelate``
+Does a 0/1 outcome (detected or not) follow a coefficient?  :func:`fit_logistic`    ``LogisticRegression.Fit``
+Which features change, when samples come in groups?         :func:`fit_mixed`       ``MixedModel.Fit`` (random intercept per group)
+Does a search really control its FDR (entrapment)?          :func:`entrapment_fdp`  ``EntrapmentFdp.Sweep``
+==========================================================  ======================  =============================================
 
 **It is limma, checked.** :func:`fit` is limma's ``lmFit`` followed by ``eBayes(legacy = TRUE)``
 (Smyth 2004), and mzLib holds it to limma 3.68.5 to 1e-8 relative on limma's own reference output.
@@ -48,9 +53,9 @@ off the command line. A blank, ``NA`` or ``NaN`` cell is missing and is left out
 fit, never imputed. **A 0 is an observation**, as in mzLib, so blank out any 0 that means "not
 measured".
 
-Wire verbs: ``stats fit``, ``stats adjust``, ``stats meta``, ``stats combine-p`` and
-``stats correlate``; their language-neutral specs live in the bridge repository under
-``design/verbs/``.
+Wire verbs: ``stats fit``, ``stats adjust``, ``stats meta``, ``stats combine-p``,
+``stats correlate``, ``stats fit-logistic``, ``stats fit-mixed`` and ``stats entrapment-fdp``; their
+language-neutral specs live in the bridge repository under ``design/verbs/``.
 """
 
 from __future__ import annotations
@@ -68,17 +73,26 @@ from .readers import _Table
 __all__ = [
     "COMBINATION_METHODS",
     "FIT_STATUSES",
+    "LOGISTIC_STATUSES",
+    "MIXED_ESTIMATORS",
+    "MIXED_STATUSES",
     "SPEARMAN_METHODS",
     "Adjusted",
     "CombinedPValues",
     "Correlations",
+    "EntrapmentFdpEstimates",
+    "LogisticModelFit",
     "MetaAnalysis",
+    "MixedModelFit",
     "ModeratedFit",
     "VariancePrior",
     "adjust",
     "combine_p",
     "correlate",
+    "entrapment_fdp",
     "fit",
+    "fit_logistic",
+    "fit_mixed",
     "meta",
 ]
 
@@ -99,6 +113,30 @@ COMBINATION_METHODS = ("fisher", "stouffer")
 #: Every value of the ``method`` column of :func:`correlate`, as mzLib's ``SpearmanPValueMethod`` is
 #: written on the wire. Only ``"not_estimable"`` rows have ``None`` for ``rho`` and ``p_value``.
 SPEARMAN_METHODS = ("exact", "asymptotic", "not_estimable")
+
+#: The first pyMzLib whose bridge has ``stats fit-logistic``, ``stats fit-mixed`` and
+#: ``stats entrapment-fdp`` (mzLib 1.0.595).
+_MODELS_SINCE = "0.6.0"
+
+#: Every value of :func:`fit_logistic`'s ``status`` column: the outcomes mzLib's
+#: ``LogisticRegression.Fit`` can give a feature, read from its code (mzLib does not list them per
+#: model yet). Only ``"fitted"`` rows carry statistics.
+LOGISTIC_STATUSES = ("fitted", "too_few_observations", "rank_deficient", "separated", "not_converged")
+
+#: Every value of :func:`fit_mixed`'s ``status`` column: the outcomes mzLib's ``MixedModel.Fit`` can
+#: give a feature, read from its code. Only ``"fitted"`` rows carry statistics.
+MIXED_STATUSES = (
+    "fitted",
+    "too_few_observations",
+    "rank_deficient",
+    "too_few_groups",
+    "variance_ratio_at_limit",
+    "not_converged",
+)
+
+#: The variance estimators :func:`fit_mixed` takes as ``estimator=``: mzLib's ``VarianceEstimator``
+#: ``Reml`` and ``MaximumLikelihood``. Leave ``estimator`` out for mzLib's default.
+MIXED_ESTIMATORS = ("reml", "ml")
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -516,6 +554,313 @@ class Correlations(_Table):
             trait_missing_count=int(data.get("trait_missing_count", 0)),
             given_incomplete_count=None if incomplete is None else int(incomplete),
             method_counts=dict(data.get("method_counts") or {}),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+class _PerCoefficient(_Table):
+    """``rows(coefficient)`` for a table of one block of rows per tested coefficient."""
+
+    def rows(self, coefficient: str) -> list[dict[str, Any]]:
+        """The rows reporting one coefficient, as dicts, in feature order.
+
+        Args:
+            coefficient: One of :attr:`tested_coefficients`.
+
+        Raises:
+            UsageError: ``coefficient`` was not reported by this fit.
+        """
+        tested = getattr(self, "tested_coefficients", [])
+        if coefficient not in tested:
+            raise _bridge.UsageError(
+                f"'{coefficient}' was not reported by this fit; it reported: " + ", ".join(tested) + "."
+            )
+        return [r for r in self.records if r["coefficient"] == coefficient]
+
+
+@dataclass(frozen=True)
+class LogisticModelFit(_PerCoefficient):
+    """What :func:`fit_logistic` returns: one row per (reported coefficient, feature).
+
+    ``columns`` holds one block of ``feature_count`` rows per coefficient you named, in that order,
+    each block in the responses file's feature order:
+
+    ==================  ==========================  ======================================================
+    column              unit                        meaning; ``None`` means
+    ==================  ==========================  ======================================================
+    ``feature``         -                           the id in the responses file's first column
+    ``coefficient``     -                           the coefficient this row reports
+    ``status``          -                           one of :data:`LOGISTIC_STATUSES`
+    ``estimate``        log-odds per coefficient    maximum-likelihood coefficient; ``exp(estimate)`` is
+                        unit                        the **odds ratio**. ``None`` = not fitted
+    ``standard_error``  log-odds per coefficient    from the inverse Fisher information at the estimate
+                        unit
+    ``z``               standard errors             Wald statistic, estimate / standard_error
+    ``p_value``         fraction (0 to 1)           two-sided Wald p-value; **not adjusted across
+                                                    features**
+    ``deviance``        deviance (-2 log L)         the feature's residual deviance
+    ``iterations``      iterations                  IRLS iterations used; 0 when no fit was attempted
+    ``observed``        samples                     samples with a 0 or 1
+    ``events``          samples                     observed samples whose outcome is 1
+    ==================  ==========================  ======================================================
+
+    Attributes:
+        responses_file: Absolute path of the responses table.
+        design_file: Absolute path of the design table.
+        feature_count: Feature rows read (features).
+        sample_count: Sample columns read (samples).
+        sample_names: In the responses header's order.
+        coefficient_names: Every design column, in order: the model always fits all of them.
+        tested_coefficients: The coefficients you asked to report, in order.
+        max_iterations: The iteration limit you passed (iterations), or ``None``: mzLib's default
+            was used.
+        tolerance: The convergence tolerance you passed (relative change in deviance), or
+            ``None``: mzLib's default was used.
+        threads: The thread count used (threads); the answer is identical at any count.
+        missing_count: Response cells that were blank, NA or NaN (cells), left out of their fits.
+        status_counts: Features per status (features), keyed by :data:`LOGISTIC_STATUSES`.
+        row_count: Rows in the table (rows): ``feature_count`` x the coefficients reported.
+        column_names: The table's columns, in order.
+        columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
+        caveats: What the numbers are and are not, with a count of unfitted features by status.
+    """
+
+    responses_file: str
+    design_file: str
+    feature_count: int
+    sample_count: int
+    sample_names: list[str]
+    coefficient_names: list[str]
+    tested_coefficients: list[str]
+    max_iterations: int | None
+    tolerance: float | None
+    threads: int
+    missing_count: int
+    status_counts: dict[str, int]
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> LogisticModelFit:
+        names, columns = _columns(data)
+        limit = data.get("max_iterations")
+        tolerance = data.get("tolerance")
+        return cls(
+            responses_file=str(data.get("responses_file", "")),
+            design_file=str(data.get("design_file", "")),
+            feature_count=int(data.get("feature_count", 0)),
+            sample_count=int(data.get("sample_count", 0)),
+            sample_names=list(data.get("sample_names") or []),
+            coefficient_names=list(data.get("coefficient_names") or []),
+            tested_coefficients=list(data.get("tested_coefficients") or []),
+            max_iterations=None if limit is None else int(limit),
+            tolerance=None if tolerance is None else float(tolerance),
+            threads=int(data.get("threads", 1)),
+            missing_count=int(data.get("missing_count", 0)),
+            status_counts=dict(data.get("status_counts") or {}),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class MixedModelFit(_PerCoefficient):
+    """What :func:`fit_mixed` returns: one row per (reported coefficient, feature).
+
+    ``columns`` holds one block of ``feature_count`` rows per coefficient you named, in that order,
+    each block in the responses file's feature order:
+
+    =====================  ==============================  ==================================================
+    column                 unit                            meaning; ``None`` means
+    =====================  ==============================  ==================================================
+    ``feature``            -                               the id in the responses file's first column
+    ``coefficient``        -                               the coefficient this row reports
+    ``status``             -                               one of :data:`MIXED_STATUSES`
+    ``estimate``           response units per coefficient  the fixed effect within groups: a **log2 fold
+                           unit                            change** for a 0/1 column on log2 intensities.
+                                                           ``None`` = not fitted
+    ``standard_error``     response units per coefficient  its standard error
+                           unit
+    ``df``                 degrees of freedom              nlme's containment df, a whole number. ``None`` =
+                                                           not fitted, or no positive df (a group-level
+                                                           coefficient with too few groups)
+    ``t``                  standard errors                 Wald statistic, estimate / standard_error
+    ``p_value``            fraction (0 to 1)               two-sided t test on ``df``; **not adjusted across
+                                                           features**. ``None`` also when ``df`` is
+    ``residual_variance``  squared response units          sigma², within groups
+    ``group_variance``     squared response units          tau², between the groups' baselines; 0 is the
+                                                           boundary (no group effect)
+    ``log_likelihood``     log-likelihood                  restricted under ``"reml"``
+    ``observed``           samples                         samples with a finite response
+    ``groups``             groups                          distinct groups among them
+    =====================  ==============================  ==================================================
+
+    Attributes:
+        responses_file: Absolute path of the responses table.
+        design_file: Absolute path of the design table.
+        groups_file: Absolute path of the groups table.
+        grouping: The groups file's label column header, e.g. ``"day"``.
+        group_names: The distinct labels, in order of first appearance over the samples.
+        group_count: Distinct labels over all samples (groups).
+        feature_count: Feature rows read (features).
+        sample_count: Sample columns read (samples).
+        sample_names: In the responses header's order.
+        coefficient_names: Every design column, in order: the model always fits all of them.
+        tested_coefficients: The coefficients you asked to report, in order.
+        estimator: ``"reml"`` or ``"ml"``, one of :data:`MIXED_ESTIMATORS`: the estimator mzLib
+            used, its default when you passed none.
+        threads: The thread count used (threads); the answer is identical at any count.
+        missing_count: Response cells that were blank, NA or NaN (cells), left out of their fits.
+        zero_count: Response cells that are exactly 0 (cells), fitted as observations.
+        status_counts: Features per status (features), keyed by :data:`MIXED_STATUSES`.
+        row_count: Rows in the table (rows): ``feature_count`` x the coefficients reported.
+        column_names: The table's columns, in order.
+        columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
+        caveats: What the model is and is not, plus counts for this input: unfitted features,
+            rows with no df, features at the boundary, zero cells.
+    """
+
+    responses_file: str
+    design_file: str
+    groups_file: str
+    grouping: str
+    group_names: list[str]
+    group_count: int
+    feature_count: int
+    sample_count: int
+    sample_names: list[str]
+    coefficient_names: list[str]
+    tested_coefficients: list[str]
+    estimator: str
+    threads: int
+    missing_count: int
+    zero_count: int
+    status_counts: dict[str, int]
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> MixedModelFit:
+        names, columns = _columns(data)
+        return cls(
+            responses_file=str(data.get("responses_file", "")),
+            design_file=str(data.get("design_file", "")),
+            groups_file=str(data.get("groups_file", "")),
+            grouping=str(data.get("grouping", "")),
+            group_names=list(data.get("group_names") or []),
+            group_count=int(data.get("group_count", 0)),
+            feature_count=int(data.get("feature_count", 0)),
+            sample_count=int(data.get("sample_count", 0)),
+            sample_names=list(data.get("sample_names") or []),
+            coefficient_names=list(data.get("coefficient_names") or []),
+            tested_coefficients=list(data.get("tested_coefficients") or []),
+            estimator=str(data.get("estimator", "")),
+            threads=int(data.get("threads", 1)),
+            missing_count=int(data.get("missing_count", 0)),
+            zero_count=int(data.get("zero_count", 0)),
+            status_counts=dict(data.get("status_counts") or {}),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class EntrapmentFdpEstimates(_Table):
+    """What :func:`entrapment_fdp` returns: one row per q-value threshold with a discovery.
+
+    ======================  ======================  ===============================================================
+    column                  unit                    meaning; ``None`` means
+    ======================  ======================  ===============================================================
+    ``q_value_threshold``   q-value (fraction)      the threshold; a candidate is discovered at or below it
+    ``target_count``        discoveries             N_T, targets discovered
+    ``entrapment_count``    discoveries             N_E, entrapments discovered
+    ``lower_bound``         fraction of             N_E / (N_T + N_E): a **lower bound**. Above your claimed FDR,
+                            discoveries             the search fails to control it; below, it proves nothing
+    ``combined``            fraction of             N_E (1 + 1/r) / (N_T + N_E): an **upper bound**. At or below
+                            discoveries             your claimed FDR, it is evidence of control. Can exceed 1
+    ``paired``              fraction of             a tighter upper bound for 1:1 pairing; can exceed 1.
+                            discoveries             ``None`` = does not apply: ratio not exactly 1, or every
+                                                    entrapment foreign
+    ======================  ======================  ===============================================================
+
+    Attributes:
+        targets_file: Absolute path of the targets table.
+        entrapments_file: Absolute path of the entrapments table.
+        ratio: r, the entrapment-to-target database size ratio, as you gave it (unitless).
+        thresholds: The q-value thresholds estimated at, in order: yours, or mzLib's default.
+        thresholds_given: ``True`` when you passed ``thresholds``; ``False`` when they are mzLib's
+            ``EntrapmentFdp.DefaultQValueThresholds``.
+        target_candidate_count: Rows of the targets file (candidates).
+        entrapment_candidate_count: Rows of the entrapments file (candidates).
+        foreign_count: Entrapments marked foreign (candidates).
+        partnered_count: Entrapments with a partner (candidates).
+        threshold_count: The number of thresholds (thresholds).
+        empty_threshold_count: Thresholds with no discoveries (thresholds), where every estimate is
+            0/0, so they have no row.
+        row_count: Rows in the table (rows).
+        column_names: The table's columns, in order.
+        columns: Column name -> one value per row.
+        caveats: What each estimate can and cannot show, plus any that apply to this input
+            (empty thresholds, no paired estimate, no partners).
+    """
+
+    targets_file: str
+    entrapments_file: str
+    ratio: float
+    thresholds: list[float]
+    thresholds_given: bool
+    target_candidate_count: int
+    entrapment_candidate_count: int
+    foreign_count: int
+    partnered_count: int
+    threshold_count: int
+    empty_threshold_count: int
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    def at(self, threshold: float) -> dict[str, Any] | None:
+        """The row for one q-value threshold, or ``None`` when nothing was discovered there.
+
+        Args:
+            threshold: One of :attr:`thresholds`, as a fraction (0.01 for 1%).
+
+        Raises:
+            UsageError: ``threshold`` is not one of :attr:`thresholds`.
+        """
+        if threshold not in self.thresholds:
+            raise _bridge.UsageError(
+                f"{threshold!r} is not one of the thresholds estimated at; pass it in thresholds=."
+            )
+        return next((r for r in self.records if r["q_value_threshold"] == threshold), None)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> EntrapmentFdpEstimates:
+        names, columns = _columns(data)
+        return cls(
+            targets_file=str(data.get("targets_file", "")),
+            entrapments_file=str(data.get("entrapments_file", "")),
+            ratio=float(data.get("ratio", 0)),
+            thresholds=[float(t) for t in data.get("thresholds") or []],
+            thresholds_given=bool(data.get("thresholds_given", False)),
+            target_candidate_count=int(data.get("target_candidate_count", 0)),
+            entrapment_candidate_count=int(data.get("entrapment_candidate_count", 0)),
+            foreign_count=int(data.get("foreign_count", 0)),
+            partnered_count=int(data.get("partnered_count", 0)),
+            threshold_count=int(data.get("threshold_count", 0)),
+            empty_threshold_count=int(data.get("empty_threshold_count", 0)),
             row_count=int(data.get("row_count", 0)),
             column_names=names,
             columns=columns,
@@ -967,3 +1312,286 @@ def correlate(
     _bridge.require_verb("stats correlate", since=_COMBINE_CORRELATE_SINCE)
     data = _bridge.invoke(*args, timeout=timeout)
     return Correlations._from_wire(data)
+
+
+def _coefficient_lines(coefficients: Sequence[str], caller: str) -> str:
+    """The stdin of a per-coefficient fit: one design column name per line."""
+    if isinstance(coefficients, str):
+        raise _bridge.UsageError(
+            f"coefficients takes a list of design column names; for one, use [{coefficients!r}]."
+        )
+    if not isinstance(coefficients, Sequence) or not coefficients:
+        raise _bridge.UsageError(f"{caller}() needs at least one coefficient to report, as a list.")
+    for name in coefficients:
+        if not isinstance(name, str) or not name.strip():
+            raise _bridge.UsageError(f"Every coefficient must be a non-empty str; got {name!r}.")
+        _one_line(name, "A coefficient name")
+    return "\n".join(coefficients) + "\n"
+
+
+def _threads(threads: object) -> list[str]:
+    if isinstance(threads, bool) or not isinstance(threads, int):
+        raise _bridge.UsageError(f"threads must be an int; got {threads!r}.")
+    return ["--threads", str(threads)]
+
+
+def fit_logistic(
+    responses: _PathLike,
+    design: _PathLike,
+    coefficients: Sequence[str],
+    *,
+    max_iterations: int | None = None,
+    tolerance: float | None = None,
+    threads: int = 1,
+    timeout: float | None = 600,
+) -> LogisticModelFit:
+    """Fit one logistic regression per feature of a 0/1 table, such as a detection table.
+
+    mzLib's ``LogisticRegression.Fit`` models logit P(outcome = 1) = X beta for every feature
+    (row) separately, by maximum likelihood, and tests each coefficient with a two-sided Wald z.
+    It is R's ``glm(y ~ 0 + X, family = binomial)`` per feature, which mzLib reproduces to 1e-8
+    relative in the coefficients (1e-6 in standard errors and p-values).
+
+    The usual question in proteomics: **is a feature's chance of being measured related to the
+    condition?** Write 1 where a protein was quantified and 0 where it was not; a coefficient far
+    from 0 says its missing values are not missing at random.
+
+    A feature is reported - never dropped - when it cannot be fitted. ``separated`` is the one to
+    read carefully: the design splits its 0s from its 1s (or every outcome is the same), so no
+    finite estimate exists. R's ``glm`` prints a huge coefficient and a warning there; mzLib reports
+    the status and ``None``. Look at ``events`` and ``observed`` for those rows.
+
+    Args:
+        responses: A TSV with a header row: the feature id first, then one column per sample,
+            named by its header - :func:`fit`'s layout - with every cell 0, 1, or blank / ``NA``
+            / ``NaN`` for missing (left out of that feature's fit). Any other value is refused.
+        design: :func:`fit`'s design: a TSV with a header row and one row per sample, the sample
+            name (matching the responses header, in any order) then one numeric column per
+            coefficient. Include an intercept column yourself if you want one.
+        coefficients: Design column names to report, each as one block of rows. Every design
+            column is fitted whatever you name.
+        max_iterations: The IRLS iteration limit per feature (iterations). Leave it out (``None``)
+            for mzLib's default; a feature still changing at the limit is ``not_converged``.
+        tolerance: Stop when the relative change in deviance is below this (R ``glm``'s rule).
+            Leave it out (``None``) for mzLib's default, which is tighter than ``glm``'s 1e-8.
+        threads: Features fitted at once (threads), or ``-1`` for every core. The answer is
+            identical at any value.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`LogisticModelFit`; :meth:`LogisticModelFit.rows` gives one coefficient's rows.
+
+    Raises:
+        UsageError: a file is missing or malformed; the design's samples are not exactly the
+            responses' samples; a coefficient is not in the design or is named twice; or, from
+            mzLib, a cell that is not 0, 1 or missing (naming the feature and sample), a design
+            that is not of full rank, ``max_iterations`` below 1 or ``tolerance`` not above 0.
+
+    Examples:
+        mzLib's own reference input (80 simulated binary features, 40 samples), and R's ``glm``
+        output for it, which pyMzLib ships:
+
+        >>> fit = pymzlib.stats.fit_logistic("glm_reference_responses.tsv", "glm_reference_design.tsv",
+        ...                                  ["Intercept", "x", "grp"])
+        >>> fit.status_counts
+        {'fitted': 76, 'too_few_observations': 0, 'rank_deficient': 0, 'separated': 4, 'not_converged': 0}
+        >>> import csv
+        >>> with open("glm_reference_fit.tsv", newline="") as fh:
+        ...     glm = list(csv.DictReader(fh, delimiter="\\t"))
+        >>> pairs = list(zip(fit.rows("x"), glm))
+        >>> [ours["status"] for ours, r in pairs if r["status"] == "separated"]
+        ['separated', 'separated', 'separated', 'separated']
+        >>> max(abs(ours["estimate"] - float(r["b1"])) / abs(float(r["b1"]))
+        ...     for ours, r in pairs if r["status"] == "fitted") < 1e-8
+        True
+        >>> first = fit.rows("x")[0]
+        >>> round(first["estimate"], 4), round(first["p_value"], 4), first["events"], first["observed"]
+        (0.4592, 0.2724, 25, 35)
+    """
+    stdin = _coefficient_lines(coefficients, "fit_logistic")
+    args = ["stats", "fit-logistic", "--responses", _path(responses, "responses"),
+            "--design", _path(design, "design"), *_threads(threads)]
+    if max_iterations is not None:
+        if isinstance(max_iterations, bool) or not isinstance(max_iterations, int):
+            raise _bridge.UsageError(f"max_iterations must be an int; got {max_iterations!r}.")
+        args += ["--max-iterations", str(max_iterations)]
+    if tolerance is not None:
+        args += ["--tolerance", repr(_number(tolerance, "tolerance"))]
+    _bridge.require_verb("stats fit-logistic", since=_MODELS_SINCE)
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return LogisticModelFit._from_wire(data)
+
+
+def fit_mixed(
+    responses: _PathLike,
+    design: _PathLike,
+    groups: _PathLike,
+    coefficients: Sequence[str],
+    *,
+    estimator: str | None = None,
+    threads: int = 1,
+    timeout: float | None = 600,
+) -> MixedModelFit:
+    """Fit one linear mixed model per feature, with a random intercept for each group of samples.
+
+    mzLib's ``MixedModel.Fit`` models y = X beta + u_group + e for every feature separately: the
+    fixed effects in your design, plus one baseline per group (a dataset, a donor, an acquisition
+    day) drawn from N(0, tau²). Each coefficient is tested by a two-sided Wald t on nlme's
+    "containment" degrees of freedom. It is ``nlme::lme(y ~ ..., random = ~ 1 | group)`` per
+    feature, which mzLib reproduces to 1e-5 relative (nlme's own precision), with identical df.
+
+    Use it when samples come in groups that share a baseline - runs acquired on the same day,
+    replicates of one donor, studies in a pooled analysis - and you want each coefficient's effect
+    *within* groups. :func:`fit` treats every sample as independent, so a day-to-day shift there
+    either inflates the residual variance or, if the days are unbalanced, leaks into the effect.
+
+    Args:
+        responses: :func:`fit`'s responses table: a TSV with a header row, the feature id first,
+            then one column per sample, named by its header. Log-transform intensities first.
+            Blank, ``NA`` or ``NaN`` is missing; **0 is an observation**.
+        design: :func:`fit`'s design: one row per sample, the sample name then one numeric column
+            per fixed-effect coefficient. Do not add a column per group: the random intercept
+            replaces it.
+        groups: A TSV with a header row and one row per sample: the sample name (exactly the
+            responses' samples, in any order), then ONE column with the sample's group label,
+            whose header names the grouping (``day``, ``donor``, ``dataset``).
+        coefficients: Design column names to report, each as one block of rows. Every design
+            column is fitted whatever you name.
+        estimator: ``"reml"`` or ``"ml"``, one of :data:`MIXED_ESTIMATORS`: how the variances are
+            estimated. Leave it out (``None``) for mzLib's default; :attr:`MixedModelFit.estimator`
+            says which was used. ``"ml"`` gives log-likelihoods you can compare between designs.
+        threads: Features fitted at once (threads), or ``-1`` for every core. The answer is
+            identical at any value.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`MixedModelFit`; :meth:`MixedModelFit.rows` gives one coefficient's rows.
+
+    Raises:
+        UsageError: a file is missing or malformed; the groups file has other than one label
+            column; the design's or the groups' samples are not exactly the responses' samples;
+            a coefficient is not in the design or is named twice; ``estimator`` is not one of
+            :data:`MIXED_ESTIMATORS`; or, from mzLib, a design that is not of full rank or a sample
+            whose group label is empty.
+
+    Examples:
+        mzLib's own reference input (120 simulated features, 29 samples in 7 groups of unequal
+        size; ``wp`` is constant within each group, ``age`` varies within them), and nlme's
+        output for it, which pyMzLib ships:
+
+        >>> fit = pymzlib.stats.fit_mixed("lmm_reference_responses.tsv", "lmm_reference_design.tsv",
+        ...                               "lmm_reference_groups.tsv", ["Intercept", "age", "wp"])
+        >>> fit.estimator, fit.grouping, fit.group_count, fit.status_counts["fitted"]
+        ('reml', 'group', 7, 120)
+        >>> import csv
+        >>> with open("lmm_reference_fit.tsv", newline="") as fh:
+        ...     nlme = [r for r in csv.DictReader(fh, delimiter="\\t") if r["method"] == "REML"]
+        >>> pairs = list(zip(fit.rows("age"), nlme))
+        >>> max(abs(ours["estimate"] - float(r["b1"])) / abs(float(r["b1"])) for ours, r in pairs) < 1e-5
+        True
+        >>> all(ours["df"] == float(r["df1"]) for ours, r in pairs)
+        True
+        >>> sorted({r["df"] for r in fit.rows("wp")})
+        [4, 5]
+
+        ``wp`` is a group-level covariate, so it is tested on the groups, not the samples: 7 groups
+        minus the intercept minus ``wp`` leaves 5 (4 for the one feature unobserved in a group).
+    """
+    stdin = _coefficient_lines(coefficients, "fit_mixed")
+    args = ["stats", "fit-mixed", "--responses", _path(responses, "responses"),
+            "--design", _path(design, "design"), "--groups", _path(groups, "groups"),
+            *_threads(threads)]
+    if estimator is not None:
+        if not isinstance(estimator, str) or estimator not in MIXED_ESTIMATORS:
+            raise _bridge.UsageError(
+                f"estimator must be one of {', '.join(MIXED_ESTIMATORS)} (mzLib's VarianceEstimator "
+                f"Reml or MaximumLikelihood), or None for mzLib's default; got {estimator!r}."
+            )
+        args += ["--estimator", estimator]
+    _bridge.require_verb("stats fit-mixed", since=_MODELS_SINCE)
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return MixedModelFit._from_wire(data)
+
+
+def entrapment_fdp(
+    targets: _PathLike,
+    entrapments: _PathLike,
+    *,
+    ratio: float,
+    thresholds: Sequence[float] | None = None,
+    timeout: float | None = 600,
+) -> EntrapmentFdpEstimates:
+    """Estimate a search's false discovery proportion from its entrapment hits.
+
+    An entrapment experiment adds peptides that cannot be in the sample (from another species, or
+    made from the target peptides) to the search database. Every entrapment the search reports is
+    then a known false discovery, which lets you check the search's FDR claim instead of trusting
+    it. mzLib's ``EntrapmentFdp.Sweep`` computes the three valid estimators of Wen et al. 2025 (the
+    method FDRBench implements) at each q-value threshold:
+
+    * ``lower_bound`` = N_E / (N_T + N_E). Above the FDR you claimed, the search **fails** to
+      control it. Below, it proves nothing.
+    * ``combined`` = N_E (1 + 1/r) / (N_T + N_E). An upper bound: at or below the claimed FDR, it
+      is **evidence of control**.
+    * ``paired``: a tighter upper bound when each target has exactly one entrapment made from it
+      (``ratio=1``), using whether each discovered entrapment's own target was discovered too.
+
+    The "sample" estimator N_E / (r N_T) is invalid in both directions and is deliberately absent.
+
+    Args:
+        targets: A TSV whose header names exactly ``score`` and ``q_value``, in any order: one row
+            per original-target candidate (precursor, peptide or protein group, whichever you are
+            estimating for), decoys removed, each with its best q-value. Higher scores are better.
+        entrapments: A TSV whose header names ``score``, ``q_value``, ``partner_score`` and
+            ``partner_q_value``, and optionally ``foreign``: one row per entrapment candidate.
+            The partner columns copy the score and q-value of the one target this entrapment was
+            made from, when the search identified it; leave both blank otherwise. ``foreign`` is 1
+            for an entrapment with no partner by construction (another species); blank or absent
+            is mzLib's default, not foreign. Other columns are refused, so select these first.
+        ratio: r, the entrapment-to-target database size ratio (unitless). Required: mzLib has no
+            default. ``paired`` is reported only when it is exactly 1, so for 1:1 pairing pass 1,
+            not a ratio computed from database sizes after exclusions.
+        thresholds: The q-value thresholds to estimate at, as fractions (0.01 for 1%). Leave it
+            out (``None``) for mzLib's default sweep, echoed in
+            :attr:`EntrapmentFdpEstimates.thresholds`.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        An :class:`EntrapmentFdpEstimates`, one row per threshold with a discovery;
+        :meth:`EntrapmentFdpEstimates.at` gives one threshold's row.
+
+    Raises:
+        UsageError: a file is missing or malformed (a column missing or unknown, a score or q-value
+            that is not a number, a partner with only one of its two values); ``ratio`` missing or
+            not a number; an empty ``thresholds``; or, from mzLib, a ratio that is not a positive
+            finite number.
+
+    Examples:
+        mzLib's own hand-built search (seven targets, four entrapments, one for each case the
+        paired estimate distinguishes), checked against the entrapment project's reference script:
+
+        >>> fdp = pymzlib.stats.entrapment_fdp("entrapment_reference_targets.tsv",
+        ...                                    "entrapment_reference_entrapments.tsv", ratio=1.0)
+        >>> fdp.threshold_count, fdp.row_count, fdp.thresholds[:3]
+        (100, 100, [0.001, 0.002, 0.003])
+        >>> row = fdp.at(0.01)
+        >>> row["target_count"], row["entrapment_count"]
+        (4, 3)
+        >>> round(row["lower_bound"], 5), round(row["combined"], 5), round(row["paired"], 5)
+        (0.42857, 0.85714, 0.85714)
+
+        At 1% the search reports 7 discoveries, 3 of them entrapments: far from a 1% FDR.
+    """
+    args = ["stats", "entrapment-fdp", "--targets", _path(targets, "targets"),
+            "--entrapments", _path(entrapments, "entrapments"),
+            "--ratio", repr(_number(ratio, "ratio"))]
+    if thresholds is not None:
+        if isinstance(thresholds, (str, bytes)) or not isinstance(thresholds, Sequence) or not thresholds:
+            raise _bridge.UsageError(
+                "thresholds takes a non-empty list of q-values, or None for mzLib's default."
+            )
+        args += ["--thresholds",
+                 ",".join(repr(_number(t, f"thresholds[{i}]")) for i, t in enumerate(thresholds))]
+    _bridge.require_verb("stats entrapment-fdp", since=_MODELS_SINCE)
+    data = _bridge.invoke(*args, timeout=timeout)
+    return EntrapmentFdpEstimates._from_wire(data)
