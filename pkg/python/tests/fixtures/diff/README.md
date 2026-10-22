@@ -15,5 +15,7 @@ committed file stops being exactly what it says it is.
 | `EcoliSpikeIn_QuantifiedPeptides.tsv` | `../flashlfq_vignette_peptides.tsv`, verbatim: the slice of FlashLFQ's E. coli spike-in vignette (two runs, 1x and 2x) that the median-polish parity test reads, under a name mzLib recognises as a peptide table. |
 
 The recorded bridge payloads that answer the examples are one folder up: `diff_design_*.json`,
-`diff_observations_*.json`, and `stats_fit_malat_diff_design.json` (stats fit on the design file
-`diff design` wrote for the dilution series).
+`diff_observations_*.json`, `stats_fit_malat_diff_design.json` (stats fit on the design file
+`diff design` wrote for the dilution series), `stats_fit_malat_diff_design_contrasts.json` (the same,
+with its contrasts file), and `stats_fit_malat_contrasts.json` (stats fit on the design and
+contrasts files `diff_design_malat_pairs.json` wrote with no reference level: every pair of loads).

@@ -440,6 +440,74 @@ public class DifferentialTests
         }
     }
 
+    /// <summary>
+    /// The whole chain over the wire: diff design --out, then stats fit --design design_1.tsv --contrasts
+    /// contrasts_1.tsv, with nothing on stdin. With no reference level every pair of loads is a contrast, and
+    /// one of them (500 ng vs 250 ng) is a difference of two coefficients. Each contrast row must be mzLib's
+    /// EmpiricalBayes.ModerateContrasts on the same files, called directly.
+    /// </summary>
+    [Test]
+    public void Design_ThenStatsFitContrasts_IsModerateContrastsOnThoseFiles()
+    {
+        JsonElement design = Design("factor\tmalat_load\n", "--samples", DiffFixture("malat_dilution_samples.tsv"), "--out", _temp);
+        JsonElement stratum = design.GetProperty("strata")[0];
+        string designFile = stratum.GetProperty("design_file").GetString()!;
+        string contrastsFile = stratum.GetProperty("contrasts_file").GetString()!;
+        string responses = StatsFixture("malat_dilution_log2_vs_fluc.tsv");
+
+        JsonElement fit = Run(Statistics.Fit, "", "stats", "fit", "--responses", responses, "--design", designFile,
+            "--contrasts", contrastsFile);
+
+        JsonElement contrasts = fit.GetProperty("contrasts");
+        Assert.That(StringList(contrasts.GetProperty("tested_contrasts")), Is.EqualTo(new[] { "c1", "c2", "c3" }));
+        Assert.That(Strings(design, "label"), Is.EqualTo(new[]
+        {
+            "malat_load=250ng vs malat_load=125ng", "malat_load=500ng vs malat_load=125ng", "malat_load=500ng vs malat_load=250ng",
+        }), "the labels a reader joins on contrast_id");
+        Assert.That(contrasts.GetProperty("weights").GetProperty("c3").EnumerateArray().Select(e => e.GetDouble()),
+            Is.EqualTo(new[] { 0.0, -1, 1 }), "500 ng minus 250 ng, on intercept, malat_load=250ng, malat_load=500ng");
+        Assert.That(fit.GetProperty("row_count").GetInt32(), Is.EqualTo(0));
+        Assert.That(contrasts.GetProperty("row_count").GetInt32(), Is.EqualTo(3 * fit.GetProperty("feature_count").GetInt32()));
+
+        // mzLib, directly, on the same three files.
+        List<string[]> designRows = ReadTsv(designFile);
+        List<string[]> table = ReadTsv(responses);
+        string[] samples = table[0].Skip(1).ToArray();
+        var bySample = designRows.Skip(1).ToDictionary(r => r[0], r => r.Skip(1).Select(Parse).ToArray());
+        string[] coefficients = designRows[0].Skip(1).ToArray();
+        var y = new double[table.Count - 1, samples.Length];
+        for (int f = 0; f < table.Count - 1; f++)
+            for (int s = 0; s < samples.Length; s++)
+            {
+                string cell = table[f + 1][s + 1];
+                y[f, s] = cell.Length == 0 ? double.NaN : Parse(cell);
+            }
+        var x = new double[samples.Length, coefficients.Length];
+        for (int s = 0; s < samples.Length; s++)
+            for (int j = 0; j < coefficients.Length; j++)
+                x[s, j] = bySample[samples[s]][j];
+        var weights = ReadTsv(contrastsFile).Skip(1).Select(r => new ContrastWeights(r[0], r.Skip(1).Select(Parse).ToArray())).ToList();
+        IReadOnlyList<ModeratedContrast> direct = EmpiricalBayes.ModerateContrasts(LinearModel.Fit(y, x, coefficients, 1), weights, trend: false);
+
+        JsonElement columns = contrasts.GetProperty("columns");
+        List<string?> names = columns.GetProperty("contrast").EnumerateArray().Select(e => e.GetString()).ToList();
+        foreach (ModeratedContrast contrast in direct)
+        {
+            foreach (var (column, values) in new[]
+            {
+                ("estimate", contrast.Estimate), ("standard_error", contrast.StandardError), ("t", contrast.T),
+                ("p_value", contrast.PValue), ("bh_adjusted", contrast.BenjaminiHochbergAdjusted),
+                ("confidence_low", contrast.ConfidenceLow), ("confidence_high", contrast.ConfidenceHigh),
+            })
+            {
+                double[] wire = columns.GetProperty(column).EnumerateArray()
+                    .Where((_, i) => names[i] == contrast.Name)
+                    .Select(e => e.ValueKind == JsonValueKind.Null ? double.NaN : e.GetDouble()).ToArray();
+                Assert.That(wire, Is.EqualTo(values.ToArray()), $"{contrast.Name} {column}");
+            }
+        }
+    }
+
     // ---- diff design: refusals ----------------------------------------------------------------------
 
     [TestCase("factor\tcondition\tA\nfactor\tcondition\n", "named as a factor twice")]

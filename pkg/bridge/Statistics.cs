@@ -43,8 +43,9 @@ internal static partial class Statistics
     };
 
     /// <summary>
-    /// <c>stats fit --responses FILE --design FILE [--trend] [--spline-basis N] [--threads N]</c>,
-    /// with the coefficients to test on stdin, one name per line.
+    /// <c>stats fit --responses FILE --design FILE [--contrasts FILE [--confidence LEVEL]]
+    /// [--estimator moments_legacy|marginal_likelihood] [--trend] [--spline-basis N] [--threads N]</c>,
+    /// with the coefficients to test on stdin, one name per line (none needed with --contrasts).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -59,11 +60,20 @@ internal static partial class Statistics
     /// its header, and every cell must be a finite number. Rows are matched to response columns by
     /// name, so their order does not matter. Include an intercept column yourself if you want one.
     /// </para>
+    /// <para>
+    /// <b>contrasts</b> (Statistics.FitContrasts.cs) adds a second table, <c>contrasts</c>, of
+    /// <see cref="EmpiricalBayes.ModerateContrasts"/>; without it the output is the coefficient table
+    /// alone, as before.
+    /// </para>
     /// </remarks>
     public static object Fit(Program.Arguments arguments)
     {
         string responsesPath = RequireFile(arguments, "responses");
         string designPath = RequireFile(arguments, "design");
+        RequireValueIfProvided(arguments, "contrasts");
+        string? contrastsPath = arguments.WasProvided("contrasts") ? RequireFile(arguments, "contrasts") : null;
+        double? confidence = ConfidenceFrom(arguments, contrastsPath is not null);
+        VariancePriorEstimator? estimator = PriorEstimatorFrom(arguments);
         bool trend = arguments.Flag("trend");
         if (arguments.WasProvided("spline-basis") && !trend)
             throw new Program.UsageException(
@@ -80,26 +90,32 @@ internal static partial class Statistics
 
         ResponseTable responses = ReadResponses(responsesPath);
         DesignTable design = ReadDesign(designPath, responses.SampleNames);
-        CheckTestedCoefficients(tested, design);
+        CheckTestedCoefficients(tested, design, contrastsPath is not null);
+        List<ContrastWeights>? weights = contrastsPath is null ? null : ReadContrasts(contrastsPath, design);
 
         LinearModelFit fit;
         var tests = new List<ModeratedTest>(tested.Count);
+        IReadOnlyList<ModeratedContrast>? contrasts = null;
         try
         {
             fit = LinearModel.Fit(responses.Values, design.Values, design.CoefficientNames, threads);
             foreach (string coefficient in tested)
-                tests.Add(EmpiricalBayes.Moderate(fit, coefficient, trend, splineBasis));
+                tests.Add(ModerateAsAsked(fit, coefficient, trend, splineBasis, estimator));
+            if (weights is not null)
+                contrasts = ModerateContrastsAsAsked(fit, weights, trend, splineBasis, estimator, confidence);
         }
         catch (ArgumentException invalid) when (invalid is not ArgumentNullException)
         {
             // mzLib's own validation, reclassified as the caller's input: a design that is not of full
-            // rank, or a table too sparse to estimate a variance prior from, is a question asked wrongly,
-            // not a fault, and must exit 2 like every other malformed argument.
-            throw new Program.UsageException(invalid.Message.Split(" (Parameter")[0]);
+            // rank, a table too sparse to estimate a variance prior from, a contrast of all zeros or
+            // named twice, a confidence level outside (0, 1), is a question asked wrongly, not a fault,
+            // and must exit 2 like every other malformed argument.
+            throw new Program.UsageException(invalid.Message.Split(" (Parameter")[0].Split(Environment.NewLine)[0]);
         }
 
-        VariancePrior prior = tests[0].Prior;
-        bool dfDiffer = tests[0].ResidualDfDiffer;
+        // The prior depends on the fit alone, so every test and every contrast of one call shares it.
+        VariancePrior prior = tests.Count > 0 ? tests[0].Prior : contrasts![0].Prior;
+        bool dfDiffer = tests.Count > 0 ? tests[0].ResidualDfDiffer : contrasts![0].ResidualDfDiffer;
 
         var table = new Sdrf.ColumnTable(FitColumns);
         foreach (ModeratedTest test in tests)
@@ -132,6 +148,7 @@ internal static partial class Statistics
         {
             responses_file = Path.GetFullPath(responsesPath),
             design_file = Path.GetFullPath(designPath),
+            contrasts_file = contrastsPath is null ? null : Path.GetFullPath(contrastsPath),
             feature_count = fit.FeatureCount,
             sample_count = responses.SampleNames.Count,
             sample_names = responses.SampleNames,
@@ -145,6 +162,8 @@ internal static partial class Statistics
             residual_df_differ = dfDiffer,
             prior = new
             {
+                // What mzLib reports it fitted with: --estimator's choice, or mzLib's default without it.
+                estimator = PriorEstimatorName(prior.Estimator),
                 df = Finite(prior.Df),
                 df_infinite = double.IsPositiveInfinity(prior.Df),
                 trended = prior.Trended,
@@ -157,7 +176,8 @@ internal static partial class Statistics
             row_count = table.RowCount,
             column_names = table.Names,
             columns = table.Columns(),
-            caveats = FitCaveats(fit, dfDiffer, responses.ZeroCount, prior),
+            contrasts = contrasts is null ? null : ContrastResult(contrasts, fit, responses, prior),
+            caveats = FitCaveats(fit, dfDiffer, responses.ZeroCount, prior, contrasts),
         };
     }
 
@@ -426,10 +446,13 @@ internal static partial class Statistics
     private static List<string> ReadTestedCoefficients() =>
         Program.ReadStdinLines().Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
 
-    /// <summary>At least one coefficient, none named twice, each a column of the design.</summary>
-    private static void CheckTestedCoefficients(List<string> tested, DesignTable design)
+    /// <summary>
+    /// At least one coefficient (or, for <c>stats fit</c>, none with a contrasts file), none named twice,
+    /// each a column of the design.
+    /// </summary>
+    private static void CheckTestedCoefficients(List<string> tested, DesignTable design, bool contrastsGiven = false)
     {
-        if (tested.Count == 0)
+        if (tested.Count == 0 && !contrastsGiven)
             throw new Program.UsageException(
                 "No coefficient to test was given on stdin. Give one name per line; the design has: " +
                 string.Join(", ", design.CoefficientNames) + ".");
@@ -506,18 +529,26 @@ internal static partial class Statistics
             $"FeatureFitStatus.{status} has no wire name. Name it in Statistics.StatusName."),
     };
 
-    private static List<string> FitCaveats(LinearModelFit fit, bool dfDiffer, int zeroCount, VariancePrior prior)
+    private static List<string> FitCaveats(LinearModelFit fit, bool dfDiffer, int zeroCount, VariancePrior prior,
+        IReadOnlyList<ModeratedContrast>? contrasts)
     {
+        bool legacy = prior.Estimator == VariancePriorEstimator.MomentsLegacy;
         var caveats = new List<string>
         {
-            "Moderation is limma's legacy empirical-Bayes estimator (eBayes(legacy = TRUE), Smyth 2004); mzLib reproduces it to 1e-8 relative. Not implemented: robust = TRUE, contrasts, the B-statistic, observation weights.",
-            "bh_adjusted is Benjamini-Hochberg over the fitted features, per coefficient. It is not a target-decoy q-value.",
+            legacy
+                ? "moments_legacy: moderation is limma's legacy empirical-Bayes estimator (eBayes(legacy = TRUE), Smyth 2004); mzLib reproduces it to 1e-8 relative. Not implemented: robust = TRUE, the B-statistic, observation weights."
+                : "marginal_likelihood: the variance prior is fitted by mzLib's own maximum marginal likelihood, each feature's own residual df in the likelihood (VariancePriorEstimator.MarginalLikelihood). It is not limma's estimator (fitFDistUnequalDF1), so its numbers differ from default limma's; mzLib compares them with limma's, it does not require them equal. " +
+                  "mzLib searches the prior df from about 0.05 (e^-3) upward, so a prior df there is that floor, not an optimum. Not implemented: robust = TRUE, the B-statistic, observation weights.",
+            "bh_adjusted is Benjamini-Hochberg over the fitted features, per coefficient and per contrast. It is not a target-decoy q-value.",
             "Missing cells are omitted per feature, never imputed. A 0 is an observation: log-transform first, or blank out unmeasured values.",
         };
         if (dfDiffer)
             caveats.Add(
                 "residual_df_differ: the fitted features do not all have the same residual degrees of freedom (missing values were omitted). " +
-                "limma 3.61 and later then default to a different prior estimator (eBayes legacy = FALSE), so default limma would report a different prior and different moderated statistics for this input.");
+                (legacy
+                    ? "limma 3.61 and later then default to a different prior estimator (eBayes legacy = FALSE), so default limma would report a different prior and different moderated statistics for this input. " +
+                      "mzLib's estimator for this case is marginal_likelihood (--estimator marginal_likelihood), which handles unequal residual df exactly. Its numbers are mzLib's own: its tests hold them close to default limma's, not equal."
+                    : "marginal_likelihood handles that exactly, each feature's own df in the likelihood. Default limma (3.61 and later, eBayes legacy = FALSE) uses its own estimator for this case, so it would still report somewhat different numbers."));
         int notFitted = fit.Status.Count(s => s != FeatureFitStatus.Fitted);
         if (notFitted > 0)
         {
@@ -532,6 +563,8 @@ internal static partial class Statistics
         if (double.IsPositiveInfinity(prior.Df))
             caveats.Add(
                 "The prior df is infinite: the residual variances are no more dispersed than sampling alone explains, so every feature takes the prior variance.");
+        if (contrasts is not null)
+            caveats.AddRange(ContrastCaveats(contrasts));
         return caveats;
     }
 

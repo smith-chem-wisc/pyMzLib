@@ -23,6 +23,8 @@ recorded for different arguments:
 * a recording listed in ``RECORDED_WITH`` fits only a call that sends the options it was made with;
 * an optional input file in ``OPTIONAL_FILES`` (echoed as ``<name>_file``, null when absent) must
   be given by the call exactly when the recording used one;
+* an option in ``NESTED_ECHOES`` (echoed inside an object, as stats fit's ``prior.estimator``) must
+  equal that echo when the call sends it;
 * a recording with a key in ``GIVEN_ECHOES`` (``thresholds_given``) fits only a call that sends
   its option exactly when that key is true, and a numeric echo matches a call's option by value
   (``--ratio 1.0`` fits a recorded ``ratio`` of 1);
@@ -95,6 +97,7 @@ RECORDED_WITH = {
     "library_read_fragments.json": {"fragments": True},
     "library_read_index_only.json": {"index-only-threshold": "0"},
     "stats_fit_mixed_lmm_ml.json": {"estimator": "ml"},
+    "stats_fit_malat_marginal.json": {"estimator": "marginal_likelihood"},
     "diff_observations_spike_in_normalized.json": {"min-peptides": "50", "normalize": True},
     # ptmqtl: a flag or an option left out takes mzLib's default, which the echo cannot tell apart.
     "ptmqtl_pairs_batch_run_level.json": {"remove-run-level": True},
@@ -107,9 +110,16 @@ RECORDED_WITH = {
 
 #: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
 #: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples and
-#: --run-level-groups). A recording made with one answers only a call that gives one, and the
-#: reverse, or a plain correlation could print a partial one.
-OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups")
+#: --run-level-groups, stats fit --contrasts). A recording made with one answers only a call that
+#: gives one, and the reverse, or a plain correlation could print a partial one.
+OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "contrasts")
+
+
+#: Options a verb echoes inside an object rather than at the top level (stats fit --estimator as
+#: prior.estimator, --confidence as contrasts.confidence_level). A call that sends one fits only a
+#: recording whose echo has that value; a recording made with one is in ``RECORDED_WITH``, so a call
+#: that leaves it out does not fit it either.
+NESTED_ECHOES = {"estimator": ("prior", "estimator"), "confidence": ("contrasts", "confidence_level")}
 
 
 #: Optional output files a verb reports in its own field, null when the option was not given
@@ -135,6 +145,12 @@ def same_number(recorded: object, value: str) -> bool:
 
 def mismatch(data: dict, options: dict) -> str:
     """Why this recording cannot be the answer to these options, or "" if it can."""
+    for name, (outer, inner) in NESTED_ECHOES.items():
+        echo = data.get(outer)
+        if name in options and isinstance(echo, dict) and inner in echo:
+            value = options[name]
+            if str(echo[inner]) != str(value) and not same_number(echo[inner], str(value)):
+                return f"recorded with {outer}.{inner}={echo[inner]!r}, not {value!r}"
     for key, name in GIVEN_ECHOES.items():
         given = data.get(key)
         if isinstance(given, bool) and (name in options) != given:
@@ -240,7 +256,7 @@ def mismatch(data: dict, options: dict) -> str:
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
-              "stats combine-p", "stats fit-logistic", "stats fit-mixed",
+              "stats combine-p", "stats fit", "stats fit-logistic", "stats fit-mixed",
               "diff design", "diff observations", "sdrf restrict", "genes orthology"}
 
 
@@ -279,14 +295,14 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     gaps removed (mzLib refuses a '-' in an input sequence, so removing them is exact).
     stats combine-p: the same features in the same first-appearance order, the same number of
     tests, and weights and effects given or not as the recording's ``weighted`` and ``signed`` say.
-    stats fit-logistic and fit-mixed: the same coefficients, in the same order, as the recording's
-    ``tested_coefficients``.
+    stats fit, fit-logistic and fit-mixed: the same coefficients, in the same order, as the
+    recording's ``tested_coefficients`` (none, for a stats fit of contrasts alone).
     sdrf restrict: the same searched files, in the same order, as the recording's
     ``searched_files``, and as many acquired names as its ``acquired_name_count``.
     genes orthology: the same species (the first field of each line before ``--``) as the
     recording's ``species``, and as many dump paths after it as the recording has ``dumps``.
     """
-    if verb in ("stats fit-logistic", "stats fit-mixed"):
+    if verb in ("stats fit", "stats fit-logistic", "stats fit-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
         recorded = list(data.get("tested_coefficients") or [])
         if sent != recorded:

@@ -2,13 +2,14 @@
 meta-analysis, p-value combination, Spearman correlation, logistic and mixed models, and entrapment
 FDP estimates, computed by mzLib.
 
-Eight questions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1385,
-#1446):
+Eight functions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1368,
+#1385, #1446, #1452):
 
 ==========================================================  ======================  =============================================
 You want to know                                            Call                    mzLib computes it with
 ==========================================================  ======================  =============================================
 Which features change with a coefficient, and how surely?   :func:`fit`             ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
+Which features differ by a contrast, within what interval?  :func:`fit`             ``EmpiricalBayes.ModerateContrasts``
 Which of these p-values survive a false discovery rate?     :func:`adjust`          ``MultipleTesting.BenjaminiHochberg``
 What is one feature's effect, pooled across studies?        :func:`meta`            ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
 What do several studies' p-values say together?             :func:`combine_p`       ``PValueCombination.Fisher`` / ``.Stouffer``
@@ -40,11 +41,18 @@ can run the comparison yourself::
 Every one of the 400 moderated t-statistics and adjusted p-values agrees with limma to better than
 one part in 10^8.
 
-**What it is not.** It is limma's *legacy* estimator. When features have different residual
-degrees of freedom - which omitting missing values causes, so in most label-free data - limma 3.61
-and later default to a different prior estimator, and :attr:`ModeratedFit.residual_df_differ`
-says when your input is such a case. ``robust = TRUE``, contrasts, the B-statistic and observation
-weights are not implemented; write a contrast as its own design column instead.
+**What it is not.** By default it is limma's *legacy* estimator. When features have different
+residual degrees of freedom - which omitting missing values causes, so in most label-free data -
+limma 3.61 and later default to a different prior estimator, and
+:attr:`ModeratedFit.residual_df_differ` says when your input is such a case. For that case mzLib
+offers its own estimator, ``estimator="marginal_likelihood"``, which handles unequal degrees of
+freedom exactly; it is not limma's, so its numbers are close to default limma's, not equal.
+``robust = TRUE``, the B-statistic and observation weights are not implemented.
+
+**Contrasts, with confidence intervals.** ``fit(..., contrasts="contrasts_1.tsv")`` also tests
+each row of a contrasts file - "250 ng against 125 ng", "the mean of two groups against a third" -
+as limma's ``contrasts.fit`` with ``topTable(confint = ...)`` does, and returns them as
+:attr:`ModeratedFit.contrasts`. :func:`pymzlib.diff.design` writes that file beside the design.
 
 **Your data, as files.** :func:`fit` reads two tab-separated files - a feature-by-sample table of
 (already log-transformed) responses, and a sample-by-coefficient design - because that is the
@@ -76,6 +84,7 @@ __all__ = [
     "LOGISTIC_STATUSES",
     "MIXED_ESTIMATORS",
     "MIXED_STATUSES",
+    "PRIOR_ESTIMATORS",
     "SPEARMAN_METHODS",
     "Adjusted",
     "CombinedPValues",
@@ -84,6 +93,7 @@ __all__ = [
     "LogisticModelFit",
     "MetaAnalysis",
     "MixedModelFit",
+    "ModeratedContrasts",
     "ModeratedFit",
     "VariancePrior",
     "adjust",
@@ -101,6 +111,17 @@ _SINCE = "0.3.0"
 
 #: The first pyMzLib whose bridge has ``stats combine-p`` and ``stats correlate`` (mzLib 1.0.595).
 _COMBINE_CORRELATE_SINCE = "0.6.0"
+
+#: The first pyMzLib whose ``stats fit`` takes ``--contrasts``, ``--confidence`` and ``--estimator``
+#: (mzLib 1.0.595). An older bridge lists the verb but ignores the options, so :func:`fit` checks the
+#: answer for what they add.
+_FIT_OPTIONS_SINCE = "0.6.0"
+
+#: The variance-prior estimators :func:`fit` takes as ``estimator=``: mzLib's
+#: ``VariancePriorEstimator`` ``MomentsLegacy`` (limma's ``eBayes(legacy = TRUE)``) and
+#: ``MarginalLikelihood`` (each feature's own residual df, for unequal df). Leave ``estimator`` out
+#: for mzLib's default; :attr:`VariancePrior.estimator` says which was used.
+PRIOR_ESTIMATORS = ("moments_legacy", "marginal_likelihood")
 
 #: Every value of the ``status`` column, as mzLib's ``FeatureFitStatus`` is written on the wire.
 #: Only ``"fitted"`` rows carry statistics or enter the Benjamini-Hochberg family.
@@ -158,14 +179,18 @@ def _columns(data: Mapping[str, Any]) -> tuple[list[str], dict[str, list[Any]]]:
 class VariancePrior:
     """The fitted prior of the per-feature residual variances, s²_g ~ s0² · χ²(d0)/d0.
 
-    It depends only on the fit, never on which coefficient is tested, so one prior serves every
-    coefficient in a :class:`ModeratedFit`.
+    It depends only on the fit, never on which coefficient or contrast is tested, so one prior
+    serves every coefficient and every contrast in a :class:`ModeratedFit`.
 
     Attributes:
+        estimator: How the prior was estimated, one of :data:`PRIOR_ESTIMATORS`: ``fit()``'s
+            ``estimator``, or mzLib's default (``"moments_legacy"`` at mzLib 1.0.595) when you left
+            it out. ``None`` only from a bridge before pyMzLib 0.6.0, which did not report it.
         df: Prior degrees of freedom d0, or ``None`` when it is infinite (see ``df_infinite``).
             Larger means the features' variances agree, so each is shrunk harder toward ``scale``.
             0 with fewer than 3 features: mzLib then fits no prior, as limma's ``squeezeVar``
-            does, so each feature keeps its own variance.
+            does, so each feature keeps its own variance. Under ``"marginal_likelihood"`` mzLib
+            searches d0 from about 0.05 (e^-3) upward, so a d0 there is that floor, not an optimum.
         df_infinite: ``True`` when the residual variances are no more dispersed than sampling alone
             explains, so every feature takes the prior variance.
         trended: Whether s0² varies with each feature's average response (``trend=True``).
@@ -181,6 +206,7 @@ class VariancePrior:
     trended: bool
     spline_basis_count: int
     scale: float | None
+    estimator: str | None = None
 
     @classmethod
     def _from_wire(cls, data: Mapping[str, Any]) -> VariancePrior:
@@ -190,6 +216,96 @@ class VariancePrior:
             trended=bool(data.get("trended", False)),
             spline_basis_count=int(data.get("spline_basis_count", 1)),
             scale=data.get("scale"),
+            estimator=data.get("estimator"),
+        )
+
+
+@dataclass(frozen=True)
+class ModeratedContrasts(_Table):
+    """The contrasts :func:`fit` tested: one row per (contrast, feature), with a confidence interval.
+
+    :attr:`ModeratedFit.contrasts` holds one when you passed ``contrasts=``. Each contrast is a row
+    of your contrasts file: a weighted sum of the design's coefficients, such as "500 ng minus 250
+    ng" (weights -1 and 1 on two level columns). mzLib moderates it with the same prior as the
+    coefficients (``EmpiricalBayes.ModerateContrasts``), as limma's ``contrasts.fit`` then
+    ``eBayes`` then ``topTable(confint = ...)``. ``columns`` holds one block of ``feature_count``
+    rows per contrast, in the file's order, each block in the responses file's feature order:
+
+    ======================  ==============================  ====================================================
+    column                  unit                            meaning; ``None`` means
+    ======================  ==============================  ====================================================
+    ``feature``             -                               the id in the responses file's first column
+    ``contrast``            -                               the contrast id from the contrasts file (``c1``, ...)
+    ``status``              -                               one of :data:`FIT_STATUSES`, as in the coefficient
+                                                            table
+    ``estimate``            response units per contrast     the weighted sum of the coefficients: a **log2 fold
+                            unit                            change** for one level against another on log2
+                                                            intensities; ``None`` = not fitted
+    ``standard_error``      response units per contrast     moderated standard error, exact per feature
+                            unit
+    ``confidence_low``      response units per contrast     lower bound of the two-sided ``confidence_level``
+                            unit                            interval; not adjusted across features
+    ``confidence_high``     response units per contrast     upper bound
+                            unit
+    ``t``                   standard errors                 moderated t
+    ``df_total``            degrees of freedom              df_residual + prior df, capped at the pooled df
+    ``p_value``             fraction (0 to 1)               two-sided
+    ``bh_adjusted``         fraction (0 to 1)               Benjamini-Hochberg over this contrast's fitted
+                                                            features; **not a target-decoy q-value**
+    ``posterior_variance``  squared response units          as in the coefficient table
+    ``prior_variance``      squared response units          as in the coefficient table
+    ``sigma``               response units                  as in the coefficient table
+    ``df_residual``         -                               as in the coefficient table
+    ``observed``            samples                         as in the coefficient table
+    ``average_response``    response units                  as in the coefficient table
+    ======================  ==============================  ====================================================
+
+    Attributes:
+        confidence_level: The two-sided level of every interval, as a fraction (0 to 1): ``fit()``'s
+            ``confidence``, or mzLib's default (0.95 at mzLib 1.0.595) when you left it out.
+        tested_contrasts: The contrast ids, in the file's order.
+        weights: Contrast id -> its weights (unitless contrast weight per coefficient), one per
+            :attr:`ModeratedFit.coefficient_names` entry, in that order: what mzLib tested, whatever
+            order the file's columns were in.
+        row_count: Rows in the table (rows): ``feature_count`` x the number of contrasts.
+        column_names: The table's columns, in order.
+        columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
+    """
+
+    confidence_level: float
+    tested_contrasts: list[str]
+    weights: dict[str, list[float]]
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+
+    def rows(self, contrast: str) -> list[dict[str, Any]]:
+        """The rows testing one contrast, as dicts, in feature order.
+
+        Args:
+            contrast: One of :attr:`tested_contrasts`.
+
+        Raises:
+            UsageError: ``contrast`` was not tested in this fit.
+        """
+        if contrast not in self.tested_contrasts:
+            raise _bridge.UsageError(
+                f"'{contrast}' was not tested in this fit; it tested the contrasts: "
+                + ", ".join(self.tested_contrasts)
+                + "."
+            )
+        return [r for r in self.records if r["contrast"] == contrast]
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> ModeratedContrasts:
+        names, columns = _columns(data)
+        return cls(
+            confidence_level=float(data.get("confidence_level", math.nan)),
+            tested_contrasts=list(data.get("tested_contrasts") or []),
+            weights={k: list(v) for k, v in (data.get("weights") or {}).items()},
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
         )
 
 
@@ -198,7 +314,8 @@ class ModeratedFit(_Table):
     """What :func:`fit` returns: one row per (tested coefficient, feature), with limma's moderated t.
 
     ``columns`` holds one block of ``feature_count`` rows per tested coefficient, in the order you
-    named them, each block in the responses file's feature order:
+    named them, each block in the responses file's feature order. Contrasts, when you asked for
+    them, are a second table, :attr:`contrasts`, so this one is the same with or without them:
 
     ======================  ==============================  ====================================================
     column                  unit                            meaning; ``None`` means
@@ -227,11 +344,15 @@ class ModeratedFit(_Table):
     Attributes:
         responses_file: Absolute path of the responses table.
         design_file: Absolute path of the design table.
+        contrasts_file: Absolute path of the contrasts table, or ``None`` when you passed no
+            ``contrasts``.
         feature_count: Feature rows read (features).
         sample_count: Sample columns read (samples).
         sample_names: In the responses header's order.
-        coefficient_names: Every design column, in order: the model always fits all of them.
-        tested_coefficients: The coefficients you asked to test, in order.
+        coefficient_names: Every design column, in order: the model always fits all of them, and
+            each contrast's weights follow this order.
+        tested_coefficients: The coefficients you asked to test, in order; empty when you passed
+            only ``contrasts``.
         trend: Whether the prior variance was allowed to trend with average response.
         threads: The thread count used (threads); the answer is identical at any count.
         missing_count: Response cells that were blank, NA or NaN (cells), left out of their fits.
@@ -239,13 +360,17 @@ class ModeratedFit(_Table):
         status_counts: Features per status (features), keyed by :data:`FIT_STATUSES`.
         residual_df_differ: ``True`` when the fitted features do not all have the same residual
             degrees of freedom. Then default limma (3.61 and later) would use a different prior
-            estimator and report different moderated statistics; these are ``legacy = TRUE``.
-        prior: The fitted :class:`VariancePrior`.
+            estimator and report different moderated statistics; under ``"moments_legacy"`` these
+            are ``legacy = TRUE``, and ``estimator="marginal_likelihood"`` is mzLib's estimator for
+            this case.
+        prior: The fitted :class:`VariancePrior`, shared by every coefficient and contrast.
         row_count: Rows in the table (rows): ``feature_count`` x the number of tested coefficients.
         column_names: The table's columns, in order.
         columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
+        contrasts: The tested contrasts, a :class:`ModeratedContrasts` with its own table and
+            confidence intervals, or ``None`` when you passed no ``contrasts``.
         caveats: What the numbers are and are not, including any that apply to this input
-            (unfitted features, zeros, ``residual_df_differ``).
+            (the estimator, unfitted features, zeros, ``residual_df_differ``, contrasts).
     """
 
     responses_file: str
@@ -266,6 +391,8 @@ class ModeratedFit(_Table):
     column_names: list[str] = field(default_factory=list)
     columns: dict[str, list[Any]] = field(default_factory=dict)
     caveats: list[str] = field(default_factory=list)
+    contrasts_file: str | None = None
+    contrasts: ModeratedContrasts | None = None
 
     def rows(self, coefficient: str) -> list[dict[str, Any]]:
         """The rows testing one coefficient, as dicts, in feature order.
@@ -306,6 +433,11 @@ class ModeratedFit(_Table):
             column_names=names,
             columns=columns,
             caveats=list(data.get("caveats") or []),
+            contrasts_file=data.get("contrasts_file"),
+            contrasts=(
+                None if data.get("contrasts") is None
+                else ModeratedContrasts._from_wire(data["contrasts"])
+            ),
         )
 
 
@@ -886,19 +1018,25 @@ def _number(value: object, what: str) -> float:
 def fit(
     responses: _PathLike,
     design: _PathLike,
-    coefficients: Sequence[str],
+    coefficients: Sequence[str] = (),
     *,
+    contrasts: _PathLike | None = None,
+    confidence: float | None = None,
+    estimator: str | None = None,
     trend: bool = False,
     spline_basis: int | None = None,
     threads: int = 1,
     timeout: float | None = 600,
 ) -> ModeratedFit:
-    """Fit one linear model per feature and test coefficients with limma's moderated t.
+    """Fit one linear model per feature and test coefficients, and contrasts, with limma's moderated t.
 
     Runs mzLib's ``LinearModel.Fit`` once - every design column is fitted - and then
     ``EmpiricalBayes.Moderate`` for each coefficient you name, which also applies
     Benjamini-Hochberg across that coefficient's fitted features. This is limma's
     ``lmFit(...)`` then ``eBayes(..., legacy = TRUE)``, reproduced by mzLib to 1e-8 relative.
+    With ``contrasts``, ``EmpiricalBayes.ModerateContrasts`` also tests each row of a contrasts
+    file, with its confidence interval: limma's ``contrasts.fit`` then ``eBayes`` then
+    ``topTable(confint = ...)``.
 
     A feature is fitted on the samples where it was observed, and is reported - never dropped -
     when it cannot be: ``too_few_observations`` when it has no more observed samples than the
@@ -912,8 +1050,23 @@ def fit(
         design: A TSV with a header row and one row per sample: first column the sample name
             (matching the responses header exactly, in any order), then one numeric column per
             coefficient. Include an intercept column yourself if you want one.
+            :func:`pymzlib.diff.design` writes one (``design_<i>.tsv``) from a sample sheet.
         coefficients: Design column names to test, each with its own moderated test and its own
-            Benjamini-Hochberg family.
+            Benjamini-Hochberg family. May be empty when you give ``contrasts``.
+        contrasts: A TSV of contrasts, as :func:`pymzlib.diff.design` writes it beside the design
+            (``contrasts_<i>.tsv``): a header of the contrast id column, then exactly the design's
+            coefficient columns (in any order); then one row per contrast, its id and one weight
+            per coefficient, e.g. ``-1`` and ``1`` for the second level minus the first. Each
+            contrast gets its own moderated test, Benjamini-Hochberg family and confidence
+            interval, in :attr:`ModeratedFit.contrasts`. Needs the pyMzLib 0.6.0 bridge.
+        confidence: The two-sided level of the contrasts' intervals, as a fraction (0 to 1),
+            strictly between 0 and 1; only with ``contrasts``. Leave it out (``None``) for mzLib's
+            default; :attr:`ModeratedContrasts.confidence_level` says which level was used.
+        estimator: How the variance prior is estimated, one of :data:`PRIOR_ESTIMATORS`:
+            ``"moments_legacy"`` (limma's ``eBayes(legacy = TRUE)``) or ``"marginal_likelihood"``
+            (mzLib's own estimator, which uses each feature's own residual degrees of freedom, so
+            it handles the unequal df that missing values cause exactly). Leave it out (``None``)
+            for mzLib's default; :attr:`VariancePrior.estimator` says which was used.
         trend: Let the prior variance follow average response (limma's ``trend = TRUE``), for data
             whose low-abundance features are noisier.
         spline_basis: Basis functions of the trend spline, intercept included. Only with
@@ -925,12 +1078,19 @@ def fit(
         timeout: Seconds to allow. ``None`` waits indefinitely.
 
     Returns:
-        A :class:`ModeratedFit`.
+        A :class:`ModeratedFit`; with ``contrasts``, its :attr:`~ModeratedFit.contrasts` is a
+        :class:`ModeratedContrasts`.
 
     Raises:
         UsageError: a file is missing or malformed; the design's samples are not exactly the
-            responses' samples; a coefficient is not in the design or is named twice; the design
-            is not of full rank; or fewer than two features can be fitted, so no prior exists.
+            responses' samples; a coefficient is not in the design or is named twice; no
+            coefficient and no ``contrasts``; the contrasts file's columns are not exactly the
+            design's coefficients, or a weight is not a finite number; ``confidence`` without
+            ``contrasts``; ``estimator`` not one of :data:`PRIOR_ESTIMATORS`; from mzLib, a design
+            that is not of full rank, fewer than two fitted features (so no prior exists), a
+            contrast of all zeros, two contrasts with one id, or a ``confidence`` not strictly
+            between 0 and 1; or ``contrasts``, ``confidence`` or ``estimator`` given to a bridge
+            from before pyMzLib 0.6.0, which would ignore them.
 
     Examples:
         A dilution series from mzLib's own RNA test data: MALAT1 loaded at 500, 250 and 125 ng
@@ -941,20 +1101,41 @@ def fit(
         ...                         ["malat_250ng", "malat_125ng"])
         >>> fit.feature_count, fit.sample_count, fit.status_counts
         (492, 27, {'fitted': 212, 'too_few_observations': 214, 'rank_deficient': 66})
-        >>> fit.residual_df_differ, round(fit.prior.df, 1)
-        (True, 19.6)
+        >>> fit.residual_df_differ, fit.prior.estimator, round(fit.prior.df, 1)
+        (True, 'moments_legacy', 19.6)
         >>> import statistics
         >>> malat = [r["estimate"] for r in fit.rows("malat_250ng")
         ...          if r["status"] == "fitted" and r["feature"].startswith("MALAT1:")]
         >>> len(malat), round(statistics.median(malat), 2)
         (116, -0.89)
+
+        Every pair of loads, with intervals: :func:`pymzlib.diff.design` with no reference level
+        writes one contrast per pair beside the design, and ``contrasts=`` tests them all:
+
+        >>> design = pymzlib.diff.design("malat_dilution_samples.tsv",
+        ...                              factors=[pymzlib.diff.FactorSpec("malat_load")],
+        ...                              out="malat_pairs")
+        >>> stratum = design.strata[0]
+        >>> pairs = pymzlib.stats.fit("malat_dilution_log2_vs_fluc.tsv", stratum.design_file,
+        ...                           contrasts=stratum.contrasts_file)
+        >>> pairs.contrasts.tested_contrasts, pairs.contrasts.confidence_level
+        (['c1', 'c2', 'c3'], 0.95)
+        >>> pairs.contrasts.weights["c3"], pairs.coefficient_names
+        ([0, -1, 1], ['intercept', 'malat_load=250ng', 'malat_load=500ng'])
+        >>> row = next(r for r in pairs.contrasts.rows("c3") if r["status"] == "fitted")
+        >>> row["confidence_low"] < row["estimate"] < row["confidence_high"]
+        True
     """
     if isinstance(coefficients, str):
         raise _bridge.UsageError(
             f"coefficients takes a list of design column names; for one, use [{coefficients!r}]."
         )
-    if not isinstance(coefficients, Sequence) or not coefficients:
-        raise _bridge.UsageError("fit() needs at least one coefficient to test, as a list.")
+    if not isinstance(coefficients, Sequence):
+        raise _bridge.UsageError("coefficients takes a list of design column names.")
+    if not coefficients and contrasts is None:
+        raise _bridge.UsageError(
+            "fit() needs at least one coefficient to test, as a list, or a contrasts file."
+        )
     for name in coefficients:
         if not isinstance(name, str) or not name.strip():
             raise _bridge.UsageError(f"Every coefficient must be a non-empty str; got {name!r}.")
@@ -972,10 +1153,48 @@ def fit(
         if isinstance(spline_basis, bool) or not isinstance(spline_basis, int):
             raise _bridge.UsageError(f"spline_basis must be an int; got {spline_basis!r}.")
         args += ["--spline-basis", str(spline_basis)]
+    if contrasts is not None:
+        args += ["--contrasts", _path(contrasts, "contrasts")]
+    if confidence is not None:
+        args += ["--confidence", repr(_number(confidence, "confidence"))]
+    if estimator is not None:
+        if not isinstance(estimator, str) or estimator not in PRIOR_ESTIMATORS:
+            raise _bridge.UsageError(
+                f"estimator must be one of {', '.join(PRIOR_ESTIMATORS)} (mzLib's "
+                "VariancePriorEstimator MomentsLegacy or MarginalLikelihood), or None for mzLib's "
+                f"default; got {estimator!r}."
+            )
+        args += ["--estimator", estimator]
 
     _bridge.require_verb("stats fit", since=_SINCE)
-    data = _bridge.invoke(*args, stdin="\n".join(coefficients) + "\n", timeout=timeout)
+    stdin = "".join(name + "\n" for name in coefficients)
+    try:
+        data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    except _bridge.UsageError as error:
+        # A bridge from before 0.6.0 ignores --contrasts and so, with no coefficient, says it was
+        # given none: the option it did not read is the real cause.
+        if contrasts is not None and not coefficients and "No coefficient to test" in str(error):
+            raise _older_fit_bridge("contrasts") from error
+        raise
+    if contrasts is not None and data.get("contrasts") is None:
+        raise _older_fit_bridge("contrasts")
+    if estimator is not None and (data.get("prior") or {}).get("estimator") is None:
+        raise _older_fit_bridge("estimator")
     return ModeratedFit._from_wire(data)
+
+
+def _older_fit_bridge(option: str) -> _bridge.UsageError:
+    """The error for a ``stats fit`` option the bridge in use predates, and so ignored."""
+    where = (
+        f"the bridge at '{os.environ[_bridge.BRIDGE_ENV_VAR]}' ({_bridge.BRIDGE_ENV_VAR})"
+        if os.environ.get(_bridge.BRIDGE_ENV_VAR)
+        else "the bundled bridge"
+    )
+    return _bridge.UsageError(
+        f"fit({option}=...) needs the bridge from pyMzLib {_FIT_OPTIONS_SINCE} or later, and {where} "
+        f"predates it, so it ignored --{option}. Rebuild that bridge from this pyMzLib, or unset "
+        f"{_bridge.BRIDGE_ENV_VAR} to use the one bundled with it."
+    )
 
 
 def adjust(p_values: Sequence[float | None], *, timeout: float | None = 60) -> Adjusted:

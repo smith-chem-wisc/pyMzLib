@@ -71,6 +71,9 @@ def test_meta_matches_metafor_from_python():
         ("stats_fit_limma.json", lambda: stats.fit(
             STATS / "limma_reference_responses.tsv", STATS / "limma_reference_design.tsv",
             ["age_decades"])),
+        ("stats_fit_malat_marginal.json", lambda: stats.fit(
+            STATS / "malat_dilution_log2_vs_fluc.tsv", STATS / "malat_dilution_design.tsv",
+            ["malat_250ng", "malat_125ng"], estimator="marginal_likelihood")),
         ("stats_adjust.json", lambda: stats.adjust(
             [0.0002, 0.004, 0.019, None, 0.031, 0.2, float("nan"), 0.74])),
     ],
@@ -124,3 +127,63 @@ def test_bad_input_is_a_usage_error_from_the_bridge(tmp_path):
         stats.fit(responses, design, ["intercept"])
     with pytest.raises(_bridge.UsageError, match=r"outside \[0, 1\]"):
         stats.adjust([0.5, 2.0])
+
+
+# ---- contrasts and the prior estimator ------------------------------------------------------------
+
+
+def pairs_design(tmp_path: Path):
+    """diff design on the dilution series with no reference level: every pair of loads a contrast."""
+    from pymzlib import diff
+
+    design = diff.design(FIXTURES / "diff" / "malat_dilution_samples.tsv",
+                         factors=[diff.FactorSpec("malat_load")], out=tmp_path / "malat_pairs")
+    return design.strata[0]
+
+
+def test_the_contrasts_recording_is_what_the_chain_returns_today(tmp_path):
+    """diff design --out, then stats fit --contrasts on what it wrote: the guide's chain, for real."""
+    recorded = json.loads((FIXTURES / "stats_fit_malat_contrasts.json").read_text(encoding="utf-8"))
+    stratum = pairs_design(tmp_path)
+    live = stats.fit(STATS / "malat_dilution_log2_vs_fluc.tsv", stratum.design_file,
+                     contrasts=stratum.contrasts_file)
+    assert live.contrasts.tested_contrasts == recorded["contrasts"]["tested_contrasts"]
+    assert live.contrasts.weights == recorded["contrasts"]["weights"]
+    assert live.contrasts.confidence_level == recorded["contrasts"]["confidence_level"]
+    assert_same_columns(live.contrasts.columns, recorded["contrasts"]["columns"])
+    assert live.caveats == recorded["caveats"]
+
+
+def test_a_contrast_of_one_coefficient_is_that_coefficients_test(tmp_path):
+    stratum = pairs_design(tmp_path)
+    fit = stats.fit(STATS / "malat_dilution_log2_vs_fluc.tsv", stratum.design_file,
+                    ["malat_load=250ng"], contrasts=stratum.contrasts_file)
+    assert fit.contrasts.weights["c1"] == [0, 1, 0]
+    coefficient = fit.rows("malat_load=250ng")
+    contrast = fit.contrasts.rows("c1")
+    for ours, theirs in zip(coefficient, contrast):
+        for column in ("estimate", "standard_error", "t", "p_value", "bh_adjusted"):
+            assert ours[column] == theirs[column], column
+
+
+def test_a_lower_confidence_gives_narrower_intervals_and_mzlib_refuses_one_outside_0_1(tmp_path):
+    stratum = pairs_design(tmp_path)
+    args = (STATS / "malat_dilution_log2_vs_fluc.tsv", stratum.design_file)
+    wide = stats.fit(*args, contrasts=stratum.contrasts_file)
+    narrow = stats.fit(*args, contrasts=stratum.contrasts_file, confidence=0.8)
+    assert narrow.contrasts.confidence_level == 0.8
+    for w, n in zip(wide.contrasts.records, narrow.contrasts.records):
+        if w["status"] == "fitted":
+            assert w["confidence_low"] < n["confidence_low"] < n["confidence_high"] < w["confidence_high"]
+    with pytest.raises(_bridge.UsageError, match="strictly between 0 and 1"):
+        stats.fit(*args, contrasts=stratum.contrasts_file, confidence=1.5)
+    with pytest.raises(_bridge.UsageError, match="give --contrasts as well"):
+        stats.fit(*args, ["malat_load=250ng"], confidence=0.8)
+
+
+def test_the_default_estimator_is_the_one_mzlib_reports(tmp_path):
+    args = (STATS / "malat_dilution_log2_vs_fluc.tsv", STATS / "malat_dilution_design.tsv", ["malat_250ng"])
+    default = stats.fit(*args)
+    legacy = stats.fit(*args, estimator="moments_legacy")
+    assert default.prior.estimator == "moments_legacy"
+    assert default.columns["t"] == legacy.columns["t"]

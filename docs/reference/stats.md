@@ -16,8 +16,12 @@ writes it for you: `stats fit`'s `stdin` is `coefficients=`, `stats adjust`'s is
 
 **Performance:** each call starts one bridge process, about 120 ms before mzLib does any work.
 `stats fit` then fits every feature in one pass: a 10,000-feature by 24-sample table takes about
-0.6 s on one thread and about 0.4 s with `threads=-1`. Test every coefficient you need in one call,
-since the model is fitted once and moderated per coefficient. `stats correlate` on the same
+0.6 s on one thread and about 0.4 s with `threads=-1`. Test every coefficient and contrast you need in one call,
+since the model is fitted once and moderated per coefficient and per contrast. Three contrasts
+add about 0.7 s on that table. `estimator="marginal_likelihood"` costs about 4.5 s per prior fit
+there, and mzLib fits the prior once per tested coefficient but once for all the contrasts
+together: with it, test several coefficients as one-coefficient contrasts (mzLib gives identical
+numbers) rather than on `coefficients`. `stats correlate` on the same
 10,000 by 24 table takes about 0.4 s (0.5 s with one covariate), and `stats combine-p` on 50,000
 tests about 0.8 s, most of it writing and reading the text; neither takes threads, because mzLib's
 calls take no degree of parallelism. `stats fit-logistic` on a 10,000 by 24 table of 0s and 1s
@@ -29,6 +33,16 @@ parallelism. **Every number is mzLib's**; the bridge parses the tables and shape
 pyMzLib does no arithmetic.
 
 ## `fit`
+
+`fit()` sends `--contrasts`, `--confidence` and `--estimator` only when `contrasts=`,
+`confidence=` and `estimator=` are set, so leaving them out is mzLib's default, and
+`ModeratedContrasts.confidence_level` and `VariancePrior.estimator` report what mzLib used either
+way. `coefficients` may be empty when `contrasts=` is given. The `contrasts` object is
+`ModeratedFit.contrasts`, a `ModeratedContrasts` (`None` without `contrasts=`), and
+`ModeratedContrasts.rows()` gives one contrast's block; `pymzlib.stats.PRIOR_ESTIMATORS` lists the
+estimator names. **The three options need the pyMzLib 0.6.0 bridge.** An older bridge lists
+`stats fit` but ignores them, so `fit()` checks its answer and raises `UsageError` rather than
+return a fit without what you asked for.
 
 --8<-- "docs/reference/_generated/stats.fit.md"
 

@@ -9,7 +9,9 @@
 # stats::model.matrix is held through the wire on mzLib's fourteen reference designs by
 # DifferentialTests.Design_MatrixEqualsRsModelMatrix_ThroughTheWire; the pairing with stats fit and
 # EmpiricalBayes.ModerateContrasts by Design_TheDesignFileIsWhatStatsFitReads and
-# Design_TheContrastsFileIsWhatModerateContrastsTakes.
+# Design_TheContrastsFileIsWhatModerateContrastsTakes; and the whole chain, diff design --out then
+# stats fit --design --contrasts, by Design_ThenStatsFitContrasts_IsModerateContrastsOnThoseFiles
+# (pyMzLib feat/stats-fit-contrasts, 2026-10-21).
 verb: diff design
 module: diff
 summary: >-
@@ -114,7 +116,7 @@ result:
       - {wire: matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.Matrix, one row per sample_ids entry and one value per column_names entry. Equals R's stats::model.matrix for the same formula and level order."}
       - {wire: fitted_matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.FittedMatrix: matrix with only the fitted columns. It has full column rank, so LinearModel.Fit takes it; it is the design file's body."}
       - {wire: design_file, type: string, unit: null, nullable: true, null_means: "no --out", doc: "Absolute path of design_i.tsv: header sample then fitted_column_names, then one row per sample, the fitted matrix in round-trip decimal. Exactly what stats fit --design reads."}
-      - {wire: contrasts_file, type: string, unit: null, nullable: true, null_means: "no --out, or no contrast is estimable in this stratum", doc: "Absolute path of contrasts_i.tsv: header contrast then fitted_column_names (the design file's coefficient columns, same order), then one row per estimable contrast: contrast_id and fitted_weights. Each row is the ContrastWeights(name, weights) mzLib's EmpiricalBayes.ModerateContrasts takes for a fit of the design file."}
+      - {wire: contrasts_file, type: string, unit: null, nullable: true, null_means: "no --out, or no contrast is estimable in this stratum", doc: "Absolute path of contrasts_i.tsv: header contrast then fitted_column_names (the design file's coefficient columns, same order), then one row per estimable contrast: contrast_id and fitted_weights. Each row is the ContrastWeights(name, weights) mzLib's EmpiricalBayes.ModerateContrasts takes for a fit of the design file: exactly what stats fit --contrasts reads, beside --design design_i.tsv (pyMzLib 0.6.0)."}
 
 errors:
   - {kind: usage, when: "--samples missing, blank or not found; --out given without a directory; the sheet empty, header-only, with an empty or repeated column name, an empty or repeated sample id (repeats across strata included), or a row whose field count differs from its header; a covariate cell that is not a number (other than blank, NA, NaN)"}
@@ -154,6 +156,5 @@ examples:
     r: "design <- diff_design('stratified_samples.tsv', factors = list(factor_spec('condition', 'A')), strata = 'organism part')"
 
 open_questions:
-  - "stats fit does not read a contrasts file yet (no --contrasts at this bridge). The file's pairing with mzLib is held directly: DifferentialTests.Design_TheContrastsFileIsWhatModerateContrastsTakes fits the design file with LinearModel.Fit and passes each row to EmpiricalBayes.ModerateContrasts. Until stats fit takes it, a default contrast against a reference level is one coefficient (fitted_weights holds a single 1), which stats fit tests by its design column name."
   - "Only DefaultContrasts is exposed. mzLib's AnalysisDesign.Between (any two levels) and Custom (weights by column name) have no wire form yet; with no reference declared, DefaultContrasts already gives every pair."
   - "AnalysisSample.FromExperimentalDesign is not reachable: mzLib has no reader from MetaMorpheus's ExperimentalDesign.tsv to an IExperimentalDesign (MetaMorpheus's EngineLayer.ExperimentalDesign has one), so this verb starts from a sample sheet."

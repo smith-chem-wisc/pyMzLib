@@ -24,8 +24,8 @@ files pyMzLib ships in `pkg/python/tests/fixtures/diff/`.
 | What did each peptide measure in each sample, and if nothing, why? | [`diff.observations`][pymzlib.diff.observations] | `FlashLfqObservations.FromPeptideTable`, `ObservationTable` | fractions summed, technical replicates averaged in log2 |
 | How far apart do the samples sit on the peptides they share? | [`diff.observations`][pymzlib.diff.observations] | `SharedPeptideNormalization.Measure` / `.Apply` | median of ratios to a geometric-mean reference (as Anders and Huber 2010) |
 
-Then test with [`stats.fit`](stats.md): it reads the design file `design` writes and the
-responses file `observations` writes.
+Then test with [`stats.fit`](stats.md): it reads the design file and the contrasts file `design`
+writes, and the responses file `observations` writes.
 
 ## 1. From a sample sheet to a design
 
@@ -70,7 +70,8 @@ What came back:
 - **The default contrasts** are each level against the reference. Each is one design column here,
   so `fitted_weights` has a single 1.
 - **`out=`** wrote `design_1.tsv`, the design table [`stats.fit`](stats.md) reads, and
-  `contrasts_1.tsv`, each estimable contrast's weights on the same columns.
+  `contrasts_1.tsv`, each estimable contrast's weights on the same columns, which
+  `stats.fit(contrasts=...)` reads.
 
 Fit it. Each contrast against the reference is its design column, tested by name:
 
@@ -91,6 +92,35 @@ Fit it. Each contrast against the reference is its design column, tested by name
 
 The same numbers as the hand-made design, because it is the same model: the bridge's tests hold
 the two fits equal, feature by feature.
+
+**Or test the contrasts file itself**, and get a confidence interval with each answer. Name the
+coefficients too, and one call returns both tables:
+
+```pycon
+>>> both = pymzlib.stats.fit("malat_dilution_log2_vs_fluc.tsv", stratum.design_file,
+...                          ["malat_load=250ng", "malat_load=125ng"], contrasts=stratum.contrasts_file)
+>>> labels = dict(zip(design.columns["contrast_id"], design.columns["label"]))
+>>> for cid in both.contrasts.tested_contrasts:
+...     print(cid, labels[cid], both.contrasts.weights[cid])
+c1 malat_load=125ng vs malat_load=500ng [0, 1, 0]
+c2 malat_load=250ng vs malat_load=500ng [0, 0, 1]
+>>> all(a["t"] == b["t"] and a["bh_adjusted"] == b["bh_adjusted"]
+...     for a, b in zip(both.rows("malat_load=250ng"), both.contrasts.rows("c2")))
+True
+>>> row = next(r for r in both.contrasts.rows("c2")
+...            if r["status"] == "fitted" and r["feature"].startswith("MALAT1:"))
+>>> row["feature"], row["observed"], round(row["estimate"], 2), round(row["confidence_low"], 2), round(row["confidence_high"], 2)
+('MALAT1:AAAAAAAAACUCG', 4, -0.75, -3.68, 2.17)
+
+```
+
+A contrast of one column is that column's test, number for number, so `c2` repeats the
+`malat_load=250ng` rows and adds the interval. This oligo was measured in 4 runs, and its 95%
+interval runs from -3.7 to +2.2 log2 units: it cannot tell halving from no change. The contrasts
+file earns its keep for comparisons that are no single column, such as 250 ng against 125 ng.
+Declare no reference level and `design` writes every pair; the
+[differential-abundance guide](stats.md#3-contrasts-any-comparison-with-a-confidence-interval)
+runs that chain on this series, with the known answers.
 
 ## 2. Covariates, units and batch
 
@@ -324,9 +354,6 @@ measure each stratum on its own.
   `Observations.protein_groups`.
 - **Only the default contrasts.** `design` lists each level against its reference (every pair when
   there is none) and each covariate's slope. mzLib's custom contrasts have no wire form yet.
-- **`stats.fit` does not read the contrasts file yet.** Until it does, test a contrast against a
-  reference by its design column name, as in section 1. The file's rows are the weights mzLib's
-  `EmpiricalBayes.ModerateContrasts` takes, and the bridge's tests hold them to it.
 - **The peptide table does not record FlashLFQ's design**, so mzLib cannot check that your runs
   group the files as FlashLFQ did. Give the runs the design FlashLFQ quantified with.
 - **A table written in a comma-decimal locale does not read correctly.** FlashLFQ writes in the

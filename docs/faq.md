@@ -167,7 +167,11 @@ When your features have different residual degrees of freedom - and omitting mis
 feature makes them differ - limma 3.61 and later default to `legacy = FALSE`, a different prior
 estimator, so the moderated statistics differ. `fit().residual_df_differ` is `True` exactly when
 that applies. Run limma with `legacy = TRUE` to compare like with like, as the
-[guide's first section](guides/stats.md#1-check-it-against-limma) does. Also check that you passed
+[guide's first section](guides/stats.md#1-check-it-against-limma) does. For such data mzLib also
+offers its own estimator, `fit(..., estimator="marginal_likelihood")`, which uses each feature's
+own degrees of freedom; it is close to default limma but is not limma's method, so small
+differences remain. For contrasts with missing values, mzLib's standard errors are exact per
+feature where limma's `contrasts.fit` approximates them, so those differ by design. Also check that you passed
 the same values: `fit()` models what you give it, so log-transform first, and blank any 0 that
 means "not measured" (`zero_count` counts them).
 
