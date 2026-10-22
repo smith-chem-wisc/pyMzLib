@@ -89,14 +89,23 @@ def test_entrapment_fdp_matches_the_reference_script_from_python():
             assert abs(ours[column] - float(theirs[column])) < 1e-5, column
 
 
-def assert_same_columns(live: dict, recorded: dict) -> None:
-    """Equal, except that floats may differ in their last bits across platforms (1e-9 relative)."""
+#: How far a float may move between the platform a recording was made on and the one replaying it.
+#: Closed-form and iteratively reweighted fits agree to 1e-9. MixedModel finds its variance ratio by
+#: numerical optimisation, and the point its stopping rule accepts differs in the last digits from
+#: one platform to another: a Windows recording replayed on Linux CI moved estimates by up to 5e-9
+#: relative (2026-10-22). 1e-6 still catches any change in what the model computes.
+CROSS_PLATFORM = 1e-9
+CROSS_PLATFORM_OPTIMISED = 1e-6
+
+
+def assert_same_columns(live: dict, recorded: dict, relative: float = CROSS_PLATFORM) -> None:
+    """Equal, except that floats may differ in their last digits across platforms (``relative``)."""
     assert list(live) == list(recorded)
     for name, values in recorded.items():
         assert len(live[name]) == len(values), name
         for i, (a, b) in enumerate(zip(live[name], values)):
             if isinstance(b, float) and isinstance(a, (int, float)) and not isinstance(a, bool):
-                assert abs(a - b) <= 1e-9 * max(abs(b), 1e-300), (name, i, a, b)
+                assert abs(a - b) <= relative * max(abs(b), 1e-300), (name, i, a, b)
             else:
                 assert a == b, (name, i, a, b)
 
@@ -129,7 +138,8 @@ def assert_same_columns(live: dict, recorded: dict) -> None:
 def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
     recorded = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     live = call()
-    assert_same_columns(live.columns, recorded["columns"])
+    relative = CROSS_PLATFORM_OPTIMISED if fixture.startswith("stats_fit_mixed") else CROSS_PLATFORM
+    assert_same_columns(live.columns, recorded["columns"], relative)
     assert live.caveats == recorded["caveats"]
     if "status_counts" in recorded:
         # Its keys are the bridge's reading of mzLib's code (mzLib#1487); a change must not slip past.
