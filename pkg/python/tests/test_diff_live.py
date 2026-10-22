@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
@@ -36,9 +36,14 @@ def built_bridge():
         pytest.skip(f"bridge binary not built: {exc}")
 
 
+def file_name(path: str) -> str:
+    """The last part of a path written on either platform: a recording made on Windows is replayed on Linux."""
+    return PureWindowsPath(path).name if "\\" in path else PurePosixPath(path).name
+
+
 def without_paths(value):
     if isinstance(value, dict):
-        return {k: (Path(v).name if k in PATHS and isinstance(v, str) else without_paths(v)) for k, v in value.items()}
+        return {k: (file_name(v) if k in PATHS and isinstance(v, str) else without_paths(v)) for k, v in value.items()}
     if isinstance(value, list):
         return [without_paths(v) for v in value]
     return value
