@@ -17,6 +17,7 @@ files pyMzLib ships in `pkg/python/tests/fixtures/stats/`.
 | You want to know | Call | mzLib computes it with | Method |
 |---|---|---|---|
 | Which features change with a coefficient, and how surely? | [`stats.fit`][pymzlib.stats.fit] | `LinearModel.Fit`, then `EmpiricalBayes.Moderate` | limma `lmFit` + `eBayes(legacy = TRUE)` |
+| Which features differ between two levels (any contrast), and within what interval? | [`stats.fit`][pymzlib.stats.fit] with `contrasts=` | `EmpiricalBayes.ModerateContrasts` | limma `contrasts.fit` + `eBayes` + `topTable(confint = 0.95)` |
 | Which of my p-values survive a false discovery rate? | [`stats.adjust`][pymzlib.stats.adjust] | `MultipleTesting.BenjaminiHochberg` | Benjamini and Hochberg 1995 |
 | What is one feature's effect, pooled across studies? | [`stats.meta`][pymzlib.stats.meta] | `RandomEffectsMeta.Pool` | DerSimonian and Laird 1986, as metafor `rma(method = "DL")` |
 | What do several studies' p-values for a feature say together? | [`stats.combine_p`][pymzlib.stats.combine_p] | `PValueCombination.Fisher` / `.Stouffer`, with `.OneSided` for signed tests | Fisher 1925; Stouffer 1949; as R's `pchisq` / `qnorm` |
@@ -84,7 +85,9 @@ wire, so a column mix-up between mzLib and Python would fail them.
     ```
 
     The reference above is such a case too, and it matches because limma was run with
-    `legacy = TRUE`.
+    `legacy = TRUE`. For such data mzLib also has an estimator of its own, built for unequal
+    degrees of freedom: `estimator="marginal_likelihood"`, at the end of
+    [section 2](#unequal-degrees-of-freedom-the-marginal-likelihood-prior).
 
 ## 2. A real experiment with a known answer
 
@@ -176,7 +179,159 @@ calls are 20-mer oligos, which were loaded at a constant 50 ng. A 5% false disco
 expected share of wrong calls at or below one in twenty, *on average*; it does not promise none; a known-answer experiment is
 how you see it happen. Look at the data behind any call you intend to build on.
 
-## 3. Your own data
+### Unequal degrees of freedom: the marginal-likelihood prior
+
+This experiment is the case the note in section 1 warns about: oligos are missing from different
+runs, so they have different residual degrees of freedom, and the default prior is limma's legacy
+estimator:
+
+```pycon
+>>> fit.residual_df_differ, fit.prior.estimator, round(fit.prior.df, 1)
+(True, 'moments_legacy', 19.6)
+
+```
+
+mzLib has a second estimator for exactly this case, `"marginal_likelihood"` (mzLib #1368). It fits
+the prior by maximum likelihood with **each oligo's own degrees of freedom**, so an oligo seen in
+five runs counts as five runs' worth of evidence about the variance, not as an average one. Ask for
+it by name:
+
+```pycon
+>>> ml = pymzlib.stats.fit("malat_dilution_log2_vs_fluc.tsv", "malat_dilution_design.tsv",
+...                        ["malat_250ng", "malat_125ng"], estimator="marginal_likelihood")
+>>> ml.prior.estimator, round(ml.prior.df, 1)
+('marginal_likelihood', 11.0)
+>>> for coefficient in ml.tested_coefficients:
+...     hits = [r for r in ml.rows(coefficient) if r["bh_adjusted"] is not None and r["bh_adjusted"] < 0.05]
+...     print(coefficient, Counter(r["feature"].split(":")[0] for r in hits))
+malat_250ng Counter({'MALAT1': 1})
+malat_125ng Counter({'MALAT1': 4, '20mer2': 2})
+
+```
+
+**The prior df falls from 19.6 to 11.0**: once each oligo's own degrees of freedom count, the data
+support less shrinkage toward the common variance. The estimates are the same least-squares numbers;
+only the standard errors move. At half load the FLuc call is gone, which is right, since FLuc did not
+change, and so is one MALAT1 call. The two 20-mer calls at quarter load stay.
+
+What to know before you choose it:
+
+- **It is mzLib's own estimator, not limma's.** Default limma (3.61 and later) handles unequal
+  degrees of freedom with a different method (`fitFDistUnequalDF1`). mzLib's tests hold this one
+  close to it, not equal, so expect small differences from default limma.
+- **mzLib keeps `"moments_legacy"` the default**, so that `fit` reproduces `eBayes(legacy = TRUE)`
+  exactly. Leaving `estimator` out always means mzLib's default, and `fit.prior.estimator` says
+  which one you got.
+- **A prior df of about 0.05 is a floor, not a finding.** mzLib searches d0 from e^-3 upward, so a
+  reported value there means the likelihood wanted less still.
+- One prior serves the whole call: every coefficient and every contrast is moderated with it.
+
+## 3. Contrasts: any comparison, with a confidence interval
+
+A design's coefficients answer one kind of question: each level against the baseline. The
+questions a scientist asks are often other comparisons: 500 ng against 250 ng when the baseline is
+125 ng, or the mean of two groups against a third. Each is a **contrast**, a weighted sum of the
+coefficients, and `fit(..., contrasts=...)` tests it with the same moderated t, plus a confidence
+interval. That is limma's `contrasts.fit` followed by `eBayes` and `topTable(confint = 0.95)`.
+
+You rarely write the weights yourself. [`diff.design`](diff.md) builds the design from your sample
+sheet and writes the contrasts beside it. With no reference level, every pair of levels is a
+contrast. Here is the MALAT1 dilution series again, as a sheet of runs and loads:
+
+```pycon
+>>> design = pymzlib.diff.design("malat_dilution_samples.tsv",
+...                              factors=[pymzlib.diff.FactorSpec("malat_load")], out="malat_pairs")
+>>> stratum = design.strata[0]
+>>> stratum.column_names
+['intercept', 'malat_load=250ng', 'malat_load=500ng']
+>>> stratum.warnings
+["No reference level was declared for factor 'malat_load', so every pair of its levels is compared (GR-14). Levels: 125ng, 250ng, 500ng."]
+>>> labels = dict(zip(design.columns["contrast_id"], design.columns["label"]))
+>>> labels
+{'c1': 'malat_load=250ng vs malat_load=125ng', 'c2': 'malat_load=500ng vs malat_load=125ng', 'c3': 'malat_load=500ng vs malat_load=250ng'}
+
+```
+
+mzLib took the first level, 125 ng, as the coding baseline, and wrote `design_1.tsv` and
+`contrasts_1.tsv`. Fit the design and test every contrast in the file. No coefficient is named, so
+the coefficient table is empty and every answer is in `contrasts`:
+
+```pycon
+>>> pairs = pymzlib.stats.fit("malat_dilution_log2_vs_fluc.tsv", stratum.design_file,
+...                           contrasts=stratum.contrasts_file)
+>>> pairs.contrasts.tested_contrasts, pairs.contrasts.confidence_level
+(['c1', 'c2', 'c3'], 0.95)
+>>> pairs.contrasts.weights
+{'c1': [0, 1, 0], 'c2': [0, 0, 1], 'c3': [0, -1, 1]}
+>>> pairs.row_count, pairs.contrasts.row_count
+(0, 1476)
+
+```
+
+The weights are on `pairs.coefficient_names`. `c1` and `c2` are single coefficients. **`c3` is
+not**: it is the 500 ng coefficient minus the 250 ng one, a comparison no column of this design
+holds. The answers are known in advance, +1, +2 and +1 in log2, so look at the 116 MALAT1 oligos:
+
+```pycon
+>>> known = {"c1": 1, "c2": 2, "c3": 1}
+>>> for cid in pairs.contrasts.tested_contrasts:
+...     malat = [r for r in pairs.contrasts.rows(cid)
+...              if r["status"] == "fitted" and r["feature"].startswith("MALAT1:")]
+...     covers = sum(r["confidence_low"] <= known[cid] <= r["confidence_high"] for r in malat)
+...     clear_of_zero = sum(not r["confidence_low"] <= 0 <= r["confidence_high"] for r in malat)
+...     median = statistics.median(r["estimate"] for r in malat)
+...     print(f"{labels[cid]:<37} known {known[cid]:+d}  median {median:+.2f}  "
+...           f"interval holds it {covers}/{len(malat)}  excludes 0 {clear_of_zero}/{len(malat)}")
+malat_load=250ng vs malat_load=125ng  known +1  median +0.18  interval holds it 103/116  excludes 0 7/116
+malat_load=500ng vs malat_load=125ng  known +2  median +1.01  interval holds it 105/116  excludes 0 23/116
+malat_load=500ng vs malat_load=250ng  known +1  median +0.89  interval holds it 109/116  excludes 0 16/116
+
+```
+
+What the intervals say:
+
+- **Each oligo's 95% interval is wide.** It holds the known change for 103 to 109 of the 116 oligos,
+  and also holds 0 for most of them: one oligo, measured in a handful of runs, cannot tell a
+  doubling from no change. The medians across oligos are much more precise than any one interval.
+- **The compression from section 2 is here too, and the contrasts locate it.** 500 ng against
+  250 ng reads +0.89 against a known +1, but 250 ng against 125 ng reads only +0.18 against +1. The
+  shortfall is between the two lower loads.
+- **The intervals are per feature and not adjusted.** Of 116 correct 95% intervals, about 6 would
+  miss by chance alone; 7 to 13 miss here. For a decision across features use `bh_adjusted`, which
+  each contrast has over its own fitted features.
+
+Each row of `pairs.contrasts` carries what a coefficient row does, plus `confidence_low` and
+`confidence_high`, in response units per contrast unit: a log2 fold change here. As a table:
+`pandas.DataFrame(pairs.contrasts.columns)`. One contrast's rows: `pairs.contrasts.rows("c3")`.
+
+**Your own contrasts.** A contrasts file is a header of a contrast id column and then exactly the
+design's coefficient columns, in any order, then one row per contrast: its id and one weight per
+coefficient. To compare the mean of 250 ng and 125 ng against 500 ng on the design above:
+
+```text
+contrast           intercept  malat_load=250ng  malat_load=500ng
+low_mean_vs_500    0          0.5               -1
+```
+
+(125 ng is the baseline, so its coefficient is 0 and needs no weight of its own.) A column the
+design lacks, a design column the file lacks, a weight that is not a number, or a row of all zeros
+is refused.
+
+The traps:
+
+- **Contrast ids are numbered within each stratum**, so `c1` can mean different comparisons in two
+  strata. Read the labels from `diff.design`, as above.
+- **With missing values the standard error is exact per feature**, computed on the samples that
+  feature was observed in. limma's `contrasts.fit` approximates it there, so on data with missing
+  values these numbers differ from limma's by design. With complete data they agree; the bridge's
+  tests hold them to limma 3.68.5 to 1e-8 on mzLib's reference data, with and without missing
+  values (against the exact per-feature value for the latter).
+- **A contrast of one coefficient is that coefficient's test**, number for number. Asking for both
+  in one call costs nothing: the model is fitted once and the prior is shared.
+- `confidence=0.9` (a fraction) changes the level; leave it out for mzLib's default, and
+  `pairs.contrasts.confidence_level` reports the level used.
+
+## 4. Your own data
 
 `fit` reads two tab-separated files. A **responses** table, one row per feature and one column per
 sample, holding the values exactly as they should be modelled:
@@ -204,8 +359,9 @@ Three things decide whether the answer means what you think:
 - **A 0 is an observation.** mzLib, and many quantification tables, write 0 for "not measured".
   Blank those cells (or write `NA`), or they are fitted as a real zero. The fit counts them in
   `zero_count` and adds a caveat when there are any.
-- **The design is used as written.** Include the intercept column yourself; write each comparison
-  you want as its own column (contrasts are not implemented).
+- **The design is used as written.** Include the intercept column yourself. A comparison that is
+  not one column is a contrast: see [section 3](#3-contrasts-any-comparison-with-a-confidence-interval).
+  [`diff.design`](diff.md) writes both files from a sample sheet.
 
 From pandas, `df.to_csv("responses.tsv", sep="\t")` writes the responses file, with the index as
 the feature id.
@@ -214,7 +370,7 @@ the feature id.
 average response, as limma's `trend = TRUE` does. `spline_basis` sets the flexibility of that
 curve, and `fit.prior.spline_basis_count` reports what mzLib used.
 
-## 4. Adjusting p-values from anywhere else
+## 5. Adjusting p-values from anywhere else
 
 `adjust` is Benjamini-Hochberg on any list of p-values. Mark a feature that was not tested with
 `None` (or NaN) rather than 1: it then stays out of the family, which is the honest m.
@@ -228,7 +384,7 @@ curve, and `fit.prior.spline_basis_count` reports what mzLib used.
 
 ```
 
-## 5. Pooling across studies
+## 6. Pooling across studies
 
 `meta` combines one estimate per study into a random-effects estimate per feature: the shape of a
 question like "across every deposit that measured it, does this protein change with age?". Each row
@@ -257,7 +413,7 @@ The `heterogeneous` case is the one to learn from: its interval barely excludes 
 variation (I² = 0.82) is between studies rather than within them, and one study disagrees in sign.
 A pooled estimate like that summarises studies that do not agree.
 
-## 6. Combining p-values across studies
+## 7. Combining p-values across studies
 
 Sometimes all you have from each study is a p-value: a supplementary table, a reanalysis that used
 another test, or effect sizes on scales too different to pool with `meta`. `combine_p` turns several
@@ -341,7 +497,7 @@ Before you trust a combined p-value:
 - **It is not an effect size.** If every study reports an estimate and a standard error on one
   scale, `meta` pools those and tells you how much the studies disagree; prefer it.
 
-## 7. Correlating features with a trait
+## 8. Correlating features with a trait
 
 When the samples differ by a number rather than a group - age, dose, the amount loaded - the
 question is which features rise or fall with it. `correlate` answers it with Spearman's rank
@@ -462,7 +618,7 @@ Before you trust a correlation:
   adjusted = pymzlib.stats.adjust(result.columns["p_value"])
   ```
 
-## 8. Is a feature's detection related to the condition?
+## 9. Is a feature's detection related to the condition?
 
 Missing values in label-free data are rarely random. A protein near the detection limit is missed
 more often where there is less of it, and an analysis that ignores the missing cells is then
@@ -574,7 +730,7 @@ Before you trust a logistic fit:
   echoes `None` for them. mzLib's default tolerance is tighter than `glm`'s default `epsilon` of
   1e-8, so default `glm` output can differ in the late digits.
 
-## 9. When samples come in groups
+## 10. When samples come in groups
 
 Runs acquired on different days, replicates from one donor, studies pooled into one analysis: each
 group can sit at its own baseline. `fit` treats every sample as independent, so a day-to-day shift
@@ -700,7 +856,7 @@ Before you trust a mixed model:
   feature is the usual case. Check `residual_variance` before you believe a tiny p-value.
 - **Not adjusted across features.** As everywhere on this page, send `p_value` to `adjust`.
 
-## 10. Does a search really control its FDR?
+## 11. Does a search really control its FDR?
 
 A search engine reports q-values, and a 1% threshold should mean that about 1% of the discoveries
 are false. **Entrapment** checks that claim. Peptides that cannot be in the sample, from another
@@ -788,8 +944,9 @@ Before you trust an entrapment estimate:
 
 - **No imputation.** A missing value is left out of its feature's fit. If your pipeline imputes,
   do it before writing the responses file, and remember the imputed values then count as data.
-- **Not limma's current default** when residual df differ (see the note in section 1); not
-  `robust = TRUE`, contrasts, the B-statistic or observation weights.
+- **Not limma's current default** when residual df differ (see the note in section 1):
+  `estimator="marginal_likelihood"` is mzLib's own estimator for that case, close to it but not
+  equal. Not `robust = TRUE`, the B-statistic or observation weights.
 - **`bh_adjusted` is not a q-value from target-decoy search.** It controls the false discovery rate
   among the features you tested, which is a different question from identification FDR.
 - **`meta` uses a normal reference** (no Hartung-Knapp adjustment), so its intervals do not widen
@@ -809,6 +966,8 @@ Before you trust an entrapment estimate:
 
 - [stats wire verbs](../reference/stats.md): every parameter, field, unit, error and caveat, as all
   three bindings publish them.
+- [Differential design and observations](diff.md): the design and contrasts files `fit` reads,
+  from a sample sheet.
 - [FlashLFQ](flashlfq.md) and [Readers](readers.md): where intensity tables come from.
 - [Protein databases](proteins.md): which proteins mzLib marks as entrapment (`is_entrapment`),
   for building the `entrapment_fdp` tables.

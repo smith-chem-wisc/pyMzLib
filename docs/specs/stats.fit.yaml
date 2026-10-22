@@ -4,21 +4,38 @@
 # is held by pkg/bridge.tests/StatisticsTests.cs (Fit_ReproducesLimmaEBayesLegacy_ThroughTheWire).
 # stats_fit_malat.json (about 258 KB; 492 features x 2 coefficients) is real data: mzLib's RNA oligo
 # table (#1388), derived by the rule held in StatisticsTests.MalatDilutionFixture_IsLog2OfMzLibsOligoTable.
+# Extended 2026-10-21 with --contrasts, --confidence and --estimator, from pyMzLib
+# pkg/bridge/Statistics.FitContrasts.cs (ReadContrasts, ModerateContrastsAsAsked, PriorEstimatorName,
+# ContrastResult, ContrastCaveats) and Statistics.cs (Fit, FitCaveats) on branch feat/stats-fit-contrasts
+# (off feat/diff-verbs, pyMzLib#93), mzLib pin d10017ce (tag 1.0.595; ModerateContrasts is #1452, first in
+# 1.0.595; VariancePriorEstimator is #1368, first in 1.0.594). Every example fixture was re-recorded from
+# the live bridge on that branch. The contrasts are held through the wire to mzLib's frozen limma 3.68.5
+# reference (make_contrast_fixtures.R: lmFit, contrasts.fit, eBayes(legacy = TRUE), topTable(confint =
+# 0.95) on complete data; the exact per-feature reference with missing values) by
+# StatisticsTests.FitContrasts_ReproduceLimmasContrastsFit_ThroughTheWire, and the chain from diff design
+# by DifferentialTests.Design_ThenStatsFitContrasts_IsModerateContrastsOnThoseFiles.
+# stats_fit_malat_contrasts.json is that chain on the MALAT1 dilution series: diff design with no
+# reference level (every pair of loads), then this verb on its design_1.tsv and contrasts_1.tsv.
 verb: stats fit
 module: stats
 summary: >-
-  Fit one linear model per feature of a feature-by-sample table and test each named coefficient
-  with limma's empirical-Bayes moderated t, Benjamini-Hochberg adjusted, in one call.
+  Fit one linear model per feature of a feature-by-sample table and test each named coefficient, and
+  each contrast of a contrasts file with its confidence interval, with limma's empirical-Bayes
+  moderated t, Benjamini-Hochberg adjusted, in one call.
 since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: LinearModel.Fit, path: mzLib/StatisticalModels/LinearModel.cs, pin: 0a808fec}
   - {symbol: EmpiricalBayes.Moderate, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
+  - {symbol: EmpiricalBayes.ModerateContrasts, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
+  - {symbol: ContrastWeights, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
+  - {symbol: ModeratedContrast, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
+  - {symbol: VariancePriorEstimator, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
   - {symbol: EmpiricalBayes.FitPrior, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: 0a808fec}
   - {symbol: EmpiricalBayes.DefaultSplineBasisCount, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
   - {symbol: MultipleTesting.BenjaminiHochberg, path: mzLib/StatisticalModels/MultipleTesting.cs, pin: 0a808fec}
 cite:
-  - {doi: "10.2202/1544-6115.1027", for: "the empirical-Bayes moderated t this verb computes (Smyth, Stat Appl Genet Mol Biol 3:3, 2004)"}
-  - {doi: "10.1093/nar/gkv007", for: "limma, whose eBayes(legacy = TRUE) mzLib reproduces to 1e-8 relative (Ritchie et al., Nucleic Acids Res 43:e47, 2015)"}
+  - {doi: "10.2202/1544-6115.1027", for: "the empirical-Bayes moderated t this verb computes, for coefficients and contrasts (Smyth, Stat Appl Genet Mol Biol 3:3, 2004)"}
+  - {doi: "10.1093/nar/gkv007", for: "limma, whose eBayes(legacy = TRUE), and contrasts.fit with topTable(confint), mzLib reproduces to 1e-8 relative (Ritchie et al., Nucleic Acids Res 43:e47, 2015)"}
   - {doi: "10.1111/j.2517-6161.1995.tb02031.x", for: "the Benjamini-Hochberg adjustment in bh_adjusted (J R Stat Soc B 57:289, 1995)"}
 
 params:
@@ -44,15 +61,61 @@ params:
       match the responses header exactly (rows are matched by name, so their order does not
       matter); every other column is one coefficient, named by its header, and every cell must be a
       finite number. The design is used as written: include an intercept column if you want one.
+      diff design --out writes one (design_i.tsv).
   - name: stdin
     type: "string[]"
-    required: true
+    required: false
     unit: null
-    range: ">= 1 line; each a design column name, none repeated"
+    range: ">= 1 line, or none with --contrasts; each a design column name, none repeated"
     default: null
     doc: >-
       The coefficients to test, one design column name per line. Each gets its own moderated test
-      and its own Benjamini-Hochberg family. The model always fits every design column.
+      and its own Benjamini-Hochberg family. The model always fits every design column. With
+      --contrasts it may be empty, and the coefficient table then has no rows.
+  - name: contrasts
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV of contrasts to test, as diff design --out writes it (contrasts_i.tsv, beside its
+      design_i.tsv). A header row: the contrast id column (any header; diff design writes contrast),
+      then exactly the design's coefficient columns, matched by name, so in any order. Then one row
+      per contrast: a non-empty id (diff design's c1, c2, ...), then one finite weight per
+      coefficient; the contrast is the weighted sum of the coefficients, e.g. -1 and 1 for the
+      second minus the first. A design column the file lacks, or a column the design lacks, is
+      refused. mzLib refuses a contrast whose weights are all 0, and two contrasts with one id. Each
+      contrast is moderated with the same prior as the coefficients (EmpiricalBayes.ModerateContrasts)
+      and has its own Benjamini-Hochberg family; its rows are the contrasts table. Absent, there is
+      no contrasts table. Needs the pyMzLib 0.6.0 bridge; an older bridge ignores the option.
+  - name: confidence
+    type: float
+    required: false
+    unit: "fraction (0 to 1)"
+    range: "strictly between 0 and 1 (mzLib's rule); only with --contrasts"
+    default: null
+    doc: >-
+      The two-sided level of each contrast's confidence interval. Absent, the bridge sends none and
+      ModerateContrasts' own default applies (confidenceLevel = 0.95 at d10017ce); contrasts.confidence_level
+      reports the level used either way. A value mzLib refuses is a usage error with mzLib's message.
+      Needs the pyMzLib 0.6.0 bridge.
+  - name: estimator
+    type: string
+    required: false
+    unit: null
+    range: "moments_legacy | marginal_likelihood"
+    default: null
+    doc: >-
+      How the variance prior (d0, s0^2) is estimated, mzLib's VariancePriorEstimator by a wire name.
+      moments_legacy is MomentsLegacy: the method of moments on log variances (Smyth 2004), limma's
+      eBayes(legacy = TRUE), exact when every feature has the same residual df. marginal_likelihood is
+      MarginalLikelihood: maximum marginal likelihood with each feature's own residual df, which
+      handles the unequal df that omitting missing values causes exactly (mzLib #1368); it is mzLib's
+      own estimator, not limma's default fitFDistUnequalDF1, so its numbers are close to default
+      limma's but not equal. The one estimator serves the coefficients and the contrasts. Absent, the
+      bridge sends none and mzLib's default applies (MomentsLegacy at d10017ce, kept for limma legacy
+      parity); prior.estimator reports the estimator used either way. Needs the pyMzLib 0.6.0 bridge.
   - {name: trend, type: flag, required: false, unit: null, range: null, default: false, doc: "Let the prior variance trend with each feature's average response (limma's trend = TRUE), as a natural cubic spline."}
   - {name: spline-basis, type: int, required: false, unit: basis functions, range: ">= 1; only with --trend", default: null, doc: "Basis functions of the trend spline, intercept included. Absent, the bridge sends none and mzLib chooses by limma's fitFDist rule (EmpiricalBayes.DefaultSplineBasisCount, mzLib 1.0.594 #1398): 1 + (n >= 3) + (n >= 6) + (n >= 30) for n fitted features, so 4 only from 30 features. A given value is capped at the fitted features minus one. mzLib caps either at the distinct average responses and may merge coinciding knots; prior.spline_basis_count reports what was used."}
   - {name: threads, type: int, required: false, unit: threads, range: ">= 1, or -1 for every core", default: 1, doc: "Features fitted at once. The bridge default is 1 (BULK.md); mzLib's own default is -1. Results are identical at any value."}
@@ -61,22 +124,24 @@ result:
   envelope_fields:
     - {wire: responses_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the responses table."}
     - {wire: design_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the design table."}
+    - {wire: contrasts_file, type: string, unit: null, nullable: true, null_means: "no --contrasts was given", doc: "Absolute path of the contrasts table. Absent from bridges before pyMzLib 0.6.0 (optional forever)."}
     - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Feature rows read."}
     - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Sample columns read."}
     - {wire: sample_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "In responses header order, which is the order the design rows were put in."}
-    - {wire: coefficient_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every design column, in order."}
-    - {wire: tested_coefficients, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stdin coefficients, in order; the table holds one block of feature_count rows per entry."}
+    - {wire: coefficient_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every design column, in order: the order of each contrast's weights."}
+    - {wire: tested_coefficients, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stdin coefficients, in order; the table holds one block of feature_count rows per entry. Empty when only --contrasts was given."}
     - {wire: trend, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --trend was given."}
     - {wire: threads, type: int, unit: threads, nullable: false, null_means: null, doc: "The thread count used."}
     - {wire: missing_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that were blank, NA or NaN."}
     - {wire: zero_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that are exactly 0, fitted as observations."}
     - {wire: status_counts, type: "map<string,int>", unit: features, nullable: false, null_means: null, doc: "Features per status: fitted, too_few_observations, rank_deficient."}
-    - {wire: residual_df_differ, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the fitted features do not all have the same residual df (missing values omitted). Then default limma (>= 3.61, eBayes legacy = FALSE) would use a different prior estimator and report different moderated statistics; these follow legacy = TRUE. A caveat says so."}
-    - {wire: prior, type: object, unit: null, nullable: false, null_means: null, doc: "The fitted variance prior, shared by every tested coefficient; fields under result.tables.prior."}
+    - {wire: residual_df_differ, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the fitted features do not all have the same residual df (missing values omitted). Then default limma (>= 3.61, eBayes legacy = FALSE) would use a different prior estimator and report different moderated statistics; under moments_legacy these follow legacy = TRUE, and marginal_likelihood is mzLib's estimator for this case. A caveat says so."}
+    - {wire: prior, type: object, unit: null, nullable: false, null_means: null, doc: "The fitted variance prior, shared by every tested coefficient and contrast; fields under result.tables.prior."}
     - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "feature_count x the number of tested coefficients."}
-    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
-    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (tested coefficient, feature): coefficient blocks in stdin order, features in file order."}
-    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats, plus one each when residual_df_differ, when any feature was not fitted (with counts), when any cell is 0, and when the prior df is infinite."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The coefficient table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (tested coefficient, feature): coefficient blocks in stdin order, features in file order. The same with or without --contrasts."}
+    - {wire: contrasts, type: object, unit: null, nullable: true, null_means: "no --contrasts was given", doc: "The tested contrasts, as a second table beside the coefficient table: fields under result.tables.contrasts, its rows' columns under result.tables.contrasts.columns. A separate table because a contrast row is keyed by a contrast id and carries a confidence interval, which a coefficient row has neither of; one table holding both would leave half of every row's keys null, and the coefficient table stays as it was without --contrasts. Absent from bridges before pyMzLib 0.6.0 (optional forever)."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats (the first names the prior estimator), plus one each when residual_df_differ, when any feature was not fitted (with counts), when any cell is 0, and when the prior df is infinite; and two more with --contrasts."}
   columns:
     - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
     - {wire: coefficient, type: string, unit: null, nullable: false, null_means: null, doc: "The coefficient this row tests."}
@@ -95,29 +160,56 @@ result:
     - {wire: average_response, type: float, unit: "response units", nullable: true, null_means: "the feature has no finite response at all", doc: "Mean of the feature's observed responses: the covariate --trend fits on."}
   tables:
     prior:
-      - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "infinite: df_infinite is true", doc: "Prior degrees of freedom d0. 0 with fewer than 3 features, where mzLib fits no prior (mzLib#1398, as limma's squeezeVar), so moderation leaves each feature's variance and t as they are."}
+      - {wire: estimator, type: string, unit: null, nullable: false, null_means: null, doc: "moments_legacy or marginal_likelihood: the estimator mzLib reports it fitted the prior with (VariancePrior.Estimator), its default when --estimator was absent. Absent from bridges before pyMzLib 0.6.0."}
+      - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "infinite: df_infinite is true", doc: "Prior degrees of freedom d0. 0 with fewer than 3 features, where mzLib fits no prior (mzLib#1398, as limma's squeezeVar), so moderation leaves each feature's variance and t as they are. Under marginal_likelihood mzLib searches d0 from about 0.05 (e^-3) upward, so a d0 there is the search's floor, not an optimum."}
       - {wire: df_infinite, type: bool, unit: null, nullable: false, null_means: null, doc: "True when the residual variances are no more dispersed than sampling alone explains, so every feature takes the prior variance."}
       - {wire: trended, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether s0^2 varies with average_response."}
       - {wire: spline_basis_count, type: int, unit: basis functions, nullable: false, null_means: null, doc: "Basis functions the trend used, intercept included; 1 without a trend."}
       - {wire: scale, type: float, unit: "squared response units", nullable: true, null_means: "s0^2 differs by feature, so it is in the prior_variance column: trended, or no prior was fitted (fewer than 3 features; mzLib#1398, as limma's squeezeVar)", doc: "s0^2, the prior variance, when every fitted feature shares one. With fewer than 3 features mzLib fits no prior: df is 0 and each feature keeps its own variance. Bridges before pyMzLib 0.6.0 reported the first feature's own variance here in that case."}
+    contrasts:
+      - {wire: confidence_level, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The two-sided level of every confidence_low and confidence_high: --confidence, or mzLib's default when it was absent (ModeratedContrast.ConfidenceLevel)."}
+      - {wire: tested_contrasts, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The contrast ids, in file order; the table holds one block of feature_count rows per entry."}
+      - {wire: weights, type: "map<string,float[]>", unit: "contrast weight per coefficient (unitless)", nullable: false, null_means: null, doc: "Each contrast id's weights, one per coefficient_names entry, in that order (the file's columns matched by name): what mzLib tested."}
+      - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "feature_count x the number of contrasts."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The contrasts table's columns, in order (result.tables.contrasts.columns)."}
+      - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (contrast, feature): contrast blocks in file order, features in file order."}
+    contrasts.columns:
+      - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
+      - {wire: contrast, type: string, unit: null, nullable: false, null_means: null, doc: "The contrast id this row tests, from the contrasts file's first column. diff design numbers its contrasts within each stratum; its label column says what each id compares."}
+      - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "The feature's fit status, as in the coefficient table. Only fitted rows carry statistics or enter the contrast's BH family."}
+      - {wire: estimate, type: float, unit: "response units per contrast unit (e.g. log2 fold change for a level-against-level contrast on log2 intensities)", nullable: true, null_means: "not fitted", doc: "The contrast's least-squares estimate, the weighted sum of the coefficients; moderation does not change it."}
+      - {wire: standard_error, type: float, unit: "response units per contrast unit", nullable: true, null_means: "not fitted", doc: "Moderated standard error: sqrt(posterior_variance) x sqrt(c'(X'X)^-1 c), with the feature's own (X'X)^-1 over its observed samples."}
+      - {wire: confidence_low, type: float, unit: "response units per contrast unit", nullable: true, null_means: "not fitted", doc: "Lower bound of the two-sided confidence_level interval: estimate - t-quantile((1 + level) / 2, df_total) x standard_error. Per feature, not adjusted across features."}
+      - {wire: confidence_high, type: float, unit: "response units per contrast unit", nullable: true, null_means: "not fitted", doc: "Upper bound: estimate + the same half-width."}
+      - {wire: t, type: float, unit: "standard errors", nullable: true, null_means: "not fitted", doc: "Moderated t-statistic."}
+      - {wire: df_total, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted", doc: "df_residual + prior df, capped at the pooled residual df, as for a coefficient."}
+      - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted", doc: "Two-sided p-value."}
+      - {wire: bh_adjusted, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted (not in the family)", doc: "Benjamini-Hochberg adjusted p-value over this contrast's fitted features. Not a target-decoy q-value."}
+      - {wire: posterior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted", doc: "The moderated residual variance, as in the coefficient table."}
+      - {wire: prior_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted (the feature did not enter the prior)", doc: "s0^2 for this feature, as in the coefficient table."}
+      - {wire: sigma, type: float, unit: "response units", nullable: true, null_means: "not fitted", doc: "Residual standard deviation before moderation."}
+      - {wire: df_residual, type: int, unit: null, nullable: true, null_means: "not fitted", doc: "Observed samples minus coefficients."}
+      - {wire: observed, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a finite response for this feature."}
+      - {wire: average_response, type: float, unit: "response units", nullable: true, null_means: "the feature has no finite response at all", doc: "Mean of the feature's observed responses."}
 
 errors:
-  - {kind: usage, when: "responses or design missing, blank or not found; a table empty, header-only or with too few columns; a row whose field count differs from its header; an empty or repeated feature id, sample or coefficient name; a response cell that is not a number (other than blank, NA, NaN); a design cell that is not a finite number"}
-  - {kind: usage, when: "the design's samples are not exactly the responses' sample columns (both differences are named); no coefficient on stdin, one named twice, or one not in the design; --spline-basis without --trend, or below 1; --threads 0 or below -1"}
-  - {kind: usage, when: "mzLib refuses the input: the design is not of full column rank, or fewer than 2 features could be fitted, so no variance prior exists (mzLib's ArgumentException, reclassified)"}
+  - {kind: usage, when: "responses, design or contrasts missing, blank or not found (or --contrasts without a value); a table empty, header-only or with too few columns; a row whose field count differs from its header; an empty or repeated feature id, sample, coefficient name or contrasts column; a response cell that is not a number (other than blank, NA, NaN); a design cell or contrast weight that is not a finite number"}
+  - {kind: usage, when: "the design's samples are not exactly the responses' sample columns, or the contrasts file's columns are not exactly the design's coefficients (both differences are named); an empty contrast id; no coefficient on stdin without --contrasts, one named twice, or one not in the design; --spline-basis without --trend, or below 1; --confidence without --contrasts, without a value or not a number; --estimator other than moments_legacy or marginal_likelihood, or without a value; --threads 0 or below -1"}
+  - {kind: usage, when: "mzLib refuses the input (its ArgumentException, reclassified, with mzLib's message): the design is not of full column rank; fewer than 2 features could be fitted, so no variance prior exists; a contrast whose weights are all 0; two contrasts with one id; a confidence level not strictly between 0 and 1"}
   - {kind: correctness, when: "never expected"}
   - {kind: service_unavailable, when: never}
 
 caveats:
-  - "This is limma's LEGACY empirical-Bayes estimator (eBayes(legacy = TRUE)). Since limma 3.61, eBayes defaults to a different estimator whenever residual df differ between features, which omitting missing values causes; residual_df_differ says when that applies."
-  - "Not implemented: robust = TRUE, the B-statistic, observation weights. mzLib has contrasts since 1.0.595 (EmpiricalBayes.ModerateContrasts, #1452), but this verb does not expose them yet: write a contrast as its own design column instead."
+  - "Under the default estimator, moments_legacy, this is limma's LEGACY empirical-Bayes estimator (eBayes(legacy = TRUE)). Since limma 3.61, eBayes defaults to a different estimator whenever residual df differ between features, which omitting missing values causes; residual_df_differ says when that applies. For that case mzLib offers marginal_likelihood, which handles unequal df exactly (VariancePriorEstimator.MarginalLikelihood, 'this library's answer to that gap' in mzLib's EmpiricalBayes docs). It is mzLib's own estimator, not limma's fitFDistUnequalDF1, so its numbers differ from default limma's too; mzLib keeps moments_legacy the default for limma legacy parity."
+  - "Not implemented: robust = TRUE, the B-statistic, observation weights."
+  - "Contrasts (--contrasts) use the same prior as the coefficients, and each has its own Benjamini-Hochberg family. confidence_low and confidence_high are per feature, not adjusted across features. With missing values a contrast's standard error is exact per feature, where limma's contrasts.fit approximates it, so on such data the contrasts differ from limma's by design; with complete data they agree, and a contrast of one coefficient gives exactly that coefficient's row."
   - "A 0 is an observation. Log-transform intensities first, and blank any cell that means 'not measured'."
   - "bh_adjusted adjusts for the false discovery rate among the features tested. It is not a target-decoy q-value for identifications."
 
 bindings:
   py: {name: pymzlib.stats.fit}
-  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "on main (mzLibRust #31), not yet released"}
-  r: {name: stats_fit, note: "on main (mzLibR #31), not yet released"}
+  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "on main (mzLibRust #31), not yet released; contrasts, confidence and estimator not yet ported"}
+  r: {name: stats_fit, note: "on main (mzLibR #31), not yet released; contrasts, confidence and estimator not yet ported"}
 
 examples:
   - fixture: stats_fit_malat.json
@@ -128,5 +220,13 @@ examples:
     py: "fit = pymzlib.stats.fit('limma_reference_responses.tsv', 'limma_reference_design.tsv', ['age_decades'])"
     rust: "let fit = mzlib::stats::fit_with(\"limma_reference_responses.tsv\", \"limma_reference_design.tsv\", &[\"age_decades\"], &FitOptions::default())?;"
     r: "fit <- stats_fit('limma_reference_responses.tsv', 'limma_reference_design.tsv', 'age_decades')"
+  - fixture: stats_fit_malat_contrasts.json
+    py: "fit = pymzlib.stats.fit('malat_dilution_log2_vs_fluc.tsv', 'malat_pairs/design_1.tsv', contrasts='malat_pairs/contrasts_1.tsv')"
+    rust: "let fit = mzlib::stats::fit_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_pairs/design_1.tsv\", &[], &FitOptions { contrasts: Some(\"malat_pairs/contrasts_1.tsv\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit('malat_dilution_log2_vs_fluc.tsv', 'malat_pairs/design_1.tsv', character(0), contrasts = 'malat_pairs/contrasts_1.tsv')"
+  - fixture: stats_fit_malat_marginal.json
+    py: "fit = pymzlib.stats.fit('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', ['malat_250ng', 'malat_125ng'], estimator='marginal_likelihood')"
+    rust: "let fit = mzlib::stats::fit_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_dilution_design.tsv\", &[\"malat_250ng\", \"malat_125ng\"], &FitOptions { estimator: Some(\"marginal_likelihood\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', c('malat_250ng', 'malat_125ng'), estimator = 'marginal_likelihood')"
 
 open_questions: []

@@ -134,6 +134,132 @@ def test_fit_refuses_bad_options_without_starting_a_process(bridge, kwargs, mess
     assert bridge["calls"] == []
 
 
+# ---- fit: contrasts, confidence and the prior estimator -----------------------------------------
+
+
+def test_fit_sends_contrasts_confidence_and_estimator_only_when_given(bridge, tmp_path):
+    bridge["payload"] = recorded("stats_fit_malat_contrasts.json")
+    contrasts = tmp_path / "contrasts_1.tsv"
+    stats.fit("r.tsv", "d.tsv", contrasts=contrasts, confidence=0.9, estimator="marginal_likelihood")
+    args = bridge["calls"][0]["args"]
+    assert args[args.index("--contrasts") + 1] == str(contrasts)
+    assert args[args.index("--confidence") + 1] == "0.9"
+    assert args[args.index("--estimator") + 1] == "marginal_likelihood"
+    assert bridge["calls"][0]["stdin"] == "", "contrasts alone: no coefficient on stdin"
+
+    bridge["payload"] = recorded("stats_fit_malat.json")
+    stats.fit("r.tsv", "d.tsv", ["malat_250ng"])
+    args = bridge["calls"][1]["args"]
+    assert not {"--contrasts", "--confidence", "--estimator"} & set(args), (
+        "left out, they are not sent, so mzLib's defaults apply"
+    )
+
+
+def test_fit_parses_the_recorded_contrasts(bridge):
+    bridge["payload"] = recorded("stats_fit_malat_contrasts.json")
+    fit = stats.fit("malat_dilution_log2_vs_fluc.tsv", "design_1.tsv", contrasts="contrasts_1.tsv")
+
+    assert fit.tested_coefficients == [] and fit.row_count == 0 and fit.records == []
+    assert fit.contrasts_file.endswith("contrasts_1.tsv")
+    pairs = fit.contrasts
+    assert isinstance(pairs, stats.ModeratedContrasts)
+    assert pairs.tested_contrasts == ["c1", "c2", "c3"]
+    assert pairs.confidence_level == 0.95
+    assert fit.coefficient_names == ["intercept", "malat_load=250ng", "malat_load=500ng"]
+    assert pairs.weights == {"c1": [0, 1, 0], "c2": [0, 0, 1], "c3": [0, -1, 1]}
+    assert pairs.row_count == 3 * fit.feature_count == len(pairs.records)
+    assert pairs.column_names[:7] == [
+        "feature", "contrast", "status", "estimate", "standard_error", "confidence_low", "confidence_high",
+    ]
+    rows = pairs.rows("c3")
+    assert len(rows) == fit.feature_count
+    assert [r["feature"] for r in rows] == pairs.columns["feature"][: fit.feature_count]
+    for row in rows:
+        fitted = row["status"] == "fitted"
+        assert (row["confidence_low"] is not None) is fitted
+        assert (row["bh_adjusted"] is not None) is fitted
+        if fitted:
+            assert row["confidence_low"] < row["estimate"] < row["confidence_high"]
+    assert any(c.startswith("Contrasts are tested with the same variance prior") for c in fit.caveats)
+
+
+def test_contrast_rows_refuses_a_contrast_that_was_not_tested(bridge):
+    bridge["payload"] = recorded("stats_fit_malat_contrasts.json")
+    pairs = stats.fit("r.tsv", "d.tsv", contrasts="c.tsv").contrasts
+    with pytest.raises(pymzlib.UsageError, match="tested the contrasts: c1, c2, c3"):
+        pairs.rows("c4")
+
+
+def test_a_fit_without_contrasts_has_none(bridge):
+    bridge["payload"] = recorded("stats_fit_malat.json")
+    fit = stats.fit("r.tsv", "d.tsv", ["malat_250ng", "malat_125ng"])
+    assert fit.contrasts is None and fit.contrasts_file is None
+    assert fit.prior.estimator == "moments_legacy"
+
+
+def test_fit_parses_the_estimator_mzlib_used(bridge):
+    bridge["payload"] = recorded("stats_fit_malat_marginal.json")
+    fit = stats.fit("r.tsv", "d.tsv", ["malat_250ng", "malat_125ng"], estimator="marginal_likelihood")
+    assert fit.prior.estimator == "marginal_likelihood"
+    assert fit.prior.estimator in stats.PRIOR_ESTIMATORS
+    assert fit.caveats[0].startswith("marginal_likelihood:")
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"estimator": "reml"}, "estimator must be one of moments_legacy, marginal_likelihood"),
+        ({"estimator": 1}, "estimator must be one of"),
+        ({"confidence": "0.9"}, "confidence must be a number"),
+        ({"confidence": True}, "confidence must be a number"),
+        ({"contrasts": 3}, "contrasts must be a path"),
+    ],
+)
+def test_fit_refuses_bad_contrast_options_without_starting_a_process(bridge, kwargs, message):
+    with pytest.raises(pymzlib.UsageError, match=message):
+        stats.fit("r.tsv", "d.tsv", ["x"], **kwargs)
+    assert bridge["calls"] == []
+
+
+def test_fit_needs_a_coefficient_or_contrasts(bridge):
+    with pytest.raises(pymzlib.UsageError, match="or a contrasts file"):
+        stats.fit("r.tsv", "d.tsv")
+    assert bridge["calls"] == []
+
+
+def _older(name: str) -> dict:
+    """A recording as a bridge from before pyMzLib 0.6.0 answers: no contrasts, no estimator."""
+    data = recorded(name)
+    data.pop("contrasts_file", None)
+    data.pop("contrasts", None)
+    data["prior"].pop("estimator", None)
+    return data
+
+
+def test_fit_says_so_when_an_older_bridge_ignored_contrasts(bridge):
+    bridge["payload"] = _older("stats_fit_malat.json")
+    with pytest.raises(pymzlib.UsageError, match=r"fit\(contrasts=\.\.\.\) needs the bridge from pyMzLib 0\.6\.0"):
+        stats.fit("r.tsv", "d.tsv", ["malat_250ng"], contrasts="c.tsv")
+
+
+def test_fit_says_so_when_an_older_bridge_ignored_the_estimator(bridge):
+    bridge["payload"] = _older("stats_fit_malat.json")
+    with pytest.raises(pymzlib.UsageError, match=r"fit\(estimator=\.\.\.\) needs the bridge from pyMzLib 0\.6\.0"):
+        stats.fit("r.tsv", "d.tsv", ["malat_250ng"], estimator="moments_legacy")
+    # Without the new options, an older bridge's answer is read as it always was.
+    assert stats.fit("r.tsv", "d.tsv", ["malat_250ng"]).prior.estimator is None
+
+
+def test_fit_names_the_cause_when_an_older_bridge_wanted_a_coefficient(monkeypatch):
+    def invoke(*args, stdin=None, timeout=None):
+        raise _bridge.UsageError("No coefficient to test was given on stdin. Give one name per line.")
+
+    monkeypatch.setattr(_bridge, "invoke", invoke)
+    monkeypatch.setattr(_bridge, "require_verb", lambda verb, since: None)
+    with pytest.raises(pymzlib.UsageError, match="needs the bridge from pyMzLib 0.6.0"):
+        stats.fit("r.tsv", "d.tsv", contrasts="c.tsv")
+
+
 # ---- adjust --------------------------------------------------------------------------------------
 
 

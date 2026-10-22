@@ -1,0 +1,455 @@
+{
+ "samples_file": "E:\\CodeReview\\wt-py-stats-fit-contrasts\\pkg\\python\\tests\\fixtures\\diff\\malat_dilution_samples.tsv",
+ "sample_count": 27,
+ "factors": [
+  {
+   "name": "malat_load",
+   "reference_level": null
+  }
+ ],
+ "covariates": [],
+ "interactions": [],
+ "stratum_columns": [],
+ "batch_column": null,
+ "unused_columns": [],
+ "stratum_count": 1,
+ "strata": [
+  {
+   "stratum": "all",
+   "sample_count": 27,
+   "sample_ids": [
+    "2026_09_18_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_18_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_18_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_18_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_18_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_18_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_24_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_24_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3",
+    "2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-4",
+    "2026_09_24_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_24_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-3",
+    "2026_09_26_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3",
+    "2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-3",
+    "2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1",
+    "2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2",
+    "2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3"
+   ],
+   "column_names": [
+    "intercept",
+    "malat_load=250ng",
+    "malat_load=500ng"
+   ],
+   "fitted_column_names": [
+    "intercept",
+    "malat_load=250ng",
+    "malat_load=500ng"
+   ],
+   "rank": 3,
+   "aliased_terms": [],
+   "warnings": [
+    "No reference level was declared for factor 'malat_load', so every pair of its levels is compared (GR-14). Levels: 125ng, 250ng, 500ng."
+   ],
+   "not_run": [],
+   "covariate_centres": {},
+   "matrix": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ]
+   ],
+   "fitted_matrix": [
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     0,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ],
+    [
+     1,
+     1,
+     0
+    ]
+   ],
+   "design_file": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\7f64a405-9a0a-439c-b20a-408778dc0c30\\scratchpad\\rec\\malat_pairs\\design_1.tsv",
+   "contrasts_file": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\7f64a405-9a0a-439c-b20a-408778dc0c30\\scratchpad\\rec\\malat_pairs\\contrasts_1.tsv"
+  }
+ ],
+ "estimability_counts": {
+  "estimable": 3,
+  "not_estimable:confounded": 0,
+  "not_estimable:rank_deficient": 0
+ },
+ "written": {
+  "directory": "C:\\Users\\trish\\AppData\\Local\\Temp\\claude\\E--CodeReview-bridge\\7f64a405-9a0a-439c-b20a-408778dc0c30\\scratchpad\\rec\\malat_pairs",
+  "file_count": 2
+ },
+ "row_count": 3,
+ "column_names": [
+  "stratum",
+  "contrast_id",
+  "label",
+  "numerator",
+  "denominator",
+  "covariate",
+  "covariate_unit",
+  "covariate_scale",
+  "estimability",
+  "weights",
+  "fitted_weights"
+ ],
+ "columns": {
+  "stratum": [
+   "all",
+   "all",
+   "all"
+  ],
+  "contrast_id": [
+   "c1",
+   "c2",
+   "c3"
+  ],
+  "label": [
+   "malat_load=250ng vs malat_load=125ng",
+   "malat_load=500ng vs malat_load=125ng",
+   "malat_load=500ng vs malat_load=250ng"
+  ],
+  "numerator": [
+   "malat_load=250ng",
+   "malat_load=500ng",
+   "malat_load=500ng"
+  ],
+  "denominator": [
+   "malat_load=125ng",
+   "malat_load=125ng",
+   "malat_load=250ng"
+  ],
+  "covariate": [
+   null,
+   null,
+   null
+  ],
+  "covariate_unit": [
+   null,
+   null,
+   null
+  ],
+  "covariate_scale": [
+   null,
+   null,
+   null
+  ],
+  "estimability": [
+   "estimable",
+   "estimable",
+   "estimable"
+  ],
+  "weights": [
+   [
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    -1,
+    1
+   ]
+  ],
+  "fitted_weights": [
+   [
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    -1,
+    1
+   ]
+  ]
+ },
+ "caveats": [
+  "Each stratum's matrix is mzLib's AnalysisDesign: an intercept; each factor treatment-coded against its reference level, its other levels in ordinal order; batch against its first level; each covariate as (value - centre) / scale; then any interactions. It equals R's stats::model.matrix for the same formula and level order.",
+  "Only mzLib's default contrasts are listed (AnalysisDesign.DefaultContrasts): each level against its factor's reference, every pair of levels when a factor has no reference, and each covariate's slope. With an interaction in the model, a factor's contrast is its effect at the reference level of the other factor.",
+  "Contrast ids (c1, c2, ...) are numbered within each stratum, so one id can name different comparisons in two strata. Match contrasts across strata by label.",
+  "A design file holds only the fitted columns (fitted_column_names): mzLib leaves out a column that is redundant with earlier ones, because LinearModel.Fit refuses a design without full column rank. A contrast that is not estimable has no fitted weights and is not in the contrasts file.",
+  "Strata are never columns: each stratum gets its own design and nothing is shared between them. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept."
+ ]
+}

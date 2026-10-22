@@ -32,6 +32,8 @@ PYMZLIB_REGENERATE_STATS_FIXTURES=1 dotnet test pkg/bridge.tests --filter "Fully
 | `entrapment_reference_r1.tsv` | The entrapment project's reference script (`fdp_analysis.py` at 92f3108) output for that search at r = 1, as mzLib's test carries it, to five decimals. | same |
 
 The recorded bridge payloads that answer these calls in the examples are one folder up:
-`stats_fit_malat.json`, `stats_fit_limma.json`, `stats_adjust.json`, `stats_meta_metafor.json`,
+`stats_fit_malat.json`, `stats_fit_malat_marginal.json` (`estimator="marginal_likelihood"`),
+`stats_fit_malat_contrasts.json` (every pair of loads, from `diff design`), `stats_fit_limma.json`,
+`stats_adjust.json`, `stats_meta_metafor.json`,
 `stats_combine_p_*.json`, `stats_correlate_*.json`, `stats_fit_logistic_*.json`,
 `stats_fit_mixed_*.json` and `stats_entrapment_fdp_*.json`.

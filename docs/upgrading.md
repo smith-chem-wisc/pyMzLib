@@ -11,7 +11,7 @@ Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
 ## Unreleased (still built from mzLib 1.0.595)
 
-mzLib did not move. These two are pyMzLib's own.
+mzLib did not move. These are pyMzLib's own.
 
 ### Same file, different value
 
@@ -20,6 +20,11 @@ mzLib did not move. These two are pyMzLib's own.
   `prior.df` is 0 and each feature keeps its own variance. `prior.scale` used to report the
   first feature's variance as though it were the prior; it is now `None`, and each feature's
   value is in the `prior_variance` column. Tables of 3 or more features are unchanged.
+- **`stats.fit()`'s caveats name the variance-prior estimator.** The first caveat now begins
+  `moments_legacy:` (or `marginal_likelihood:` when you choose it), and the `residual_df_differ`
+  caveat now names `estimator="marginal_likelihood"` as mzLib's estimator for that case. The
+  `bh_adjusted` caveat says "per coefficient and per contrast". Every number is unchanged; only
+  code that matches caveat text needs a look.
 
 ### Same failure, different error
 

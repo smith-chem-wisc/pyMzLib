@@ -164,6 +164,28 @@ envelope is not a breaking change unless Python callers can see it.
   search did not read, ambiguous claims and runs the SDRF lists twice. `out=` writes the whole
   document through mzLib (it adds `.sdrf.tsv` to a name that lacks it; `written.path` says which
   file). Wire verb `sdrf restrict`.
+- **`stats.fit(contrasts=...)`: any comparison, with a confidence interval** (mzLib 1.0.595, #1452,
+  `EmpiricalBayes.ModerateContrasts`). Give the contrasts file `diff.design(out=...)` writes
+  beside the design (`contrasts_<i>.tsv`), or your own: a contrast id column, then exactly the
+  design's coefficient columns, matched by name, one weight each. Each contrast is moderated with
+  the same prior as the coefficients, has its own Benjamini-Hochberg family, and carries
+  `confidence_low` and `confidence_high`: limma's `contrasts.fit`, `eBayes` and
+  `topTable(confint = ...)`, held through the wire to limma 3.68.5 to 1e-8 on mzLib's reference
+  data. The answers are a second table, `ModeratedFit.contrasts` (a `ModeratedContrasts`, with
+  `rows()`), so the coefficient table is unchanged; `coefficients` may now be empty.
+  `confidence=` sets the level, as a fraction; left out, it is mzLib's default (0.95), and
+  `confidence_level` reports it. With missing values a contrast's standard error is exact per
+  feature, where limma's `contrasts.fit` approximates it. Needs the 0.6.0 bridge.
+- **`stats.fit(estimator=...)`: mzLib's marginal-likelihood variance prior** (mzLib 1.0.594, #1368,
+  `VariancePriorEstimator`). `"marginal_likelihood"` fits the prior with each feature's own
+  residual degrees of freedom, so the unequal df that missing values cause are handled exactly;
+  it is mzLib's own estimator, close to default limma's but not equal. `"moments_legacy"`
+  (limma's `eBayes(legacy = TRUE)`) stays mzLib's default, and the new
+  `VariancePrior.estimator` reports which was used; `stats.PRIOR_ESTIMATORS` lists both. On the
+  MALAT1 dilution series it lowers the prior df from 19.6 to 11.0 and drops the false FLuc call at
+  half load. The first caveat now names the estimator, and the `residual_df_differ` caveat points
+  to `"marginal_likelihood"`. Needs the 0.6.0 bridge; with an older one `fit()` raises
+  `UsageError` instead of returning a fit that ignored the option.
 
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,

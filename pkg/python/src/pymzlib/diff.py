@@ -327,7 +327,8 @@ class DesignStratum:
             without ``out=``. Give it to :func:`pymzlib.stats.fit` as ``design``.
         contrasts_file: The contrast weights written for this stratum (``contrasts_<i>.tsv``), one
             row per estimable contrast on the design file's columns; ``None`` without ``out=`` or
-            when nothing here is estimable.
+            when nothing here is estimable. Give it to :func:`pymzlib.stats.fit` as ``contrasts``,
+            with :attr:`design_file` as ``design``.
     """
 
     stratum: str
@@ -701,8 +702,9 @@ def design(
         strata: Columns whose values split the samples into strata, each designed on its own (one
             name, or a list).
         batch: The column holding each sample's batch, fitted as a fixed block. ``None``: no batch.
-        out: A directory to write ``design_<i>.tsv`` (for :func:`pymzlib.stats.fit`) and
-            ``contrasts_<i>.tsv`` into, per stratum. ``None``: nothing is written.
+        out: A directory to write ``design_<i>.tsv`` (for :func:`pymzlib.stats.fit`'s
+            ``design``) and ``contrasts_<i>.tsv`` (for its ``contrasts``) into, per stratum.
+            ``None``: nothing is written.
         timeout: Seconds to allow. ``None`` waits indefinitely.
 
     Returns:
@@ -729,7 +731,8 @@ def design(
         c2 malat_load=250ng vs malat_load=500ng estimable [0, 0, 1]
 
         Each contrast against the reference is one design column, so ``stats.fit`` tests it by
-        that column's name in the design file this call wrote.
+        that column's name in the design file this call wrote, or as a row of the contrasts file
+        (``stats.fit(..., contrasts=stratum.contrasts_file)``), which adds a confidence interval.
     """
     args = ["diff", "design", "--samples", _path(samples, "samples")]
     stdin = _model_stdin(factors, covariates, interactions, strata, batch)

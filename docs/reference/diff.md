@@ -16,7 +16,8 @@ own default applies. The `stdin` rows below describe the wire.
 
 **The pivot files.** `diff design --out DIR` writes, per stratum, `design_<i>.tsv` (read by
 `stats fit --design` as it is) and `contrasts_<i>.tsv` (the weights mzLib's
-`EmpiricalBayes.ModerateContrasts` takes, on the design file's columns). `diff observations
+`EmpiricalBayes.ModerateContrasts` takes, on the design file's columns, read by
+`stats fit --contrasts` as it is). `diff observations
 --responses-out` writes the peptide-by-sample table `stats fit --responses` reads. The verbs
 compose through these files; no binding joins them.
 
