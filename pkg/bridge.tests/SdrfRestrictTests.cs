@@ -47,6 +47,16 @@ public class SdrfRestrictTests
 
     private static readonly string Clean = string.Join("\n", CleanFiles);
 
+    // The same four files under this platform's own separator. restrict reduces a path written with
+    // either separator on any platform, but the design readers use Path.GetFileName, which splits
+    // only this platform's, so a design test given D:\search\... on Linux keys on the whole string
+    // (SDRF-B5 asks mzLib for one rule).
+    private static readonly string[] NativeCleanFiles = CleanFiles
+        .Select(f => Path.Combine(Path.GetTempPath(), "search", f[(f.LastIndexOf('\\') + 1)..]))
+        .ToArray();
+
+    private static readonly string NativeClean = string.Join("\n", NativeCleanFiles);
+
     [Test]
     public void Restrict_JoinsDerivativesAndReportsWhatItCouldNotPlace()
     {
@@ -238,17 +248,17 @@ public class SdrfRestrictTests
         string output = Path.Combine(Path.GetTempPath(), $"restrict-design-{Guid.NewGuid():N}.sdrf.tsv");
         try
         {
-            InvokeWithStdin(Clean, "sdrf", "restrict", "--path", Fixture(Pxd008841), "--out", output);
-            JsonElement design = InvokeWithStdin(Clean, "sdrf", "isobaric-design", "--path", output,
+            InvokeWithStdin(NativeClean, "sdrf", "restrict", "--path", Fixture(Pxd008841), "--out", output);
+            JsonElement design = InvokeWithStdin(NativeClean, "sdrf", "isobaric-design", "--path", output,
                 "--kit", "TMT10", "--plex-file-name-pattern", @"TMT_?pool(?<plex>\d+)", "--searched-files-stdin");
 
             Assert.That(design.GetProperty("is_valid").GetBoolean(), Is.True, design.GetProperty("report").GetString());
             Assert.That(design.GetProperty("file_key_column").GetString(), Is.EqualTo("comment[searched data file]"));
-            Assert.That(Strings(design.GetProperty("columns").GetProperty("full_path")).Distinct(), Is.EqualTo(CleanFiles));
+            Assert.That(Strings(design.GetProperty("columns").GetProperty("full_path")).Distinct(), Is.EqualTo(NativeCleanFiles));
 
             // Without the restriction, the same search matches no row: the SDRF names X.raw, the
             // search read X-calib.mzML.
-            JsonElement unrestricted = InvokeWithStdin(Clean, "sdrf", "isobaric-design", "--path", Fixture(Pxd008841),
+            JsonElement unrestricted = InvokeWithStdin(NativeClean, "sdrf", "isobaric-design", "--path", Fixture(Pxd008841),
                 "--kit", "TMT10", "--plex-file-name-pattern", @"TMT_?pool(?<plex>\d+)", "--searched-files-stdin");
             Assert.That(unrestricted.GetProperty("is_valid").GetBoolean(), Is.False);
             Assert.That(Strings(unrestricted.GetProperty("refusals")), Has.Some.Contain("has no SDRF row"));
