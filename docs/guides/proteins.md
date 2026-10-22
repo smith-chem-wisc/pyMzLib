@@ -9,6 +9,7 @@ somewhere else. **The protein database you searched already knows all four**, an
 |---|---|---|
 | What organism, taxon, gene and mass is this accession? What are its GO terms? | [`read()`](#look-up-organism-and-taxon-for-a-list-of-accessions) | `ProteinDbLoader`, `Protein.GoTerms` ([#1336][1336]), `Protein.EnsemblGeneReferences` |
 | Which Ensembl gene is this protein, in a way I can reproduce next year? | [`resolve_genes()`](#resolve-proteins-to-ensembl-genes-reproducibly) | `EnsemblGeneResolver` ([#1338][1338]) |
+| Which mouse genes are orthologous to this human gene, and if none, why not? | [`build_orthology()`](#orthologs-across-species-an-ensembl-compara-snapshot) | `OrthologySnapshot`, `OrthologySnapshotWriter` ([#1381][1381]) |
 | Does this peptide identify one protein, one gene, or neither? | [`classify_peptides()`](#decide-whether-a-peptide-is-unique-with-i-l) | `PeptideUniquenessClassifier` ([#1348][1348]) |
 | Which GO terms does each protein group carry, with every member kept and the ontology's ancestors filled in? | [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member) | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
 | Where do I get a go.obo, and how do I keep the release pinned? | [`update_go()`](#first-get-a-goobo-once-and-keep-it) | `Loaders.UpdateGeneOntology` ([#1353][1353]) |
@@ -31,7 +32,8 @@ Every `>>>` example on this page runs in CI against output recorded from the rea
 small databases committed in pyMzLib's test suite (`pkg/python/tests/fixtures/proteins/`): two real
 UniProt XML entries (GAPDH, PSCA), human albumin and three DYNC1I2 isoforms as FASTA, mouse AIFM1
 as FASTA, and bovine albumin as a contaminant. The Gene Ontology section adds a real MetaMorpheus
-protein-group table and the UniProt entries it names. Blocks titled **Not run** say why.
+protein-group table and the UniProt entries it names. The orthology section uses mzLib's own
+three-species test world (`pkg/python/tests/fixtures/orthology/`). Blocks titled **Not run** say why.
 
 ## Before you start: XML or FASTA?
 
@@ -814,6 +816,245 @@ silently:
 - **An isoform or version past 2,147,483,647** reads as `None`, while the namespace still says
   `uniprot` or `refseq`: mzLib keeps the entry and drops the number.
 
+## Orthologs across species: an Ensembl Compara snapshot
+
+**The problem.** You have a mouse result and a human question, or identifications from three species
+to line up: which human gene is this mouse gene's ortholog? Ensembl Compara answers that, per
+species pair, in bulk files with three traps:
+
+1. **The dumps partition.** Each species has its own homology dump, and Compara puts each of a
+   pair's relationships in *one* of the pair's two dumps, arbitrarily. In release 116 every
+   human-mouse orthology is in the **mouse** dump and none is in the human one. Reading the dump
+   named after your species gives a complete-looking, badly incomplete answer.
+2. **Orthology is not transitive.** Human A ~ mouse B and mouse B ~ rat C does not make A ~ C.
+   Chaining pairs into groups invents tuples Compara never asserted.
+3. **"No ortholog" means three things.** The gene's tree may hold a gene of the other species with no
+   ortholog called, hold none of that species, or the gene may be in no tree at all.
+
+`build_orthology()` builds mzLib's orthology snapshot (`OrthologySnapshot`, [#1381][1381]), which
+makes the first trap structural - **mzLib refuses a call without every species' dump** - and keeps
+the other two visible. This example is mzLib's own test world: four human genes, three mouse and two
+rat, with every human-mouse row in the mouse dump:
+
+```pycon
+>>> gtfs = {"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf",
+...         "mus_musculus": "Mus_musculus.GRCm39.116.gtf",
+...         "rattus_norvegicus": "Rattus_norvegicus.GRCr8.116.gtf"}
+>>> dumps = [f"homologies/{s}/Compara.116.protein_default.homologies.tsv.gz" for s in gtfs]
+>>> snap = pymzlib.proteins.build_orthology(
+...     "116", gtfs=gtfs, dumps=dumps,
+...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+...     pair_status=("homo_sapiens", "mus_musculus"),     # every human gene, in mouse
+... )
+>>> for r in snap.pair_status.records:
+...     print(r["gene_id"], r["gene_biotype"], r["status"])
+ENSG00000000001 protein_coding has_ortholog
+ENSG00000000002 protein_coding has_ortholog
+ENSG00000000003 protein_coding tree_lacks_target_species
+ENSG00000000004 protein_coding not_in_any_tree
+>>> snap.snapshot_id[:12]
+'5487ebcabe48'
+
+```
+
+Record `snap.snapshot_id` with any result you draw from the snapshot. It is mzLib's sha256 over the
+format, the release, the species and every input's sha256, so the same inputs always give the same
+id, and a different id means different inputs.
+
+### What to download, once per release
+
+Nothing is downloaded for you. For release 116, from `https://ftp.ensembl.org/pub/release-116/`:
+
+| Input | Path under the release | Size (human, 116) | Argument |
+|---|---|---|---|
+| Each species' primary-assembly GTF | `gtf/homo_sapiens/Homo_sapiens.GRCh38.116.gtf.gz` | 141 MB | `gtfs={species: path}` |
+| Each species' homology dump | `tsv/ensembl-compara/homologies/homo_sapiens/Compara.116.protein_default.homologies.tsv.gz` | 109 MB | `dumps=[...]` |
+| The gene trees, one file for all species | `compara/vertebrates.GeneTree_content.default.e116.txt.gz` | 79 MB | `gene_trees=` |
+
+- **The species names are Ensembl production names**: `homo_sapiens`, `mus_musculus`,
+  `rattus_norvegicus`, exactly as the dumps' `species` column spells them. They are the keys of
+  `gtfs=`, and they are the snapshot's species.
+- **Take the dump in each species' own folder.** Every species' dump has the same file name, so keep
+  them in their folders. One folder up, `homologies/` also holds a 10 GB file of the same name; it
+  is not one species' dump.
+- **Keep Ensembl's file names.** mzLib holds the gene trees and every dump to your `release` only when
+  their names carry it (`.e116.txt.gz`, `Compara.116.`). A renamed file is not checked, and a caveat
+  says which.
+- **A GTF's own number is not compared.** Ensembl publishes some species with their own annotation
+  release (yeast is `Saccharomyces_cerevisiae.R64-1-1.63.gtf.gz` in release 116). mzLib holds a gene
+  set to the dumps by content instead: a homology that names a gene the gene set lacks is refused.
+- **A compact gene table works too.** If you already made one for [`resolve_genes()`](#resolve-proteins-to-ensembl-genes-reproducibly)
+  with mzLib's `EnsemblGeneSetWriter`, pass it in `gene_sets={species: path}` instead of `gtfs=`. It
+  carries the GTF's provenance, so the snapshot and its id are the same.
+
+### Every species' dump, always
+
+The result shows where the rows came from. The human dump holds one row (human-rat); all three
+human-mouse rows came from the mouse dump:
+
+```pycon
+>>> {species: dump.rows_kept for species, dump in snap.dumps.items()}
+{'homo_sapiens': 1, 'mus_musculus': 5, 'rattus_norvegicus': 1}
+>>> for p in snap.pairs:
+...     print(p.species_a, p.species_b, p.ortholog_count, p.paralog_count)
+homo_sapiens homo_sapiens 0 0
+homo_sapiens mus_musculus 3 0
+homo_sapiens rattus_norvegicus 1 0
+mus_musculus mus_musculus 0 1
+mus_musculus rattus_norvegicus 2 0
+rattus_norvegicus rattus_norvegicus 0 0
+>>> snap.pair("mus_musculus", "homo_sapiens").row_count     # either order
+3
+
+```
+
+Leave the mouse dump out and mzLib refuses: *"No homology dump for mus_musculus. Each pair's
+relationships are split between its two species' dumps, so every species' dump is required."* That
+is a `UsageError`. A pair with nothing in it, such as the human paralogs here, still has its entry.
+
+### What each status means
+
+`pair_status=(from_species, to_species)` gives every gene of `from_species`'s gene set exactly one
+status in `to_species`. It says how far Compara's inference got, not what biology holds:
+
+| status | what it means | read it as |
+|---|---|---|
+| `has_ortholog` | at least one ortholog in `to_species` | an answer; the Parquet has the rows |
+| `no_edge_in_shared_tree` | the gene's tree holds a `to_species` gene, and Compara called no ortholog to it | the nearest the data comes to "no ortholog exists" |
+| `tree_lacks_target_species` | the gene's tree holds no `to_species` gene | nothing was compared |
+| `not_in_any_tree` | the gene is in the gene set but in no gene tree | no call was attempted |
+
+`snap.pair_status.status_counts` counts genes per status, every status present, and
+`snap.pair_status.genes("no_edge_in_shared_tree")` lists one status's genes. **A status is not
+symmetric**: ask for `("mus_musculus", "homo_sapiens")` separately. **Every biotype is a row**, so
+choose your denominator by filtering on `gene_biotype`. mzLib's own human-to-mouse check on release
+116 counted protein-coding plus IG and TR genes, which is not the same set as `protein_coding`
+alone.
+
+### Write the snapshot, then query it
+
+The relationships themselves go to disk. Give `out=` a directory that does not exist yet:
+
+```pycon
+>>> written = pymzlib.proteins.build_orthology(
+...     "116", gtfs=gtfs, dumps=dumps,
+...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+...     restrict_gene_trees=True, out="compara-116",
+... )
+>>> written.snapshot_id == snap.snapshot_id
+True
+>>> for f in written.written.files[:7]:
+...     print(f.path, f.rows)
+genes/homo_sapiens.parquet 4
+genes/mus_musculus.parquet 3
+genes/rattus_norvegicus.parquet 2
+members/homo_sapiens.parquet 3
+members/mus_musculus.parquet 3
+members/rattus_norvegicus.parquet 2
+pairs/homo_sapiens__homo_sapiens.parquet 0
+>>> written.written.files[-1].path, written.written.files[-1].rows
+('views.sql', None)
+
+```
+
+The directory holds `genes/SPECIES.parquet` (the gene set), `members/SPECIES.parquet` (gene to
+Compara tree), `pairs/A__B.parquet` (every relationship between A and B, A sorting first; A == B
+holds the paralogs), `views.sql` and `manifest.json` (every input and file with its sha256). The
+same inputs always give the same bytes. **A directory that is not empty is refused**: a snapshot is
+written once, and next release's goes in a new directory to compare with this one.
+
+`restrict_gene_trees=True` keeps only your species' genes from the gene-tree file. Without it,
+mzLib's default keeps every gene in it - 4.2 million for the vertebrates of release 116 - and a
+caveat says how many. The snapshot is the same either way, as the equal ids show.
+
+**mzLib writes Parquet and ships no reader, and pyMzLib reads none** (it has no third-party
+dependency). Query the files with DuckDB, which runs the macros mzLib writes in `views.sql`:
+
+```python title="Not run: needs DuckDB (pip install duckdb), which pyMzLib does not depend on"
+import duckdb
+
+con = duckdb.connect()
+con.execute(open("compara-116/views.sql", encoding="utf-8").read())
+
+# Every human protein-coding gene's status in mouse: the same as pair_status=, from the files.
+con.sql("""
+    SELECT status, count(*) AS genes
+    FROM pair_status('compara-116', 'homo_sapiens', 'mus_musculus')
+    WHERE gene_biotype = 'protein_coding'
+    GROUP BY status ORDER BY status
+""").fetchall()
+# [('has_ortholog', 2), ('not_in_any_tree', 1), ('tree_lacks_target_species', 1)]
+
+# The orthologs, oriented from human: one row per relationship, one-to-many kept as several rows.
+con.sql("SELECT gene, partner_gene, relationship_type, identity, partner_identity "
+        "FROM orthologs('compara-116', 'homo_sapiens', 'mus_musculus') ORDER BY gene, partner_gene").fetchall()
+# [('ENSG00000000001', 'ENSMUSG00000000001', 'ortholog_one2one', 91.0, 90.0),
+#  ('ENSG00000000002', 'ENSMUSG00000000002', 'ortholog_one2many', 71.0, 70.0),
+#  ('ENSG00000000002', 'ENSMUSG00000000003', 'ortholog_one2many', 61.0, 60.0)]
+
+# One gene per species where all three pairs are orthologs; never chained.
+con.sql("SELECT * FROM species_set3('compara-116', 'homo_sapiens', 'mus_musculus', "
+        "'rattus_norvegicus')").fetchall()
+# [('ENSG00000000001', 'ENSMUSG00000000001', 'ENSRNOG00000000001', True)]
+```
+
+H2 is orthologous to mouse M2, and M2 to rat R2, but H2 ~ R2 was never called, so `species_set3`
+does not return H2. That is trap 2, handled. Or read a table with pyarrow:
+
+```python title="Not run: needs pyarrow (pip install pyarrow), which pyMzLib does not depend on"
+import pandas as pd
+import pyarrow.parquet as pq
+
+pairs = pq.read_table("compara-116/pairs/homo_sapiens__mus_musculus.parquet",
+                      filters=[("relationship_class", "=", "ortholog")])
+df = pairs.to_pandas(types_mapper=pd.ArrowDtype)   # goc_score stays an integer; a null stays <NA>
+```
+
+**Keep the nulls.** A plain `pd.read_parquet()` turns an integer column with a null, such as
+`goc_score`, into floats with `NaN`, and `is_high_confidence`'s null into `None` beside `True` and
+`False`. `types_mapper=pd.ArrowDtype` keeps both as they are. In R, the `arrow` and `duckdb`
+packages read the same files.
+
+### What the Parquet holds
+
+`pairs/A__B.parquet` has one row per relationship, ordered by Compara's `homology_id`. Values are
+Compara's, verbatim, and **a NULL stays null, never 0 or false**:
+
+| column | unit | meaning; null means |
+|---|---|---|
+| `relationship_type` | | Compara's `homology_type`: `ortholog_one2one`, `ortholog_one2many`, `ortholog_many2many`, `within_species_paralog`, ... |
+| `relationship_class` | | `ortholog`, `paralog` or `homoeolog` |
+| `gene_a`, `protein_a`, `gene_b`, `protein_b` | | side A is the species that sorts first; each value moves with its gene |
+| `identity_a`, `identity_b` | percent | the share of **that side's** protein identical to the other's in the alignment, so the two differ; null: Compara gave none |
+| `goc_score` | 0 to 100 | gene order conservation; null: not computed for this pair |
+| `wga_coverage` | percent | whole-genome alignment coverage; null: no alignment for this pair |
+| `dn`, `ds` | substitutions per site | Compara's dN and dS; null for most comparisons |
+| `is_high_confidence` | | Compara's flag; null: Compara declines to say, which is not `False` |
+| `source_dump` | | the **file name** of the dump the row came from: provenance, not meaning |
+
+`members/SPECIES.parquet`'s `group_id` is `compara-116:` plus the tree id, so trees are never
+compared across releases. The full column lists, with types, are in the
+[wire-verb reference](../reference/proteins.md#build_orthology).
+
+### The traps
+
+- **Never chain pairs.** Use `species_set3` (or mzLib's `OrthologySnapshot.SpeciesSet` for more
+  species), which requires every two members of a tuple to be orthologs.
+- **One-to-many is several rows.** Nothing is picked: a human gene with two mouse orthologs has two
+  rows, both `ortholog_one2many`. Decide per question.
+- **The gene set and the dumps must be one release.** A homology naming a gene its gene set lacks is
+  refused as a `BridgeError` (`InvalidDataException`): that is what a GTF and dumps from different
+  releases look like. Use the primary-assembly GTF, as for `resolve_genes()`.
+- **`source_dump` cannot tell species apart.** Ensembl gives every species' dump the same file name,
+  so the column holds that one name everywhere, and a caveat says so. `manifest.json`'s `inputs`
+  list each dump with its species and sha256.
+- **Join with `resolve_genes()` on the gene set.** Its `gene_set_sha256` column and
+  `snap.gene_sets[species].sha256` are the same value when both were counted against the same GTF.
+  Check that before joining a resolution to a snapshot.
+- **It is slow and large.** Every input is read whole. For human, mouse and rat at release 116, mzLib
+  reports about 20 s to build and 40 s more to write 13 files (9.0 MB). Pass `timeout=None` (the
+  default) and use `restrict_gene_trees=True` when memory is short.
+
 ## Many databases, threads and failures
 
 All three functions take one database or a list, and `contaminants=` as a separate list. They are
@@ -848,6 +1089,13 @@ For `annotate_go()` and `update_go()`:
 | `UsageError` | a missing groups table, database, go.obo or category map; a FASTA database; an `out` or `categories_out` that is not `.tsv`, names an input, or sits in a folder that does not exist; `categories_out` without `category_map`; a negative `limit` or `offset` - all before any file is read. For `update_go()`, a folder that does not exist |
 | `BridgeError` | the database cites a GO id the release lacks (type `InvalidDataException`, every id named) unless `skip_unknown_go_ids=True`; a go.obo, category map or table mzLib cannot parse; a group written twice with different members. For `update_go()`, GO's server is unreachable (type `ServiceUnavailable`: retry later) |
 
+For `build_orthology()`:
+
+| Raised | When |
+|---|---|
+| `UsageError` | no species, no dumps, or a species in both `gtfs` and `gene_sets`; a missing GTF, gene table, dump or gene-tree file; `out` naming a file or a directory that is not empty; `pair_status` not two different species of the snapshot (all before any input is read). From mzLib: a species without a dump, two dumps of one species, a dump of a species not given, or a dump or gene-tree file named for another release |
+| `BridgeError` | a file mzLib's reader refuses (type `InvalidDataException`, naming the file and line): a dump whose columns are not Compara's, an unknown `homology_type`, a gene-tree row without four cells. Or data that breaks the snapshot's rules: a homology naming a gene its gene set lacks, one gene in two species' gene sets |
+
 For `align()`, `align_many()` and `parse_accessions()`, every error is a `UsageError`:
 
 | Function | When |
@@ -863,8 +1111,8 @@ resources the answers come from:
 --8<-- "docs/reference/_generated/cite.proteins.md"
 
 The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
-`proteins read`, `genes resolve`, `proteins classify-peptides`, `proteins annotate-go`,
-`proteins update-go`, `proteins align` and `proteins parse-accession`. See the
+`proteins read`, `genes resolve`, `genes orthology`, `proteins classify-peptides`,
+`proteins annotate-go`, `proteins update-go`, `proteins align` and `proteins parse-accession`. See the
 [wire-verb reference](../reference/proteins.md) for every parameter and field with its unit, and the
 [API reference](../reference.md#pymzlibproteins) for the Python classes.
 
@@ -873,5 +1121,6 @@ The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust an
 [1348]: https://github.com/smith-chem-wisc/mzLib/pull/1348
 [1353]: https://github.com/smith-chem-wisc/mzLib/pull/1353
 [1366]: https://github.com/smith-chem-wisc/mzLib/pull/1366
+[1381]: https://github.com/smith-chem-wisc/mzLib/pull/1381
 [1382]: https://github.com/smith-chem-wisc/mzLib/pull/1382
 [1428]: https://github.com/smith-chem-wisc/mzLib/pull/1428

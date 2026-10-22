@@ -172,6 +172,14 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "the only accepted value is fail, the default; there is no skip to choose",
         },
     },
+    "genes orthology": {
+        # The species lines carry each species' gene set as a GTF or as a compact gene table, the
+        # choice genes resolve makes with --gtf / --gene-set; Python keeps that choice as two dicts.
+        "param.species": {
+            "python": "gtfs",
+            "why": "gtfs= and gene_sets=, dicts from production name to path, render the lines",
+        },
+    },
     "proteins align": {
         # The spec's binding is align_many(pairs, ...); align(source, target, ...) is its one-pair
         # form and returns one Alignment.

@@ -32,6 +32,26 @@ looping, and raise `threads` only if memory allows one whole database per thread
 
 --8<-- "docs/reference/_generated/genes.resolve.md"
 
+## `build_orthology`
+
+**`genes orthology` is a wire verb of the `genes` module, projected as
+`pymzlib.proteins.build_orthology`.** Both of its input lists travel on stdin: the species lines
+first, then a line holding only `--`, then one homology dump per line. Python renders the species
+lines from two dicts, `gtfs=` (a species' GTF) and `gene_sets=` (a compact gene table instead), so
+the table's `species` row is those two keywords, and `dumps` is Python's `dumps=` list. The wire's
+`restrict_gene_trees` flag is Python's `restrict_gene_trees=True`, and `pair_status` is a
+`(from_species, to_species)` tuple, sent as `FROM,TO`. `out` is a **directory**, not a `.tsv`.
+
+The relationships themselves are in the Parquet files `out=` writes, and mzLib ships no reader for
+them; pyMzLib reads none either, because it has no third-party dependency. The
+[Protein databases guide](../guides/proteins.md#orthologs-across-species-an-ensembl-compara-snapshot)
+shows how to query them with DuckDB or pyarrow. **Performance:** every input is read whole into
+memory. For human, mouse and rat at release 116, mzLib #1381 reports about 20 s to build and 40 s
+more to write 13 files (9.0 MB), and the vertebrate gene-tree file holds 4.2 million genes unless
+`restrict_gene_trees=True` keeps only yours. No mzLib call here takes a thread count.
+
+--8<-- "docs/reference/_generated/genes.orthology.md"
+
 ## `classify_peptides`
 
 --8<-- "docs/reference/_generated/proteins.classify-peptides.md"

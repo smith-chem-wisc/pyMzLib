@@ -148,3 +148,67 @@ def test_parse_accessions_and_resolve_genes_share_one_namespace_vocabulary():
     assert parsed.columns["namespace"] == genes.columns["namespace"]
     assert parsed.columns["entry_accession"] == genes.columns["entry_accession"]
     assert parsed.columns["isoform"] == genes.columns["isoform"]
+
+
+# ---- genes orthology --------------------------------------------------------------------------
+
+ORTHOLOGY = Path(__file__).parent / "fixtures" / "orthology"
+ORTHOLOGY_GTFS = {
+    "homo_sapiens": ORTHOLOGY / "Homo_sapiens.GRCh38.116.gtf",
+    "mus_musculus": ORTHOLOGY / "Mus_musculus.GRCm39.116.gtf",
+    "rattus_norvegicus": ORTHOLOGY / "Rattus_norvegicus.GRCr8.116.gtf",
+}
+ORTHOLOGY_DUMPS = [
+    ORTHOLOGY / "homologies" / s / "Compara.116.protein_default.homologies.tsv.gz" for s in ORTHOLOGY_GTFS
+]
+ORTHOLOGY_TREES = ORTHOLOGY / "vertebrates.GeneTree_content.default.e116.txt.gz"
+
+
+def _orthology(**kwargs):
+    arguments = {"gtfs": ORTHOLOGY_GTFS, "gene_trees": ORTHOLOGY_TREES, "dumps": ORTHOLOGY_DUMPS}
+    arguments.update(kwargs)
+    return proteins.build_orthology("116", **arguments)
+
+
+def test_orthology_matches_its_recording_over_the_committed_inputs():
+    live = _orthology(pair_status=("homo_sapiens", "mus_musculus"))
+    recorded = json.loads((Path(__file__).parent / "fixtures" / "genes_orthology_pair_status.json").read_text("utf-8"))
+
+    assert live.snapshot_id == recorded["snapshot_id"], "the inputs are byte-exact (-text), so the id is too"
+    assert live.pair_status.columns == recorded["pair_status"]["columns"]
+    assert [p.row_count for p in live.pairs] == [p["row_count"] for p in recorded["pairs"]]
+    assert live.caveats == recorded["caveats"]
+
+
+def test_orthology_writes_parquet_once_and_refuses_to_overwrite(tmp_path):
+    out = tmp_path / "compara-116"
+    snap = _orthology(restrict_gene_trees=True, out=out)
+
+    assert Path(snap.written.directory) == out.resolve()
+    assert Path(snap.written.manifest).is_file()
+    manifest = json.loads(Path(snap.written.manifest).read_text("utf-8"))
+    assert manifest["snapshot_id"] == snap.snapshot_id
+    assert [f["path"] for f in manifest["files"]] == [f.path for f in snap.written.files]
+    assert all((out / f.path).stat().st_size == f.bytes for f in snap.written.files)
+    with pytest.raises(pymzlib.UsageError, match="is not empty"):
+        _orthology(out=out)
+
+
+def test_orthology_without_every_dump_is_refused_by_mzlib():
+    with pytest.raises(pymzlib.UsageError, match="No homology dump for mus_musculus"):
+        _orthology(dumps=[ORTHOLOGY_DUMPS[0], ORTHOLOGY_DUMPS[2]])
+
+
+def test_orthology_pair_status_outside_the_species_is_refused_before_reading():
+    with pytest.raises(pymzlib.UsageError, match="not one of the species on stdin"):
+        _orthology(pair_status=("homo_sapiens", "danio_rerio"))
+
+
+def test_orthology_a_malformed_dump_is_mzlibs_correctness_failure(tmp_path):
+    bad = tmp_path / "Compara.116.protein_default.homologies.tsv"
+    bad.write_text("gene_stable_id\tspecies\n", encoding="utf-8")
+
+    with pytest.raises(pymzlib.BridgeError) as caught:
+        _orthology(dumps=[*ORTHOLOGY_DUMPS[:2], bad])
+    assert caught.value.error_type == "InvalidDataException"
+    assert "unexpected columns" in str(caught.value)

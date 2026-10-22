@@ -1,0 +1,168 @@
+{
+ "release": "116",
+ "species": [
+  "homo_sapiens",
+  "mus_musculus",
+  "rattus_norvegicus"
+ ],
+ "format": "ensembl-orthology-snapshot",
+ "format_version": 1,
+ "snapshot_id": "5487ebcabe485b90717ebef7d38a867fd55abcd8c491b1d6a6d74d0cd58e4be9",
+ "identical_duplicates_dropped": 0,
+ "gene_sets": {
+  "homo_sapiens": {
+   "source_file_name": "Homo_sapiens.GRCh38.116.gtf",
+   "sha256": "ae27e02c15f0178ccb78b57a01cc6ed3837892d1cbb284f4d7c5b50f136f16e3",
+   "release": "116",
+   "genome_build": null,
+   "genebuild_last_updated": null,
+   "gene_count": 4
+  },
+  "mus_musculus": {
+   "source_file_name": "Mus_musculus.GRCm39.116.gtf",
+   "sha256": "db30f593b4c0147705a3c72df42f5ba7a88652953b2c52a1efd4ab7b1dd4fc8b",
+   "release": "116",
+   "genome_build": null,
+   "genebuild_last_updated": null,
+   "gene_count": 3
+  },
+  "rattus_norvegicus": {
+   "source_file_name": "Rattus_norvegicus.GRCr8.116.gtf",
+   "sha256": "fddb41e152a28d313bb53d933b7750c71a5b9c99e7ed37c7ddfa7c064852d641",
+   "release": "116",
+   "genome_build": null,
+   "genebuild_last_updated": null,
+   "gene_count": 2
+  }
+ },
+ "gene_trees": {
+  "source_file_name": "vertebrates.GeneTree_content.default.e116.txt.gz",
+  "sha256": "c19715a9d15aad121d25d3860e451fb6cc6be71ada973876012d5418e6f2f587",
+  "release": "116",
+  "collection": "vertebrates",
+  "member_count": 9,
+  "restricted_to_gene_sets": null
+ },
+ "dumps": {
+  "homo_sapiens": {
+   "source_file_name": "Compara.116.protein_default.homologies.tsv.gz",
+   "sha256": "35b3febdccaafba412257ee15d7a1f6be482d996afde1a07b28c2323355efc0f",
+   "release": "116",
+   "rows_read": 1,
+   "rows_kept": 1
+  },
+  "mus_musculus": {
+   "source_file_name": "Compara.116.protein_default.homologies.tsv.gz",
+   "sha256": "51fec6573fc5b18b61ba5dcffbca662868a39181dcbaeddf1d16b2b543553605",
+   "release": "116",
+   "rows_read": 5,
+   "rows_kept": 5
+  },
+  "rattus_norvegicus": {
+   "source_file_name": "Compara.116.protein_default.homologies.tsv.gz",
+   "sha256": "96d50cf4b7c4e5e7ce39305a5c87e73beff01a53e74996c174acda377f2e9621",
+   "release": "116",
+   "rows_read": 1,
+   "rows_kept": 1
+  }
+ },
+ "pairs": [
+  {
+   "species_a": "homo_sapiens",
+   "species_b": "homo_sapiens",
+   "row_count": 0,
+   "ortholog_count": 0,
+   "paralog_count": 0,
+   "homoeolog_count": 0
+  },
+  {
+   "species_a": "homo_sapiens",
+   "species_b": "mus_musculus",
+   "row_count": 3,
+   "ortholog_count": 3,
+   "paralog_count": 0,
+   "homoeolog_count": 0
+  },
+  {
+   "species_a": "homo_sapiens",
+   "species_b": "rattus_norvegicus",
+   "row_count": 1,
+   "ortholog_count": 1,
+   "paralog_count": 0,
+   "homoeolog_count": 0
+  },
+  {
+   "species_a": "mus_musculus",
+   "species_b": "mus_musculus",
+   "row_count": 1,
+   "ortholog_count": 0,
+   "paralog_count": 1,
+   "homoeolog_count": 0
+  },
+  {
+   "species_a": "mus_musculus",
+   "species_b": "rattus_norvegicus",
+   "row_count": 2,
+   "ortholog_count": 2,
+   "paralog_count": 0,
+   "homoeolog_count": 0
+  },
+  {
+   "species_a": "rattus_norvegicus",
+   "species_b": "rattus_norvegicus",
+   "row_count": 0,
+   "ortholog_count": 0,
+   "paralog_count": 0,
+   "homoeolog_count": 0
+  }
+ ],
+ "written": null,
+ "pair_status": {
+  "from_species": "homo_sapiens",
+  "to_species": "mus_musculus",
+  "row_count": 4,
+  "status_counts": {
+   "has_ortholog": 2,
+   "no_edge_in_shared_tree": 0,
+   "tree_lacks_target_species": 1,
+   "not_in_any_tree": 1,
+   "not_in_gene_set": 0
+  },
+  "column_names": [
+   "gene_id",
+   "gene_name",
+   "gene_biotype",
+   "status"
+  ],
+  "columns": {
+   "gene_id": [
+    "ENSG00000000001",
+    "ENSG00000000002",
+    "ENSG00000000003",
+    "ENSG00000000004"
+   ],
+   "gene_name": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "gene_biotype": [
+    "protein_coding",
+    "protein_coding",
+    "protein_coding",
+    "protein_coding"
+   ],
+   "status": [
+    "has_ortholog",
+    "has_ortholog",
+    "tree_lacks_target_species",
+    "not_in_any_tree"
+   ]
+  }
+ },
+ "caveats": [
+  "The dumps of homo_sapiens, mus_musculus, rattus_norvegicus share the file name Compara.116.protein_default.homologies.tsv.gz, and the pairs tables' source_dump column holds only the file name, so it cannot say which species' dump a row came from. manifest.json's inputs list each dump with its species and sha256.",
+  "The gene trees were read unrestricted: 9 genes were held in memory, 8 of them in the given gene sets. --restrict-gene-trees holds only those and gives the same snapshot."
+ ]
+}
