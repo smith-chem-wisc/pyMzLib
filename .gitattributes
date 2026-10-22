@@ -22,6 +22,7 @@
 *.exe  binary
 *.dll  binary
 *.raw  binary
+*.msl  binary
 
 ###############################################################################
 # Byte-exact fixtures: their sha256 is part of what the tests pin, so a CRLF

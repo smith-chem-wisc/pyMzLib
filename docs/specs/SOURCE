@@ -1,8 +1,8 @@
 # Written by scripts/sync_specs.py. Do not edit; re-run the script.
 repository: trishorts/bridge (private)
 path: design/verbs
-commit: 178b5861718e171573528e30e47b07af24d3fb3e
+commit: 3790ce3d53386e3ce584674218350aefb0a2f0ab
 uncommitted_changes: no
 synced: 2026-10-21
-specs: 41
+specs: 42
 not_vendored: modifications.resolve.yaml

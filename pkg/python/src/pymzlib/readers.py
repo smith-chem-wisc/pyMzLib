@@ -1522,10 +1522,12 @@ def _window(
     limit: int | None,
     offset: int,
     out: str | os.PathLike[str] | None,
+    module: str = "readers",
 ) -> list[str]:
     """The ``--path``/``--limit``/``--offset``/``--out`` argument list, validated.
 
-    Shared by every single-file read so they cannot drift on what counts as a usable argument.
+    Shared by every single-file read so they cannot drift on what counts as a usable argument -
+    :func:`pymzlib.library.read` too, whose verb lives in another module (``module``).
     Every check raises before the bridge is spawned: a caller who passed ``limit=-1`` wants an
     error, not a process launch.
     """
@@ -1538,7 +1540,7 @@ def _window(
     if not path:
         raise _bridge.UsageError("A file path is required, e.g. 'AllPSMs.psmtsv'.")
 
-    args = ["readers", verb, "--path", path]
+    args = [module, verb, "--path", path]
 
     if limit is not None:
         # bool first: `isinstance(True, int)` is True in Python, so limit=True would otherwise sail
@@ -1572,6 +1574,7 @@ def _batch(
     threads: int,
     on_error: str,
     out: str | os.PathLike[str] | None = None,
+    module: str = "readers",
 ) -> tuple[list[str], str]:
     """The arguments and stdin of a ``_many`` read: the list goes on stdin, one path per line.
 
@@ -1608,7 +1611,7 @@ def _batch(
     if on_error not in ("fail", "skip"):
         raise _bridge.UsageError(f"on_error must be 'fail' or 'skip'; got {on_error!r}.")
 
-    args = ["readers", verb, "--paths-stdin", "--threads", str(threads), "--on-error", on_error]
+    args = [module, verb, "--paths-stdin", "--threads", str(threads), "--on-error", on_error]
     args += _out(out)
     return args, "\n".join(texts) + "\n"
 

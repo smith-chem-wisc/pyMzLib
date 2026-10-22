@@ -85,6 +85,10 @@ ECHOED_AS = {
 RECORDED_WITH = {
     "peptidoform_P02768_small.json": {"max-mods": "1"},
     "proteins_align_charged.json": {"end-gaps": "charged"},
+    # library read echoes both, but a call that leaves them out takes the defaults, and the echo
+    # would not stop a recording made with them from answering it.
+    "library_read_fragments.json": {"fragments": True},
+    "library_read_index_only.json": {"index-only-threshold": "0"},
 }
 
 

@@ -1,0 +1,146 @@
+{
+ "path": "E:\\CodeReview\\wt-py-library-read\\pkg\\python\\tests\\fixtures\\library\\synthetic_library.msl",
+ "file_type": null,
+ "reader": "MslLibrary",
+ "format_version": 3,
+ "is_compressed": false,
+ "is_index_only": true,
+ "target_count": 4,
+ "decoy_count": 2,
+ "proteoform_count": 1,
+ "min_precursor_mz": 406.242,
+ "max_precursor_mz": 952.493,
+ "record_count": 6,
+ "rows_not_read": null,
+ "retention_time_unit": null,
+ "caveats": [
+  "Rows are in the library's stored order, by precursor_index, not by m/z: mzLib's own MslLibrary.GetAllEntries enumerates in ascending precursor m/z instead. Sort on precursor_mz for that order.",
+  "retention_time is iRT for some precursors and run minutes for others: read retention_time_unit on each row (MslLibraryEntry.RtIsCalibrated). A library can hold both, so never plot or compare the column without it. There is no conversion: iRT becomes minutes only through a calibration against a run.",
+  "The library is unfiltered: decoys (D, ED) and entrapment precursors (ET, ED) are rows. Filter on is_decoy, or on decoy_contaminant_target, before counting targets.",
+  "A retention_time of 0 may mean the source had none: MslLibraryEntry.FromLibrarySpectrum, the path mzLib converts a text library through, writes RetentionTime ?? 0.0, and mzLib documents no sentinel for it, so 0 is passed through as a value.",
+  "nce is a whole number: the format stores NCE x 10 and MslReader reads it back with integer division, so an NCE of 27.5 reads as 27.",
+  "A library converted from a text library (.msp) has no NCE, dissociation type, q-value, ion mobility or protein: LibrarySpectrum has no field for them, and MslLibraryEntry.FromLibrarySpectrum fills mzLib's not-available defaults, so nce and q_value are null and dissociation_type is Unknown.",
+  "precursor_mz, retention_time and ion_mobility are stored as 32-bit floats and widened to double by mzLib, so 465.74 reads back as 465.739990234375. The extra digits are the float, not a measurement; round them for display.",
+  "offset and limit count PRECURSORS. With fragments, each precursor gives one row per fragment ion."
+ ],
+ "column_names": [
+  "precursor_index",
+  "full_sequence",
+  "base_sequence",
+  "precursor_mz",
+  "charge_state",
+  "retention_time",
+  "retention_time_unit",
+  "ion_mobility",
+  "is_decoy",
+  "is_entrapment",
+  "decoy_contaminant_target",
+  "protein_accession",
+  "protein_name",
+  "gene_name",
+  "is_proteotypic",
+  "q_value",
+  "elution_group_id",
+  "molecule_type",
+  "source_type",
+  "dissociation_type",
+  "nce"
+ ],
+ "absent_fields": [],
+ "failed_fields": [],
+ "excluded_fields": [],
+ "error": null,
+ "fragments_included": false,
+ "index_only_threshold": 0,
+ "returned_count": 2,
+ "row_count": 2,
+ "offset": 0,
+ "truncated": true,
+ "columns": {
+  "precursor_index": [
+   0,
+   1
+  ],
+  "full_sequence": [
+   "PEPTIDEK",
+   "KEDITPEP"
+  ],
+  "base_sequence": [
+   "PEPTIDEK",
+   "KEDITPEP"
+  ],
+  "precursor_mz": [
+   465.739990234375,
+   465.7401123046875
+  ],
+  "charge_state": [
+   2,
+   2
+  ],
+  "retention_time": [
+   35.20000076293945,
+   35.20000076293945
+  ],
+  "retention_time_unit": [
+   "iRT",
+   "iRT"
+  ],
+  "ion_mobility": [
+   0.949999988079071,
+   0.949999988079071
+  ],
+  "is_decoy": [
+   false,
+   true
+  ],
+  "is_entrapment": [
+   false,
+   false
+  ],
+  "decoy_contaminant_target": [
+   "T",
+   "D"
+  ],
+  "protein_accession": [
+   "P02768",
+   "DECOY_P02768"
+  ],
+  "protein_name": [
+   "Albumin",
+   "Albumin"
+  ],
+  "gene_name": [
+   "ALB",
+   "ALB"
+  ],
+  "is_proteotypic": [
+   true,
+   false
+  ],
+  "q_value": [
+   0.001,
+   0.5
+  ],
+  "elution_group_id": [
+   0,
+   1
+  ],
+  "molecule_type": [
+   "Peptide",
+   "Peptide"
+  ],
+  "source_type": [
+   "Empirical",
+   "Empirical"
+  ],
+  "dissociation_type": [
+   "HCD",
+   "HCD"
+  ],
+  "nce": [
+   28,
+   28
+  ]
+ },
+ "output": null
+}
