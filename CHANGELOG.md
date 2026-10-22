@@ -160,6 +160,9 @@ envelope is not a breaking change unless Python callers can see it.
   is reported as `ServiceUnavailableError`. Pass `timeout=300` for the old limit.
 
 ### Fixed
+- **`sdrf.pool(out=...)` reports the file it wrote.** mzLib adds `.sdrf.tsv` to a name that does not
+  end in it, so `out="x.tsv"` writes `x.tsv.sdrf.tsv`; `written.path` reported `x.tsv`, a file that
+  does not exist. It now names the real file, as `sdrf.restrict()` does.
 - **`stats.fit()` on fewer than 3 features no longer reports one feature's variance as the prior.**
   mzLib fits no prior below 3 features (#1398, as limma's `squeezeVar`), so `prior.scale` is now
   `None` there and `prior.df` is 0; each feature's own variance is in `prior_variance`.

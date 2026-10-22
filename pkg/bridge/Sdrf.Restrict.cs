@@ -67,10 +67,7 @@ internal static partial class Sdrf
             // The WHOLE restricted document, never the windowed slice, as sdrf pool writes.
             CreateOutputFolder(outputPath);
             restricted.WriteResults(outputPath);
-            string writtenPath = restricted.CanRead(outputPath)
-                ? outputPath
-                : outputPath + SupportedFileType.Sdrf.GetFileExtension();
-            written = new { path = writtenPath, row_count = all.Count };
+            written = new { path = WrittenSdrfPath(restricted, outputPath), row_count = all.Count };
         }
 
         return new
@@ -148,6 +145,16 @@ internal static partial class Sdrf
         if (!string.IsNullOrEmpty(folder))
             Directory.CreateDirectory(folder);
     }
+
+    /// <summary>
+    /// The file <see cref="SdrfDocument.WriteResults"/> wrote for <paramref name="outputPath"/>: it
+    /// adds <c>.sdrf.tsv</c> to a name it would not read back as an SDRF (its own
+    /// <see cref="ResultFile{TResult}.CanRead"/>), so <c>x.tsv</c> becomes <c>x.tsv.sdrf.tsv</c>.
+    /// sdrf pool and sdrf restrict both report this, never the name as typed (SDRF-B3 asks mzLib to
+    /// return the path itself).
+    /// </summary>
+    internal static string WrittenSdrfPath(SdrfDocument document, string outputPath) =>
+        document.CanRead(outputPath) ? outputPath : outputPath + SupportedFileType.Sdrf.GetFileExtension();
 
     private static List<string> RestrictCaveats() => new()
     {

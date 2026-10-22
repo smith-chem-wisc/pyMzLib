@@ -133,8 +133,10 @@ class WrittenSdrf:
     """Where :func:`pool` or :func:`restrict` wrote its document, when asked to write one.
 
     Attributes:
-        path: The path written. For :func:`restrict` it is the file mzLib actually wrote: mzLib adds
-            ``.sdrf.tsv`` to a name that does not already end in it.
+        path: The file mzLib actually wrote, which is not always the name you gave: mzLib adds
+            ``.sdrf.tsv`` to a name that does not already end in it, so ``out="x.tsv"`` writes
+            ``x.tsv.sdrf.tsv``. Bridges before pyMzLib 0.6.0 reported the name as given for
+            :func:`pool`.
         row_count: Rows written - the **whole** document, not the windowed slice. ``limit`` and
             ``offset`` shape what comes back over the wire; they never shorten the file.
     """
@@ -470,7 +472,8 @@ def pool(
     Args:
         documents: The files to pool - a sequence of paths, or a ``{path: label}`` mapping.
         out: Write the merged document here as SDRF. The **whole** document is written regardless
-            of ``limit`` and ``offset``.
+            of ``limit`` and ``offset``. A name that does not end in ``.sdrf.tsv`` gets it added;
+            :attr:`WrittenSdrf.path` says which file was written.
         limit: Maximum rows to return over the wire. ``None`` (the default) returns all of them.
         offset: Rows to skip.
         timeout: Seconds to allow. ``None`` waits indefinitely.

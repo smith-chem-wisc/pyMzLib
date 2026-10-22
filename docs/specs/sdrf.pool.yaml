@@ -59,7 +59,7 @@ result:
     - {wire: offset, type: int, unit: rows, nullable: false, null_means: null, doc: The offset applied.}
     - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: True whenever rows were left out.}
     - {wire: rows, type: "string[][]", unit: null, nullable: false, null_means: null, doc: "Row-major raw cells, as for sdrf read."}
-    - {wire: written, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, row_count}; row_count is the whole merged document."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, row_count}; row_count is the whole merged document. path is the file mzLib wrote: SdrfDocument.WriteResults adds .sdrf.tsv to a name it would not read back as an SDRF, so out x.tsv writes x.tsv.sdrf.tsv. Bridges before pyMzLib 0.6.0 reported the name as given (SDRF-B3 asks mzLib to return the path)."}
     - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Four static caveats, plus a fifth when no labels were supplied."}
   columns: []
   cell_rules:
