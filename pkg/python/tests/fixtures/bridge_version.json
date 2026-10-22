@@ -43,6 +43,7 @@
   "proteins align",
   "proteins parse-accession",
   "genes resolve",
+  "genes orthology",
   "stats fit",
   "stats adjust",
   "stats meta",
