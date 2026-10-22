@@ -246,6 +246,7 @@ GUIDES = {
     "proteins": "guides/proteins.md",
     "genes": "guides/proteins.md",
     "isobaric": "guides/isobaric.md",
+    "library": "guides/library.md",
     "stats": "guides/stats.md",
     "version": None,
 }

@@ -7,6 +7,18 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **`library.read()`: an mzLib spectral library (`.msl`) as a table** (`MslFileTypeHandler.Open`,
+  `MslLibrary.GetEntry`; the entrapment flag and a working `rt_is_calibrated` are mzLib 1.0.595,
+  #1383). One row per precursor, in the library's stored order (`precursor_index`, not m/z
+  order): sequence, m/z, charge, retention time, ion mobility, mzLib's `T`/`D`/`ET`/`ED` label,
+  protein, q-value, source and NCE. **The retention-time unit is a column**, `iRT` or `minutes`
+  per row, because one library can hold both. **mzLib's "not available" values are `None`**: an
+  ion mobility of 0.0, a NaN q-value, an NCE of 0, an empty protein. With `fragments=True` the
+  table is one row per fragment ion instead, with m/z, relative intensity, ion type, number,
+  residue, charge, neutral loss and mzLib's annotation. A library at or above mzLib's own
+  threshold (1 GiB) opens index-only, fragments left on disk; `index_only_threshold=` moves the
+  line, and the rows are the same either way. `library.read_many()` reads a list into one
+  table. New module `pymzlib.library` and a spectral-library guide. Wire verb `library read`.
 - **`pride.file_checksums()`: the MD5 and exact size PRIDE recorded for each file deposited in a
   project** (mzLib 1.0.595, #1427, `PrideArchiveClient.GetFileChecksumsAsync`). It returns a dict
   of `PrideFileChecksum` keyed by file name, which is what a download is checked against.

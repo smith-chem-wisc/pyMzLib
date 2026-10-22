@@ -59,6 +59,9 @@ REPLAY_EXTRA = {
     # The proteins guide: three databases and a contaminant, filtered to four accessions; and the
     # DYNC1I2 isoforms and both albumins with their sequences, which the alignment section aligns.
     "proteins read": ["proteins_read_accessions.json", "proteins_read_sequences.json"],
+    # The spectral-library guide: one precursor's fragment ions, and an index-only read.
+    # --fragments: check_verbs.py cannot hold a present_when column to a spec example yet.
+    "library read": ["library_read_fragments.json", "library_read_index_only.json"],
 }
 
 

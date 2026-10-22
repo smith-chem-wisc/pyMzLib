@@ -33,6 +33,7 @@
   "sdrf parse-age",
   "sdrf design",
   "isobaric kits",
+  "library read",
   "proteins read",
   "proteins classify-peptides",
   "proteins annotate-go",

@@ -1,0 +1,173 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Reading.Library.cs on branch
+# feat/library-read (off main c1b6137, pyMzLib 0.5.0), mzLib pin d10017ce (tag 1.0.595), which carries
+# #1383 (entrapment flag, working rt_is_calibrated), #1420 (libraries over 2 GB load) and #1421
+# (GetEntry without fragments). The proposal this replaces is
+# design/scouting/2026-10-20/inv-readers-mods.md, verb surface item 3; every claim in it was re-read
+# at the pin, and three were changed: rows follow the precursor index rather than GetAllEntries'
+# m/z order, the load mode is mzLib's own size rule (MslFileTypeHandler.Open) rather than a flag,
+# and fragment_count is carried only where mzLib read the fragments. Example fixtures recorded from
+# the live bridge on that branch, from the two .msl files the bridge tests write
+# (pkg/bridge.tests/LibraryTests.cs, LibraryFixtures), committed under
+# pkg/python/tests/fixtures/library/.
+verb: library read
+module: library
+summary: >-
+  Read an mzLib spectral library (.msl) as one row per precursor, or with fragments one row per fragment ion, with mzLib's not-available sentinels as nulls.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: MslFileTypeHandler.Open, path: mzLib/Readers/SpectralLibrary/Mslfiletypehandler.cs, pin: d10017ce}
+  - {symbol: MslFileTypeHandler.IsMslFile, path: mzLib/Readers/SpectralLibrary/Mslfiletypehandler.cs, pin: d10017ce}
+  - {symbol: MslLibrary.Load, path: mzLib/Readers/SpectralLibrary/MslLibrary.cs, pin: d10017ce}
+  - {symbol: MslLibrary.LoadIndexOnly, path: mzLib/Readers/SpectralLibrary/MslLibrary.cs, pin: d10017ce}
+  - {symbol: "MslLibrary.GetEntry(int, bool)", path: mzLib/Readers/SpectralLibrary/MslLibrary.cs, pin: d10017ce}
+  - {symbol: MslLibraryEntry, path: mzLib/Omics/SpectralLibrary/MslFragmentIon.cs, pin: d10017ce}
+  - {symbol: MslFragmentIon, path: mzLib/Omics/SpectralLibrary/MslFragmentIon.cs, pin: d10017ce}
+  - {symbol: "DecoyContaminantTargetLabel.For(bool, bool, bool)", path: mzLib/Omics/BioPolymer/DecoyContaminantTargetLabel.cs, pin: d10017ce}
+cite: []
+
+params:
+  - {name: path, type: "path", required: true, unit: null, range: ".msl, any case (MslFileTypeHandler.IsMslFile)", default: null, doc: "An mzLib binary spectral library. Any other extension is a usage error before the file is opened: text libraries (.msp) are not read by this verb."}
+  - {name: fragments, type: "flag", required: false, unit: null, range: null, default: false, doc: "One row per fragment ion instead of one per precursor: the precursor's columns repeated on each row, then the fragment's. A precursor with no fragment ions gives one row whose fragment cells are null. Given with a value is a usage error."}
+  - {name: index-only-threshold, type: "int", required: false, unit: "bytes", range: ">= 0", default: 1073741824, doc: "Passed to MslFileTypeHandler.Open: a library this size or larger opens index-only (precursors in memory, fragment blocks read from disk on demand), a smaller one is loaded whole. Absent means mzLib's own default, MslFileTypeHandler.DefaultIndexOnlyThresholdBytes, 1073741824 bytes (1 GiB) at the pin; the bridge sends no value of its own. 0 opens every library index-only. The rows are the same in both modes; only memory and speed differ."}
+  - {name: offset, type: "int", required: false, unit: "precursors", range: ">= 0", default: 0, doc: "Skip this many precursors, in precursor_index order. A window, not a cursor: the library is opened again on every call."}
+  - {name: limit, type: "int", required: false, unit: "precursors", range: ">= 0", default: null, doc: "Return at most this many precursors; with fragments each gives one row per fragment ion. Absent means no limit."}
+  - {name: out, type: "path", required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the table to this path as tab-separated text instead of returning columns. Must differ from path. Parent directories are created. Must end in .tsv, any case (PYB-1); any other extension, or none, is a usage error before the library is opened, and no extension is appended."}
+
+result:
+  envelope_fields:
+    - {wire: path, type: "string", unit: null, nullable: false, null_means: null, doc: "Absolute path of the library."}
+    - {wire: file_type, type: "string", unit: null, nullable: true, null_means: "always: .msl is not an mzLib SupportedFileType (mzLib reads it with MslLibrary, outside FileReader), so there is no type name to give", doc: "The mzLib SupportedFileType, for parity with the reader verbs."}
+    - {wire: reader, type: "string", unit: null, nullable: false, null_means: null, doc: "Always MslLibrary, the mzLib class that read the file."}
+    - {wire: format_version, type: "int", unit: null, nullable: false, null_means: null, doc: "The file's .msl format version (MslFileHeader.FormatVersion): 1 to 3 at the pin, where 3 allows compression (MslFormat.CurrentVersion)."}
+    - {wire: is_compressed, type: "bool", unit: null, nullable: false, null_means: null, doc: "The fragment section is zstd-compressed (MslLibrary.IsCompressed). A compressed library always loads whole."}
+    - {wire: is_index_only, type: "bool", unit: null, nullable: false, null_means: null, doc: "mzLib opened the library index-only (MslLibrary.IsIndexOnly): at or above index_only_threshold, and not compressed."}
+    - {wire: target_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors that are not decoys, entrapment targets included (MslLibrary.TargetCount)."}
+    - {wire: decoy_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Decoy precursors, entrapment decoys included (MslLibrary.DecoyCount)."}
+    - {wire: proteoform_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors whose molecule_type is Proteoform (MslLibrary.ProteoformCount)."}
+    - {wire: min_precursor_mz, type: "float", unit: "m/z", nullable: true, null_means: "the library has no precursors", doc: "Smallest precursor m/z (MslLibrary.MinPrecursorMz)."}
+    - {wire: max_precursor_mz, type: "float", unit: "m/z", nullable: true, null_means: "the library has no precursors", doc: "Largest precursor m/z (MslLibrary.MaxPrecursorMz)."}
+    - {wire: record_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors in the whole library, before the window (MslLibrary.PrecursorCount)."}
+    - {wire: rows_not_read, type: "int", unit: "rows", nullable: true, null_means: "always: the file is binary and mzLib validates it whole (magic, version, footer, precursor count, CRC-32) before returning any entry, so every precursor is read or the call fails", doc: "Data rows that did not become records."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: true, null_means: "always: the unit varies by precursor, so it is the retention_time_unit column", doc: "Always null for this verb."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What this table cannot be trusted to mean, each citing the mzLib source."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Column order."}
+    - {wire: absent_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns this library has no source for, from its file flags (MslFormat.FileFlag*): ion_mobility when no precursor has one, protein_accession and protein_name when there is no protein table, gene_name when there are no gene names. Null in every row (BULK.md section 4)."}
+    - {wire: failed_fields, type: "string[]", unit: null, nullable: false, null_means: null, doc: "'field: ExceptionType' for each column whose read threw on some returned rows; those cells are null."}
+    - {wire: excluded_fields, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Always empty: every field crosses, the fragments with the fragments flag."}
+    - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path: a library that cannot be read fails the call instead", doc: "{kind, type, message}; non-null only in a files[] entry under on-error skip."}
+    - {wire: fragments_included, type: "bool", unit: null, nullable: false, null_means: null, doc: "Whether the rows are fragment ions (the fragments flag)."}
+    - {wire: index_only_threshold, type: "int", unit: "bytes", nullable: false, null_means: null, doc: "The threshold MslFileTypeHandler.Open applied: the one given, or mzLib's default, 1073741824 at the pin."}
+    - {wire: returned_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors returned in columns (the unit offset and limit count in); 0 when written to out."}
+    - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns: returned_count without fragments, one per fragment ion (or one for a precursor with none) with them; 0 when written to out."}
+    - {wire: offset, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "The offset applied."}
+    - {wire: truncated, type: "bool", unit: null, nullable: false, null_means: null, doc: "True whenever precursors were left out by offset or limit."}
+    - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "Column name to per-row values, in column_names order."}
+    - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count} when out was given."}
+  columns:
+    - {wire: source_index, type: "int", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "0-based position of the row's library in the stdin list."}
+    - {wire: source_path, type: "string", unit: null, nullable: false, null_means: null, present_when: "--paths-stdin", doc: "Absolute path of the row's library."}
+    - {wire: precursor_index, type: "int", unit: null, nullable: false, null_means: null, doc: "0-based position of the precursor in the library (MslPrecursorIndexEntry.PrecursorIdx): the key MslLibrary.GetEntry takes, and the row order. Not m/z order."}
+    - {wire: full_sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "Modified sequence in mzLib bracket notation, e.g. PEPTM[Common Variable:Oxidation on M]IDE (MslLibraryEntry.FullSequence)."}
+    - {wire: base_sequence, type: "string", unit: null, nullable: false, null_means: null, doc: "The bare residues (MslLibraryEntry.BaseSequence)."}
+    - {wire: precursor_mz, type: "float", unit: "m/z", nullable: false, null_means: null, doc: "Precursor m/z, (M + zH)/z (MslLibraryEntry.PrecursorMz), stored as a 32-bit float."}
+    - {wire: charge_state, type: "int", unit: "charge", nullable: false, null_means: null, doc: "Precursor charge (MslLibraryEntry.ChargeState)."}
+    - {wire: retention_time, type: "float", unit: "iRT or min (per row)", nullable: false, null_means: null, doc: "Indexed retention time, or a run-calibrated time in minutes, as retention_time_unit says (MslLibraryEntry.RetentionTime). iRT can be negative. 0 is passed through: mzLib documents no sentinel for it."}
+    - {wire: retention_time_unit, type: "string", unit: null, nullable: false, null_means: null, doc: "iRT or minutes, from MslLibraryEntry.RtIsCalibrated (false: iRT; true: run-specific minutes). Per row because one library can hold both."}
+    - {wire: ion_mobility, type: "float", unit: "1/K0 (V s/cm2)", nullable: true, null_means: "mzLib's 0.0, which MslLibraryEntry.IonMobility documents as not available; in absent_fields when no precursor has one", doc: "Ion mobility as 1/K0 (MslLibraryEntry.IonMobility)."}
+    - {wire: is_decoy, type: "bool", unit: null, nullable: false, null_means: null, doc: "A decoy precursor, entrapment decoys included (MslLibraryEntry.IsDecoy)."}
+    - {wire: is_entrapment, type: "bool", unit: null, nullable: false, null_means: null, doc: "An entrapment precursor, target or decoy (MslLibraryEntry.IsEntrapment, mzLib #1383). Independent of is_decoy."}
+    - {wire: decoy_contaminant_target, type: "string", unit: null, nullable: false, null_means: null, doc: "T, D, ET or ED, from DecoyContaminantTargetLabel.For(is_decoy, false, is_entrapment). The .msl format has no contaminant flag, so C never appears."}
+    - {wire: protein_accession, type: "string", unit: null, nullable: true, null_means: "mzLib's empty string: the precursor has no protein (MslLibraryEntry.ProteinAccession); in absent_fields when the library has no protein table", doc: "Accession of the source protein, as stored, e.g. P04637."}
+    - {wire: protein_name, type: "string", unit: null, nullable: true, null_means: "mzLib's empty string: no protein, or no name for it (MslLibraryEntry.ProteinName); in absent_fields when the library has no protein table", doc: "Protein name, as stored."}
+    - {wire: gene_name, type: "string", unit: null, nullable: true, null_means: "mzLib's empty string: no protein, or no gene for it (MslLibraryEntry.GeneName); in absent_fields when the library has no gene names", doc: "Gene symbol, as stored, e.g. TP53."}
+    - {wire: is_proteotypic, type: "bool", unit: null, nullable: false, null_means: null, doc: "Expected to give a uniquely detectable signal (MslLibraryEntry.IsProteotypic), as the library's writer set it."}
+    - {wire: q_value, type: "float", unit: "fraction (0 to 1)", nullable: true, null_means: "mzLib's NaN: no q-value is available, as for a purely predicted library (MslLibraryEntry.QValue)", doc: "The library's q-value for the precursor; lower is better."}
+    - {wire: elution_group_id, type: "int", unit: null, nullable: false, null_means: null, doc: "Shared by every precursor of one base sequence, so charge states and modified forms co-elute (MslLibraryEntry.ElutionGroupId); mzLib's writer assigns it."}
+    - {wire: molecule_type, type: "string", unit: null, nullable: false, null_means: null, doc: "MslFormat.MoleculeType name: Peptide, Proteoform, Oligonucleotide or Glycopeptide."}
+    - {wire: source_type, type: "string", unit: null, nullable: false, null_means: null, doc: "MslFormat.SourceType name (MslLibraryEntry.Source): Predicted, Empirical, or EmpiricalRefined (predicted intensities, measured retention time or ion mobility)."}
+    - {wire: dissociation_type, type: "string", unit: null, nullable: false, null_means: null, doc: "mzLib DissociationType name, e.g. HCD; Unknown when the library does not say (MslLibraryEntry.DissociationType)."}
+    - {wire: nce, type: "int", unit: "NCE", nullable: true, null_means: "mzLib's 0: unknown or not applicable (MslLibraryEntry.Nce)", doc: "Normalized collision energy, a whole number: the format stores NCE x 10 and mzLib divides by 10 as an integer."}
+    - {wire: fragment_count, type: "int", unit: "fragment ions", nullable: false, null_means: null, present_when: "--fragments", doc: "Fragment ions the precursor has, counted from the ions mzLib read; 0 for a precursor with none, whose one row has every fragment cell null."}
+    - {wire: fragment_mz, type: "float", unit: "m/z", nullable: true, null_means: "the precursor has no fragment ions (fragment_count 0)", present_when: "--fragments", doc: "Fragment m/z (MslFragmentIon.Mz), a 32-bit float. Rows are in the stored order, which mzLib's writer sorts by m/z."}
+    - {wire: fragment_intensity, type: "float", unit: "relative intensity (0 to 1)", nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "Intensity relative to the precursor's most intense fragment, which mzLib's writer scales to 1 (MslFragmentIon.Intensity). Not comparable across precursors."}
+    - {wire: product_type, type: "string", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "mzLib ProductType name, e.g. b, y, c, zDot; for an internal ion, its N-terminal type (MslFragmentIon.ProductType)."}
+    - {wire: secondary_product_type, type: "string", unit: null, nullable: true, null_means: "a terminal ion (MslFragmentIon.SecondaryProductType is null for every terminal ion), or no fragment ions", present_when: "--fragments", doc: "An internal ion's C-terminal ProductType, e.g. y for bIy."}
+    - {wire: fragment_number, type: "int", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "The ion's number in its series, e.g. 5 for b5; for an internal ion, its 0-based start residue (MslFragmentIon.FragmentNumber)."}
+    - {wire: secondary_fragment_number, type: "int", unit: null, nullable: true, null_means: "a terminal ion, for which mzLib stores 0 (MslFragmentIon.SecondaryFragmentNumber), or no fragment ions", present_when: "--fragments", doc: "An internal ion's end residue, exclusive."}
+    - {wire: residue_position, type: "int", unit: null, nullable: true, null_means: "mzLib's 0: always for a fragment with a custom neutral loss, whose stored position the format reuses to index its loss table (MslReader.ConvertFragment); or no fragment ions", present_when: "--fragments", doc: "Residue position the ion was annotated from, as stored (MslFragmentIon.ResiduePosition): for a library mzLib built from its own products, the Product.ResiduePosition convention, fragment_number for N-terminal ions and length - fragment_number + 1 for C-terminal ones (mzLib #1408)."}
+    - {wire: fragment_charge, type: "int", unit: "charge", nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "Fragment charge (MslFragmentIon.Charge)."}
+    - {wire: neutral_loss, type: "float", unit: "Da", nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "Neutral-loss mass, negative for a loss (MslFragmentIon.NeutralLoss). 0 means no loss, and crosses as 0, not null: it is the value of the shift, not a missing one."}
+    - {wire: is_internal, type: "bool", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "An internal ion (MslFragmentIon.IsInternalFragment)."}
+    - {wire: is_diagnostic, type: "bool", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "A diagnostic ion, ProductType D (MslFragmentIon.IsDiagnosticIon)."}
+    - {wire: exclude_from_quant, type: "bool", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "Marked to be left out of quantification, like DIA-NN's ExcludeFromAssay (MslFragmentIon.ExcludeFromQuant)."}
+    - {wire: annotation, type: "string", unit: null, nullable: true, null_means: "the precursor has no fragment ions", present_when: "--fragments", doc: "mzLib's library rendering (MslFragmentIon.Annotation), e.g. b5, y3-18.0106, bIy[2-5] or y4^2+: the loss signed to four decimals and the charge appended, unlike Product.Annotation."}
+  # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
+  bulk:
+    params:
+      - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Read MANY libraries: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset and limit are refused with it."}
+      - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Libraries read at once. The output is byte-identical at any value (libraries are emitted in input order); 1 is the default because a library loaded whole is held in memory while its rows are written."}
+      - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first unreadable library stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that input's files[i].error and the rest are read. skip with a single path is a usage error."}
+      - {name: out, type: "path", required: false, unit: null, range: ".tsv only, any case (PYB-1)", default: null, doc: "Write the long table here, one library at a time in input order. A batch that stops on an error deletes its partial table. Must differ from every input. Must end in .tsv, any case (PYB-1); any other extension, or none, is a usage error before any input is read, and no extension is appended."}
+    envelope_fields:
+      - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Libraries read."}
+      - {wire: failed_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Libraries not read; non-zero only under on-error skip."}
+      - {wire: record_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors summed over the libraries read (BULK.md section 2)."}
+      - {wire: returned_count, type: "int", unit: "precursors", nullable: false, null_means: null, doc: "Precursors returned in columns, summed over the libraries; 0 when written to out."}
+      - {wire: row_count, type: "int", unit: "rows", nullable: false, null_means: null, doc: "Rows in columns (one per fragment ion with fragments); 0 when written to out."}
+      - {wire: on_error, type: "string", unit: null, nullable: false, null_means: null, doc: "fail or skip, as requested. --threads is deliberately not echoed: the envelope is byte-identical at every thread count."}
+      - {wire: fragments_included, type: "bool", unit: null, nullable: false, null_means: null, doc: "Whether the rows are fragment ions."}
+      - {wire: index_only_threshold, type: "int", unit: "bytes", nullable: false, null_means: null, doc: "The threshold applied to every library: the one given, or mzLib's default."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "source_index, source_path, then the single-library columns."}
+      - {wire: columns, type: "table", unit: null, nullable: true, null_means: "the table was written to out instead", doc: "One long table: rows grouped by input in input order, each library's rows in precursor_index order, whatever --threads is."}
+      - {wire: output, type: "object", unit: null, nullable: true, null_means: "out was not given", doc: "{path, format: \"tsv\", row_count}; written one library at a time."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: the per-file block (path, file_type, reader, format_version, is_compressed, is_index_only, target_count, decoy_count, proteoform_count, min_precursor_mz, max_precursor_mz, record_count, rows_not_read, retention_time_unit, caveats, column_names, absent_fields, failed_fields, excluded_fields, error). An unread input has error set and every fact it could not establish null or empty."}
+
+errors:
+  - {kind: usage, when: "path missing or blank; the file does not exist, or is a directory; its extension is not .msl (MslFileTypeHandler.IsMslFile)"}
+  - {kind: usage, when: "fragments given a value; index-only-threshold, offset, limit or out given with no value; index-only-threshold not a whole number, or below 0; offset or limit below 0 or not an integer; out resolving to the same file as path"}
+  - {kind: usage, when: "out (with path or paths-stdin) whose extension is not .tsv, any case, including none (PYB-1); checked before any input is opened"}
+  - {kind: correctness, when: "mzLib cannot read the library: FormatException for a bad magic number, version, footer or precursor count, InvalidDataException for a CRC-32 mismatch (MslReader); the error type is mzLib's exception name"}
+  - {kind: usage, when: "paths-stdin with path, offset or limit; paths-stdin with a value; no paths on stdin; a repeated path; threads 0 or below -1; on-error not fail or skip; on-error skip with a single path; out naming an input"}
+  - {kind: usage, when: "with on-error fail, an input that is missing or not a .msl: the usage error of that input, prefixed 'Input <i> (<path>)'"}
+  - {kind: correctness, when: "with on-error fail, mzLib failing to read an input: that input's own error type, message prefixed 'Input <i> (<path>)'"}
+  - {kind: usage, when: "the answer is too large to return as one JSON document (PYB-3 part 1). Message: 'this read (N records) is too large to return as one document; use --limit/--offset or --out'. A library with fragments is the likeliest case: write it to out."}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Rows are in the library's stored order, by precursor_index, not by m/z: mzLib's own MslLibrary.GetAllEntries enumerates in ascending precursor m/z instead. Sort on precursor_mz for that order."
+  - "retention_time is iRT for some precursors and run minutes for others: read retention_time_unit on each row (MslLibraryEntry.RtIsCalibrated). A library can hold both, so never plot or compare the column without it. There is no conversion: iRT becomes minutes only through a calibration against a run."
+  - "The library is unfiltered: decoys (D, ED) and entrapment precursors (ET, ED) are rows. Filter on is_decoy, or on decoy_contaminant_target, before counting targets."
+  - "A retention_time of 0 may mean the source had none: MslLibraryEntry.FromLibrarySpectrum, the path mzLib converts a text library through, writes RetentionTime ?? 0.0, and mzLib documents no sentinel for it, so 0 is passed through as a value."
+  - "nce is a whole number: the format stores NCE x 10 and MslReader reads it back with integer division, so an NCE of 27.5 reads as 27."
+  - "A library converted from a text library (.msp) has no NCE, dissociation type, q-value, ion mobility or protein: LibrarySpectrum has no field for them, and MslLibraryEntry.FromLibrarySpectrum fills mzLib's not-available defaults, so nce and q_value are null and dissociation_type is Unknown."
+  - "precursor_mz, retention_time and ion_mobility are stored as 32-bit floats and widened to double by mzLib, so 465.74 reads back as 465.739990234375. The extra digits are the float, not a measurement; round them for display."
+  - "offset and limit count PRECURSORS. With fragments, each precursor gives one row per fragment ion."
+  - "With fragments: residue_position is null for every fragment with a custom neutral loss, because the .msl format reuses that field to index its loss table and MslReader reads it back as 0."
+  - "With fragments: fragment_intensity is relative within its precursor, 0 to 1, because mzLib's writer scales each precursor's most intense fragment to 1 (MslWriter). It is not comparable across precursors."
+  - "Index-only (at or above index_only_threshold) keeps memory to the precursors, but with fragments every fragment block is read twice from disk: once to count the rows, once to write them. mzLib keeps each precursor's stored fragment count private, so the bridge cannot size the table without reading them."
+
+bindings:
+  py: {name: pymzlib.library.read, bulk: pymzlib.library.read_many}
+  rust: {name: "mzlib::library::read_with", bulk: "mzlib::library::read_many", options: LibraryReadOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
+  r: {name: library_read, bulk: library_read_many, note: "Planned name: ported after a pyMzLib release carries the verb. source_index is 1-based in R (the wire is 0-based)."}
+
+examples:
+  - fixture: library_read_prosit.json
+    py: "library = pymzlib.library.read('myPrositLib.msl')"
+    rust: "let library = mzlib::library::read_with(path, &LibraryReadOptions::default())?;"
+    r: "library <- library_read(path)"
+  - fixture: library_read_synthetic.json
+    py: "library = pymzlib.library.read('synthetic_library.msl')"
+    rust: "let library = mzlib::library::read_with(path, &LibraryReadOptions::default())?;"
+    r: "library <- library_read(path)"
+  - fixture: library_read_many.json
+    shape: bulk
+    py: "batch = pymzlib.library.read_many(['synthetic_library.msl', 'myPrositLib.msl'])"
+    rust: "let batch = mzlib::library::read_many(&[\"synthetic_library.msl\", \"myPrositLib.msl\"], &LibraryBulkOptions::default())?;"
+    r: "batch <- library_read_many(c('synthetic_library.msl', 'myPrositLib.msl'))"
+
+open_questions:
+  - "Text libraries (.msp, pDeep, ms2pip) could be read through the same table: mzLib's MslConverter.FromMspFile parses one into an in-memory MslLibrary. Left out of v1 because the conversion fills not-available defaults for every field LibrarySpectrum lacks, and because SpectralLibrary picks the text dialect from the file name. Revisit on demand."
+  - "fragment_count is carried only with fragments: without them mzLib's index-only entries have an empty fragment list (MslLibrary.GetEntry(i, false), 'do not rely on MatchedFragmentIons being empty or full'), and the stored MslPrecursorRecord.FragmentCount is not public. A public count would give the precursor table this column at no I/O cost (PUSH-TO-MAINLAND)."
+  - "No decoy filter is offered: MslLibrary.GetAllEntries(includeDecoys: false) has one, but GetAllEntries yields m/z order with no index, so the bridge reads by index and the caller filters on is_decoy. A GetAllEntries overload with includeFragments, or one that yields the index, would let the bridge wrap it directly."

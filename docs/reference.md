@@ -51,6 +51,13 @@ Generated from the docstrings in the source, so it cannot fall out of step with 
       show_root_full_path: false
       heading_level: 3
 
+## `pymzlib.library`
+
+::: pymzlib.library
+    options:
+      show_root_full_path: false
+      heading_level: 3
+
 ## `pymzlib.stats`
 
 ::: pymzlib.stats
