@@ -1,0 +1,115 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Statistics.CombineP.cs (CombineP,
+# CombineCaveats) on branch feat/stats-combine-correlate (off main b6a90d7, pyMzLib 0.5.0), mzLib
+# pin d10017ce (tag 1.0.595; PValueCombination is from #1367, first in 1.0.594). Example fixtures
+# recorded from the live bridge on that branch. The fisher and weighted ones are over mzLib's
+# reference cases (Test/StatisticalModels/ReferenceData/combination_inputs.tsv, copied verbatim to
+# pkg/python/tests/fixtures/stats/combination_inputs.tsv; constructed cases, not proteomics data);
+# agreement with R 4.6.1's pchisq and qnorm is held through the wire by
+# StatisticsTests.CombineP_ReproducesRsFisherAndStouffer_ThroughTheWire. The signed and unsigned ones
+# are three illustrative proteins written in the pyMzLib stats guide.
+# Fisher (1925, Statistical Methods for Research Workers) and Stouffer et al. (1949, The American
+# Soldier) are books with no DOI; mzLib cites them by name (PValueCombination.cs), and so does this
+# spec, in the method param's doc.
+verb: stats combine-p
+module: stats
+summary: >-
+  Combine several independent p-values for each feature into one, by Fisher's or Stouffer's method,
+  optionally weighted and optionally signed by each test's effect.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: PValueCombination.Fisher, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
+  - {symbol: PValueCombination.Stouffer, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
+  - {symbol: PValueCombination.OneSided, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
+  - {symbol: CombinedPValue, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1111/j.1420-9101.2005.00917.x", for: "the weighted Z (Stouffer) method and why it outperforms Fisher's for a shared effect (Whitlock, J Evol Biol 18:1368, 2005)"}
+
+params:
+  - name: method
+    type: string
+    required: true
+    unit: null
+    range: "fisher | stouffer"
+    default: null
+    doc: >-
+      The combination rule. REQUIRED: mzLib has the two as separate methods and prefers neither,
+      so the bridge picks none. fisher is PValueCombination.Fisher, Fisher (1925): X = -2 sum ln p,
+      referred to chi-square with 2k degrees of freedom; it is driven by the smallest p-values and
+      takes no weights. stouffer is PValueCombination.Stouffer, Stouffer et al. (1949): Z = sum w z
+      / sqrt(sum w^2) with z = the standard normal quantile of 1 - p, referred to N(0, 1); it weighs
+      every test.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line of 2 to 4 tab-separated fields"
+    default: null
+    doc: >-
+      One test per line, tab-separated: feature, p_value, then optionally weight and effect. No
+      header; blank lines are skipped; a UTF-8 BOM is dropped. A feature's lines need not be
+      adjacent: features are reported in order of first appearance, and each is combined by its own
+      mzLib call. p_value is a fraction in [0, 1]; a blank, NA or NaN p_value is a test that could
+      not be run, which mzLib omits. weight (stouffer only; a positive number, for example the
+      square root of the study's sample size) must be on every line or on none; a blank or NA
+      third field is no weight. effect (the test's estimate, any unit: only its sign is used) must
+      be a fourth field on every line or on none. With effects, each p_value is read as TWO-SIDED
+      and converted by PValueCombination.OneSided to the one-sided p-value for effect > 0 (p/2 for a
+      positive effect, 1 - p/2 for a negative one) before combining; an effect that is 0, blank, NA
+      or NaN has no direction, so mzLib returns NaN and the test is omitted. Write
+      feature, p, a blank weight and the effect to give an effect without a weight.
+
+result:
+  envelope_fields:
+    - {wire: method, type: string, unit: null, nullable: false, null_means: null, doc: "fisher | stouffer, as given."}
+    - {wire: weighted, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the lines carried weights (stouffer only)."}
+    - {wire: signed, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the lines carried effects, so each p-value was read as two-sided and converted to the one-sided p-value for effect > 0."}
+    - {wire: line_count, type: int, unit: lines, nullable: false, null_means: null, doc: "Test lines read from stdin, over every feature."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Distinct features; the table's row count."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Equal to feature_count."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per feature, in order of first appearance."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats, plus: two when signed (one only for fisher), and one each when any test was omitted (with the count), when a feature has nothing left to combine, when a feature holds both a p-value of 0 and of 1 (stouffer), and when a statistic is infinite."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "As given on stdin."}
+    - {wire: studies, type: int, unit: tests, nullable: false, null_means: null, doc: "Tests combined: mzLib's CombinedPValue.Studies, the finite p-values after any signed conversion."}
+    - {wire: omitted, type: int, unit: tests, nullable: false, null_means: null, doc: "This feature's lines that were not combined: a blank, NA or NaN p_value, or (signed) an effect that is 0, blank, NA or NaN. studies + omitted is the feature's line count."}
+    - {wire: statistic, type: float, unit: "fisher: chi-square statistic on 2 x studies degrees of freedom; stouffer: standard normal deviates", nullable: true, null_means: "not finite. With studies 0, nothing was combined (p_value null too). Otherwise p_value says which: 0 means plus infinity (a p-value of 0 among the tests), 1 means minus infinity (stouffer, a p-value of 1), and null means undefined (stouffer, a p-value of 0 and one of 1 together)", doc: "Fisher's X = -2 sum ln p, or Stouffer's Z = sum w z / sqrt(sum w^2)."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "studies is 0 (nothing to combine), or stouffer met a p-value of 0 and one of 1 (z of plus and minus infinity)", doc: "Combined p-value: the UPPER tail of the statistic's reference distribution, so it tests one direction (effect > 0 when signed). Fisher's is the regularized upper incomplete gamma Q(k, X/2), so a tiny value keeps its digits. Not adjusted across features."}
+
+errors:
+  - {kind: usage, when: "--method missing, given without a value, or not fisher or stouffer; stdin empty; a line with fewer than 2 or more than 4 tab-separated fields; an empty feature name; a p_value, weight or effect that is not a number (other than blank, NA, NaN)"}
+  - {kind: usage, when: "a weight on some lines and not others; an effect field on some lines and not others; any weight with --method fisher"}
+  - {kind: usage, when: "mzLib refuses a feature's input, named in the message: a p-value outside [0, 1], or a weight that is not finite and positive (mzLib's ArgumentException, reclassified)"}
+  - {kind: correctness, when: never expected}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Both rules assume the tests are independent and test the same one-sided hypothesis. Fisher is driven by the smallest p-values; Stouffer weighs every test, and with weights (for example the square root of each study's sample size) lets larger studies count more."
+  - "p_value is the upper tail of the statistic, so it tests one direction. Two-sided p-values given without their effects are combined as if one-sided, and opposite effects then reinforce each other instead of cancelling: give each test's effect for that."
+  - "Neither rule estimates an effect size; pool the estimates with stats meta for that. p_value is not adjusted across features; send the p_value column to stats adjust."
+  - "Signed: p_value tests effect > 0, and for stouffer a p_value near 1 means a consistently negative effect. mzLib computes no two-sided combined p-value. For a negative effect whose two-sided p-value is below about 2e-16, 1 - p/2 rounds to 1, so that test's z is minus infinity and decides a stouffer feature (p_value 1)."
+
+bindings:
+  py: {name: pymzlib.stats.combine_p}
+  rust: {name: "mzlib::stats::combine_p", note: "not yet ported"}
+  r: {name: stats_combine_p, note: "not yet ported"}
+
+examples:
+  - fixture: stats_combine_p_fisher.json
+    py: "combined = pymzlib.stats.combine_p([(r['case'], float(r['p'])) for r in rows], method='fisher')"
+    rust: "let combined = mzlib::stats::combine_p(&tests, \"fisher\")?;"
+    r: "combined <- stats_combine_p(tests, method = 'fisher')"
+  - fixture: stats_combine_p_weighted.json
+    py: "combined = pymzlib.stats.combine_p([(r['case'], float(r['p']), float(r['weight'])) for r in rows], method='stouffer')"
+    rust: "let combined = mzlib::stats::combine_p(&weighted_tests, \"stouffer\")?;"
+    r: "combined <- stats_combine_p(tests, method = 'stouffer')"
+  - fixture: stats_combine_p_signed.json
+    py: "combined = pymzlib.stats.combine_p(cohorts, method='stouffer')"
+    rust: "let combined = mzlib::stats::combine_p(&cohorts, \"stouffer\")?;"
+    r: "combined <- stats_combine_p(cohorts, method = 'stouffer')"
+  - fixture: stats_combine_p_unsigned.json
+    py: "combined = pymzlib.stats.combine_p([(f, p, w) for f, p, w, _ in cohorts], method='stouffer')"
+    rust: "let combined = mzlib::stats::combine_p(&unsigned, \"stouffer\")?;"
+    r: "combined <- stats_combine_p(cohorts[, 1:3], method = 'stouffer')"
+
+open_questions: []

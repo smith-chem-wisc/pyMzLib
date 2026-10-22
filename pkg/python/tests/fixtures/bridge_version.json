@@ -42,6 +42,8 @@
   "genes resolve",
   "stats fit",
   "stats adjust",
-  "stats meta"
+  "stats meta",
+  "stats combine-p",
+  "stats correlate"
  ]
 }

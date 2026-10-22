@@ -1,0 +1,62 @@
+{
+ "method": "fisher",
+ "weighted": false,
+ "signed": false,
+ "line_count": 28,
+ "feature_count": 6,
+ "row_count": 6,
+ "column_names": [
+  "feature",
+  "studies",
+  "omitted",
+  "statistic",
+  "p_value"
+ ],
+ "columns": {
+  "feature": [
+   "few",
+   "tiny",
+   "one",
+   "many",
+   "mixed",
+   "tail"
+  ],
+  "studies": [
+   3,
+   4,
+   1,
+   12,
+   5,
+   3
+  ],
+  "omitted": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "statistic": [
+   11.042921835724492,
+   65.94032095399368,
+   6.593674732675825,
+   32.60116497807321,
+   21.297857055634413,
+   95.53300057594568
+  ],
+  "p_value": [
+   0.08705890500640914,
+   3.14436142476758e-11,
+   0.03700000000000003,
+   0.11277243399019031,
+   0.019109712808482348,
+   2.141254395303171e-18
+  ]
+ },
+ "caveats": [
+  "Both rules assume the tests are independent and test the same one-sided hypothesis. Fisher is driven by the smallest p-values; Stouffer weighs every test, and with weights (for example the square root of each study's sample size) lets larger studies count more.",
+  "p_value is the upper tail of the statistic, so it tests one direction. Two-sided p-values given without their effects are combined as if one-sided, and opposite effects then reinforce each other instead of cancelling: give each test's effect for that.",
+  "Neither rule estimates an effect size; pool the estimates with stats meta for that. p_value is not adjusted across features; send the p_value column to stats adjust."
+ ]
+}

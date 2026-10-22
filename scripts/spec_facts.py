@@ -172,6 +172,9 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     "stats meta": {
         "param.stdin": {"python": "studies", "why": "one stdin line per (feature, estimate, standard_error)"},
     },
+    "stats combine-p": {
+        "param.stdin": {"python": "tests", "why": "one stdin line per (feature, p_value[, weight[, effect]])"},
+    },
     "peptidoform fragments": {
         # The wire's negative flag reads as a positive keyword in Python, and the wire's census
         # fields arrive grouped as one object, Digest.modification_census.

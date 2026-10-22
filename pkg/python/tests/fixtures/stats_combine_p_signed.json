@@ -1,0 +1,49 @@
+{
+ "method": "stouffer",
+ "weighted": true,
+ "signed": true,
+ "line_count": 9,
+ "feature_count": 3,
+ "row_count": 3,
+ "column_names": [
+  "feature",
+  "studies",
+  "omitted",
+  "statistic",
+  "p_value"
+ ],
+ "columns": {
+  "feature": [
+   "up_everywhere",
+   "flips_sign",
+   "no_effect"
+  ],
+  "studies": [
+   3,
+   3,
+   3
+  ],
+  "omitted": [
+   0,
+   0,
+   0
+  ],
+  "statistic": [
+   3.763503893343654,
+   0.18330497821473407,
+   0.1572772078759644
+  ],
+  "p_value": [
+   8.377455859679955e-05,
+   0.4272793642646678,
+   0.43751319108826614
+  ]
+ },
+ "caveats": [
+  "Both rules assume the tests are independent and test the same one-sided hypothesis. Fisher is driven by the smallest p-values; Stouffer weighs every test, and with weights (for example the square root of each study's sample size) lets larger studies count more.",
+  "p_value is the upper tail of the statistic, so it tests one direction. Two-sided p-values given without their effects are combined as if one-sided, and opposite effects then reinforce each other instead of cancelling: give each test's effect for that.",
+  "Neither rule estimates an effect size; pool the estimates with stats meta for that. p_value is not adjusted across features; send the p_value column to stats adjust.",
+  "Each p-value was read as two-sided and converted with the sign of its effect (mzLib's PValueCombination.OneSided): p/2 for a positive effect, 1 - p/2 for a negative one. p_value therefore tests effect > 0, and a p_value near 1 means a consistently negative effect. A test whose effect is 0, blank or NA has no direction and is omitted.",
+  "For a negative effect whose two-sided p-value is below about 2e-16, 1 - p/2 rounds to 1, so that test's z is minus infinity and decides the feature (p_value 1)."
+ ]
+}

@@ -20,7 +20,9 @@ recorded for different arguments:
   one-path call only a one-document recording;
 * a recording with a ``written`` key fits a ``--out`` call only if ``written`` is set, and a call
   without ``--out`` only if it is null;
-* a recording listed in ``RECORDED_WITH`` fits only a call that sends the options it was made with.
+* a recording listed in ``RECORDED_WITH`` fits only a call that sends the options it was made with;
+* an optional input file in ``OPTIONAL_FILES`` (echoed as ``<name>_file``, null when absent) must
+  be given by the call exactly when the recording used one.
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -86,8 +88,18 @@ RECORDED_WITH = {
 }
 
 
+#: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
+#: correlate --given). A recording made with one answers only a call that gives one, and the
+#: reverse, or a plain correlation could print a partial one.
+OPTIONAL_FILES = ("given",)
+
+
 def mismatch(data: dict, options: dict) -> str:
     """Why this recording cannot be the answer to these options, or "" if it can."""
+    for name in OPTIONAL_FILES:
+        key = f"{name}_file"
+        if key in data and (name in options) != (data[key] is not None):
+            return f"recorded {'with' if data[key] is not None else 'without'} --{name}"
     for name, value in options.items():
         key = ECHOED_AS.get(name, name.replace("-", "_"))
         if name in ("limit", "offset", "out"):
@@ -167,7 +179,8 @@ def mismatch(data: dict, options: dict) -> str:
 
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
-STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align"}
+STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
+              "stats combine-p"}
 
 
 def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
@@ -177,7 +190,25 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     parse-accession: the same lines, in the same order, as the recording's ``input`` column.
     proteins align: the same pairs, in the same order, as the recording's aligned rows with their
     gaps removed (mzLib refuses a '-' in an input sequence, so removing them is exact).
+    stats combine-p: the same features in the same first-appearance order, the same number of
+    tests, and weights and effects given or not as the recording's ``weighted`` and ``signed`` say.
     """
+    if verb == "stats combine-p":
+        lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]
+        features = list(dict.fromkeys(fields[0].strip() for fields in lines))
+        recorded = list((data.get("columns") or {}).get("feature") or [])
+        if features != recorded:
+            return f"recorded for features {recorded}, not {features}"
+        if len(lines) != data.get("line_count"):
+            return f"recorded for {data.get('line_count')} tests, not {len(lines)}"
+        weighted = any(len(f) >= 3 and f[2].strip().lower() not in ("", "na", "nan") for f in lines)
+        signed = any(len(f) == 4 for f in lines)
+        if (weighted, signed) != (data.get("weighted"), data.get("signed")):
+            return (
+                f"recorded with weighted={data.get('weighted')} signed={data.get('signed')}, "
+                f"not weighted={weighted} signed={signed}"
+            )
+        return ""
     if verb in ("peptidoform convert", "proteins parse-accession"):
         sent = [line for line in stdin.splitlines() if line.strip()]
         recorded = list((data.get("columns") or {}).get("input") or [])

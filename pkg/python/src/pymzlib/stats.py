@@ -1,7 +1,7 @@
-"""Differential abundance with no R: limma's moderated t-test, Benjamini-Hochberg, and random-effects
-meta-analysis, computed by mzLib.
+"""Differential abundance with no R: limma's moderated t-test, Benjamini-Hochberg, random-effects
+meta-analysis, p-value combination and Spearman correlation, computed by mzLib.
 
-Three questions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341 and #1357):
+Five questions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1446):
 
 ==========================================================  =====================  =============================================
 You want to know                                            Call                   mzLib computes it with
@@ -9,6 +9,8 @@ You want to know                                            Call                
 Which features change with a coefficient, and how surely?   :func:`fit`            ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
 Which of these p-values survive a false discovery rate?     :func:`adjust`         ``MultipleTesting.BenjaminiHochberg``
 What is one feature's effect, pooled across studies?        :func:`meta`           ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
+What do several studies' p-values say together?             :func:`combine_p`      ``PValueCombination.Fisher`` / ``.Stouffer``
+Which features rise or fall with a per-sample trait?        :func:`correlate`      ``SpearmanCorrelation.Correlate`` / ``.PartialCorrelate``
 ==========================================================  =====================  =============================================
 
 **It is limma, checked.** :func:`fit` is limma's ``lmFit`` followed by ``eBayes(legacy = TRUE)``
@@ -46,8 +48,9 @@ off the command line. A blank, ``NA`` or ``NaN`` cell is missing and is left out
 fit, never imputed. **A 0 is an observation**, as in mzLib, so blank out any 0 that means "not
 measured".
 
-Wire verbs: ``stats fit``, ``stats adjust`` and ``stats meta``; their language-neutral specs live in
-the bridge repository under ``design/verbs/``.
+Wire verbs: ``stats fit``, ``stats adjust``, ``stats meta``, ``stats combine-p`` and
+``stats correlate``; their language-neutral specs live in the bridge repository under
+``design/verbs/``.
 """
 
 from __future__ import annotations
@@ -63,12 +66,18 @@ from . import _bridge
 from .readers import _Table
 
 __all__ = [
+    "COMBINATION_METHODS",
     "FIT_STATUSES",
+    "SPEARMAN_METHODS",
     "Adjusted",
+    "CombinedPValues",
+    "Correlations",
     "MetaAnalysis",
     "ModeratedFit",
     "VariancePrior",
     "adjust",
+    "combine_p",
+    "correlate",
     "fit",
     "meta",
 ]
@@ -76,9 +85,20 @@ __all__ = [
 #: The first pyMzLib whose bridge has the stats verbs (``since.pymzlib`` of their specs).
 _SINCE = "0.3.0"
 
+#: The first pyMzLib whose bridge has ``stats combine-p`` and ``stats correlate`` (mzLib 1.0.595).
+_COMBINE_CORRELATE_SINCE = "0.6.0"
+
 #: Every value of the ``status`` column, as mzLib's ``FeatureFitStatus`` is written on the wire.
 #: Only ``"fitted"`` rows carry statistics or enter the Benjamini-Hochberg family.
 FIT_STATUSES = ("fitted", "too_few_observations", "rank_deficient")
+
+#: The rules :func:`combine_p` takes as ``method=``: mzLib's ``PValueCombinationMethod``. There is
+#: no default; you choose.
+COMBINATION_METHODS = ("fisher", "stouffer")
+
+#: Every value of the ``method`` column of :func:`correlate`, as mzLib's ``SpearmanPValueMethod`` is
+#: written on the wire. Only ``"not_estimable"`` rows have ``None`` for ``rho`` and ``p_value``.
+SPEARMAN_METHODS = ("exact", "asymptotic", "not_estimable")
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -349,6 +369,160 @@ class MetaAnalysis(_Table):
         )
 
 
+@dataclass(frozen=True)
+class CombinedPValues(_Table):
+    """What :func:`combine_p` returns: one combined row per feature, in order of first appearance.
+
+    =============  ===============================  ====================================================
+    column         unit                             meaning; ``None`` means
+    =============  ===============================  ====================================================
+    ``feature``    -                                as given
+    ``studies``    tests                            tests combined: those with a finite p-value (after
+                                                    the signed conversion, when effects were given)
+    ``omitted``    tests                            this feature's tests that were not combined: no
+                                                    p-value, or (signed) an effect of 0 or ``None``
+    ``statistic``  chi-square on 2 x studies df     Fisher's X = -2 sum ln p, or Stouffer's
+                   (fisher); standard normal        Z = sum w z / sqrt(sum w^2). ``None`` = not finite:
+                   deviates (stouffer)              see below
+    ``p_value``    fraction (0 to 1)                the upper tail of the statistic, so ONE direction
+                                                    (effect > 0 when signed); ``None`` = nothing to
+                                                    combine, or a p of 0 and a p of 1 together (stouffer)
+    =============  ===============================  ====================================================
+
+    A ``None`` statistic with a p-value is an infinite one: ``p_value`` 0 means plus infinity (a
+    p-value of 0 among the tests), 1 means minus infinity (stouffer, a p-value of 1).
+
+    Attributes:
+        method: ``"fisher"`` or ``"stouffer"``, as you asked.
+        weighted: Whether the tests carried weights (stouffer only).
+        signed: Whether the tests carried effects, so every p-value was read as two-sided and
+            converted to the one-sided p-value for effect > 0 before combining.
+        line_count: Tests sent, over every feature (lines).
+        feature_count: Distinct features (features); the table's row count.
+        row_count: Rows in the table (rows), equal to ``feature_count``.
+        column_names: The table's columns, in order.
+        columns: Column name -> one value per feature.
+        caveats: What the combination assumes, plus any that apply to this input (omitted tests,
+            infinite statistics).
+    """
+
+    method: str
+    weighted: bool
+    signed: bool
+    line_count: int
+    feature_count: int
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def p_values(self) -> dict[str, float | None]:
+        """Feature -> combined p-value (``None`` = nothing could be combined), in table order."""
+        return dict(zip(self.columns.get("feature") or [], self.columns.get("p_value") or []))
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> CombinedPValues:
+        names, columns = _columns(data)
+        return cls(
+            method=str(data.get("method", "")),
+            weighted=bool(data.get("weighted", False)),
+            signed=bool(data.get("signed", False)),
+            line_count=int(data.get("line_count", 0)),
+            feature_count=int(data.get("feature_count", 0)),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class Correlations(_Table):
+    """What :func:`correlate` returns: one Spearman row per feature, in the responses file's order.
+
+    ============  =========================  ===========================================================
+    column        unit                       meaning; ``None`` means
+    ============  =========================  ===========================================================
+    ``feature``   -                          the id in the responses file's first column
+    ``rho``       unitless (-1 to 1)         Spearman's rho, ties at their average rank; with
+                                             ``given=``, the partial rho. ``None`` = not_estimable
+    ``p_value``   fraction (0 to 1)          two-sided, against rho = 0; **not adjusted across
+                                             features**. ``None`` = not_estimable
+    ``n``         samples                    complete samples used: response, trait and every
+                                             covariate finite
+    ``has_ties``  -                          any variable tied among those samples (``False`` too
+                                             when there were too few to rank: n below 3, or 4)
+    ``method``    -                          one of :data:`SPEARMAN_METHODS`: ``"exact"`` (n <= 9, no
+                                             ties, plain), ``"asymptotic"`` (t on n - 2 df, or
+                                             n - 2 - k with k covariates kept) or ``"not_estimable"``
+    ============  =========================  ===========================================================
+
+    Attributes:
+        responses_file: Absolute path of the responses table.
+        trait_file: Absolute path of the trait table.
+        given_file: Absolute path of the covariates table, or ``None`` without ``given=``.
+        trait_name: The trait column's header.
+        covariate_names: The covariate columns' headers, in order; empty without ``given=``.
+        partial: ``True`` when ``given=`` was used, so every row is a partial correlation.
+        feature_count: Feature rows read (features); the table's row count.
+        sample_count: Sample columns read (samples).
+        sample_names: In the responses header's order.
+        missing_count: Response cells that were blank, NA or NaN (cells).
+        trait_missing_count: Samples with no trait value (samples), so in no feature's correlation.
+        given_incomplete_count: Samples missing a covariate (samples), so in no feature's
+            correlation; ``None`` without ``given=``.
+        method_counts: Features per method (features), keyed by :data:`SPEARMAN_METHODS`.
+        row_count: Rows in the table (rows), equal to ``feature_count``.
+        column_names: The table's columns, in order.
+        columns: Column name -> one value per feature.
+        caveats: How the p-values were computed and how they differ from R's defaults, plus a
+            count of not_estimable features when there are any.
+    """
+
+    responses_file: str
+    trait_file: str
+    given_file: str | None
+    trait_name: str
+    covariate_names: list[str]
+    partial: bool
+    feature_count: int
+    sample_count: int
+    sample_names: list[str]
+    missing_count: int
+    trait_missing_count: int
+    given_incomplete_count: int | None
+    method_counts: dict[str, int]
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> Correlations:
+        names, columns = _columns(data)
+        incomplete = data.get("given_incomplete_count")
+        return cls(
+            responses_file=str(data.get("responses_file", "")),
+            trait_file=str(data.get("trait_file", "")),
+            given_file=data.get("given_file"),
+            trait_name=str(data.get("trait_name", "")),
+            covariate_names=list(data.get("covariate_names") or []),
+            partial=bool(data.get("partial", False)),
+            feature_count=int(data.get("feature_count", 0)),
+            sample_count=int(data.get("sample_count", 0)),
+            sample_names=list(data.get("sample_names") or []),
+            missing_count=int(data.get("missing_count", 0)),
+            trait_missing_count=int(data.get("trait_missing_count", 0)),
+            given_incomplete_count=None if incomplete is None else int(incomplete),
+            method_counts=dict(data.get("method_counts") or {}),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
 # ---- calls -------------------------------------------------------------------------------------
 
 
@@ -586,3 +760,210 @@ def meta(
         stdin="\n".join(lines) + "\n", timeout=timeout,
     )
     return MetaAnalysis._from_wire(data)
+
+
+def _path(value: object, what: str) -> str:
+    text = _bridge.path_text(value)
+    if not text:
+        raise _bridge.UsageError(f"{what} must be a path (str or os.PathLike); got {value!r}.")
+    return text
+
+
+def _cell(value: object, what: str) -> str:
+    """A numeric field of a stdin line: ``None`` and NaN are blank (missing), a number its repr."""
+    if value is None:
+        return ""
+    number = _number(value, what)
+    return "" if math.isnan(number) else repr(number)
+
+
+def combine_p(
+    tests: Iterable[Sequence[Any] | Mapping[str, Any]],
+    *,
+    method: str,
+    timeout: float | None = 60,
+) -> CombinedPValues:
+    """Combine several independent p-values per feature into one, by Fisher's or Stouffer's method.
+
+    Each feature is combined on its own by mzLib's ``PValueCombination``: Fisher (1925),
+    X = -2 sum ln p against chi-square on 2k degrees of freedom, or Stouffer (1949),
+    Z = sum w z / sqrt(sum w^2) against the standard normal. mzLib holds both to R's ``pchisq`` and
+    ``qnorm`` to 1e-8 relative. Use it when you have one p-value per study - per dataset, cohort or
+    laboratory - for the same feature, and want one answer from all of them.
+
+    **Direction.** Both rules combine *one-sided* p-values. A two-sided p-value from :func:`fit`
+    does not say which way the effect went, so two studies that disagree look like two that agree.
+    Give every test its ``effect`` (its estimate; only the sign is used) and mzLib first turns each
+    p into the one-sided p-value for effect > 0 (``PValueCombination.OneSided``: p/2 for a positive
+    effect, 1 - p/2 for a negative one), so opposite effects cancel. The combined ``p_value`` then
+    tests effect > 0; for Stouffer, a ``p_value`` near 1 means a consistently negative effect.
+
+    Neither rule estimates an effect size: :func:`meta` does that, from estimates and standard
+    errors. Neither adjusts across features: send ``p_values`` to :func:`adjust`.
+
+    Args:
+        tests: One entry per test: ``(feature, p_value)``, ``(feature, p_value, weight)`` or
+            ``(feature, p_value, weight, effect)``, or a mapping with ``feature`` and ``p_value``
+            and optionally ``weight`` and ``effect``. A feature's tests need not be adjacent.
+            ``p_value`` is a fraction from 0 to 1, or ``None``/NaN for a test that could not be run
+            (it is omitted, and counted in the ``omitted`` column). ``weight`` (Stouffer only) is a
+            positive number, for example the square root of the study's sample size; give one for
+            every test or for none, and ``None`` for "no weight". ``effect`` is the test's estimate
+            in any unit; give one for every test or for none, and ``None`` for a test with no
+            direction (omitted). To give an effect without a weight, pass ``None`` as the weight.
+        method: ``"fisher"`` or ``"stouffer"``, one of :data:`COMBINATION_METHODS`. Required:
+            mzLib has no preferred rule. Fisher is driven by the strongest single result and takes
+            no weights; Stouffer weighs every study, and takes weights.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`CombinedPValues` table, one row per feature in order of first appearance;
+        :attr:`CombinedPValues.p_values` maps each feature to its combined p-value.
+
+    Raises:
+        UsageError: no tests; an entry that is not 2 to 4 values or a mapping with ``feature`` and
+            ``p_value``; a feature name that is empty or holds a tab or newline; a value that is not
+            a number; ``method`` not one of :data:`COMBINATION_METHODS`; a weight or an effect on
+            some tests and not others; a weight with ``method="fisher"``; or, from mzLib, naming the
+            feature, a p-value outside [0, 1] or a weight that is not finite and positive.
+
+    Examples:
+        mzLib's own reference cases (constructed p-values, not proteomics data), by both rules:
+
+        >>> import csv
+        >>> with open("combination_inputs.tsv", newline="") as fh:
+        ...     rows = list(csv.DictReader(fh, delimiter="\\t"))
+        >>> fisher = pymzlib.stats.combine_p([(r["case"], float(r["p"])) for r in rows],
+        ...                                  method="fisher")
+        >>> stouffer = pymzlib.stats.combine_p(
+        ...     [(r["case"], float(r["p"]), float(r["weight"])) for r in rows], method="stouffer")
+        >>> for f, s in zip(fisher.records, stouffer.records):
+        ...     print(f["feature"], f["studies"], f"{f['p_value']:.3g}", f"{s['p_value']:.3g}")
+        few 3 0.0871 0.15
+        tiny 4 3.14e-11 0.00228
+        one 1 0.037 0.037
+        many 12 0.113 0.0323
+        mixed 5 0.0191 0.713
+        tail 3 2.14e-18 0.000836
+
+        ``mixed`` shows the two rules apart. One p-value of 0.001 among five carries Fisher's to
+        0.019; weighted Stouffer counts all five, and its heaviest test (p = 0.95) points the
+        other way. Both agree with R:
+
+        >>> with open("combination_results.tsv", newline="") as fh:
+        ...     r_answers = list(csv.DictReader(fh, delimiter="\\t"))
+        >>> def worst(ours, theirs):
+        ...     return max(abs(a - float(b)) / abs(float(b)) for a, b in zip(ours, theirs))
+        >>> worst(fisher.columns["p_value"], [x["fisher_p"] for x in r_answers]) < 1e-8
+        True
+        >>> worst(stouffer.columns["p_value"], [x["weighted_p"] for x in r_answers]) < 1e-8
+        True
+    """
+    if not isinstance(method, str) or method not in COMBINATION_METHODS:
+        raise _bridge.UsageError(
+            f"method must be one of {', '.join(COMBINATION_METHODS)} (mzLib's "
+            f"PValueCombinationMethod); got {method!r}."
+        )
+    if isinstance(tests, (str, bytes, Mapping)):
+        raise _bridge.UsageError(
+            "combine_p() takes a list of tests, each (feature, p_value[, weight[, effect]])."
+        )
+    names = ("p_value", "weight", "effect")
+    lines = []
+    for i, test in enumerate(tests):
+        if isinstance(test, Mapping):
+            if "feature" not in test or "p_value" not in test:
+                raise _bridge.UsageError(
+                    f"tests[{i}] needs 'feature' and 'p_value' keys, and optionally 'weight' and "
+                    f"'effect'; got {sorted(map(str, test))}."
+                )
+            size = 4 if "effect" in test else 3 if "weight" in test else 2
+            values = [test["feature"], test["p_value"], test.get("weight"), test.get("effect")][:size]
+        elif isinstance(test, Sequence) and not isinstance(test, (str, bytes)) and 2 <= len(test) <= 4:
+            values = list(test)
+        else:
+            raise _bridge.UsageError(
+                f"tests[{i}] must be (feature, p_value[, weight[, effect]]); got {test!r}."
+            )
+        feature = values[0]
+        if not isinstance(feature, str) or not feature.strip():
+            raise _bridge.UsageError(f"tests[{i}] needs a non-empty feature name; got {feature!r}.")
+        if "\t" in feature:
+            raise _bridge.UsageError(f"tests[{i}]'s feature name contains a tab: {feature!r}.")
+        _one_line(feature, f"tests[{i}]'s feature name")
+        cells = [_cell(value, f"tests[{i}] {names[j]}") for j, value in enumerate(values[1:])]
+        lines.append("\t".join([feature, *cells]))
+    if not lines:
+        raise _bridge.UsageError("combine_p() needs at least one test.")
+    _bridge.require_verb("stats combine-p", since=_COMBINE_CORRELATE_SINCE)
+    data = _bridge.invoke(
+        "stats", "combine-p", "--method", method, stdin="\n".join(lines) + "\n", timeout=timeout
+    )
+    return CombinedPValues._from_wire(data)
+
+
+def correlate(
+    responses: _PathLike,
+    trait: _PathLike,
+    *,
+    given: _PathLike | None = None,
+    timeout: float | None = 600,
+) -> Correlations:
+    """Spearman-correlate every feature with a per-sample trait, optionally given covariates.
+
+    For each feature (row) of the responses table, mzLib's ``SpearmanCorrelation.Correlate`` ranks
+    the feature's values and the trait over the samples where both are known, and tests rho = 0,
+    two-sided. With ``given``, ``SpearmanCorrelation.PartialCorrelate`` first removes from both sets
+    of ranks what the covariates' ranks explain, as ``ppcor::pcor.test(method = "spearman")`` does.
+    mzLib holds both to R's ``cor.test`` and to ppcor 1.1 to 1e-8 relative.
+
+    Spearman uses ranks only. It needs no log transform, one extreme value cannot drive it, and it
+    finds any relationship that only ever rises (or only ever falls), not just a straight line.
+
+    Args:
+        responses: :func:`fit`'s responses table: a TSV with a header row, the feature id first,
+            then one column per sample, named by its header. Blank, ``NA`` or ``NaN`` is missing.
+            **0 is an observation**, ranked like any other value.
+        trait: A TSV with a header row and one row per sample: the sample name (exactly the
+            responses' sample columns, in any order), then ONE value column, whose header names the
+            trait - age, dose, loading. A blank or ``NA`` cell leaves that sample out.
+        given: A TSV of the same shape with one or more covariate columns (batch, run order,
+            loading) to partial out. Leave it out (``None``) for a plain correlation.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`Correlations` table, one row per feature in the responses file's order.
+
+    Raises:
+        UsageError: a file is missing or malformed; the trait file has other than one value column;
+            the trait's or the covariates' samples are not exactly the responses' samples; a cell
+            is not a number.
+
+    Examples:
+        The MALAT1 dilution series :func:`fit` analyses (500, 250 and 125 ng MALAT1 against a
+        constant FLuc spike, log2 intensities normalised to FLuc), correlated with each run's
+        MALAT1 load:
+
+        >>> result = pymzlib.stats.correlate("malat_dilution_log2_vs_fluc.tsv",
+        ...                                  "malat_dilution_load_ng.tsv")
+        >>> result.trait_name, result.feature_count, result.sample_count
+        ('malat_ng', 492, 27)
+        >>> result.method_counts
+        {'exact': 4, 'asymptotic': 308, 'not_estimable': 180}
+        >>> import statistics
+        >>> def median_rho(prefix):
+        ...     return statistics.median(r["rho"] for r in result.records
+        ...                              if r["rho"] is not None and r["feature"].startswith(prefix))
+        >>> print(f"MALAT1 {median_rho('MALAT1:'):+.2f}, FLuc {median_rho('FLuc:'):+.2f}")
+        MALAT1 +0.43, FLuc +0.00
+
+        MALAT1's oligos rise with its load. FLuc's, the constant spike every run was normalised
+        to, do not.
+    """
+    args = ["stats", "correlate", "--responses", _path(responses, "responses"),
+            "--trait", _path(trait, "trait")]
+    if given is not None:
+        args += ["--given", _path(given, "given")]
+    _bridge.require_verb("stats correlate", since=_COMBINE_CORRELATE_SINCE)
+    data = _bridge.invoke(*args, timeout=timeout)
+    return Correlations._from_wire(data)
