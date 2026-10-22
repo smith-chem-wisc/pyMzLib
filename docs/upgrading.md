@@ -9,12 +9,16 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
-## Unreleased (still built from mzLib 1.0.595)
+## 0.6.0 (still built from mzLib 1.0.595)
 
 mzLib did not move. These are pyMzLib's own.
 
 ### Same file, different value
 
+- **`sdrf.pool(out=...)` names the file it wrote.** mzLib adds `.sdrf.tsv` to a name that does not
+  already end in it, so `out="x.tsv"` writes `x.tsv.sdrf.tsv`. `written["path"]` used to say
+  `x.tsv`, a file that does not exist; it now says `x.tsv.sdrf.tsv`. The file written is the same.
+  An `out=` already ending in `.sdrf.tsv` is unchanged.
 - **`stats.fit()` on fewer than 3 features reports no shared prior variance.** With so few
   features mzLib fits no prior ([mzLib#1398](https://github.com/smith-chem-wisc/mzLib/pull/1398), as limma's `squeezeVar` does):
   `prior.df` is 0 and each feature keeps its own variance. `prior.scale` used to report the
