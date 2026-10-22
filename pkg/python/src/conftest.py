@@ -59,6 +59,8 @@ REPLAY_EXTRA = {
     # The proteins guide: three databases and a contaminant, filtered to four accessions; and the
     # DYNC1I2 isoforms and both albumins with their sequences, which the alignment section aligns.
     "proteins read": ["proteins_read_accessions.json", "proteins_read_sequences.json"],
+    # The diff guide: stats fit on the design file diff design wrote for the MALAT1 dilution series.
+    "stats fit": ["stats_fit_malat_diff_design.json"],
     # The spectral-library guide: one precursor's fragment ions, and an index-only read.
     # --fragments: check_verbs.py cannot hold a present_when column to a spec example yet.
     "library read": ["library_read_fragments.json", "library_read_index_only.json"],
@@ -137,7 +139,7 @@ def _doctests_use_the_replay_bridge(_replay_bridge, doctest_namespace, tmp_path,
 
 #: Folders of small input files an example reads itself (not through the bridge), copied into the
 #: example's working directory so it can open them by bare name, as a reader would.
-EXAMPLE_INPUTS = [FIXTURES / "stats"]
+EXAMPLE_INPUTS = [FIXTURES / "stats", FIXTURES / "diff"]
 
 
 def copy_example_inputs(directory: Path) -> None:

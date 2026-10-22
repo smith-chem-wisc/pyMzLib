@@ -496,7 +496,7 @@ internal static partial class Reading
     /// formatting and the rendering of null and of lists cannot differ between verbs. See
     /// <see cref="Render"/> for why a list is <c>;</c>-joined and null is an empty cell.
     /// </remarks>
-    private sealed class TsvSink : IDisposable
+    internal sealed class TsvSink : IDisposable
     {
         private readonly StreamWriter _writer;
         private readonly CsvHelper.CsvWriter _csv;

@@ -46,8 +46,7 @@
   "stats meta",
   "stats combine-p",
   "stats correlate",
-  "stats fit-logistic",
-  "stats fit-mixed",
-  "stats entrapment-fdp"
+  "diff design",
+  "diff observations"
  ]
 }

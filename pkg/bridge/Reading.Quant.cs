@@ -70,7 +70,7 @@ internal static partial class Reading
     /// <summary>
     /// Opens a path as the given reader type, or says what it is instead.
     /// </summary>
-    private static TFile OpenAs<TFile>(string path, string verb, string fileType, string fileName)
+    internal static TFile OpenAs<TFile>(string path, string verb, string fileType, string fileName)
         where TFile : class, IResultFile
     {
         IResultFile resultFile = OpenAny(path);

@@ -1,0 +1,9 @@
+sample_id	organism part	condition
+s1	liver	A
+s2	muscle	A
+s3	liver	B
+s4	muscle	B
+s5	liver	A
+s6	muscle	B
+s7	kidney	A
+s8	kidney	A

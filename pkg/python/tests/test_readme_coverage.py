@@ -34,6 +34,7 @@ import pymzlib
 #: version — which no coverage table should list.
 CAPABILITY_MODULES = (
     "flashlfq", "peptidoform", "pride", "readers", "sdrf", "proteins", "isobaric", "stats", "library",
+    "diff",
 )
 
 #: Repo-root-relative. Both are front pages; they simply face different registries.

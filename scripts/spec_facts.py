@@ -180,6 +180,16 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     },
     "stats fit-mixed": {
         "param.stdin": {"python": "coefficients", "why": "one stdin line per coefficient to report"},
+    # The model's terms are keyword lists in Python, mzLib's FactorSpec and CovariateSpec, and
+    # pyMzLib writes one stdin line per term; the runs likewise, one line per ObservationRun.
+    "diff design": {
+        "param.stdin": {
+            "python": None,
+            "why": "rendered from factors=, covariates=, interactions=, strata= and batch=, each in Args",
+        },
+    },
+    "diff observations": {
+        "param.stdin": {"python": "runs", "why": "one stdin line per ObservationRun or (file, sample, ...) tuple"},
     },
     "peptidoform fragments": {
         # The wire's negative flag reads as a positive keyword in Python, and the wire's census

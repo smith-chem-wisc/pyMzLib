@@ -28,7 +28,7 @@ And a differential-abundance test is limma's moderated t, with no R, in
     print(fit.status_counts, fit.rows("treated")[0]["bh_adjusted"])
 """
 
-from . import flashlfq, isobaric, library, peptidoform, pride, proteins, readers, sdrf, stats
+from . import diff, flashlfq, isobaric, library, peptidoform, pride, proteins, readers, sdrf, stats
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -45,6 +45,7 @@ from ._bridge import (
 __version__ = "0.5.0"
 
 __all__ = [
+    "diff",
     "flashlfq",
     "isobaric",
     "library",

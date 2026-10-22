@@ -1,0 +1,152 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Differential.Observations.cs (Observations,
+# ReadRuns, StateName, ObservationCaveats) and Differential.cs on branch feat/diff-verbs (off main
+# eaf10e1), mzLib pin d10017ce (tag 1.0.595; FlashLfqObservations, ObservationTable and
+# SharedPeptideNormalization are from #1455, first in 1.0.595). Example fixtures recorded from the live
+# bridge on that branch: mzLib's MetaMorpheus 1.1.11 peptide and protein-group tables
+# (Test/FileReadingTests/ExternalFileTypes, as mzLib's FlashLfqObservationsTests read them), and the
+# FlashLFQ E. coli spike-in vignette slice pyMzLib's median-polish parity test reads, renamed
+# EcoliSpikeIn_QuantifiedPeptides.tsv so mzLib recognises it as a peptide table. Agreement with mzLib
+# is held through the wire, bit for bit, by DifferentialTests.Observations_AreMzLibsTableBitForBit and
+# Observations_NormalizeSubtractsMzLibsShifts.
+verb: diff observations
+module: diff
+summary: >-
+  Build mzLib's observation table from a stored FlashLFQ or MetaMorpheus peptide table: every
+  peptide in every biological sample as log2 intensity or no value with the reason, with the
+  shared-peptide normalization shifts, and optionally the peptide-by-sample table stats fit reads.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: FlashLfqObservations.FromPeptideTable, path: mzLib/FlashLFQ/Differential/FlashLfqObservations.cs, pin: d10017ce}
+  - {symbol: FlashLfqObservations.ReadProteinGroups, path: mzLib/FlashLFQ/Differential/FlashLfqObservations.cs, pin: d10017ce}
+  - {symbol: ObservationTable, path: mzLib/Quantification/Differential/ObservationTable.cs, pin: d10017ce}
+  - {symbol: ObservationTable.ForSamples, path: mzLib/Quantification/Differential/ObservationTable.cs, pin: d10017ce}
+  - {symbol: ObservationRun, path: mzLib/Quantification/Differential/ObservationTable.cs, pin: d10017ce}
+  - {symbol: QuantBasis, path: mzLib/Quantification/Differential/ObservationTable.cs, pin: d10017ce}
+  - {symbol: ObservationState, path: mzLib/Quantification/Differential/ObservationTable.cs, pin: d10017ce}
+  - {symbol: SharedPeptideNormalization.Measure, path: mzLib/Quantification/Differential/SharedPeptideNormalization.cs, pin: d10017ce}
+  - {symbol: SharedPeptideNormalization.Apply, path: mzLib/Quantification/Differential/SharedPeptideNormalization.cs, pin: d10017ce}
+  - {symbol: SharedPeptideNormalization.DefaultMinimumPeptides, path: mzLib/Quantification/Differential/SharedPeptideNormalization.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1021/acs.jproteome.7b00608", for: "FlashLFQ, whose peptide table and detection types this verb reads (Millikin et al., J Proteome Res 2018)"}
+  - {doi: "10.1186/gb-2010-11-10-r106", for: "the median-of-ratios idea the shared-peptide normalization follows: each sample against the log of a geometric-mean reference (Anders and Huber, Genome Biol 11:R106, 2010)"}
+
+params:
+  - name: peptides
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A FlashLFQ QuantifiedPeptides.tsv, or a MetaMorpheus AllQuantifiedPeptides.tsv (mzLib picks
+      the reader by that name ending). Its Intensity_ and Detection Type_ columns are the runs. An
+      IsoTracker table is refused.
+  - name: basis
+    type: string
+    required: true
+    unit: null
+    range: "msms_only | mbr_kept"
+    default: null
+    doc: >-
+      Which match-between-runs values enter (mzLib's QuantBasis, by its machine name). msms_only: no
+      transferred value enters a sum. mbr_kept: the transferred values FlashLFQ kept enter. Required:
+      mzLib has no default, because it is a scientific choice.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; file, sample, then optionally fraction and technical replicate, tab-separated"
+    default: null
+    doc: >-
+      The experimental design's runs, one per line: the file as the table's Intensity_ columns name
+      it, without its extension (a column with -calib after that name matches too); the biological
+      sample it belongs to; then optionally its fraction and its technical replicate (integers; left
+      out, ObservationRun's default 0). Every run the table has must be given, and only those.
+      Grouping comes only from these lines: a file name is never parsed for it.
+  - {name: protein-groups, type: path, required: false, unit: null, range: null, default: null, doc: "A MetaMorpheus AllQuantifiedProteinGroups.tsv, read by FlashLfqObservations.ReadProteinGroups for each group's q-value and its decoy, contaminant and entrapment flags. Absent, no group is described: mzLib then warns, and no peptide can be kept out of the normalization reference as a decoy or contaminant."}
+  - {name: samples, type: path, required: false, unit: null, range: null, default: null, doc: "A TSV with a header row whose first column lists the samples to keep (ObservationTable.ForSamples), such as a sample sheet or a design file from diff design. Narrow to one stratum this way: the normalization is measured over every sample of the table it is given. Absent, every sample is kept."}
+  - {name: normalize, type: flag, required: false, unit: null, range: null, default: false, doc: "Subtract each sample's shift from its log2 values (SharedPeptideNormalization.Apply). The shifts are measured and reported either way."}
+  - {name: min-peptides, type: int, required: false, unit: peptides, range: ">= 1", default: null, doc: "The floor on either normalization reference set (Measure's minimumPeptides). Absent, the bridge sends none and mzLib's SharedPeptideNormalization.DefaultMinimumPeptides applies: 100 at this pin. Below the floor on the every-sample set mzLib tries the half-samples set, and below it there too no sample is shifted (setting none)."}
+  - {name: out, type: path, required: false, unit: null, range: "a .tsv path", default: null, doc: "Write the long table here (header, then one line per row; protein_groups ';'-joined; an empty cell for null) instead of returning its rows. Absent, the rows are returned."}
+  - {name: responses-out, type: path, required: false, unit: null, range: "a .tsv path", default: null, doc: "Also write the table's own peptide-by-sample shape: header full_sequence then the samples, one row per peptide, each cell ObservationTable.Log2Intensity in round-trip decimal (after --normalize, if given) or empty for no value. Exactly what stats fit --responses reads. Peptides only: mzLib does not yet roll peptides up to proteins or choose a test's rows."}
+
+result:
+  envelope_fields:
+    - {wire: peptides_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the peptide table."}
+    - {wire: protein_groups_file, type: string, unit: null, nullable: true, null_means: "no --protein-groups", doc: "Absolute path of the protein-group table."}
+    - {wire: samples_file, type: string, unit: null, nullable: true, null_means: "no --samples: every sample was kept", doc: "Absolute path of the sample list."}
+    - {wire: basis, type: string, unit: null, nullable: false, null_means: null, doc: "msms_only or mbr_kept, as given."}
+    - {wire: normalize, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the shifts were subtracted (--normalize)."}
+    - {wire: min_peptides, type: int, unit: peptides, nullable: true, null_means: "not given: mzLib's DefaultMinimumPeptides applied (normalization.minimum_reference_set_size says which)", doc: "--min-peptides as given."}
+    - {wire: run_count, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs in the table (after --samples)."}
+    - {wire: runs, type: "object[]", unit: null, nullable: false, null_means: null, doc: "ObservationTable.Runs, ordinal by file name: file_name, sample_id, fraction and technical_replicate, as mzLib holds them."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Biological samples: the distinct samples of the runs (after --samples)."}
+    - {wire: samples, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The samples, ordinal by id: every sample, with or without values."}
+    - {wire: samples_without_values, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Samples in which no peptide has a value under this basis (a lost run)."}
+    - {wire: peptide_count, type: int, unit: peptides, nullable: false, null_means: null, doc: "Peptides (distinct full sequences); the table has peptide_count x sample_count rows."}
+    - {wire: protein_group_count, type: int, unit: protein groups, nullable: false, null_means: null, doc: "Groups described by --protein-groups; 0 without it."}
+    - {wire: protein_groups, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Each described group: name (MetaMorpheus's, member accessions joined by |), q_value (fraction 0 to 1; null if not finite), is_decoy, is_contaminant, is_entrapment, genes (null when the table has none)."}
+    - {wire: state_counts, type: "map<string,int>", unit: cells, nullable: false, null_means: null, doc: "Rows per state, keyed by every state in mzLib's order: quantified, mbr_transferred, ambiguous_peak, identified_not_quantified, not_detected."}
+    - {wire: normalization, type: object, unit: null, nullable: false, null_means: null, doc: "mzLib's NormalizationResult, measured whether or not --normalize applied it; fields under result.tables.normalization."}
+    - {wire: warnings, type: "string[]", unit: null, nullable: false, null_means: null, doc: "ObservationTable.Warnings: what the reader should know that did not stop the build, e.g. protein groups the peptides name that the protein-group table does not describe."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "no --out: the rows are in columns", doc: "path (absolute), format (tsv) and row_count of the long table written."}
+    - {wire: responses_written, type: object, unit: null, nullable: true, null_means: "no --responses-out", doc: "path (absolute), format (tsv), row_count (peptides) and sample_count of the responses table written."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "peptide_count x sample_count, returned or written."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (peptide, sample): peptides ordinal by full sequence, each peptide's samples in order. Empty with --out."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Six static caveats, plus one without --protein-groups and one when the normalization setting is none."}
+  columns:
+    - {wire: full_sequence, type: string, unit: null, nullable: false, null_means: null, doc: "The engine's full (modified) sequence: the peptide's key, unique in the table."}
+    - {wire: base_sequence, type: string, unit: null, nullable: false, null_means: null, doc: "The unmodified sequence."}
+    - {wire: protein_groups, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every group the peptide table's Protein Groups cell names, distinct and ordinal-sorted; UNDEFINED is MetaMorpheus's placeholder for a peptide in no surviving group; empty when the cell is blank."}
+    - {wire: unique_protein_group, type: string, unit: null, nullable: true, null_means: "shared (two or more groups), only UNDEFINED, or no group", doc: "The one group the peptide is unique to (ObservedPeptide.UniqueProteinGroup). Sharing counts against every group written, whatever its q-value."}
+    - {wire: sample, type: string, unit: null, nullable: false, null_means: null, doc: "The biological sample."}
+    - {wire: log2_intensity, type: float, unit: "log2 of FlashLFQ intensity units", nullable: true, null_means: "no value: state says why", doc: "log2 of the sample's intensity: each technical replicate's fractions summed on the linear scale, then the replicates' log2 values averaged; minus the sample's shift with --normalize. Never 0 for missing."}
+    - {wire: state, type: string, unit: null, nullable: false, null_means: null, doc: "Where the value came from, or why there is none (mzLib's ObservationState; a sample without a value takes the most informative state among its runs): quantified (MS/MS-identified peaks only) | mbr_transferred (a match-between-runs peak is in the value; under msms_only the value is left out and log2_intensity is null) | ambiguous_peak (a peak withheld as ambiguous; no value) | identified_not_quantified (identified by MS/MS, no peak; no value) | not_detected (no value)."}
+  tables:
+    normalization:
+      - {wire: setting, type: string, unit: null, nullable: false, null_means: null, doc: "Which reference set the shifts were measured on: shared_peptide_median (peptides with a value in every sample with values) | shared_peptide_median_half (in at least half of them and at least 2; used when the every-sample set is under the floor) | none (both under the floor: no sample shifted)."}
+      - {wire: reference_set_size, type: int, unit: peptides, nullable: false, null_means: null, doc: "Peptides in the reference set used, or in the last set tried when setting is none. Peptides of decoy, contaminant or entrapment groups never enter it."}
+      - {wire: minimum_reference_set_size, type: int, unit: peptides, nullable: false, null_means: null, doc: "The floor used: --min-peptides, else mzLib's DefaultMinimumPeptides."}
+      - {wire: shifts, type: "map<string,float>", unit: "log2 units", nullable: false, null_means: null, doc: "Each sample's shift, subtracted from its values with --normalize: the median, over the reference peptides it has, of its value minus the peptide's mean over the samples that have it. On the half set mzLib repeats that until the shifts settle and centres them to average 0 within each group of linked samples. A value is null when undefined (no reference peptide has a value in that sample, or setting none); that sample is not shifted."}
+      - {wire: warnings, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Which samples have no shift and why, and whether the half set did not settle or fell into unlinked groups."}
+
+errors:
+  - {kind: usage, when: "--peptides or --basis missing; --basis not msms_only or mbr_kept; --protein-groups, --samples, --out or --responses-out given without a value; a file not found, or not the table type named; --out or --responses-out not ending in .tsv; --min-peptides below 1 or not an integer"}
+  - {kind: usage, when: "no runs on stdin; a run line with other than 2 to 4 fields, an empty file or sample, or a fraction or technical replicate that is not an integer; the --samples file empty, header-only or with an empty first cell"}
+  - {kind: usage, when: "mzLib refuses the input (its ArgumentException, reclassified): two runs with one file name or one place (sample, replicate, fraction); a table column no run matches, or a run no column matches; IsoTracker output; a blank, negative or non-finite intensity or an unreadable detection type; a peptide listed twice; a group name holding ';'; a --samples id the table does not have"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A missing value is null, never 0, and state says why. Fractions of one technical replicate are summed on the linear scale, then a sample's technical replicates are averaged on the log2 scale (mzLib's ObservationTable)."
+  - "Under msms_only a match-between-runs value enters no sum, but its cell still says mbr_transferred; under mbr_kept it enters, and the cell says mbr_transferred."
+  - "The peptide table does not record the design FlashLFQ quantified with, so mzLib cannot check that these runs group the files as FlashLFQ did. FlashLFQ withholds every fraction of a sample whose strongest fraction is ambiguous; give the runs the design it quantified with, or a value it withheld can become a partial sum."
+  - "FlashLFQ writes its peptide table in the culture of the machine it ran on and mzLib reads it as invariant (a decimal point), so a table written where the decimal separator is a comma does not read correctly."
+  - "Every peptide is a row: decoy, contaminant and entrapment peptides, and peptides of groups at any q-value, included. mzLib does not yet choose the rows a differential test uses, or roll peptides up to proteins, so --responses-out is peptide by sample only. Filter rows with protein_groups and unique_protein_group."
+  - "The normalization shifts are always measured (SharedPeptideNormalization.Measure) over every sample of the table, after --samples; they are subtracted only with --normalize. Measure one stratum at a time. A sample whose shift is null is not shifted."
+
+bindings:
+  py: {name: pymzlib.diff.observations}
+  rust: {name: "mzlib::diff::observations_with", options: ObservationsOptions, note: "not yet ported"}
+  r: {name: diff_observations, note: "not yet ported"}
+
+examples:
+  - fixture: diff_observations_mm_mbr_kept.json
+    py: "table = pymzlib.diff.observations('MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv', runs, basis='mbr_kept', protein_groups='MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv')"
+    rust: "let table = mzlib::diff::observations_with(\"MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv\", &runs, QuantBasis::MbrKept, &ObservationsOptions { protein_groups: Some(\"MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv\".into()), ..Default::default() })?;"
+    r: "table <- diff_observations('MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv', runs, basis = 'mbr_kept', protein_groups = 'MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv')"
+  - fixture: diff_observations_mm_msms_only.json
+    py: "table = pymzlib.diff.observations('MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv', runs, basis='msms_only', protein_groups='MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv')"
+    rust: "let table = mzlib::diff::observations_with(\"MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv\", &runs, QuantBasis::MsmsOnly, &ObservationsOptions { protein_groups: Some(\"MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv\".into()), ..Default::default() })?;"
+    r: "table <- diff_observations('MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv', runs, basis = 'msms_only', protein_groups = 'MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv')"
+  - fixture: diff_observations_spike_in.json
+    py: "table = pymzlib.diff.observations('EcoliSpikeIn_QuantifiedPeptides.tsv', [('09-04-18_EcoliSpikeInSingleShot1x', 'spike_1x'), ('09-04-18_EcoliSpikeInSingleShot2x', 'spike_2x')], basis='msms_only')"
+    rust: "let table = mzlib::diff::observations_with(\"EcoliSpikeIn_QuantifiedPeptides.tsv\", &[ObservationRun::new(\"09-04-18_EcoliSpikeInSingleShot1x\", \"spike_1x\"), ObservationRun::new(\"09-04-18_EcoliSpikeInSingleShot2x\", \"spike_2x\")], QuantBasis::MsmsOnly, &ObservationsOptions::default())?;"
+    r: "table <- diff_observations('EcoliSpikeIn_QuantifiedPeptides.tsv', data.frame(file = c('09-04-18_EcoliSpikeInSingleShot1x', '09-04-18_EcoliSpikeInSingleShot2x'), sample = c('spike_1x', 'spike_2x')), basis = 'msms_only')"
+  - fixture: diff_observations_spike_in_normalized.json
+    py: "table = pymzlib.diff.observations('EcoliSpikeIn_QuantifiedPeptides.tsv', runs, basis='msms_only', min_peptides=50, normalize=True, responses_out='spike_in_responses.tsv')"
+    rust: "let table = mzlib::diff::observations_with(\"EcoliSpikeIn_QuantifiedPeptides.tsv\", &runs, QuantBasis::MsmsOnly, &ObservationsOptions { min_peptides: Some(50), normalize: true, responses_out: Some(\"spike_in_responses.tsv\".into()), ..Default::default() })?;"
+    r: "table <- diff_observations('EcoliSpikeIn_QuantifiedPeptides.tsv', runs, basis = 'msms_only', min_peptides = 50, normalize = TRUE, responses_out = 'spike_in_responses.tsv')"
+
+open_questions: []

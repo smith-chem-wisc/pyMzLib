@@ -25,7 +25,9 @@ recorded for different arguments:
   be given by the call exactly when the recording used one;
 * a recording with a key in ``GIVEN_ECHOES`` (``thresholds_given``) fits only a call that sends
   its option exactly when that key is true, and a numeric echo matches a call's option by value
-  (``--ratio 1.0`` fits a recorded ``ratio`` of 1).
+  (``--ratio 1.0`` fits a recorded ``ratio`` of 1);
+* an optional output in ``OPTIONAL_OUTPUTS`` (reported in its own field, null when absent) must be
+  asked for by the call exactly when the recording wrote one.
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -93,13 +95,21 @@ RECORDED_WITH = {
     "library_read_fragments.json": {"fragments": True},
     "library_read_index_only.json": {"index-only-threshold": "0"},
     "stats_fit_mixed_lmm_ml.json": {"estimator": "ml"},
+    "diff_observations_spike_in_normalized.json": {"min-peptides": "50", "normalize": True},
 }
 
 
 #: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
-#: correlate --given). A recording made with one answers only a call that gives one, and the
-#: reverse, or a plain correlation could print a partial one.
-OPTIONAL_FILES = ("given",)
+#: correlate --given, diff observations --protein-groups and --samples). A recording made with one
+#: answers only a call that gives one, and the reverse, or a plain correlation could print a
+#: partial one.
+OPTIONAL_FILES = ("given", "protein-groups", "samples")
+
+
+#: Optional output files a verb reports in its own field, null when the option was not given
+#: (diff observations --responses-out). As with ``written``, a recording that wrote one answers only
+#: a call that asks for one, and the reverse.
+OPTIONAL_OUTPUTS = {"responses-out": "responses_written"}
 
 
 #: Echoes that say whether an option was given, when its value echo cannot (stats entrapment-fdp
@@ -124,12 +134,15 @@ def mismatch(data: dict, options: dict) -> str:
         if isinstance(given, bool) and (name in options) != given:
             return f"recorded {'with' if given else 'without'} --{name}"
     for name in OPTIONAL_FILES:
-        key = f"{name}_file"
+        key = f"{name.replace('-', '_')}_file"
+        if key in data and (name in options) != (data[key] is not None):
+            return f"recorded {'with' if data[key] is not None else 'without'} --{name}"
+    for name, key in OPTIONAL_OUTPUTS.items():
         if key in data and (name in options) != (data[key] is not None):
             return f"recorded {'with' if data[key] is not None else 'without'} --{name}"
     for name, value in options.items():
         key = ECHOED_AS.get(name, name.replace("-", "_"))
-        if name in ("limit", "offset", "out"):
+        if name in ("limit", "offset", "out") or name in OPTIONAL_OUTPUTS:
             continue
         if value is True:
             flag = data.get(f"{key}_included", data.get(key))
@@ -207,7 +220,34 @@ def mismatch(data: dict, options: dict) -> str:
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
-              "stats combine-p", "stats fit-logistic", "stats fit-mixed"}
+              "stats combine-p", "stats fit-logistic", "stats fit-mixed",
+              "diff design", "diff observations"}
+
+
+def _number(text: str):
+    return float(text) if text.strip() else None
+
+
+def diff_model(stdin: str) -> dict:
+    """The model a diff design call sent, in the shape the recording echoes it."""
+    model = {"factors": [], "covariates": [], "interactions": [], "stratum_columns": [], "batch_column": None}
+    for line in stdin.splitlines():
+        if not line.strip():
+            continue
+        f = [x.strip() for x in line.split("\t")]
+        if f[0] == "factor":
+            model["factors"].append({"name": f[1], "reference_level": f[2] if len(f) > 2 and f[2] else None})
+        elif f[0] == "covariate":
+            f += [""] * (6 - len(f))
+            model["covariates"].append({"name": f[1], "unit": f[2], "scale": _number(f[3]),
+                                        "scaled_unit": f[4] or None, "centre": _number(f[5])})
+        elif f[0] == "interaction":
+            model["interactions"].append({"first": f[1], "second": f[2]})
+        elif f[0] == "stratum":
+            model["stratum_columns"].append(f[1])
+        elif f[0] == "batch":
+            model["batch_column"] = f[1]
+    return model
 
 
 def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
@@ -227,6 +267,27 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
         recorded = list(data.get("tested_coefficients") or [])
         if sent != recorded:
             return f"recorded for coefficients {recorded}, not {sent}"
+        return ""
+    if verb == "diff design":
+        sent = diff_model(stdin)
+        recorded = {key: data.get(key) for key in sent}
+        for c in recorded.get("covariates") or []:
+            for k in ("scale", "centre"):
+                c[k] = None if c.get(k) is None else float(c[k])
+        if sent != recorded:
+            return f"recorded for the model {recorded}, not {sent}"
+        return ""
+    if verb == "diff observations":
+        sent = set()
+        for line in stdin.splitlines():
+            if line.strip():
+                f = [x.strip() for x in line.split("\t")] + ["", ""]
+                sent.add((f[0], f[1], int(f[2] or 0), int(f[3] or 0)))
+        recorded = {(r["file_name"], r["sample_id"], r["fraction"], r["technical_replicate"])
+                    for r in data.get("runs") or []}
+        # --samples narrows the recorded runs to one stratum's, so they need only be among those sent.
+        if (recorded != sent) if data.get("samples_file") is None else not recorded <= sent:
+            return f"recorded for runs {sorted(recorded)[:3]}..., not {sorted(sent)[:3]}..."
         return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]

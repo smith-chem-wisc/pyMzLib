@@ -248,6 +248,7 @@ GUIDES = {
     "isobaric": "guides/isobaric.md",
     "library": "guides/library.md",
     "stats": "guides/stats.md",
+    "diff": "guides/diff.md",
     "version": None,
 }
 
