@@ -57,6 +57,7 @@ Coverage is deliberately partial and grows by demand, the same way pyOpenMS grew
 | Differential abundance (`stats`) — limma's moderated t-test (checked against limma to 1e-8), Benjamini-Hochberg, random-effects meta-analysis and p-value combination (Fisher, Stouffer, signed) across studies, Spearman correlation with a trait (partial too), logistic regression of detection, mixed models with a random intercept per group, and entrapment checks of a search's FDR, with no R | ✅ |
 | Differential abundance (`stats`) — limma's moderated t-test (checked against limma to 1e-8), Benjamini-Hochberg, random-effects meta-analysis and p-value combination (Fisher, Stouffer, signed) across studies, and Spearman correlation with a trait (partial too), with no R | ✅ |
 | Differential design and observations (`diff`) — a sample sheet to mzLib's design matrix per stratum (equal to R's `model.matrix`), with each default contrast's estimability and the design file `stats.fit` reads; and every peptide in every sample of a FlashLFQ or MetaMorpheus table as log2 intensity or no value with the reason, with mzLib's shared-peptide normalization | ✅ |
+| PTM occupancy and PTM-QTL (`ptmqtl`) — site occupancy per run or per sample, every cell with its censoring state; PTM pairs on one molecule or co-varying across runs, with a batch removed; the effect of a per-run trait on a site, replicates kept apart | ✅ |
 | Everything else in mzLib | not yet — [tell us what you need](https://github.com/smith-chem-wisc/pyMzLib/issues) |
 
 ## How it works, and why you probably don't care

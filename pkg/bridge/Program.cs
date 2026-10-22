@@ -308,6 +308,9 @@ public static partial class Program
             "stats entrapment-fdp" => Statistics.Entrapment(arguments),
             "diff design" => Differential.Design(arguments),
             "diff observations" => Differential.Observations(arguments),
+            "ptmqtl occupancy" => PtmQtl.Occupancy(arguments),
+            "ptmqtl pairs" => PtmQtl.Pairs(arguments),
+            "ptmqtl trait-effects" => PtmQtl.TraitEffects(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the
             // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(

@@ -1,0 +1,214 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/PtmQtl.cs (Pairs, CoVaryingDefault,
+# PairCaveats) on branch feat/ptmqtl-verbs (off main 50b4340), mzLib pin d10017ce (tag 1.0.595;
+# PtmPairEngine is from #1369, first in 1.0.594, and removeRunLevel/runLevelGroup from #1446, first
+# in 1.0.595). The verb takes the same observations table as ptmqtl occupancy, not its output:
+# Physical needs the peptidoforms, and CoVarying needs them to decide which pairs overlap, so the
+# occupancy is computed inside by the same mzLib call. With --samples the observations are first
+# combined by CombineObservations, the chain mzLib's own doc prescribes. An absent option takes the
+# default mzLib declares on CoVarying, read off the method (PtmQtlTests.CoVaryingDefaults_AreReadFromMzLibsDeclaration).
+# Example inputs are mzLib's hand-computed PtmQtl test cases (PhysicalPairsCarryCoOccupancy and
+# RunLevelRemovalTakesOutABatchShift), held by PtmQtlTests.Fixtures_AreMzLibsHandComputedCases.
+verb: ptmqtl pairs
+module: ptmqtl
+summary: >-
+  PTM-PTM pairs within one dataset: two modifications identified together on one peptidoform
+  (physical), and two sites whose occupancies rise and fall together across runs (co-varying), with
+  Benjamini-Hochberg q-values.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: PtmPairEngine.Physical, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPairEngine.CoVarying, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPairEngine.DefaultMinQuantifiedFraction, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPairEngine.MinRunsForRunLevel, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPairEngine.MinSitesForRunLevel, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPair, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: SiteOccupancyCalculator.Calculate, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: SiteOccupancyCalculator.CombineObservations, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+cite:
+  - {doi: "10.2307/1412159", for: "the rank correlation coefficient rho of co-varying pairs (Spearman, Am J Psychol 15:72, 1904)"}
+  - {doi: "10.5351/CSAM.2015.22.6.665", for: "ppcor, whose pcor.test(method = 'spearman') the partial correlation given the run level reproduces (Kim, Commun Stat Appl Methods 22:665, 2015)"}
+  - {doi: "10.1111/j.2517-6161.1995.tb02031.x", for: "the step-up adjustment behind q, within each fdr_family (Benjamini and Hochberg, J R Stat Soc B 57:289, 1995)"}
+
+params:
+  - name: observations
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      ptmqtl occupancy's observations table, with the same rules: a header row naming run,
+      full_sequence, protein_accession, start_residue, end_residue (1-based), intensity (instrument
+      units; blank, NA or NaN is identified but not quantified) and optionally previous_residue; one
+      row per (run, peptidoform, protein), MS/MS identifications only.
+  - name: type
+    type: string
+    required: true
+    unit: null
+    range: "physical | covarying | both"
+    default: null
+    doc: >-
+      Which pairs: physical (PtmPairEngine.Physical, mzLib's type P), covarying (PtmPairEngine.CoVarying,
+      type A), or both, physical rows first. Required: they are different evidence, and mzLib has no
+      default between its two methods.
+  - name: samples
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Optional. ptmqtl occupancy's run-to-sample table (a header row, then run, sample). With it the
+      observations are first combined per sample by mzLib's CombineObservations, so both pair types
+      are computed across samples rather than fractions. Map only fractions together. Absent, none is
+      sent: pairs are across runs.
+  - name: modifications
+    type: string
+    required: false
+    unit: null
+    range: "exact names, tab-separated, none blank"
+    default: null
+    doc: >-
+      Optional. As ptmqtl occupancy: count only these modifications (Category:IdWithMotif, separated
+      by tabs) as sites. Not with categories. Absent, no filter.
+  - name: categories
+    type: string
+    required: false
+    unit: null
+    range: "category names, tab-separated, none blank"
+    default: null
+    doc: >-
+      Optional. As ptmqtl occupancy: count only modifications of these categories. Not with
+      modifications. Absent, no filter.
+  - name: min-quantified-fraction
+    type: float
+    required: false
+    unit: "fraction of the runs (0 to 1)"
+    range: "> 0 and <= 1"
+    default: "mzLib's PtmPairEngine.DefaultMinQuantifiedFraction, 0.7 at the pin"
+    doc: >-
+      Co-varying only. A site enters co-varying pairs only if its occupancy is quantified (a ceiling
+      counts only with keep-ceiling) in at least this fraction of the runs, rounded up: the runs (or
+      samples) where any site was identified or covered, reported as covarying_run_count. Absent, the
+      bridge sends none and mzLib's default applies.
+  - name: keep-ceiling
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: "absent: mzLib's excludeCeiling default, true at the pin, so ceilings are left out"
+    doc: >-
+      Co-varying only. Keep a run where a site was seen only modified (a fraction of 1 with
+      unmodified_quantified false). Two unrelated sites both read 1 in low-load runs, so ceilings can
+      correlate sites through detection alone; mzLib leaves them out unless asked.
+  - name: remove-run-level
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: "absent: mzLib's removeRunLevel default, false at the pin"
+    doc: >-
+      Co-varying only. Correlate given each run's level: the partial Spearman correlation with the
+      run's median occupancy over the other tested sites of the pair's group (the pair's own two left
+      out). Removes a batch or loading shift that moves many sites in the same runs. Batch only: where
+      the run level follows the design, removing it tests the correlation within conditions instead.
+  - name: run-level-group
+    type: string
+    required: false
+    unit: null
+    range: "category | modification"
+    default: "absent: mzLib's runLevelGroup default, null, one group of every site"
+    doc: >-
+      With remove-run-level only. Whose run level applies to a site: category, one level per
+      modification category (mzLib's ModificationSite.Category); or modification, one level per
+      modification name. A pair within one group is correlated given that group's level, a pair
+      across two groups given both. Not with run-level-groups.
+  - name: run-level-groups
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      With remove-run-level only. A TSV with a header row, then modification, group: one row per
+      modification name, mapping it to its group, for example every phosphorylation to phospho. Every
+      modification among the sites needs a group. The wire form of mzLib's runLevelGroup for any
+      grouping, such as chemistry. Not with run-level-group.
+
+result:
+  envelope_fields:
+    - {wire: observations_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the observations table."}
+    - {wire: samples_file, type: string, unit: null, nullable: true, null_means: "no --samples: pairs are across runs", doc: "Absolute path of the run-to-sample table."}
+    - {wire: type, type: string, unit: null, nullable: false, null_means: null, doc: "physical, covarying or both, as asked."}
+    - {wire: observation_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Observation rows read."}
+    - {wire: run_count, type: int, unit: runs, nullable: false, null_means: null, doc: "Distinct runs in the observations."}
+    - {wire: sample_count, type: int, unit: samples, nullable: true, null_means: "no --samples", doc: "Distinct samples in the run-to-sample table."}
+    - {wire: run_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The runs, or with --samples the samples, the pairs were computed over, in ordinal order."}
+    - {wire: covarying_run_count, type: int, unit: runs, nullable: true, null_means: "type physical: no co-varying pairs computed", doc: "The runs (or samples) where any site was identified or covered: the denominator of min_quantified_fraction."}
+    - {wire: min_quantified_fraction, type: float, unit: "fraction of the runs (0 to 1)", nullable: true, null_means: "type physical", doc: "The guard used: as given, or mzLib's default."}
+    - {wire: exclude_ceiling, type: bool, unit: null, nullable: true, null_means: "type physical", doc: "Whether ceilings were left out: false with --keep-ceiling, else mzLib's default."}
+    - {wire: remove_run_level, type: bool, unit: null, nullable: true, null_means: "type physical", doc: "Whether co-varying pairs were correlated given the run level."}
+    - {wire: run_level_group, type: string, unit: null, nullable: true, null_means: "the run level was not removed (or type physical)", doc: "none (one group of every site, mzLib's default), category, modification, or file (--run-level-groups)."}
+    - {wire: run_level_groups_file, type: string, unit: null, nullable: true, null_means: "no --run-level-groups", doc: "Absolute path of the modification-to-group table."}
+    - {wire: min_runs_for_run_level, type: int, unit: runs, nullable: true, null_means: "the run level was not removed", doc: "mzLib's PtmPairEngine.MinRunsForRunLevel: with the run level removed, a pair sharing fewer runs with a level is not_estimable."}
+    - {wire: min_sites_for_run_level, type: int, unit: sites, nullable: true, null_means: "the run level was not removed", doc: "mzLib's PtmPairEngine.MinSitesForRunLevel: a run whose group has fewer other sites with a value there has no level."}
+    - {wire: modifications, type: "string[]", unit: null, nullable: true, null_means: "no --modifications filter", doc: "The modification names the sites were limited to."}
+    - {wire: categories, type: "string[]", unit: null, nullable: true, null_means: "no --categories filter", doc: "The categories the sites were limited to."}
+    - {wire: ignored_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns of the observations file that were not read; empty when every column was read."}
+    - {wire: physical_count, type: int, unit: pairs, nullable: true, null_means: "type covarying", doc: "Physical pairs found."}
+    - {wire: covarying_count, type: int, unit: pairs, nullable: true, null_means: "type physical", doc: "Co-varying pairs tested or reported."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Pairs in the table."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per pair, physical first, each type in mzLib's order (by site_a, then site_b)."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What each pair type means for the types computed, and the run level when removed; plus one with --samples, one when columns were not read, and one counting not_estimable pairs when there are any."}
+  columns:
+    - {wire: result_type, type: string, unit: null, nullable: false, null_means: null, doc: "physical (mzLib's PairResultType P: both modifications identified on one peptidoform, so on one molecule) | covarying (type A: occupancies correlated across runs)."}
+    - {wire: site_a, type: string, unit: null, nullable: false, null_means: null, doc: "The first site's key, as ptmqtl occupancy's site_key; ordinally before site_b. A pair is written once."}
+    - {wire: site_b, type: string, unit: null, nullable: false, null_means: null, doc: "The second site's key."}
+    - {wire: same_protein, type: bool, unit: null, nullable: false, null_means: null, doc: "Both sites on the same protein accession."}
+    - {wire: overlapping, type: bool, unit: null, nullable: false, null_means: null, doc: "Some peptide covers both sites: one span on one protein, or one peptide (by base sequence) mapped to both proteins. Always true for physical. A co-varying overlapping pair shares peptides, so it is correlated by construction, and is left out of its family's adjustment."}
+    - {wire: statistic, type: float, unit: "physical: fraction (0 to 1), co-occupancy; covarying: unitless correlation (-1 to 1)", nullable: true, null_means: "physical: never quantified together in any run; covarying: not_estimable", doc: "physical: median over runs of the co-occupancy, the intensity of peptidoforms carrying both modifications over the intensity of peptidoforms covering both positions. covarying: Spearman's rho of the two occupancies across runs; with the run level removed, the partial rho given it."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "physical (no test in this mzLib), or not_estimable", doc: "Two-sided Spearman p-value against rho = 0, computed as spearman_method says."}
+    - {wire: q, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not tested: physical, overlapping, or not_estimable", doc: "Benjamini-Hochberg adjusted p within fdr_family, over that family's non-overlapping pairs. Not a target-decoy q-value."}
+    - {wire: fdr_family, type: string, unit: null, nullable: false, null_means: null, doc: "The family the adjustment runs over, mzLib's PtmPair.FdrFamily verbatim: P or A (physical or co-varying), then intra (same protein) or inter, for example A:inter."}
+    - {wire: n, type: int, unit: runs, nullable: false, null_means: null, doc: "physical: runs where a doubly modified peptidoform was identified. covarying: runs where both occupancies were quantified (with the run level removed, and had a level)."}
+    - {wire: statistic_n, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs statistic was computed on. physical: runs where the doubly modified form and the forms covering both positions were quantified, at most n. covarying: equal to n."}
+    - {wire: spearman_method, type: string, unit: null, nullable: true, null_means: "physical: no correlation", doc: "exact (the full permutation distribution, for 9 or fewer runs without ties, plain only) | asymptotic (t on n - 2 degrees of freedom, or n - 2 - k given k run levels: one, or two for a pair across groups, less any level the other carries entirely) | not_estimable (too few runs, a constant occupancy, or with the run level removed fewer than min_runs_for_run_level runs)."}
+    - {wire: run_level_removed, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether statistic and p_value are the partial correlation given the run level. Always false for physical."}
+
+errors:
+  - {kind: usage, when: "observations missing, blank or not found; type missing or not physical, covarying or both; samples or run-level-groups given without a value or not found; modifications and categories both given, or either blank"}
+  - {kind: usage, when: "min-quantified-fraction, keep-ceiling, remove-run-level, run-level-group or run-level-groups with type physical; run-level-group or run-level-groups without remove-run-level; both of them; run-level-group other than category or modification; min-quantified-fraction not above 0 and at most 1, or not a number; keep-ceiling or remove-run-level written with a value"}
+  - {kind: usage, when: "a table malformed as ptmqtl occupancy describes; the run-level-groups file without two fields per row, with a blank or repeated modification, or with no group for a modification among the sites"}
+  - {kind: usage, when: "mzLib refuses the observations, in its own words, as ptmqtl occupancy lists"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "physical: both modifications on one peptidoform, so on one molecule. statistic is the median co-occupancy over the statistic_n runs where both were quantified. There is no test in this mzLib: p_value and q are null."
+  - "covarying: Spearman's rho across runs on the runs where both sites are quantified. Floors and not_detected cells are not values and are left out, and so, unless keep-ceiling, are ceilings."
+  - "A site enters co-varying pairs only if quantified in at least min_quantified_fraction of covarying_run_count, rounded up."
+  - "q is Benjamini-Hochberg within fdr_family. An overlapping pair is reported with q null: shared peptides correlate it by construction. q is not a target-decoy q-value."
+  - "With remove-run-level, a run's level is the median occupancy there of the other tested sites of the pair's group; a run with fewer than min_sites_for_run_level such sites has no level, and a pair sharing fewer than min_runs_for_run_level runs with a level is not_estimable (the partial test's t on n - 3 df is too liberal there). Use it for a batch or loading shift only: where the run level follows the design, it removes the effect under study."
+  - "The observations follow ptmqtl occupancy's rules and exclusions: MS/MS identifications only, one row per (run, peptidoform, protein)."
+
+bindings:
+  py: {name: pymzlib.ptmqtl.pairs}
+  rust: {name: "mzlib::ptmqtl::pairs_with", options: PairsOptions, note: "not yet ported"}
+  r: {name: ptmqtl_pairs, note: "not yet ported"}
+
+examples:
+  - fixture: ptmqtl_pairs_physical.json
+    py: "result = pymzlib.ptmqtl.pairs('cases.tsv', type='physical')"
+    rust: "let result = mzlib::ptmqtl::pairs_with(\"cases.tsv\", PairType::Physical, &PairsOptions::default())?;"
+    r: "result <- ptmqtl_pairs('cases.tsv', type = 'physical')"
+  - fixture: ptmqtl_pairs_batch.json
+    py: "result = pymzlib.ptmqtl.pairs('batch.tsv', type='covarying')"
+    rust: "let result = mzlib::ptmqtl::pairs_with(\"batch.tsv\", PairType::Covarying, &PairsOptions::default())?;"
+    r: "result <- ptmqtl_pairs('batch.tsv', type = 'covarying')"
+  - fixture: ptmqtl_pairs_batch_run_level.json
+    py: "result = pymzlib.ptmqtl.pairs('batch.tsv', type='covarying', remove_run_level=True)"
+    rust: "let result = mzlib::ptmqtl::pairs_with(\"batch.tsv\", PairType::Covarying, &PairsOptions { remove_run_level: true, ..Default::default() })?;"
+    r: "result <- ptmqtl_pairs('batch.tsv', type = 'covarying', remove_run_level = TRUE)"
+
+open_questions: []

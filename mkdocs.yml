@@ -103,6 +103,7 @@ nav:
       - Spectral libraries: guides/library.md
       - Differential abundance: guides/stats.md
       - "Differential design and observations": guides/diff.md
+      - PTM occupancy and PTM-QTL: guides/ptmqtl.md
   - API reference:
       - Python API: reference.md
       - Errors: errors.md
@@ -117,6 +118,7 @@ nav:
       - "Wire verbs: library": reference/library.md
       - "Wire verbs: stats": reference/stats.md
       - "Wire verbs: diff": reference/diff.md
+      - "Wire verbs: ptmqtl": reference/ptmqtl.md
   - How it works:
       - Architecture: design/architecture.md
       - Design decisions: design/decisions.md

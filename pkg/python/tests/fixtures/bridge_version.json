@@ -50,6 +50,9 @@
   "stats fit-mixed",
   "stats entrapment-fdp",
   "diff design",
-  "diff observations"
+  "diff observations",
+  "ptmqtl occupancy",
+  "ptmqtl pairs",
+  "ptmqtl trait-effects"
  ]
 }

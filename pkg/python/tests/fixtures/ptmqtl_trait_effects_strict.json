@@ -1,0 +1,129 @@
+{
+ "occupancy_file": "E:\\CodeReview\\wt-py-ptmqtl-verbs\\pkg\\python\\tests\\fixtures\\ptmqtl\\trait_occupancy.tsv",
+ "runs_file": "E:\\CodeReview\\wt-py-ptmqtl-verbs\\pkg\\python\\tests\\fixtures\\ptmqtl\\trait_runs.tsv",
+ "trait_name": "dose",
+ "covariate_names": [
+  "injection"
+ ],
+ "cell_count": 24,
+ "run_count": 12,
+ "trait_run_count": 12,
+ "occupancy_runs_not_used": [],
+ "min_runs": 6,
+ "min_replicates": 6,
+ "logit_epsilon": 5e-05,
+ "exclude_ceiling": true,
+ "status_counts": {
+  "fitted": 1,
+  "below_support": 1,
+  "too_few_observations": 0,
+  "rank_deficient": 0,
+  "too_few_groups": 0,
+  "variance_ratio_at_limit": 0,
+  "not_converged": 0
+ },
+ "ignored_columns": [],
+ "row_count": 2,
+ "column_names": [
+  "site_key",
+  "protein_accession",
+  "position",
+  "residue",
+  "modification",
+  "status",
+  "effect",
+  "standard_error",
+  "df",
+  "p_value",
+  "q",
+  "runs",
+  "replicates",
+  "median_fraction",
+  "covariate_effects",
+  "replicate_variance",
+  "residual_variance"
+ ],
+ "columns": {
+  "site_key": [
+   "CENSORED_SITE:S13:Common Biological:Phosphorylation on S",
+   "TRAIT_SITE:S13:Common Biological:Phosphorylation on S"
+  ],
+  "protein_accession": [
+   "CENSORED_SITE",
+   "TRAIT_SITE"
+  ],
+  "position": [
+   13,
+   13
+  ],
+  "residue": [
+   "S",
+   "S"
+  ],
+  "modification": [
+   "Common Biological:Phosphorylation on S",
+   "Common Biological:Phosphorylation on S"
+  ],
+  "status": [
+   "below_support",
+   "fitted"
+  ],
+  "effect": [
+   null,
+   0.500851351356424
+  ],
+  "standard_error": [
+   null,
+   0.0551901392363831
+  ],
+  "df": [
+   null,
+   4
+  ],
+  "p_value": [
+   null,
+   0.0008173329206173796
+  ],
+  "q": [
+   null,
+   0.0008173329206173796
+  ],
+  "runs": [
+   10,
+   12
+  ],
+  "replicates": [
+   5,
+   6
+  ],
+  "median_fraction": [
+   0.1748759313536753,
+   0.18273093552996822
+  ],
+  "covariate_effects": [
+   [
+    null
+   ],
+   [
+    0.02000000000000017
+   ]
+  ],
+  "replicate_variance": [
+   null,
+   0.009389883694682178
+  ],
+  "residual_variance": [
+   null,
+   3.6000023295629658e-06
+  ]
+ },
+ "caveats": [
+  "Per site, mzLib's SiteTraitEffects fits logit(occupancy) = b0 + b_trait * trait + sum of b_k * covariate_k + u_replicate + e, a random-intercept linear mixed model by REML (mzLib's MixedModel), so repeated runs of one biological replicate are not counted as independent. effect is b_trait, tested by a Wald t with nlme's containment degrees of freedom: a trait constant within each replicate is tested at the between-replicate df.",
+  "Only quantified cells are responses. floor, count_only and not_detected cells are left out, never entered as 0: this is the intensity part of the question, and it says nothing about whether detecting the modification changes with the trait.",
+  "Ceiling cells (a fraction of 1 with unmodified_quantified false) are left out (mzLib's SiteTraitOptions.ExcludeCeiling); --keep-ceiling keeps them.",
+  "Each fraction is clamped to [logit_epsilon, 1 - logit_epsilon] before the logit, so a fraction of 0 or 1 has a finite logit. effect is in logit occupancy per unit of the trait as given: rescale the trait to change the unit.",
+  "A site is fitted only with at least min_runs runs and min_replicates distinct replicates contributing a response; otherwise it is below_support with null statistics. Sites with no usable response in a run of the runs table do not appear.",
+  "q is Benjamini-Hochberg over the sites with a p-value in this call. It is not a target-decoy q-value, and it is not adjusted across datasets.",
+  "1 of 2 sites were not fitted (1 below_support); their statistics are null and they are not in the Benjamini-Hochberg family."
+ ]
+}

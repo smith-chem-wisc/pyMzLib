@@ -1,0 +1,163 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/PtmQtl.cs (TraitEffects, ReadOccupancy,
+# ReadRuns, TraitStatusName) on branch feat/ptmqtl-verbs (off main 50b4340), mzLib pin d10017ce
+# (tag 1.0.595; SiteTraitEffects is from #1369, first in 1.0.594). The occupancy input is the table
+# ptmqtl occupancy --out writes, read back into mzLib's SiteRunOccupancy; a fraction cell becomes
+# SiteRunOccupancy.ReportedFraction, mzLib's slot for an exactly written fraction. Options the caller
+# leaves out are not set, so SiteTraitOptions' own defaults apply, and the envelope reports them off
+# the options object. The example input is mzLib's TraitDesign (TraitEffectIsRecoveredOnTheLogitScale,
+# TraitFitUsesOnlyQuantifiedNonCeilingCells, TraitFitReportsCovariateEffects), held by
+# PtmQtlTests.Fixtures_AreMzLibsHandComputedCases; trait_occupancy.tsv is held to what ptmqtl
+# occupancy --out writes by PtmQtlTests.TraitOccupancyFixture_IsWhatOccupancyOutWrites.
+verb: ptmqtl trait-effects
+module: ptmqtl
+summary: >-
+  Per site, the effect of a per-run trait on logit occupancy, from a random-intercept mixed model
+  per site, so that repeated runs of one biological replicate are not counted as independent.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SiteTraitEffects.Fit, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
+  - {symbol: SiteTraitOptions, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
+  - {symbol: SiteTraitEffect, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
+  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: MixedModel.Fit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
+cite:
+  - {doi: "10.2307/2529876", for: "the random-intercept linear mixed model fitted per site (Laird and Ware, Biometrics 38:963, 1982)"}
+  - {doi: "10.1111/j.2517-6161.1995.tb02031.x", for: "the step-up adjustment behind q (Benjamini and Hochberg, J R Stat Soc B 57:289, 1995)"}
+
+params:
+  - name: occupancy
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      The occupancy table ptmqtl occupancy --out writes, one row per (site, run). Columns are found
+      by header name: protein_accession, position (1-based), residue (one letter), modification, run,
+      state (quantified, floor, count_only or not_detected), modified_intensity and
+      covering_intensity (instrument units, finite), unmodified_quantified (true or false), and
+      optionally fraction (fraction, 0 to 1; blank for none), which mzLib then uses instead of
+      modified_intensity / covering_intensity, as it does for a fraction a producer wrote exactly.
+      site_key and category are derived by mzLib and not read; any other column is listed in
+      ignored_columns. A (site, run) given twice is refused, since mzLib's fit would use the first.
+  - name: runs
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row, then one row per run: the run (as the occupancy table names it), its
+      biological replicate (the random-intercept group, for example the animal or donor), the trait
+      (its header names the trait; any unit, which effect is then per), then any covariates (each
+      header names one; every value finite for a run with a trait). Columns are by position. A run
+      with a blank, NA or NaN trait is not used, as mzLib reads a run absent from the trait. A run of
+      the occupancy table missing here is not used either, and is listed in occupancy_runs_not_used.
+  - name: min-runs
+    type: int
+    required: false
+    unit: runs
+    range: ">= 0"
+    default: "mzLib's SiteTraitOptions.MinRuns, 6 at the pin"
+    doc: >-
+      The fewest runs contributing a response for a site to be fitted; fewer is below_support.
+      Absent, the bridge sets nothing and mzLib's default applies.
+  - name: min-replicates
+    type: int
+    required: false
+    unit: replicates
+    range: ">= 0"
+    default: "mzLib's SiteTraitOptions.MinReplicates, 4 at the pin"
+    doc: >-
+      The fewest distinct biological replicates among those runs; fewer is below_support. Absent,
+      mzLib's default applies.
+  - name: logit-epsilon
+    type: float
+    required: false
+    unit: "fraction (0 to 1)"
+    range: "> 0 and < 0.5"
+    default: "mzLib's SiteTraitOptions.LogitEpsilon, 5e-5 at the pin (half the 4-decimal resolution of stored fractions)"
+    doc: >-
+      Each fraction is clamped to [epsilon, 1 - epsilon] before the logit, so 0 and 1 have finite
+      logits. Absent, mzLib's default applies.
+  - name: keep-ceiling
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: "absent: mzLib's SiteTraitOptions.ExcludeCeiling, true at the pin, so ceilings are left out"
+    doc: >-
+      Use a run where the site was seen only modified (a fraction of 1 with unmodified_quantified
+      false) as a response, clamped below 1. mzLib leaves such a ceiling out unless asked.
+
+result:
+  envelope_fields:
+    - {wire: occupancy_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the occupancy table."}
+    - {wire: runs_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the runs table."}
+    - {wire: trait_name, type: string, unit: null, nullable: false, null_means: null, doc: "The runs table's third header: the trait."}
+    - {wire: covariate_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The runs table's headers after the trait, in order; empty without covariates. covariate_effects follows this order."}
+    - {wire: cell_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Occupancy rows read."}
+    - {wire: run_count, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs in the runs table."}
+    - {wire: trait_run_count, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs with a trait value: the runs the design is built over."}
+    - {wire: occupancy_runs_not_used, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Runs of the occupancy table with no trait value in the runs table, in ordinal order; their cells were not used."}
+    - {wire: min_runs, type: int, unit: runs, nullable: false, null_means: null, doc: "The support threshold used: as given, or mzLib's default."}
+    - {wire: min_replicates, type: int, unit: replicates, nullable: false, null_means: null, doc: "The replicate threshold used: as given, or mzLib's default."}
+    - {wire: logit_epsilon, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The clamp used: as given, or mzLib's default."}
+    - {wire: exclude_ceiling, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether ceiling cells were left out: false with --keep-ceiling, else mzLib's default."}
+    - {wire: status_counts, type: "map<string,int>", unit: sites, nullable: false, null_means: null, doc: "Sites per status, keyed by every status value."}
+    - {wire: ignored_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns of the occupancy file that were not read (other than site_key and category); empty when none."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Sites in the table."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per site with at least one usable response (a quantified cell, not a ceiling unless --keep-ceiling, in a run with a trait), in ordinal site_key order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Six static caveats; plus one listing occupancy runs not used, one counting sites not fitted by status, and one naming columns not read, when they apply."}
+  columns:
+    - {wire: site_key, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's ModificationSite.Key, as ptmqtl occupancy writes it."}
+    - {wire: protein_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The site's protein."}
+    - {wire: position, type: int, unit: null, nullable: false, null_means: null, doc: "1-based residue position, as ptmqtl occupancy."}
+    - {wire: residue, type: string, unit: null, nullable: false, null_means: null, doc: "The one-letter residue."}
+    - {wire: modification, type: string, unit: null, nullable: false, null_means: null, doc: "Category:IdWithMotif."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "fitted | below_support (fewer runs or replicates than min_runs or min_replicates) | too_few_observations | rank_deficient | too_few_groups | variance_ratio_at_limit | not_converged (mzLib's MixedModel could not fit it, as stats fit names those outcomes). Only fitted rows carry statistics."}
+    - {wire: effect, type: float, unit: "logit occupancy per trait unit", nullable: true, null_means: "not fitted (see status)", doc: "The change in logit(occupancy) per unit of the trait, other covariates held fixed. exp(effect) is the odds ratio of the modified form per trait unit."}
+    - {wire: standard_error, type: float, unit: "logit occupancy per trait unit", nullable: true, null_means: "not fitted", doc: "Standard error of effect."}
+    - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted", doc: "Denominator degrees of freedom of the t test, by nlme's containment rule: for a trait constant within each replicate, replicates - 1 - the between-replicate coefficients."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted", doc: "Two-sided p-value of the trait coefficient."}
+    - {wire: q, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted, so not in the family", doc: "Benjamini-Hochberg over the sites with a p-value in this call. Not a target-decoy q-value."}
+    - {wire: runs, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs contributing a response."}
+    - {wire: replicates, type: int, unit: replicates, nullable: false, null_means: null, doc: "Distinct biological replicates among those runs."}
+    - {wire: median_fraction, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "Median occupancy over the contributing runs, before the clamp."}
+    - {wire: covariate_effects, type: "float[]", unit: "logit occupancy per covariate unit", nullable: false, null_means: null, doc: "One coefficient per covariate, in covariate_names order; each element null when the site was not fitted. Empty without covariates."}
+    - {wire: replicate_variance, type: float, unit: "squared logit occupancy", nullable: true, null_means: "not fitted", doc: "Between-replicate variance of logit occupancy (the random intercept)."}
+    - {wire: residual_variance, type: float, unit: "squared logit occupancy", nullable: true, null_means: "not fitted", doc: "Within-replicate (run-to-run) variance of logit occupancy."}
+
+errors:
+  - {kind: usage, when: "occupancy or runs missing, blank or not found; min-runs or min-replicates not an integer or below 0; logit-epsilon not a number, or not above 0 and below 0.5; an option given without a value; keep-ceiling written with a value"}
+  - {kind: usage, when: "the occupancy file empty, header-only, missing a column, with a repeated column name, a row of the wrong width, a position that is not an integer, a residue that is not one letter, a state that is not one of the four, an intensity that is not finite, a fraction that is not a number, unmodified_quantified not true or false, an empty accession, modification or run, or a (site, run) twice"}
+  - {kind: usage, when: "the runs file with fewer than three columns, a repeated header after the replicate, a row of the wrong width, an empty or repeated run, or a trait or covariate that is not a number"}
+  - {kind: usage, when: "mzLib refuses the input, in its own words: a run with a trait and no replicate; a run with a trait whose covariates are not all finite; a design (intercept, trait, covariates over the runs with a trait) not of full column rank, such as a constant trait"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Per site, logit(occupancy) = b0 + b_trait trait + the covariates + a random intercept per biological replicate + error, fitted by REML (mzLib's MixedModel). Repeated runs of one replicate (technical injections) are not counted as independent: a trait constant within each replicate is tested at the between-replicate degrees of freedom."
+  - "Only quantified cells are responses; floor, count_only and not_detected cells are left out, never entered as 0. This is the intensity part of the question: it says nothing about whether detecting the modification changes with the trait."
+  - "Ceiling cells are left out unless keep-ceiling."
+  - "Fractions are clamped to [logit_epsilon, 1 - logit_epsilon] before the logit. effect is per unit of the trait as given: rescale the trait to change the unit."
+  - "A site with fewer than min_runs runs or min_replicates replicates is below_support, with null statistics; a site with no usable response does not appear."
+  - "q adjusts over this call's fitted sites only: not across datasets, and not a target-decoy q-value."
+
+bindings:
+  py: {name: pymzlib.ptmqtl.trait_effects}
+  rust: {name: "mzlib::ptmqtl::trait_effects_with", options: TraitEffectsOptions, note: "not yet ported"}
+  r: {name: ptmqtl_trait_effects, note: "not yet ported"}
+
+examples:
+  - fixture: ptmqtl_trait_effects.json
+    py: "result = pymzlib.ptmqtl.trait_effects('trait_occupancy.tsv', 'trait_runs.tsv')"
+    rust: "let result = mzlib::ptmqtl::trait_effects_with(\"trait_occupancy.tsv\", \"trait_runs.tsv\", &TraitEffectsOptions::default())?;"
+    r: "result <- ptmqtl_trait_effects('trait_occupancy.tsv', 'trait_runs.tsv')"
+  - fixture: ptmqtl_trait_effects_strict.json
+    py: "result = pymzlib.ptmqtl.trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', min_replicates=6)"
+    rust: "let result = mzlib::ptmqtl::trait_effects_with(\"trait_occupancy.tsv\", \"trait_runs.tsv\", &TraitEffectsOptions { min_replicates: Some(6), ..Default::default() })?;"
+    r: "result <- ptmqtl_trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', min_replicates = 6)"
+
+open_questions: []
