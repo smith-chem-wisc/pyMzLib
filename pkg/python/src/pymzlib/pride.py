@@ -30,11 +30,13 @@ from . import _bridge
 __all__ = [
     "PrideFile",
     "PrideFtpFile",
+    "PrideFileChecksum",
     "PrideProjectSearchResult",
     "ProjectNotFoundError",
     "list_files",
     "search",
     "list_ftp_files",
+    "file_checksums",
     "download",
     "download_files",
     "total_size_bytes",
@@ -44,9 +46,16 @@ __all__ = [
 #: A PRIDE-style repository accession: a short letter prefix and a run of digits, e.g. PXD000001.
 _ACCESSION_PATTERN = re.compile(r"^[A-Z]{2,4}[0-9]{4,}$")
 
+#: mzLib's wording for an unknown accession (PrideArchiveClient.GetProjectAsync at the pin). Every
+#: verb that resolves the project first throws it, as an MzLibException.
+_UNKNOWN_PROJECT_MARKER = "has no project with accession"
+
 #: mzLib's wording for the two MzLibExceptions that mean "no such project" (PrideArchiveClient.cs):
 #: an unknown accession, and a project with no publication date to locate its FTP directory by.
-_PROJECT_NOT_FOUND_MARKERS = ("has no project with accession", "has no publication date")
+_PROJECT_NOT_FOUND_MARKERS = (_UNKNOWN_PROJECT_MARKER, "has no publication date")
+
+#: The first pyMzLib whose bridge has ``pride checksums``: its spec's ``since.pymzlib``.
+_CHECKSUMS_SINCE = "0.6.0"
 
 
 class ProjectNotFoundError(_bridge.PyMzLibError):
@@ -472,6 +481,127 @@ def list_ftp_files(accession: str, timeout: float | None = None) -> list[PrideFt
     return files
 
 
+@dataclass(frozen=True)
+class PrideFileChecksum:
+    """The MD5 and exact size PRIDE recorded for one file deposited in a project.
+
+    :func:`file_checksums` returns these, keyed by file name. They are what a downloaded file is
+    checked against: it is the file PRIDE holds when its length is :attr:`size_bytes` and its MD5 is
+    :attr:`md5`. The PRIDE guide's section on checking a download shows the check with ``hashlib``.
+
+    Attributes:
+        file_name: The bare file name, spelled as :attr:`PrideFile.file_name` spells it. Never a
+            path. Case-sensitive: ``README.txt`` and ``readme.txt`` would be two files.
+        md5: The file's MD5 as 32 hexadecimal characters, as PRIDE wrote it. Lower case in every
+            list seen, but not rewritten, so compare without regard to case (mzLib's own checks do):
+            ``hashlib``'s ``hexdigest()`` is lower case. Not :attr:`PrideFile.checksum`, which is a
+            different digest.
+        size_bytes: The file's exact size in bytes: the length a download of it comes to. Compare a
+            downloaded file's length with this, not with :attr:`PrideFile.file_size_bytes`, which
+            can differ. For PXD000001's ``PRIDE_Exp_Complete_Ac_22134.xml.gz`` that one is
+            10,677,205 bytes and this one is 10,668,000, the length the download has.
+        project_accession: The accession the list was fetched for.
+    """
+
+    file_name: str
+    md5: str
+    size_bytes: int
+    project_accession: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        """Every attribute as a plain dict, for a table: ``[c.as_dict() for c in checksums.values()]``."""
+        return asdict(self)
+
+    @classmethod
+    def _from_wire(cls, payload: dict[str, Any], project_accession: str = "") -> "PrideFileChecksum":
+        # Read strictly, unlike the other PRIDE rows. A row missing its MD5 or size is a broken
+        # contract, and defaulting it to "" or 0 would turn every later check of that file into a
+        # mismatch that blames the download.
+        return cls(
+            file_name=payload["file_name"],
+            md5=payload["md5"],
+            size_bytes=int(payload["size_bytes"]),
+            project_accession=project_accession,
+        )
+
+
+def file_checksums(accession: str, timeout: float | None = None) -> dict[str, PrideFileChecksum]:
+    """Return the MD5 and exact size PRIDE recorded for each file deposited in a project.
+
+    This is what a download is checked against: a file is the one PRIDE holds when its length is
+    ``size_bytes`` and its MD5 is ``md5``. :func:`download` and :func:`download_files` check
+    neither yet, so for files that matter, check them yourself. The PRIDE guide shows how, in a few
+    lines of ``hashlib``.
+
+    **This is a third list, not a view of either of the others.** It covers the files the
+    submitter deposited at the project's root:
+
+    * PRIDE's own ``generated/`` files have no row. A file without a row cannot be checked; that
+      does not make it invalid.
+    * It names files :func:`list_files` omits: 5 of PXD000001's 12 rows on 2026-10-21.
+    * It can name files that are not deposits at all. PXD015239's lists an NFS temp file,
+      ``.nfs80360b91005fae5300002478``. Look up the files you have by name; do not read the list as
+      the project's contents.
+
+    :attr:`PrideFile.checksum` is not this MD5. Where PRIDE fills it in, it is a 40-character
+    SHA-1, and for every PXD000001 file it is empty.
+
+        >>> checksums = pymzlib.pride.file_checksums("PXD000001")
+        >>> len(checksums)
+        12
+        >>> readme = checksums["README.txt"]
+        >>> readme.md5, readme.size_bytes
+        ('492753137013825025e6729c8798664f', 1645)
+
+    Args:
+        accession: The project accession, e.g. ``"PXD000001"``. Upper-cased and trimmed first,
+            because PRIDE's checksum route is case-sensitive.
+        timeout: Seconds to allow for the whole call.
+            ``None`` (the default) adds no limit of pyMzLib's own, because mzLib already bounds
+            every request: it retries a transient failure three times, after 5, 20 and 60 s, and
+            each attempt can take up to 100 s. An outage that hangs is therefore reported as
+            :class:`~pymzlib.ServiceUnavailableError` after about 8 minutes per request, and an
+            empty list costs a second request, the project lookup. A number cuts the whole call off
+            after that many seconds with :class:`~pymzlib.BridgeTimeoutError`.
+
+    Returns:
+        One :class:`PrideFileChecksum` per file, keyed by its bare file name (case-sensitive), in
+        file-name order. **Empty when the project exists but PRIDE holds no checksums for it**:
+        that is an answer, not an error, though nothing can then be checked.
+
+    Raises:
+        UsageError: the accession is blank or malformed.
+        ProjectNotFoundError: PRIDE has no public project with that accession. A project not yet
+            published is reported the same way, since PRIDE holds no checksums before publication.
+        ServiceUnavailableError: PRIDE was down, rate-limiting or timed out, after mzLib's retries.
+        BridgeError: PRIDE sent a list mzLib cannot read (``error_type`` ``'MzLibException'``: a new
+            header, a malformed row, a name listed twice), or answered with another HTTP error.
+    """
+    canonical = _normalise_accession(accession)
+    _bridge.require_verb("pride checksums", since=_CHECKSUMS_SINCE)
+
+    try:
+        data = _bridge.invoke(
+            "pride", "checksums",
+            "--accession", canonical,
+            timeout=timeout,
+        )
+    except _bridge.BridgeError as exc:
+        # PRIDE answers an unknown accession with an empty list, so mzLib asks for the project and
+        # throws MzLibException when there is none. Re-map only that wording: a list mzLib cannot
+        # read is an MzLibException too, and reporting it as a typo would hide a broken contract.
+        # ServiceUnavailableError has its own error_type and propagates unchanged.
+        if exc.error_type == "MzLibException" and _UNKNOWN_PROJECT_MARKER in str(exc):
+            raise ProjectNotFoundError(
+                f"PRIDE has no public project '{canonical}'. Check for a typo; a project not yet "
+                "published looks the same, and PRIDE holds no checksums before publication."
+            ) from exc
+        raise
+
+    rows = [PrideFileChecksum._from_wire(item, canonical) for item in data.get("files", [])]
+    return {row.file_name: row for row in rows}
+
+
 def download(
     accession: str,
     destination: str | Path,
@@ -483,7 +613,8 @@ def download(
     """Download a project's files, optionally filtered, and return where they landed.
 
     Files are streamed to a temporary name and moved into place only once complete, so an
-    interrupted download never leaves a truncated file behind.
+    interrupted download never leaves a truncated file behind. Their bytes are **not** checked
+    against PRIDE's record: compare a file that matters with :func:`file_checksums`.
 
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
@@ -565,6 +696,9 @@ def download_files(
     :func:`download`'s ``category`` and ``extensions`` filters can only express what they were
     built to express; "under 5 MB", "the three newest", or "everything except the MGF" cannot be
     said in that vocabulary at all. They can all be said in a list comprehension.
+
+    As with :func:`download`, the bytes are not checked against PRIDE's record; compare a file that
+    matters with :func:`file_checksums`.
 
     Args:
         files: The :class:`PrideFile` objects to fetch, from one project.

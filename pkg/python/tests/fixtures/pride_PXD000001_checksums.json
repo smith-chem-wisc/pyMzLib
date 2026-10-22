@@ -1,0 +1,66 @@
+{
+ "accession": "PXD000001",
+ "file_count": 12,
+ "files": [
+  {
+   "file_name": "F063721.dat",
+   "md5": "0b1861ec576b0e31984d4367c96f524b",
+   "size_bytes": 21185462
+  },
+  {
+   "file_name": "F063721.dat-mztab.txt",
+   "md5": "a568603dd821848848c74117346f1ed7",
+   "size_bytes": 304798
+  },
+  {
+   "file_name": "PRIDE_Exp_Complete_Ac_22134.xml.gz",
+   "md5": "3695390efa9d1de3fed3a1c152847215",
+   "size_bytes": 10668000
+  },
+  {
+   "file_name": "PRIDE_Exp_mzData_Ac_22134.xml.gz",
+   "md5": "1bd70cd7f7366b8034188a86268af9e4",
+   "size_bytes": 9705982
+  },
+  {
+   "file_name": "PXD000001_community_annotated.sdrf.tsv",
+   "md5": "542ede3f7343bd8ad1aacaeb4934d366",
+   "size_bytes": 4078
+  },
+  {
+   "file_name": "PXD000001_mztab.txt",
+   "md5": "cf54a493a56128fd49ef8205410ee4fe",
+   "size_bytes": 864039
+  },
+  {
+   "file_name": "README.txt",
+   "md5": "492753137013825025e6729c8798664f",
+   "size_bytes": 1645
+  },
+  {
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzML",
+   "md5": "59bbdac505075cec14a023d50e19b7dc",
+   "size_bytes": 450032788
+  },
+  {
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01-20141210.mzXML",
+   "md5": "7b710611dd6c4cc85e7cd2c3a3c01475",
+   "size_bytes": 472501353
+  },
+  {
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.mzXML",
+   "md5": "90713df7863a8c446e5795ac284ae285",
+   "size_bytes": 243031280
+  },
+  {
+   "file_name": "TMT_Erwinia_1uLSike_Top10HCD_isol2_45stepped_60min_01.raw",
+   "md5": "c567cecbb9866796e690a4958746f7b6",
+   "size_bytes": 220475548
+  },
+  {
+   "file_name": "erwinia_carotovora.fasta",
+   "md5": "510bcf6bac8efb33482b47f30aa6a930",
+   "size_bytes": 1657668
+  }
+ ]
+}

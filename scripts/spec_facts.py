@@ -248,6 +248,16 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
         },
         "field.files": {"python": None, "why": "list_ftp_files() returns this list itself"},
     },
+    "pride checksums": {
+        # mzLib returns a map from file name to checksum, and so does Python: the rows keyed by
+        # file_name, in the wire's order.
+        "field.accession": {"python": None, "why": "PrideFileChecksum.project_accession on every row"},
+        "field.file_count": {"python": None, "why": "len(file_checksums(...))"},
+        "field.files": {
+            "python": None,
+            "why": "file_checksums() returns these rows, as a dict keyed by file_name",
+        },
+    },
     "pride search": {
         "field.keyword": {"python": None, "why": "the keyword argument, echoed"},
         "field.result_count": {"python": None, "why": "len(search(...))"},

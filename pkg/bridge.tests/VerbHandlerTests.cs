@@ -536,6 +536,167 @@ public class VerbHandlerTests
     public void PrideFtpFiles_NoAccession_IsAUsageError() =>
         Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync("pride", "ftp-files"));
 
+    // ---- pride checksums -----------------------------------------------------
+    //
+    // PRIDE's checksum list (mzLib #1427): text/plain, a header and one tab-separated row per file.
+    // The stub answers the checksum route from the test's body and the project route from a JSON
+    // project or a 404, the two routes GetFileChecksumsAsync can touch.
+
+    private const string ChecksumHeader = "File-Name\tFile-MD5Checksum\tFile-Size\n";
+
+    // Not in name order, with a size past int.MaxValue and PXD015239's NFS debris row, all of which
+    // must cross unchanged.
+    private const string ChecksumList = ChecksumHeader
+        + "run2.raw\tc567cecbb9866796e690a4958746f7b6\t2285905384\n"
+        + "README.txt\t492753137013825025e6729c8798664f\t1645\n"
+        + ".nfs80360b91005fae5300002478\te6392618a1e53a280b6385158a91bfeb\t10\n";
+
+    private static HttpResponseMessage Text(string body, HttpStatusCode status = HttpStatusCode.OK) =>
+        new(status) { Content = new StringContent(body, Encoding.UTF8, "text/plain") };
+
+    private static StubHandler UseChecksumStub(string body, bool projectExists)
+    {
+        var handler = new StubHandler(request =>
+        {
+            string path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("/files/checksum/", StringComparison.Ordinal)) return Text(body);
+            if (path.Contains("/projects/", StringComparison.Ordinal) && projectExists)
+                return Json("""{ "accession": "PXD000001", "title": "t" }""");
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        Program.PrideClientFactory = () => new PrideArchiveClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress),
+        });
+        return handler;
+    }
+
+    [Test]
+    public async Task PrideChecksums_ProjectsEveryRowSortedByFileName()
+    {
+        StubHandler handler = UseChecksumStub(ChecksumList, projectExists: true);
+
+        JsonElement data = await InvokeAsync("pride", "checksums", "--accession", "PXD000001");
+        JsonElement[] rows = data.GetProperty("files").EnumerateArray().ToArray();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("accession").GetString(), Is.EqualTo("PXD000001"));
+            Assert.That(data.GetProperty("file_count").GetInt32(), Is.EqualTo(3));
+            // mzLib returns a map; the wire sorts by name (ordinal: '.' < 'R' < 'r').
+            Assert.That(rows.Select(r => r.GetProperty("file_name").GetString()), Is.EqualTo(new[]
+            {
+                ".nfs80360b91005fae5300002478", "README.txt", "run2.raw",
+            }));
+            Assert.That(rows[1].GetProperty("md5").GetString(), Is.EqualTo("492753137013825025e6729c8798664f"));
+            Assert.That(rows[1].GetProperty("size_bytes").GetInt64(), Is.EqualTo(1645));
+            // A raw file past 2 GiB: the size is a 64-bit count, not an int.
+            Assert.That(rows[2].GetProperty("size_bytes").GetInt64(), Is.EqualTo(2_285_905_384L));
+            Assert.That(rows[0].EnumerateObject().Select(p => p.Name),
+                Is.EqualTo(new[] { "file_name", "md5", "size_bytes" }));
+            // No total: mzLib has none over this list, so the wire sends none.
+            Assert.That(data.TryGetProperty("total_size_bytes", out _), Is.False);
+            // One request: a non-empty list needs no existence check.
+            Assert.That(handler.RequestedUris, Is.EqualTo(new[]
+            {
+                "https://www.ebi.ac.uk/pride/ws/archive/v3/files/checksum/PXD000001",
+            }));
+        });
+    }
+
+    [Test]
+    public async Task PrideChecksums_TheMd5CrossesAsPrideWroteIt()
+    {
+        UseChecksumStub(ChecksumHeader + "run1.raw\t0123456789ABCDEF0123456789ABCDEF\t10\n", projectExists: true);
+
+        JsonElement data = await InvokeAsync("pride", "checksums", "--accession", "PXD000001");
+
+        // mzLib keeps PRIDE's text, upper case included; the bridge does not rewrite it either.
+        Assert.That(data.GetProperty("files")[0].GetProperty("md5").GetString(),
+            Is.EqualTo("0123456789ABCDEF0123456789ABCDEF"));
+    }
+
+    [Test]
+    public async Task PrideChecksums_AnExistingProjectWithNoChecksums_IsAnEmptyListNotAnError()
+    {
+        StubHandler handler = UseChecksumStub("", projectExists: true);
+
+        JsonElement data = await InvokeAsync("pride", "checksums", "--accession", "PXD000001");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(data.GetProperty("file_count").GetInt32(), Is.Zero);
+            Assert.That(data.GetProperty("files").GetArrayLength(), Is.Zero);
+            // The empty body made mzLib ask whether the project exists.
+            Assert.That(handler.RequestedUris, Has.Count.EqualTo(2));
+            Assert.That(handler.RequestedUris[1], Does.EndWith("/projects/PXD000001"));
+        });
+    }
+
+    [Test]
+    public void PrideChecksums_UnknownAccession_SurfacesMzLibExceptionTheBindingsRemap()
+    {
+        // PRIDE answers an accession it does not know with 200 and an empty body, then 404 on the project.
+        UseChecksumStub("", projectExists: false);
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "checksums", "--accession", "PXD999999999"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Program.ClassifyError(ex!), Is.EqualTo("MzLibException"));
+            // The wording pyMzLib matches to raise ProjectNotFoundError.
+            Assert.That(ex!.Message, Does.Contain("has no project with accession 'PXD999999999'"));
+        });
+    }
+
+    [TestCase("File-Name\tMD5\tFile-Size\nrun1.raw\t0123456789abcdef0123456789abcdef\t10\n", "starts with")]
+    [TestCase(ChecksumHeader + "run1.raw\t0123456789abcdef\t10\n", "not 32 hexadecimal characters")]
+    [TestCase(ChecksumHeader + "run1.raw\t0123456789abcdef0123456789abcdef\t-10\n", "not a whole number of bytes")]
+    [TestCase(ChecksumHeader + "a.raw\t0123456789abcdef0123456789abcdef\t10\na.raw\t0123456789abcdef0123456789abcdef\t10\n", "twice")]
+    public void PrideChecksums_AMalformedList_IsACorrectnessFailureAndIsNotRetried(string body, string expected)
+    {
+        StubHandler handler = UseChecksumStub(body, projectExists: true);
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "checksums", "--accession", "PXD000001"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Program.ClassifyError(ex!), Is.EqualTo("MzLibException"));
+            Assert.That(ex!.Message, Does.Contain(expected));
+            // Not the not-found wording, so no binding reports a broken list as a typo.
+            Assert.That(ex.Message, Does.Not.Contain("has no project with accession"));
+            Assert.That(handler.RequestedUris, Has.Count.EqualTo(1), "a broken list is not an outage");
+        });
+    }
+
+    [Test]
+    public void PrideChecksums_A404OnTheList_IsACorrectnessFailure()
+    {
+        // 404 is not transient, so mzLib does not retry it and the test does not wait out a backoff.
+        UseStub(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        Exception? ex = Assert.CatchAsync(async () =>
+            await InvokeAsync("pride", "checksums", "--accession", "PXD000001"));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo(nameof(HttpRequestException)));
+    }
+
+    // The options after the verb, '|'-separated (an array argument would be spread by TestCase).
+    [TestCase("", TestName = "PrideChecksums_NoAccession_IsAUsageError")]
+    [TestCase("--accession", TestName = "PrideChecksums_AnAccessionWithoutAValue_IsAUsageError")]
+    [TestCase("--accession|   ", TestName = "PrideChecksums_ABlankAccession_IsAUsageError")]
+    public void PrideChecksums_AMissingAccession_IsAUsageError(string options)
+    {
+        StubHandler handler = UseChecksumStub(ChecksumList, projectExists: true);
+        string[] args = new[] { "pride", "checksums" }
+            .Concat(options.Split('|', StringSplitOptions.RemoveEmptyEntries)).ToArray();
+
+        Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(args));
+        Assert.That(handler.RequestedUris, Is.Empty);
+    }
+
     // ---- failure classification ---------------------------------------------
     //
     // This is the behavior the whole external-service convention rests on: a caller must be able to
