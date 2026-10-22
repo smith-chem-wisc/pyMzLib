@@ -6,6 +6,30 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-22
+
+Still built from mzLib 1.0.595 (tag commit `d10017ce`). This release adds calls for most of what
+mzLib 1.0.594 and 1.0.595 brought that pyMzLib did not yet reach:
+- three new modules: `pymzlib.ptmqtl` (site occupancy, PTM pairs and trait effects), `pymzlib.diff`
+  (design matrices and peptide observations) and `pymzlib.library` (spectral library reads);
+- `stats.fit()` contrasts with confidence intervals, and the marginal-likelihood prior;
+- logistic and mixed models per feature, combined p-values, Spearman correlation, entrapment FDP;
+- PRIDE's checksums, protein alignment and accession parsing;
+- Ensembl orthology snapshots;
+- isobaric designs and search restriction from an SDRF.
+
+Still to come:
+- UniProt proteome downloads, which wait on mzLib#1490;
+- checking checksums inside `pride.download()`;
+- running a whole differential analysis in one call.
+
+Three existing calls give a different answer:
+- `stats.fit()` on fewer than 3 features;
+- `sdrf.pool(out=...)`'s `written.path`;
+- a hanging PRIDE call's error.
+
+[Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md) lists each one.
+
 ### Added
 - **`diff.design()`: a sample sheet to mzLib's design matrix, per stratum** (mzLib 1.0.595, #1450,
   `AnalysisDesign`). Name the sheet's columns as `factors=` (`FactorSpec`, with a reference
@@ -722,7 +746,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.5.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.6.0...main
+[0.6.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.6.0
 [0.5.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.5.0
 [0.4.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.4.0
 [0.3.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.3.0
