@@ -1,0 +1,90 @@
+{
+ "observations_file": "E:\\CodeReview\\wt-py-ptmqtl-verbs\\pkg\\python\\tests\\fixtures\\ptmqtl\\cases.tsv",
+ "samples_file": null,
+ "type": "physical",
+ "observation_count": 22,
+ "run_count": 6,
+ "sample_count": null,
+ "run_names": [
+  "countOnly",
+  "floor",
+  "notDetected",
+  "quant",
+  "r1",
+  "r2"
+ ],
+ "covarying_run_count": null,
+ "min_quantified_fraction": null,
+ "exclude_ceiling": null,
+ "remove_run_level": null,
+ "run_level_group": null,
+ "run_level_groups_file": null,
+ "min_runs_for_run_level": null,
+ "min_sites_for_run_level": null,
+ "modifications": null,
+ "categories": null,
+ "ignored_columns": [],
+ "physical_count": 1,
+ "covarying_count": null,
+ "row_count": 1,
+ "column_names": [
+  "result_type",
+  "site_a",
+  "site_b",
+  "same_protein",
+  "overlapping",
+  "statistic",
+  "p_value",
+  "q",
+  "fdr_family",
+  "n",
+  "statistic_n",
+  "spearman_method",
+  "run_level_removed"
+ ],
+ "columns": {
+  "result_type": [
+   "physical"
+  ],
+  "site_a": [
+   "TWO_ON_ONE:K14:Common Biological:Acetylation on K"
+  ],
+  "site_b": [
+   "TWO_ON_ONE:S13:Common Biological:Phosphorylation on S"
+  ],
+  "same_protein": [
+   true
+  ],
+  "overlapping": [
+   true
+  ],
+  "statistic": [
+   0.25
+  ],
+  "p_value": [
+   null
+  ],
+  "q": [
+   null
+  ],
+  "fdr_family": [
+   "P:intra"
+  ],
+  "n": [
+   2
+  ],
+  "statistic_n": [
+   1
+  ],
+  "spearman_method": [
+   null
+  ],
+  "run_level_removed": [
+   false
+  ]
+ },
+ "caveats": [
+  "physical (mzLib's PtmPairEngine.Physical, type P): both modifications were identified on one peptidoform, so on one molecule. statistic is the median over runs of the co-occupancy, the intensity of peptidoforms carrying both over the intensity of peptidoforms covering both positions, on the statistic_n runs where both were quantified; n counts the runs where the doubly modified form was identified. There is no test: p_value and q are null.",
+  "The observations follow ptmqtl occupancy's rules: MS/MS identifications only, one row per (run, peptidoform, protein), and the same exclusions (Common Variable, Common Fixed, peptide-terminal and C-terminal modifications)."
+ ]
+}

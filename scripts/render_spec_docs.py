@@ -249,6 +249,7 @@ GUIDES = {
     "library": "guides/library.md",
     "stats": "guides/stats.md",
     "diff": "guides/diff.md",
+    "ptmqtl": "guides/ptmqtl.md",
     "version": None,
 }
 

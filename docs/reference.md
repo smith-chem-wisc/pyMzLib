@@ -68,6 +68,9 @@ Generated from the docstrings in the source, so it cannot fall out of step with 
 ## `pymzlib.diff`
 
 ::: pymzlib.diff
+## `pymzlib.ptmqtl`
+
+::: pymzlib.ptmqtl
     options:
       show_root_full_path: false
       heading_level: 3

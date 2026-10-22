@@ -29,6 +29,7 @@ And a differential-abundance test is limma's moderated t, with no R, in
 """
 
 from . import diff, flashlfq, isobaric, library, peptidoform, pride, proteins, readers, sdrf, stats
+from . import flashlfq, isobaric, library, peptidoform, pride, proteins, ptmqtl, readers, sdrf, stats
 from .pride import ProjectNotFoundError
 from ._bridge import (
     BridgeError,
@@ -52,6 +53,7 @@ __all__ = [
     "peptidoform",
     "pride",
     "proteins",
+    "ptmqtl",
     "readers",
     "sdrf",
     "stats",

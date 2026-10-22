@@ -1,0 +1,23 @@
+run	full_sequence	protein_accession	start_residue	end_residue	intensity	previous_residue
+r1	PEPS[Common Biological:Phosphorylation on S]K	RATIO	10	14	30	
+r1	PEPSK	RATIO	10	14	70	
+r1	AAPEPSKR	RATIO	8	15	100	
+r1	PEPS[Common Biological:Phosphorylation on S]K	CEILING	10	14	30	
+floor	PEPS[Common Biological:Phosphorylation on S]K	STATES	10	14		
+floor	PEPSK	STATES	10	14	50	
+countOnly	PEPS[Common Biological:Phosphorylation on S]K	STATES	10	14		
+notDetected	PEPSK	STATES	10	14	40	
+quant	PEPS[Common Biological:Phosphorylation on S]K	STATES	10	14	5	
+quant	PEPSK	STATES	10	14	45	
+r1	PEPS[Common Biological:Phosphorylation on S]K	SHARED_POSITION	10	14	20	
+r1	PEPS[Common Biological:HexNAc on S]K	SHARED_POSITION	10	14	30	
+r1	PEPSK	SHARED_POSITION	10	14	50	
+r1	PEPM[Common Variable:Oxidation on M]C[Common Fixed:Carbamidomethyl on C]K	EXCLUDED	10	15	10	
+r1	[Common Artifact:Ammonia loss on C]CPEPK	PEPTIDE_NTERM	1	5	10	
+r1	[UniProt:N-acetylserine on S]SPEPK	NTERM_AFTER_MET	2	6	10	M
+r1	[UniProt:N-acetylserine on S]SPEPK	NTERM_AFTER_K	2	6	10	K
+r1	[Renamed:Unregistered on C]CPEPK	UNREGISTERED	1	5	10	
+r1	PEPS[Common Biological:Phosphorylation on S]K[Common Biological:Acetylation on K]R	TWO_ON_ONE	10	15	25	
+r1	PEPS[Common Biological:Phosphorylation on S]KR	TWO_ON_ONE	10	15	25	
+r1	PEPSKR	TWO_ON_ONE	10	15	50	
+r2	PEPS[Common Biological:Phosphorylation on S]K[Common Biological:Acetylation on K]R	TWO_ON_ONE	10	15		

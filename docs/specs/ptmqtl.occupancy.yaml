@@ -1,0 +1,158 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/PtmQtl.cs (Occupancy, ReadObservations,
+# ReadSamples, ModificationFilter, WriteTsv) on branch feat/ptmqtl-verbs (off main 50b4340), mzLib
+# pin d10017ce (tag 1.0.595; SiteOccupancyCalculator is from #1369, first in 1.0.594, and the
+# runToSample overload from #1430, first in 1.0.595). The input is mzLib's own plain record
+# (PeptidoformObservation) as a table. mzLib has no reader that builds it from MetaMorpheus or
+# FlashLFQ output, and the bridge deliberately writes none (PRINCIPLE.md): that adapter is a
+# PUSH-TO-MAINLAND item. The example inputs are mzLib's own hand-computed PtmQtl test cases
+# (mzLib/Test/Quantification/PtmQtlTests.cs), one protein per case, rendered and held by
+# PtmQtlTests.Fixtures_AreMzLibsHandComputedCases; every fixture was recorded from the live bridge.
+verb: ptmqtl occupancy
+module: ptmqtl
+summary: >-
+  Intensity-based occupancy of every modification site in every run (or sample), from a table of
+  MS/MS-identified peptidoforms with their per-run intensities, with the censoring state of each cell.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SiteOccupancyCalculator.Calculate, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: PeptidoformObservation, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: ModificationSite, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: OccupancyState, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+cite: []
+
+params:
+  - name: observations
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row naming its columns, in any order, one row per (run, peptidoform,
+      protein) identified by MS/MS: run; full_sequence, the peptidoform in MetaMorpheus notation
+      (a modification as [Category:IdWithMotif] after its residue, a protein N-terminal one before
+      the first residue); protein_accession; start_residue and end_residue, the peptide's first and
+      last residue in the protein, 1-based; intensity, the peptidoform's MS/MS-quantified intensity
+      in that run in instrument units (blank, NA or NaN means identified but not quantified); and
+      optionally previous_residue, the protein residue before the peptide (one letter, blank when
+      unknown). A peptide shared by several proteins is one row per protein. One row per PSM is
+      refused, since it would count an intensity several times. A match-between-runs transfer must
+      not be a row. A 0 intensity is read as quantified at zero, and adds nothing to either sum. Any
+      other column is not read and is listed in ignored_columns. mzLib has no reader that builds
+      this table from MetaMorpheus or FlashLFQ output; the pyMzLib ptmqtl guide shows how.
+  - name: samples
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Optional. A TSV with a header row, then run, sample: two columns, one row per run. With it,
+      each peptidoform's intensity is summed over a sample's runs before the ratio (mzLib's
+      runToSample overload), and the run column of the result holds the sample. Every run of the
+      observations must be listed; a run listed here but absent there is ignored, as mzLib ignores it.
+      Map only fractions of one sample together, never technical replicates. Absent, the bridge sends
+      none and occupancy is per run.
+  - name: modifications
+    type: string
+    required: false
+    unit: null
+    range: "exact names, tab-separated, none blank"
+    default: null
+    doc: >-
+      Optional. Count only these modifications as sites: exact names as full_sequence writes them,
+      Category:IdWithMotif, separated by tabs (a name holds spaces and commas, never a tab). mzLib's
+      includeModification filter, applied after its own exclusions. Not with categories. Absent, the
+      bridge sends no filter: every modification mzLib does not exclude is a site.
+  - name: categories
+    type: string
+    required: false
+    unit: null
+    range: "category names, tab-separated, none blank"
+    default: null
+    doc: >-
+      Optional. Count only modifications of these categories, the text before the first ':' of the
+      name (mzLib's ModificationSite.Category), for example Common Biological. Separated by tabs. Not
+      with modifications. Absent, no filter.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: ".tsv only, any case (PYB-1)"
+    default: null
+    doc: >-
+      Write the table to this path as plain tab-separated text instead of returning columns: one
+      header row (column_names), null as an empty cell, numbers in invariant culture at round-trip
+      precision, booleans as true or false, nothing quoted. This is the file ptmqtl trait-effects
+      reads as occupancy. Parent directories are created. Must differ from observations. Must end in
+      .tsv, any case; any other extension, or none, is a usage error before any input is read.
+
+result:
+  envelope_fields:
+    - {wire: observations_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the observations table."}
+    - {wire: samples_file, type: string, unit: null, nullable: true, null_means: "no --samples: occupancy is per run", doc: "Absolute path of the run-to-sample table."}
+    - {wire: observation_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Observation rows read."}
+    - {wire: run_count, type: int, unit: runs, nullable: false, null_means: null, doc: "Distinct runs in the observations."}
+    - {wire: sample_count, type: int, unit: samples, nullable: true, null_means: "no --samples", doc: "Distinct samples in the run-to-sample table."}
+    - {wire: run_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The distinct values of the run column, in ordinal order: the runs, or with --samples the samples, that have at least one cell."}
+    - {wire: site_count, type: int, unit: sites, nullable: false, null_means: null, doc: "Distinct sites (protein, position, modification) in the table."}
+    - {wire: state_counts, type: "map<string,int>", unit: cells, nullable: false, null_means: null, doc: "Cells per state: quantified, floor, count_only, not_detected."}
+    - {wire: modifications, type: "string[]", unit: null, nullable: true, null_means: "no --modifications filter", doc: "The modification names the sites were limited to."}
+    - {wire: categories, type: "string[]", unit: null, nullable: true, null_means: "no --categories filter", doc: "The categories the sites were limited to."}
+    - {wire: ignored_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns of the observations file that are not fields of mzLib's observation, so were not read; empty when every column was read."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Cells in the table, whether returned or written."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order; also the header --out writes."}
+    - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to --out instead", doc: "One row per (site, run) where the site was identified or covered, in mzLib's order: by protein, then run, then position and modification."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "--out was not given", doc: "{path, format: tsv, row_count} of the file --out wrote."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Six static caveats; one more with --samples, one when columns were not read, and one counting the censored (floor or not_detected) cells when there are any."}
+  columns:
+    - {wire: site_key, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's ModificationSite.Key, accession:residue position:modification, for example P1:S13:Common Biological:Phosphorylation on S. The key ptmqtl pairs and ptmqtl trait-effects name sites by."}
+    - {wire: protein_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The protein the site is on, as given."}
+    - {wire: position, type: int, unit: null, nullable: false, null_means: null, doc: "1-based residue position in the protein. A protein N-terminal modification is at the residue it sits on (1, or 2 after the initiator Met is removed). readers read-occupancy counts differently (0 is the N-terminus): do not join the two on position."}
+    - {wire: residue, type: string, unit: null, nullable: false, null_means: null, doc: "The one-letter residue at position."}
+    - {wire: modification, type: string, unit: null, nullable: false, null_means: null, doc: "The modification as full_sequence names it, Category:IdWithMotif."}
+    - {wire: category, type: string, unit: null, nullable: false, null_means: null, doc: "The text before the first ':' of modification (mzLib's ModificationSite.Category); empty when the name has none."}
+    - {wire: run, type: string, unit: null, nullable: false, null_means: null, doc: "The run, or with --samples the sample."}
+    - {wire: state, type: string, unit: null, nullable: false, null_means: null, doc: "quantified (the modified form was quantified: a fraction in (0, 1]) | floor (the modified form was identified but not quantified while forms covering the site were: low but NOT zero) | count_only (the modified form was identified, but nothing covering the site was quantified) | not_detected (the site was covered by quantified peptides but no modified form was identified: unknown, not 0)."}
+    - {wire: modified_intensity, type: float, unit: "intensity (instrument units)", nullable: false, null_means: null, doc: "Summed intensity of the quantified peptidoforms carrying this modification at this position; 0 unless state is quantified."}
+    - {wire: covering_intensity, type: float, unit: "intensity (instrument units)", nullable: false, null_means: null, doc: "Summed intensity of every quantified peptidoform covering the position, modified or not; 0 for count_only."}
+    - {wire: fraction, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "state is not quantified: the occupancy is censored (floor) or unknown (count_only, not_detected), never 0", doc: "modified_intensity / covering_intensity."}
+    - {wire: unmodified_quantified, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether some quantified form covering the position does not carry this modification there (the unmodified form, or another modification at the same position). false with fraction 1 is a ceiling: the site was seen only modified."}
+
+errors:
+  - {kind: usage, when: "observations missing, blank or not found; samples given without a value or not found; out given without a value, not ending in .tsv, or the observations path; modifications and categories both given, either without a value or with a blank name"}
+  - {kind: usage, when: "the observations file empty, header-only, missing a required column, with a repeated column name, a row whose field count differs from its header, a start_residue or end_residue that is not an integer, an intensity that is not a number (other than blank, NA, NaN), or a previous_residue longer than one letter; the samples file without two fields per row, with a blank or repeated run"}
+  - {kind: usage, when: "mzLib refuses the observations, in its own words: an empty run, sequence or accession; start_residue below 1 or a span that does not fit the sequence's length; an infinite or negative intensity; one (run, peptidoform, protein, start) given twice; a run with no sample, or an empty sample"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Intensity occupancy, as MetaMorpheus writes IntensityOccupancy_ (QuantProject DEF-OCC-INT): for a site in a run, the summed intensity of the quantified peptidoforms carrying the modification at that position over the summed intensity of every quantified peptidoform covering it. Supply MS/MS identifications only: a match-between-runs transfer must not be a row."
+  - "fraction is null unless state is quantified. A floor (identified, not quantified, while the site was covered) is low but not zero, and not_detected is unknown: neither may be averaged in as 0."
+  - "A fraction of 1 with unmodified_quantified false is a ceiling: the unmodified form may be present below detection."
+  - "position is 1-based, with a protein N-terminal modification at the residue it sits on; readers read-occupancy puts the N-terminus at 0."
+  - "mzLib always excludes the categories Common Variable and Common Fixed, peptide-terminal modifications, and every C-terminal modification (the protein's length is not supplied). An N-terminal modification is a site only on a peptide starting at residue 1, or at 2 when previous_residue is M or blank. Whether it is protein- or peptide-terminal is read from mzLib's modification registry; a name the registry does not know is treated as protein N-terminal."
+  - "A peptide shared by several proteins counts in full for each; MetaMorpheus gives it a proportional share per protein group, so its IntensityOccupancy_ can differ."
+  - "With samples, fractions are summed before the ratio. Map only fractions of one sample together; technical replicates keep their own run."
+
+bindings:
+  py: {name: pymzlib.ptmqtl.occupancy}
+  rust: {name: "mzlib::ptmqtl::occupancy_with", options: OccupancyOptions, note: "not yet ported"}
+  r: {name: ptmqtl_occupancy, note: "not yet ported"}
+
+examples:
+  - fixture: ptmqtl_occupancy_cases.json
+    py: "result = pymzlib.ptmqtl.occupancy('cases.tsv')"
+    rust: "let result = mzlib::ptmqtl::occupancy_with(\"cases.tsv\", &OccupancyOptions::default())?;"
+    r: "result <- ptmqtl_occupancy('cases.tsv')"
+  - fixture: ptmqtl_occupancy_fractions.json
+    py: "result = pymzlib.ptmqtl.occupancy('fractions.tsv', samples='fractions_samples.tsv')"
+    rust: "let result = mzlib::ptmqtl::occupancy_with(\"fractions.tsv\", &OccupancyOptions { samples: Some(\"fractions_samples.tsv\".into()), ..Default::default() })?;"
+    r: "result <- ptmqtl_occupancy('fractions.tsv', samples = 'fractions_samples.tsv')"
+  - fixture: ptmqtl_occupancy_trait_out.json
+    py: "result = pymzlib.ptmqtl.occupancy('trait.tsv', out='trait_occupancy.tsv')"
+    rust: "let result = mzlib::ptmqtl::occupancy_with(\"trait.tsv\", &OccupancyOptions { out: Some(\"trait_occupancy.tsv\".into()), ..Default::default() })?;"
+    r: "result <- ptmqtl_occupancy('trait.tsv', out = 'trait_occupancy.tsv')"
+
+open_questions: []

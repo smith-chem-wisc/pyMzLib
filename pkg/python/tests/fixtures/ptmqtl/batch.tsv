@@ -1,0 +1,145 @@
+run	full_sequence	protein_accession	start_residue	end_residue	intensity	previous_residue
+r00	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	11	
+r00	PEPSK	PAIR_S	10	14	89	
+r00	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	16	
+r00	GGASK	PAIR_T	40	44	84	
+r00	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r00	ALASK	LEVEL_1	4	8	86.5	
+r00	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r00	VVASK	LEVEL_2	4	8	86.5	
+r00	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r00	TTASK	LEVEL_3	4	8	86.5	
+r00	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r00	MMASK	LEVEL_4	4	8	86.5	
+r01	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	14	
+r01	PEPSK	PAIR_S	10	14	86	
+r01	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	12	
+r01	GGASK	PAIR_T	40	44	88	
+r01	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r01	ALASK	LEVEL_1	4	8	86.5	
+r01	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r01	VVASK	LEVEL_2	4	8	86.5	
+r01	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r01	TTASK	LEVEL_3	4	8	86.5	
+r01	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r01	MMASK	LEVEL_4	4	8	86.5	
+r02	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	12	
+r02	PEPSK	PAIR_S	10	14	88	
+r02	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	11	
+r02	GGASK	PAIR_T	40	44	89	
+r02	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r02	ALASK	LEVEL_1	4	8	86.5	
+r02	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r02	VVASK	LEVEL_2	4	8	86.5	
+r02	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r02	TTASK	LEVEL_3	4	8	86.5	
+r02	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r02	MMASK	LEVEL_4	4	8	86.5	
+r03	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	16	
+r03	PEPSK	PAIR_S	10	14	84	
+r03	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	14	
+r03	GGASK	PAIR_T	40	44	86	
+r03	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r03	ALASK	LEVEL_1	4	8	86.5	
+r03	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r03	VVASK	LEVEL_2	4	8	86.5	
+r03	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r03	TTASK	LEVEL_3	4	8	86.5	
+r03	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r03	MMASK	LEVEL_4	4	8	86.5	
+r04	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	13	
+r04	PEPSK	PAIR_S	10	14	87	
+r04	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	13	
+r04	GGASK	PAIR_T	40	44	87	
+r04	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r04	ALASK	LEVEL_1	4	8	86.5	
+r04	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r04	VVASK	LEVEL_2	4	8	86.5	
+r04	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r04	TTASK	LEVEL_3	4	8	86.5	
+r04	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r04	MMASK	LEVEL_4	4	8	86.5	
+r05	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	15	
+r05	PEPSK	PAIR_S	10	14	85	
+r05	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	15	
+r05	GGASK	PAIR_T	40	44	85	
+r05	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	13.5	
+r05	ALASK	LEVEL_1	4	8	86.5	
+r05	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	13.5	
+r05	VVASK	LEVEL_2	4	8	86.5	
+r05	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	13.5	
+r05	TTASK	LEVEL_3	4	8	86.5	
+r05	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	13.5	
+r05	MMASK	LEVEL_4	4	8	86.5	
+r06	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	31	
+r06	PEPSK	PAIR_S	10	14	69	
+r06	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	36	
+r06	GGASK	PAIR_T	40	44	64	
+r06	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r06	ALASK	LEVEL_1	4	8	66.5	
+r06	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r06	VVASK	LEVEL_2	4	8	66.5	
+r06	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r06	TTASK	LEVEL_3	4	8	66.5	
+r06	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r06	MMASK	LEVEL_4	4	8	66.5	
+r07	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	34	
+r07	PEPSK	PAIR_S	10	14	66	
+r07	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	32	
+r07	GGASK	PAIR_T	40	44	68	
+r07	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r07	ALASK	LEVEL_1	4	8	66.5	
+r07	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r07	VVASK	LEVEL_2	4	8	66.5	
+r07	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r07	TTASK	LEVEL_3	4	8	66.5	
+r07	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r07	MMASK	LEVEL_4	4	8	66.5	
+r08	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	32	
+r08	PEPSK	PAIR_S	10	14	68	
+r08	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	31	
+r08	GGASK	PAIR_T	40	44	69	
+r08	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r08	ALASK	LEVEL_1	4	8	66.5	
+r08	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r08	VVASK	LEVEL_2	4	8	66.5	
+r08	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r08	TTASK	LEVEL_3	4	8	66.5	
+r08	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r08	MMASK	LEVEL_4	4	8	66.5	
+r09	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	36	
+r09	PEPSK	PAIR_S	10	14	64	
+r09	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	34	
+r09	GGASK	PAIR_T	40	44	66	
+r09	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r09	ALASK	LEVEL_1	4	8	66.5	
+r09	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r09	VVASK	LEVEL_2	4	8	66.5	
+r09	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r09	TTASK	LEVEL_3	4	8	66.5	
+r09	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r09	MMASK	LEVEL_4	4	8	66.5	
+r10	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	33	
+r10	PEPSK	PAIR_S	10	14	67	
+r10	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	33	
+r10	GGASK	PAIR_T	40	44	67	
+r10	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r10	ALASK	LEVEL_1	4	8	66.5	
+r10	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r10	VVASK	LEVEL_2	4	8	66.5	
+r10	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r10	TTASK	LEVEL_3	4	8	66.5	
+r10	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r10	MMASK	LEVEL_4	4	8	66.5	
+r11	PEPS[Common Biological:Phosphorylation on S]K	PAIR_S	10	14	35	
+r11	PEPSK	PAIR_S	10	14	65	
+r11	GGAS[Common Biological:Phosphorylation on S]K	PAIR_T	40	44	35	
+r11	GGASK	PAIR_T	40	44	65	
+r11	ALAS[Common Biological:Phosphorylation on S]K	LEVEL_1	4	8	33.5	
+r11	ALASK	LEVEL_1	4	8	66.5	
+r11	VVAS[Common Biological:Phosphorylation on S]K	LEVEL_2	4	8	33.5	
+r11	VVASK	LEVEL_2	4	8	66.5	
+r11	TTAS[Common Biological:Phosphorylation on S]K	LEVEL_3	4	8	33.5	
+r11	TTASK	LEVEL_3	4	8	66.5	
+r11	MMAS[Common Biological:Phosphorylation on S]K	LEVEL_4	4	8	33.5	
+r11	MMASK	LEVEL_4	4	8	66.5	

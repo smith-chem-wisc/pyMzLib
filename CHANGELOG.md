@@ -33,6 +33,31 @@ envelope is not a breaking change unless Python callers can see it.
   `stats.fit()` reads; `samples=` narrows to one stratum. mzLib does not yet roll peptides up to
   proteins, so neither does this. New module `pymzlib.diff` and a guide. Wire verb
   `diff observations`.
+- **`pymzlib.ptmqtl`, a new module: PTM site occupancy and PTM-QTL statistics, computed by
+  mzLib's `Quantification.PtmQtl`** (mzLib 1.0.595: #1369, #1430, #1446). Three functions, one
+  input: a plain table of MS/MS-identified peptidoforms with their per-run intensities, which is
+  mzLib's own `PeptidoformObservation` as columns. mzLib has no reader that builds it from a
+  MetaMorpheus or FlashLFQ result yet, so the new guide shows how to assemble it from
+  `readers.read_records()` and `readers.read_quantified_peptides()`.
+  - **`ptmqtl.occupancy()`**: every site's intensity occupancy in every run, as MetaMorpheus
+    writes `IntensityOccupancy_` (`SiteOccupancyCalculator.Calculate`). Each cell keeps its state,
+    `quantified`, `floor`, `count_only` or `not_detected`, and only a quantified cell has a
+    `fraction`, so a censored cell is never averaged in as 0; `unmodified_quantified` is `False`
+    on a ceiling. `samples=` sums a sample's fractions before the ratio. **Positions are 1-based,
+    unlike `readers.read_occupancy`**, whose N-terminus is 0. `out=` writes the table
+    `trait_effects()` reads. Wire verb `ptmqtl occupancy`.
+  - **`ptmqtl.pairs()`**: PTM-PTM pairs, physical (both modifications on one peptidoform) or
+    co-varying (Spearman across runs, Benjamini-Hochberg per family, overlapping pairs reported but
+    not adjusted), by `PtmPairEngine`. `type=` is required, because mzLib has no default between
+    its two methods. `remove_run_level=True` correlates given each run's level, which removes a
+    batch or loading shift (in mzLib's batch case, rho 0.76 falls to 0.03), with
+    `run_level_group=` or a `run_level_groups=` file for one level per group. The
+    70% quantified-runs guard and leaving ceilings out are mzLib's defaults, reported back. Wire
+    verb `ptmqtl pairs`.
+  - **`ptmqtl.trait_effects()`**: per site, the effect of a per-run trait on logit occupancy, from
+    a random-intercept mixed model per biological replicate (`SiteTraitEffects.Fit`), so repeated
+    injections are not counted as independent. mzLib's support thresholds (6 runs, 4 replicates),
+    logit clamp and ceiling rule apply unless you set them. Wire verb `ptmqtl trait-effects`.
 - **`library.read()`: an mzLib spectral library (`.msl`) as a table** (`MslFileTypeHandler.Open`,
   `MslLibrary.GetEntry`; the entrapment flag and a working `rt_is_calibrated` are mzLib 1.0.595,
   #1383). One row per precursor, in the library's stored order (`precursor_index`, not m/z

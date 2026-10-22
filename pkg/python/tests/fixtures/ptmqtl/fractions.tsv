@@ -1,0 +1,8 @@
+run	full_sequence	protein_accession	start_residue	end_residue	intensity	previous_residue
+f1	PEPS[Common Biological:Phosphorylation on S]K	SUMMED	10	14	30	
+f1	PEPSK	SUMMED	10	14	70	
+f2	PEPS[Common Biological:Phosphorylation on S]K	SUMMED	10	14	10	
+f2	PEPSK	SUMMED	10	14	90	
+g1	PEPSK	SUMMED	10	14	40	
+f1	PEPS[Common Biological:Phosphorylation on S]K	FLOOR_ACROSS	10	14		
+f2	PEPSK	FLOOR_ACROSS	10	14	50	
