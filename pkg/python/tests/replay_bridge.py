@@ -82,6 +82,7 @@ ECHOED_AS = {
 #: --max-mods cannot be answered from the max-mods 1 albumin digest.
 RECORDED_WITH = {
     "peptidoform_P02768_small.json": {"max-mods": "1"},
+    "proteins_align_charged.json": {"end-gaps": "charged"},
 }
 
 
@@ -136,6 +137,13 @@ def mismatch(data: dict, options: dict) -> str:
     if "accession_filter_count" in data:
         if ("accessions-stdin" in options) != (data["accession_filter_count"] is not None):
             return "a recording with the other accession filter (filtered vs unfiltered)"
+        # --sequences adds a sequence column: a recording with it and one without never stand in
+        # for each other, or an example would print sequences it did not ask for (or lack them).
+        if ("sequences" in options) != ("sequence" in (data.get("column_names") or [])):
+            return "a recording with the other --sequences choice"
+    # proteins align: --no-residue-map leaves residue_map null, and only then.
+    if "residue_map" in data and ("no-residue-map" in options) != (data["residue_map"] is None):
+        return "a recording with the other --no-residue-map choice"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
@@ -159,20 +167,33 @@ def mismatch(data: dict, options: dict) -> str:
 
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
-STDIN_ECHO = {"quant flashlfq", "peptidoform convert"}
+STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align"}
 
 
 def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     """The call's stdin must be the recording's input.
 
-    quant flashlfq: the same mzML runs (by file name). peptidoform convert: the same sequences, in
-    the same order, as the recording's ``input`` column.
+    quant flashlfq: the same mzML runs (by file name). peptidoform convert and proteins
+    parse-accession: the same lines, in the same order, as the recording's ``input`` column.
+    proteins align: the same pairs, in the same order, as the recording's aligned rows with their
+    gaps removed (mzLib refuses a '-' in an input sequence, so removing them is exact).
     """
-    if verb == "peptidoform convert":
+    if verb in ("peptidoform convert", "proteins parse-accession"):
         sent = [line for line in stdin.splitlines() if line.strip()]
         recorded = list((data.get("columns") or {}).get("input") or [])
         if sent != recorded:
-            return f"recorded for sequences {recorded}, not {sent}"
+            return f"recorded for inputs {recorded}, not {sent}"
+        return ""
+    if verb == "proteins align":
+        sent = [tuple(line.split("\t")) for line in stdin.splitlines() if line.strip()]
+        columns = data.get("columns") or {}
+        recorded = [
+            (s.replace("-", ""), t.replace("-", ""))
+            for s, t in zip(columns.get("aligned_source") or [], columns.get("aligned_target") or [])
+        ]
+        if sent != recorded:
+            short = [(s[:12], t[:12]) for s, t in recorded]
+            return f"recorded for pairs starting {short}, not these"
         return ""
     sent = {base(line.split("	")[0].strip()) for line in stdin.splitlines() if line.strip()}
     recorded = {base(str(f.get("full_path", ""))) for f in data.get("spectra_files") or []}

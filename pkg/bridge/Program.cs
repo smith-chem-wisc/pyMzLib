@@ -294,6 +294,8 @@ public static partial class Program
             "proteins classify-peptides" => Proteins.ClassifyPeptides(arguments),
             "proteins annotate-go" => Proteins.AnnotateGo(arguments),
             "proteins update-go" => Proteins.UpdateGo(arguments),
+            "proteins align" => Proteins.Align(arguments),
+            "proteins parse-accession" => Proteins.ParseAccession(arguments),
             "genes resolve" => Proteins.ResolveGenes(arguments),
             "stats fit" => Statistics.Fit(arguments),
             "stats adjust" => Statistics.Adjust(arguments),
@@ -1024,6 +1026,17 @@ public static partial class Program
             if (raw == null)
                 return fallback;
             if (!int.TryParse(raw, out int parsed))
+                throw new UsageException($"Option --{name} must be an integer; got '{raw}'.");
+            return parsed;
+        }
+
+        /// <summary>As <see cref="OptionalInt"/>, for an option mzLib types as <c>long</c>.</summary>
+        public long OptionalLong(string name, long fallback)
+        {
+            string? raw = NumberText(name);
+            if (raw == null)
+                return fallback;
+            if (!long.TryParse(raw, out long parsed))
                 throw new UsageException($"Option --{name} must be an integer; got '{raw}'.");
             return parsed;
         }

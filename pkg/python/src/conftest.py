@@ -56,8 +56,9 @@ REPLAY_EXTRA = {
     "quant median-polish": ["median_polish_k562.json"],
     # The SDRF guide: assess() on a Partial file and on a skeleton.
     "sdrf assess": ["sdrf_assess_PXD000070.json", "sdrf_assess_skeleton.json"],
-    # The proteins guide: three databases and a contaminant, filtered to four accessions.
-    "proteins read": ["proteins_read_accessions.json"],
+    # The proteins guide: three databases and a contaminant, filtered to four accessions; and the
+    # DYNC1I2 isoforms and both albumins with their sequences, which the alignment section aligns.
+    "proteins read": ["proteins_read_accessions.json", "proteins_read_sequences.json"],
 }
 
 

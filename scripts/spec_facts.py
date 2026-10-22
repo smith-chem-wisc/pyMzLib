@@ -155,6 +155,14 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "the only accepted value is fail, the default; there is no skip to choose",
         },
     },
+    "proteins align": {
+        # The spec's binding is align_many(pairs, ...); align(source, target, ...) is its one-pair
+        # form and returns one Alignment.
+        "param.no-residue-map": {
+            "python": "residue_map",
+            "why": "residue_map=False sends --no-residue-map",
+        },
+    },
     "stats fit": {
         "param.stdin": {"python": "coefficients", "why": "one stdin line per coefficient to test"},
     },

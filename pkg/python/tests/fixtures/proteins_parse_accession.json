@@ -1,0 +1,118 @@
+{
+ "record_count": 9,
+ "namespace_counts": {
+  "unrecognized": 4,
+  "uniprot": 4,
+  "refseq": 1
+ },
+ "with_applied_variants_count": 2,
+ "column_names": [
+  "input",
+  "entry_accession",
+  "isoform",
+  "version",
+  "namespace",
+  "parent_accession",
+  "applied_variants",
+  "has_applied_variants"
+ ],
+ "columns": {
+  "input": [
+   "P04637",
+   "P04637-2",
+   "Q13409-2",
+   "NP_000537.3_R72P",
+   "P04637_S70N_A80T",
+   "P04637_2",
+   "DECOY_P02768",
+   "sp|P04637|P53_HUMAN",
+   "P04637|P02768"
+  ],
+  "entry_accession": [
+   "P04637",
+   "P04637",
+   "Q13409",
+   "NP_000537",
+   "P04637",
+   "P04637_2",
+   "DECOY_P02768",
+   "sp|P04637|P53_HUMAN",
+   "P04637|P02768"
+  ],
+  "isoform": [
+   null,
+   2,
+   2,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "version": [
+   null,
+   null,
+   null,
+   3,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "namespace": [
+   "uniprot",
+   "uniprot",
+   "uniprot",
+   "refseq",
+   "uniprot",
+   "unrecognized",
+   "unrecognized",
+   "unrecognized",
+   "unrecognized"
+  ],
+  "parent_accession": [
+   "P04637",
+   "P04637-2",
+   "Q13409-2",
+   "NP_000537.3",
+   "P04637",
+   "P04637_2",
+   "DECOY_P02768",
+   "sp|P04637|P53_HUMAN",
+   "P04637|P02768"
+  ],
+  "applied_variants": [
+   null,
+   null,
+   null,
+   "R72P",
+   "S70N_A80T",
+   null,
+   null,
+   null,
+   null
+  ],
+  "has_applied_variants": [
+   false,
+   false,
+   false,
+   true,
+   true,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ "caveats": [
+  "Parses, never repairs (mzLib's rule): an accession outside the UniProt and RefSeq protein grammars is unrecognized and kept verbatim, entry_accession equal to input. That includes lower case, surrounding spaces, a FASTA header (sp|P04637|P53_HUMAN), a decoy, contaminant or entrapment prefix (DECOY_P04637), and ProteinDbLoader's collision counter (P04637_2, which names a different entry whose accession collided).",
+  "entry_accession names the entry, not a sequence: P04637 and P04637-2 share it but are different sequences, and the isoform UniProt displays for an entry can carry any number. It answers 'same entry', never 'same sequence'.",
+  "A protein-group accession joined with '|' (P04637|P02768) is unrecognized as a whole: mzLib does not split it. Split protein groups first.",
+  "Only RefSeq protein accessions (NP_, XP_, YP_, WP_, AP_) are recognized; a RefSeq transcript (NM_) or an Ensembl id (ENSP...) is unrecognized.",
+  "A variant suffix is read only after an entry mzLib recognizes, in the form mzLib's GetAccession writes: '_', the original residues, a 1-based position, the variant residues (S70N; a deletion A80; a stop gain Q5*), repeated for several (S70N_A80T). applied_variants is that suffix as written: it is not checked against any sequence.",
+  "An isoform or version number too large for a 32-bit integer (over 2147483647) reads as null while the accession still counts as UniProt or RefSeq: mzLib keeps the entry and drops the number.",
+  "Each stdin line is one accession, given to mzLib exactly as read; blank lines are skipped. One row per line, in input order, duplicates included."
+ ]
+}

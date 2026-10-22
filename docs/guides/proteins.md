@@ -12,6 +12,8 @@ somewhere else. **The protein database you searched already knows all four**, an
 | Does this peptide identify one protein, one gene, or neither? | [`classify_peptides()`](#decide-whether-a-peptide-is-unique-with-i-l) | `PeptideUniquenessClassifier` ([#1348][1348]) |
 | Which GO terms does each protein group carry, with every member kept and the ontology's ancestors filled in? | [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member) | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
 | Where do I get a go.obo, and how do I keep the release pinned? | [`update_go()`](#first-get-a-goobo-once-and-keep-it) | `Loaders.UpdateGeneOntology` ([#1353][1353]) |
+| Where is residue 120 of this protein in its isoform, or in the bovine protein? | [`align()`, `align_many()`](#map-a-residue-from-one-sequence-onto-another) | `PairwiseAligner` ([#1428][1428]) |
+| Which entry, isoform and variants does `P04637-2_S70N` or `NP_000537.3_R72P` name? | [`parse_accessions()`](#read-an-accession-into-entry-isoform-and-variants) | `VariantApplication.ParseAccession` ([#1382][1382]) |
 
 ```pycon
 >>> import pymzlib
@@ -602,6 +604,216 @@ Every database is part of one search space, so `classify_peptides` has no `on_er
 database fails to load, the call fails, because carrying on would report the peptides only that
 database contains as unique.
 
+## Map a residue from one sequence onto another
+
+**The problem.** A position means something only in the sequence it was counted in. A phosphosite
+reported on the canonical isoform, a variant called against last year's UniProt release, a cysteine
+you know in the human protein: before you look for it in an isoform, an ortholog or a newer entry,
+you need the residue that *corresponds* to it there. Counting the same number along the other
+sequence is wrong as soon as there is one insertion or deletion before it.
+
+`align()` aligns two sequences with mzLib's `PairwiseAligner` ([#1428][1428]) and maps every residue
+to its counterpart in the other sequence, or to `None` when it has none. Here the canonical DYNC1I2
+sequence (Q13409) is aligned with its isoforms 2B and 2C, read from the database with
+`sequences=True`:
+
+```pycon
+>>> db = pymzlib.proteins.read(
+...     ["human_extra.fasta"], contaminants=["contaminants.fasta"],
+...     accessions=["Q13409", "Q13409-2", "Q13409-3", "P02768", "P02769"], sequences=True)
+>>> seq = dict(zip(db.columns["accession"], db.columns["sequence"]))
+>>> isoforms = pymzlib.proteins.align_many([(seq["Q13409"], seq["Q13409-2"]),
+...                                         (seq["Q13409"], seq["Q13409-3"])])
+>>> two_b, two_c = isoforms.alignments
+>>> for p in (75, 76, 82, 100, 120, 133):
+...     print(p, two_b.map_source_to_target(p), two_c.map_source_to_target(p))
+75 75 75
+76 None None
+82 76 76
+100 94 94
+120 114 None
+133 127 107
+
+```
+
+Reading it row by row:
+
+- **Up to residue 75 the numbers agree.** Both isoforms begin with the same 75 residues.
+- **Residues 76 to 81 have no counterpart in either isoform**: `None`, never the nearest residue.
+  Both isoforms lack those six residues of the canonical sequence.
+- **After the gap the numbers are shifted**: canonical residue 100 is residue 94 of each isoform.
+- **Isoform 2C lacks 20 more** (canonical 113 to 132), so canonical 120 has no counterpart in 2C,
+  and canonical 133 is 2C's residue 107.
+
+`map_target_to_source()` goes the other way. To see where the gaps fall, print the aligned rows,
+which hold `-` wherever a residue faces a gap:
+
+```pycon
+>>> print(two_c.aligned_source[60:140], two_c.aligned_target[60:140], sep="\n")
+EALLQSMGLTPESPIVFSEYWVPPPMSPSSKSVSTPSEAGSQDSGDGAVGSRTLHWDTDPSVLQLHSDSDLGRGPIKLGM
+EALLQSMGLTPESPI------VPPPMSPSSKSVSTPSEAGSQDSGDGAVGSR--------------------RGPIKLGM
+>>> two_b.identical, two_b.substituted, two_b.source_residues_facing_gap
+(632, 0, 6)
+
+```
+
+**What each number means.** `identical` and `substituted` count the paired residues that are the
+same letter and that differ; `source_residues_facing_gap` and `target_residues_facing_gap` count
+the residues with no counterpart. `score` is the alignment's BLOSUM62 score in half-bits (see the
+traps). `aligner_id` names the method and every parameter, so store it beside any position you map:
+
+```pycon
+>>> isoforms.aligner_id
+'global-affine;BLOSUM62;open=11;extend=1;end-gaps=free'
+
+```
+
+### Orthologs: the counterpart can be a different amino acid
+
+Across species most residues still pair, but many pair with a *different* residue. Human serum
+albumin's free thiol, Cys34 of the mature protein, is residue 58 of the UniProt sequence, which
+counts the 24-residue signal peptide and propeptide. In bovine albumin it is a cysteine at 58 too:
+
+```pycon
+>>> albumin = pymzlib.proteins.align(seq["P02768"], seq["P02769"])
+>>> albumin.map_source_to_target(58), seq["P02769"][58 - 1]
+(58, 'C')
+>>> albumin.identical, albumin.substituted, albumin.source_residues_facing_gap
+(465, 142, 2)
+>>> albumin.map_source_to_target(26), seq["P02768"][26 - 1], seq["P02769"][26 - 1]
+(26, 'A', 'T')
+
+```
+
+Residue 26 pairs, but it is A in human and T in bovine albumin. **Always check the residue at the
+mapped position** before you carry a modification across: a phosphosite on S is not a site on A.
+`align_many()` has the whole residue map as a table, one row per residue of both sequences, with
+both letters side by side. Hand `isoforms.residue_map.columns` to `pandas.DataFrame` and compare
+the `residue` and `mapped_residue` columns.
+
+### Many pairs: one call
+
+`align_many()` takes a list of `(source, target)` pairs and aligns them in one bridge process, in
+order, so a few thousand isoform pairs cost one process start, not a few thousand. Its
+`residue_map` table has a `pair_index` column, and `alignments` gives one `Alignment` per pair. For a
+large batch where you only want the scores and counts, pass `residue_map=False`: the map has one row
+per residue of both sequences, and leaving it out keeps the answer small.
+
+### The options, and whose defaults they are
+
+Every option you leave out is **mzLib's to set**. pyMzLib sends nothing for it, and the result
+says what the aligner used. The isoform alignment above passed no options, so these are mzLib's
+own defaults in this build:
+
+```pycon
+>>> isoforms.matrix, isoforms.gap_open, isoforms.gap_extend, isoforms.end_gaps, isoforms.max_cells
+('BLOSUM62', 11, 1, 'free', 200000000)
+
+```
+
+| Argument | Meaning |
+|---|---|
+| `gap_open` | cost of opening a gap, in BLOSUM62's half-bits; a gap of *k* residues costs `gap_open + k * gap_extend` (BLAST's convention; mzLib's defaults are BLASTP's) |
+| `gap_extend` | cost of each residue in a gap, the first included |
+| `end_gaps` | `"free"`: an overhang at either end costs nothing (EMBOSS needle's default), so a signal peptide or a longer tail is not penalised. `"charged"`: every gap costs |
+| `max_cells` | the largest table mzLib will build, `(len(source) + 1) * (len(target) + 1)` cells of one byte; a larger pair is refused rather than allowed to exhaust memory |
+
+The matrix is always BLOSUM62, mzLib's default and the only one offered.
+
+```pycon
+>>> charged = pymzlib.proteins.align("MLLLPEPTIDE", "PEPTIDE", end_gaps="charged")
+>>> charged.aligned_target, charged.score, charged.aligner_id
+('----PEPTIDE', 24, 'global-affine;BLOSUM62;open=11;extend=1;end-gaps=charged')
+
+```
+
+With free end gaps the same pair scores 39: the four-residue overhang costs `11 + 4 * 1` only when
+it is charged.
+
+### The traps
+
+- **`score` is not an identity, a bit score or an E-value.** It is a raw sum of BLOSUM62 scores in
+  half-bits, less the gaps, and it grows with length. Compare scores only between alignments with
+  the same `aligner_id`. pyMzLib computes no percent identity, because there are several
+  definitions: divide `identical` by the length you mean.
+- **It is a global alignment.** Every residue of both sequences is placed, paired or facing a gap.
+  With free end gaps a short sequence is placed on the best-scoring stretch of a long one, even when
+  it has no real match there.
+- **One optimal alignment, chosen the same way every time.** Where two alignments score the same,
+  mzLib's traceback picks one, always the same one. Isoform 2B above is a real case: canonical V76
+  and V82 are both V, either could pair with the isoform's V76, and mzLib pairs V82, leaving V76 to
+  W81 facing the gap. Another aligner may give the equally good other answer.
+- **Pass bare one-letter sequences.** mzLib refuses only `-` and `.`, as a `UsageError`. Any other
+  character BLOSUM62 does not name - selenocysteine `U`, pyrrolysine `O`, a digit, a space, a
+  modification bracket - is scored as an unknown residue `X`, silently. Strip modifications first.
+- **Long pairs need a larger `max_cells`.** Time and memory grow with the product of the two
+  lengths. Two titin isoforms need about 1.2 billion cells, past the default; mzLib accepts up to
+  2,147,483,591. Two identical sequences are aligned residue for residue without the table, so the
+  limit does not apply to them.
+
+## Read an accession into entry, isoform and variants
+
+**The problem.** The accessions a search reports are not all plain entries. UniProt isoforms carry
+`-2`; RefSeq accessions carry a `.3` version; and mzLib names a protein with applied sequence
+variants after its entry, `P04637_S70N_A80T` or `NP_000537.3_R72P`. To join results to anything you
+keep per entry - genes, orthologs, GO terms - you need the entry back, without losing the isoform or
+the variants. Cutting at the first `_` turns `NP_000537` into `NP`.
+
+`parse_accessions()` reads each accession with mzLib's own grammars
+(`VariantApplication.ParseAccession`, [#1382][1382]):
+
+```pycon
+>>> parsed = pymzlib.proteins.parse_accessions(["P04637", "P04637-2", "Q13409-2",
+...     "NP_000537.3_R72P", "P04637_S70N_A80T", "P04637_2", "DECOY_P02768",
+...     "sp|P04637|P53_HUMAN", "P04637|P02768"])
+>>> for r in parsed.records:
+...     print(r["input"], r["namespace"], r["entry_accession"], r["isoform"], r["version"],
+...           r["applied_variants"])
+P04637 uniprot P04637 None None None
+P04637-2 uniprot P04637 2 None None
+Q13409-2 uniprot Q13409 2 None None
+NP_000537.3_R72P refseq NP_000537 None 3 R72P
+P04637_S70N_A80T uniprot P04637 None None S70N_A80T
+P04637_2 unrecognized P04637_2 None None None
+DECOY_P02768 unrecognized DECOY_P02768 None None None
+sp|P04637|P53_HUMAN unrecognized sp|P04637|P53_HUMAN None None None
+P04637|P02768 unrecognized P04637|P02768 None None None
+>>> parsed.namespace_counts
+{'unrecognized': 4, 'uniprot': 4, 'refseq': 1}
+
+```
+
+What each column means:
+
+- **`entry_accession`** is the UniProt entry or the unversioned RefSeq accession. It answers
+  "same entry?", **not** "same sequence?": `P04637` and `P04637-2` share it, but they are different
+  sequences. Join per-entry data on it; join sequence-level data on `input`.
+- **`isoform`** and **`version`** are the `-n` and `.n` numbers, `None` when there is none.
+- **`parent_accession`** is the entry the variants were applied to, isoform or version kept:
+  `NP_000537.3` for `NP_000537.3_R72P`. Look the parent sequence up under it.
+- **`applied_variants`** is the variant suffix exactly as written, `None` when there is none. It is
+  not checked against any sequence.
+- **`namespace`** is `uniprot`, `refseq` or `unrecognized`, spelled as `resolve_genes()` spells it,
+  so the two tables join.
+
+`parsed.entry_of()` is the `input` to `entry_accession` dictionary, for grouping.
+
+**It parses and never repairs.** Everything outside the two grammars comes back `unrecognized`,
+with `entry_accession` equal to the input, so a data problem stays visible instead of being fixed
+silently:
+
+- **`P04637_2` is not a variant of P04637.** It is mzLib's loader counter for a *different* entry
+  whose accession collided with P04637's.
+- **Decoy, contaminant and entrapment prefixes** (`DECOY_P02768`) and **FASTA headers**
+  (`sp|P04637|P53_HUMAN`) are left as they are.
+- **A protein group** (`P04637|P02768`) is not split. Split groups on `|` first, if that is what you
+  mean.
+- **Lower case and spaces count.** `" P04637"` is unrecognized: pyMzLib sends every accession
+  exactly as you give it. Only RefSeq *protein* accessions (`NP_`, `XP_`, `YP_`, `WP_`, `AP_`) are
+  recognized, so a transcript (`NM_`) or an Ensembl id (`ENSP...`) is unrecognized too.
+- **An isoform or version past 2,147,483,647** reads as `None`, while the namespace still says
+  `uniprot` or `refseq`: mzLib keeps the entry and drops the number.
+
 ## Many databases, threads and failures
 
 All three functions take one database or a list, and `contaminants=` as a separate list. They are
@@ -636,6 +848,13 @@ For `annotate_go()` and `update_go()`:
 | `UsageError` | a missing groups table, database, go.obo or category map; a FASTA database; an `out` or `categories_out` that is not `.tsv`, names an input, or sits in a folder that does not exist; `categories_out` without `category_map`; a negative `limit` or `offset` - all before any file is read. For `update_go()`, a folder that does not exist |
 | `BridgeError` | the database cites a GO id the release lacks (type `InvalidDataException`, every id named) unless `skip_unknown_go_ids=True`; a go.obo, category map or table mzLib cannot parse; a group written twice with different members. For `update_go()`, GO's server is unreachable (type `ServiceUnavailable`: retry later) |
 
+For `align()`, `align_many()` and `parse_accessions()`, every error is a `UsageError`:
+
+| Function | When |
+|---|---|
+| `align()`, `align_many()` | no pairs; a pair that is not two strings; a sequence with a tab or line break; two empty sequences; an option of the wrong type, or `end_gaps` not `"free"` or `"charged"`. From mzLib: a gap cost or `max_cells` out of range, a sequence holding `-` or `.`, or a pair whose table exceeds `max_cells` (the message names the pair, and nothing is returned). A `position` outside the sequence in `map_source_to_target()` |
+| `parse_accessions()` | no accessions; one that is not a string, is blank, or holds a line break; one string where a list was expected |
+
 ## Cite
 
 If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#citing)) and the
@@ -644,8 +863,8 @@ resources the answers come from:
 --8<-- "docs/reference/_generated/cite.proteins.md"
 
 The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
-`proteins read`, `genes resolve`, `proteins classify-peptides`, `proteins annotate-go` and
-`proteins update-go`. See the
+`proteins read`, `genes resolve`, `proteins classify-peptides`, `proteins annotate-go`,
+`proteins update-go`, `proteins align` and `proteins parse-accession`. See the
 [wire-verb reference](../reference/proteins.md) for every parameter and field with its unit, and the
 [API reference](../reference.md#pymzlibproteins) for the Python classes.
 
@@ -654,3 +873,5 @@ The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust an
 [1348]: https://github.com/smith-chem-wisc/mzLib/pull/1348
 [1353]: https://github.com/smith-chem-wisc/mzLib/pull/1353
 [1366]: https://github.com/smith-chem-wisc/mzLib/pull/1366
+[1382]: https://github.com/smith-chem-wisc/mzLib/pull/1382
+[1428]: https://github.com/smith-chem-wisc/mzLib/pull/1428

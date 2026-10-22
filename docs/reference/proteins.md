@@ -43,3 +43,23 @@ looping, and raise `threads` only if memory allows one whole database per thread
 ## `update_go`
 
 --8<-- "docs/reference/_generated/proteins.update-go.md"
+
+## `align` and `align_many`
+
+**The pairs always travel on stdin, one per line, source and target separated by a tab.**
+`align_many(pairs)` sends your list as those lines; `align(source, target)` sends one line and
+returns that pair's `Alignment`. Every option you leave as `None` is not sent, so mzLib's
+`PairwiseAligner` default applies, and the result's `gap_open`, `gap_extend`, `end_gaps` and
+`max_cells` say what was used. The wire's `no_residue_map` flag is Python's `residue_map=False`.
+**Performance:** time and memory grow with the product of the two lengths (one byte per table cell),
+and the pairs of one call are aligned one after another, so send a batch as one `align_many` call
+rather than looping over `align`.
+
+--8<-- "docs/reference/_generated/proteins.align.md"
+
+## `parse_accessions`
+
+**Plural in Python, singular on the wire,** as `sdrf parse-age` is: each stdin line is one
+accession, and Python's list becomes those lines exactly as given, never stripped or split.
+
+--8<-- "docs/reference/_generated/proteins.parse-accession.md"

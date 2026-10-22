@@ -18,6 +18,23 @@ envelope is not a breaking change unless Python callers can see it.
   download). **`md5` is not `PrideFile.checksum`**, which is a SHA-1 where PRIDE fills it in. An
   empty dict means the project exists but PRIDE holds no checksums for it. An unknown accession, or
   a project not yet published, raises `ProjectNotFoundError`. Wire verb `pride checksums`.
+- **`proteins.align()` and `proteins.align_many()`: align protein sequences with mzLib and map
+  every residue across** (mzLib 1.0.595, #1428, `PairwiseAligner`). A global alignment with affine
+  gaps, scored with BLOSUM62. Each residue maps to its counterpart in the other sequence, or to
+  `None` when it faces a gap, never to the nearest residue: `map_source_to_target()` and
+  `map_target_to_source()` on one `Alignment`, or the whole `residue_map` table, both letters side by
+  side. Use it to carry a site to an isoform, an ortholog or a newer entry: canonical DYNC1I2
+  residue 100 is residue 94 of isoform 2B. **Every option left out is mzLib's to set** (gap open
+  11, gap extend 1, end gaps free, a 200,000,000-cell limit at 1.0.595), and the result says what
+  was used. `score` is a raw BLOSUM62 score in half-bits, not an identity. Many pairs go in one call.
+  Wire verb `proteins align`.
+- **`proteins.parse_accessions()`: read accessions into entry, isoform or version, and applied
+  variants** (mzLib 1.0.595, #1382, `VariantApplication.ParseAccession`). `NP_000537.3_R72P` is
+  RefSeq `NP_000537`, version 3, with `R72P` applied; `P04637-2_S70N` is isoform 2 of `P04637`
+  with `S70N`. It parses and never repairs: a decoy prefix, a FASTA header, a `|`-joined group, a
+  stray space and mzLib's collision counter `P04637_2` all come back `unrecognized`, verbatim.
+  `namespace` is spelled as `resolve_genes()` spells it, so the two tables join. Wire verb
+  `proteins parse-accession`.
 
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,

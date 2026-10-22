@@ -2,7 +2,7 @@
  "bridge": "1.0.0.0",
  "protocol": 1,
  "runtime": "10.0.10",
- "mzlib": "1.0.0+0a808fec346e6e8f334e455490faab463ea65457",
+ "mzlib": "1.0.0+d10017ce499600a338bc7ba447db7cfb6ffce790",
  "verbs": [
   "version",
   "pride files",
@@ -37,6 +37,8 @@
   "proteins classify-peptides",
   "proteins annotate-go",
   "proteins update-go",
+  "proteins align",
+  "proteins parse-accession",
   "genes resolve",
   "stats fit",
   "stats adjust",

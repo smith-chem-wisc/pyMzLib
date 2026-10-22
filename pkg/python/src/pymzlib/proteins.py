@@ -50,6 +50,26 @@ naming the members that carry it. Consensus and direct-only views are filters on
     >>> go.group_count, go.row_count, go.header["status_contaminant"]
     (5, 563, '1')
 
+**Where is this residue in the other sequence?** :func:`align` aligns two sequences with mzLib's
+global aligner (BLOSUM62, affine gaps) and maps every residue to its counterpart in the other - an
+isoform, an ortholog, an older release - or to ``None`` when it faces a gap. :func:`align_many`
+aligns a list of pairs in one call::
+
+    >>> aln = pymzlib.proteins.align("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ")
+    >>> aln.map_source_to_target(12), aln.map_source_to_target(10)
+    (9, None)
+
+**What entry, isoform and variants does this accession name?** :func:`parse_accessions` reads
+``P04637-2``, ``NP_000537.3_R72P`` or ``P04637_S70N_A80T`` back into entry, isoform or version, and
+applied variants, with mzLib's grammars, and leaves anything else ``"unrecognized"`` rather than
+guess::
+
+    >>> parsed = pymzlib.proteins.parse_accessions(["P04637", "P04637-2", "Q13409-2",
+    ...     "NP_000537.3_R72P", "P04637_S70N_A80T", "P04637_2", "DECOY_P02768",
+    ...     "sp|P04637|P53_HUMAN", "P04637|P02768"])
+    >>> parsed.columns["namespace"][4:7]
+    ['uniprot', 'unrecognized', 'unrecognized']
+
 These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
 databases in ``pkg/python/tests/fixtures/proteins/``. The GO example's table is a real MetaMorpheus
 1.1.11 search (PXD036557).
@@ -75,8 +95,9 @@ to a gene, and a peptide it shares with a target is shared.
   signal peptide included - so they are not the mass of the mature protein.
 
 Wire verbs: ``proteins read``, ``genes resolve``, ``proteins classify-peptides``,
-``proteins annotate-go`` and ``proteins update-go``; their language-neutral specs live in the bridge
-repository under ``design/verbs/``.
+``proteins annotate-go``, ``proteins update-go``, ``proteins align`` and
+``proteins parse-accession``; their language-neutral specs live in the bridge repository under
+``design/verbs/``.
 """
 
 from __future__ import annotations
@@ -91,12 +112,16 @@ from .readers import _Table
 
 __all__ = [
     "ANNOTATION_STATUSES",
+    "END_GAPS",
+    "NAMESPACES",
     "NOT_IN_DATABASE",
     "OUTCOMES",
     "SHARED_ACROSS_GENES",
     "SHARED_WITHIN_GENE",
     "TABLES",
     "UNIQUE",
+    "Alignment",
+    "Alignments",
     "AnnotationDatabase",
     "DatabaseFile",
     "FileError",
@@ -106,13 +131,17 @@ __all__ = [
     "GoCategories",
     "GoRelease",
     "GoUpdate",
+    "ParsedAccessions",
     "PeptideClassification",
     "ProteinDatabase",
     "Table",
     "WrittenTable",
     "XrefTable",
+    "align",
+    "align_many",
     "annotate_go",
     "classify_peptides",
+    "parse_accessions",
     "read",
     "resolve_genes",
     "update_go",
@@ -150,6 +179,17 @@ ANNOTATION_STATUSES = ("annotated", "no_go_terms", "no_entry", "contaminant")
 
 #: The pyMzLib release whose bridge first dispatches ``proteins annotate-go`` and ``update-go``.
 _GO_SINCE = "0.3.0"
+
+#: The end-gap rules :func:`align` takes, as mzLib's aligner id spells them: ``"free"`` (mzLib's
+#: default: an overhang at either end costs nothing) or ``"charged"`` (every gap costs).
+END_GAPS = ("free", "charged")
+
+#: Every ``namespace`` :func:`parse_accessions` can report: mzLib's ``AccessionNamespace``, lower
+#: case, exactly as :func:`resolve_genes` writes it.
+NAMESPACES = ("uniprot", "refseq", "unrecognized")
+
+#: The pyMzLib release whose bridge first dispatches ``proteins align`` and ``parse-accession``.
+_ALIGN_SINCE = "0.6.0"
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -925,6 +965,310 @@ class GoUpdate:
         )
 
 
+def _check_position(position: object, length: int, what: str) -> int:
+    """A 1-based position in a sequence of ``length`` residues, or a :class:`UsageError`."""
+    if isinstance(position, bool) or not isinstance(position, int):
+        raise _bridge.UsageError(f"position must be an int; got {position!r}.")
+    if not 1 <= position <= length:
+        raise _bridge.UsageError(
+            f"position {position} is outside the {what}, which has positions 1 to {length} "
+            "(positions are 1-based, as in mzLib and UniProt)."
+        )
+    return position
+
+
+@dataclass(frozen=True)
+class Alignment:
+    """One pair's alignment, from :func:`align` or :attr:`Alignments.alignments`.
+
+    Positions are **1-based**, as in mzLib and UniProt. A residue facing a gap has no counterpart,
+    and :meth:`map_source_to_target` returns ``None`` for it - never the nearest residue.
+
+    Attributes:
+        pair_index: Position of the pair in the input, from 0.
+        aligner_id: mzLib's name for the method and every parameter, e.g.
+            ``"global-affine;BLOSUM62;open=11;extend=1;end-gaps=free"``. Store it with any position
+            you map, so the mapping says how it was made.
+        score: Substitution scores summed over the paired residues, less every charged gap, in
+            BLOSUM62's half-bits. A raw score: it grows with length, and is not a bit score, an
+            E-value or a percent identity.
+        identical: Paired residues that are the same letter (case-insensitive).
+        substituted: Paired residues that differ.
+        source_residues_facing_gap: Source residues with no counterpart in the target.
+        target_residues_facing_gap: Target residues with no counterpart in the source.
+        source_length: The source's length, in residues.
+        target_length: The target's length, in residues.
+        aligned_source: The source with ``-`` wherever it faces a target residue across a gap.
+        aligned_target: The target with ``-`` wherever it faces a source residue across a gap. As
+            long as :attr:`aligned_source`; print the two one above the other to see the alignment.
+        source_to_target: For each source position ``p``, item ``p - 1`` is the paired target
+            position, or ``None`` when that residue faces a gap. ``None`` as a whole when the call
+            asked for no residue map.
+        target_to_source: The same, from each target position to the source.
+        caveats: What the score and the mapping do and do not mean (the call's ``caveats``).
+    """
+
+    pair_index: int
+    aligner_id: str
+    score: int
+    identical: int
+    substituted: int
+    source_residues_facing_gap: int
+    target_residues_facing_gap: int
+    source_length: int
+    target_length: int
+    aligned_source: str
+    aligned_target: str
+    source_to_target: tuple[int | None, ...] | None = None
+    target_to_source: tuple[int | None, ...] | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    def map_source_to_target(self, position: int) -> int | None:
+        """The target position paired with source ``position``, or ``None`` if it faces a gap.
+
+        Wraps nothing new: it reads the residue map mzLib's ``TryMapSourceToTarget`` filled.
+
+        Args:
+            position: A 1-based source position, 1 to :attr:`source_length`.
+
+        Returns:
+            The 1-based target position, or ``None`` when the source residue has no counterpart.
+
+        Raises:
+            UsageError: ``position`` is not an int in range, or the call asked for no residue map.
+
+        Examples:
+            >>> aln = align("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ")
+            >>> aln.map_source_to_target(12), aln.map_source_to_target(10)
+            (9, None)
+        """
+        return self._lookup(self.source_to_target, position, self.source_length, "source")
+
+    def map_target_to_source(self, position: int) -> int | None:
+        """The source position paired with target ``position``, or ``None`` if it faces a gap.
+
+        Args:
+            position: A 1-based target position, 1 to :attr:`target_length`.
+
+        Returns:
+            The 1-based source position, or ``None`` when the target residue has no counterpart.
+
+        Raises:
+            UsageError: ``position`` is not an int in range, or the call asked for no residue map.
+
+        Examples:
+            >>> aln = align("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ")
+            >>> aln.map_target_to_source(9)
+            12
+        """
+        return self._lookup(self.target_to_source, position, self.target_length, "target")
+
+    @staticmethod
+    def _lookup(table: tuple[int | None, ...] | None, position: int, length: int, what: str) -> int | None:
+        if table is None:
+            raise _bridge.UsageError(
+                "This alignment has no residue map: it came from a call with residue_map=False."
+            )
+        return table[_check_position(position, length, what) - 1]
+
+
+@dataclass(frozen=True)
+class Alignments(_Table):
+    """What :func:`align_many` returns: one row per pair, and every residue's counterpart.
+
+    The pairs table (:attr:`columns`), one row per input pair, in input order:
+
+    ==============================  ===========  ===================================================
+    column                          type / unit  meaning
+    ==============================  ===========  ===================================================
+    ``pair_index``                  int          position of the pair in the input, from 0
+    ``source_length``               residues     the source's length
+    ``target_length``               residues     the target's length
+    ``score``                       half-bits    BLOSUM62 score of the alignment (see the caveats)
+    ``identical``                   residues     paired residues that are the same letter
+    ``substituted``                 residues     paired residues that differ
+    ``source_residues_facing_gap``  residues     source residues with no counterpart
+    ``target_residues_facing_gap``  residues     target residues with no counterpart
+    ``aligned_source``              str          the source, ``-`` where it faces a gap
+    ``aligned_target``              str          the target, ``-`` where it faces a gap
+    ==============================  ===========  ===================================================
+
+    The residue map (:attr:`residue_map`), one row per residue of each sequence, pair by pair: a
+    pair's source residues first, then its target residues:
+
+    ===================  =====  =============================================================
+    column               type   meaning; ``None`` means
+    ===================  =====  =============================================================
+    ``pair_index``       int    the pair
+    ``sequence``         str    ``"source"`` or ``"target"``: which sequence ``position`` is in
+    ``position``         int    1-based position in that sequence
+    ``residue``          str    the residue there, as given
+    ``mapped_position``  int    1-based position of its counterpart in the other sequence;
+                                ``None``: it faces a gap (**never** the nearest residue)
+    ``mapped_residue``   str    the counterpart, as given; ``None``: it faces a gap. A
+                                different letter from ``residue`` is a substitution
+    ===================  =====  =============================================================
+
+    Attributes:
+        aligner_id: mzLib's name for the method and every parameter, e.g.
+            ``"global-affine;BLOSUM62;open=11;extend=1;end-gaps=free"``. One aligner per call.
+        matrix: The substitution matrix, always ``"BLOSUM62"``: mzLib's default and the only one
+            offered.
+        gap_open: The gap-open cost used, in BLOSUM62's half-bits: what you passed, or mzLib's
+            default (11) when you passed nothing.
+        gap_extend: The cost per gap residue used, in half-bits: yours, or mzLib's default (1).
+        end_gaps: ``"free"`` or ``"charged"``: the end-gap rule used, yours or mzLib's default
+            (``"free"``).
+        max_cells: The table limit used, in cells: yours, or mzLib's default (200,000,000).
+        record_count: Pairs aligned: the rows of :attr:`columns`.
+        column_names: The pairs table's column order.
+        columns: Column name -> one value per pair. Hand it to ``pandas.DataFrame(...)``.
+        residue_map: The residue map, a :class:`Table`; ``None`` when ``residue_map=False``.
+        caveats: What the score and the mapping do and do not mean.
+    """
+
+    aligner_id: str
+    matrix: str
+    gap_open: int
+    gap_extend: int
+    end_gaps: str
+    max_cells: int
+    record_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    residue_map: Table | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    @property
+    def alignments(self) -> list[Alignment]:
+        """One :class:`Alignment` per pair, in input order, each with its residue map.
+
+        Examples:
+            >>> alns = align_many([("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ"),
+            ...                    ("MLLLPEPTIDE", "PEPTIDE")])
+            >>> [a.map_target_to_source(1) for a in alns.alignments]
+            [1, 5]
+        """
+        maps: dict[tuple[int, str], dict[int, int | None]] = {}
+        if self.residue_map is not None:
+            cols = self.residue_map.columns
+            for pair, sequence, position, mapped in zip(
+                cols.get("pair_index", []), cols.get("sequence", []),
+                cols.get("position", []), cols.get("mapped_position", []),
+            ):
+                maps.setdefault((pair, sequence), {})[position] = mapped
+
+        def table(pair: int, sequence: str, length: int) -> tuple[int | None, ...] | None:
+            if self.residue_map is None:
+                return None
+            found = maps.get((pair, sequence), {})
+            return tuple(found.get(p) for p in range(1, length + 1))
+
+        out = []
+        for row in self.records:
+            pair = int(row["pair_index"])
+            out.append(Alignment(
+                pair_index=pair,
+                aligner_id=self.aligner_id,
+                score=int(row["score"]),
+                identical=int(row["identical"]),
+                substituted=int(row["substituted"]),
+                source_residues_facing_gap=int(row["source_residues_facing_gap"]),
+                target_residues_facing_gap=int(row["target_residues_facing_gap"]),
+                source_length=int(row["source_length"]),
+                target_length=int(row["target_length"]),
+                aligned_source=row["aligned_source"],
+                aligned_target=row["aligned_target"],
+                source_to_target=table(pair, "source", int(row["source_length"])),
+                target_to_source=table(pair, "target", int(row["target_length"])),
+                caveats=list(self.caveats),
+            ))
+        return out
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> Alignments:
+        return cls(
+            aligner_id=data.get("aligner_id", ""),
+            matrix=data.get("matrix", ""),
+            gap_open=int(data.get("gap_open", 0)),
+            gap_extend=int(data.get("gap_extend", 0)),
+            end_gaps=data.get("end_gaps", ""),
+            max_cells=int(data.get("max_cells", 0)),
+            record_count=int(data.get("record_count", 0)),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+            residue_map=Table._from_wire(data.get("residue_map")),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class ParsedAccessions(_Table):
+    """What :func:`parse_accessions` returns: one row per accession, in the order given.
+
+    ============================  ====  ==============================================================
+    column                        type  meaning; ``None`` means
+    ============================  ====  ==============================================================
+    ``input``                     str   exactly as given
+    ``entry_accession``           str   the UniProt entry or unversioned RefSeq accession
+                                        (``P04637`` for ``P04637-2_S70N``); ``input`` when
+                                        unrecognized. An **entry**, not a sequence
+    ``isoform``                   int   UniProt ``-n`` isoform; ``None``: no suffix (always for
+                                        RefSeq), or a number past 2,147,483,647
+    ``version``                   int   RefSeq ``.n`` version; ``None``: no version (always for
+                                        UniProt), or a number past 2,147,483,647
+    ``namespace``                 str   one of :data:`NAMESPACES`
+    ``parent_accession``          str   the entry the variants were applied to, isoform or version
+                                        kept (``P04637-2`` for ``P04637-2_Q5*``); ``input`` when
+                                        there are no applied variants
+    ``applied_variants``          str   the variant suffix as written (``S70N_A80T``); ``None``: none
+    ``has_applied_variants``      bool  ``applied_variants`` is not ``None``
+    ============================  ====  ==============================================================
+
+    Attributes:
+        record_count: Accessions parsed: the rows, duplicates included.
+        namespace_counts: Namespace -> accessions in it. Every key in :data:`NAMESPACES` is
+            present, zeros included. A large ``"unrecognized"`` count is worth reading: see
+            :attr:`caveats`.
+        with_applied_variants_count: Accessions that name applied variants.
+        column_names: Column order.
+        columns: Column name -> one value per accession.
+        caveats: What mzLib leaves unrecognized rather than repairs, and other traps.
+    """
+
+    record_count: int
+    namespace_counts: dict[str, int] = field(default_factory=dict)
+    with_applied_variants_count: int = 0
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    def entry_of(self) -> dict[str, str]:
+        """Accession -> entry accession, to group isoforms and variants under their entry.
+
+        An accession given twice appears once (it parses the same). An unrecognized one maps to
+        itself.
+
+        Examples:
+            >>> parsed = parse_accessions(["P04637", "P04637-2", "Q13409-2", "NP_000537.3_R72P",
+            ...     "P04637_S70N_A80T", "P04637_2", "DECOY_P02768", "sp|P04637|P53_HUMAN", "P04637|P02768"])
+            >>> parsed.entry_of()["NP_000537.3_R72P"]
+            'NP_000537'
+        """
+        return dict(zip(self.columns.get("input", []), self.columns.get("entry_accession", [])))
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> ParsedAccessions:
+        return cls(
+            record_count=int(data.get("record_count", 0)),
+            namespace_counts=dict(data.get("namespace_counts") or {}),
+            with_applied_variants_count=int(data.get("with_applied_variants_count", 0)),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
 # ---- argument shaping --------------------------------------------------------------------------
 
 
@@ -1395,3 +1739,255 @@ def update_go(go_obo: _PathLike, *, timeout: float | None = None) -> GoUpdate:
     path = _one_path(go_obo, "go_obo", required=True) or ""
     _bridge.require_verb("proteins update-go", since=_GO_SINCE)
     return GoUpdate._from_wire(_bridge.invoke("proteins", "update-go", "--go-obo", path, timeout=timeout))
+
+
+def _pair_lines(pairs: Iterable[Sequence[str]]) -> list[str]:
+    """The pairs as stdin lines, ``source<TAB>target``, unchanged, refusing what cannot travel."""
+    if isinstance(pairs, (str, bytes)):
+        raise _bridge.UsageError(
+            "pairs must be a list of (source, target) tuples, not one string. For one pair, call "
+            "align(source, target)."
+        )
+    lines = []
+    for index, pair in enumerate(pairs):
+        if isinstance(pair, (str, bytes)) or not isinstance(pair, Sequence) or len(pair) != 2:
+            raise _bridge.UsageError(f"Pair {index} must be a (source, target) tuple; got {pair!r}.")
+        source, target = pair
+        for name, value in (("source", source), ("target", target)):
+            if not isinstance(value, str):
+                raise _bridge.UsageError(f"Pair {index}'s {name} must be a str; got {value!r}.")
+            # One pair is one stdin line, its two sequences split on the tab, so neither may hold
+            # a tab or a line break: either would shift or split every later pair.
+            if "\t" in value or "\n" in value or "\r" in value:
+                raise _bridge.UsageError(f"Pair {index}'s {name} contains a tab or line break: {value!r}.")
+        # The bridge skips a blank line, which would put every later result on the wrong pair.
+        if not (source + target).strip():
+            raise _bridge.UsageError(f"Pair {index} has two empty sequences; there is nothing to align.")
+        lines.append(f"{source}\t{target}")
+    return lines
+
+
+def _aligner_args(
+    gap_open: int | None, gap_extend: int | None, end_gaps: str | None, max_cells: int | None
+) -> list[str]:
+    """The aligner options that were given, and only those: mzLib's defaults apply to the rest."""
+    args: list[str] = []
+    for name, value in (("gap-open", gap_open), ("gap-extend", gap_extend), ("max-cells", max_cells)):
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise _bridge.UsageError(f"{name.replace('-', '_')} must be an int or None; got {value!r}.")
+        args += [f"--{name}", str(value)]
+    if end_gaps is not None:
+        if end_gaps not in END_GAPS:
+            raise _bridge.UsageError(f"end_gaps must be one of {END_GAPS} or None; got {end_gaps!r}.")
+        args += ["--end-gaps", end_gaps]
+    return args
+
+
+def align_many(
+    pairs: Iterable[Sequence[str]],
+    *,
+    gap_open: int | None = None,
+    gap_extend: int | None = None,
+    end_gaps: str | None = None,
+    max_cells: int | None = None,
+    residue_map: bool = True,
+    timeout: float | None = None,
+) -> Alignments:
+    """Align many pairs of protein sequences in one call, and map every residue across each pair.
+
+    Wraps mzLib's ``PairwiseAligner.Align`` (mzLib #1428): a **global** alignment with affine gaps
+    (Gotoh's form of Needleman-Wunsch) scored with **BLOSUM62**, and the residue map its
+    ``TryMapSourceToTarget`` and ``TryMapTargetToSource`` give. Use it to carry a position - a
+    modification site, a variant, a cleavage site - from one sequence to another: an isoform, an
+    ortholog, an older release of the same entry.
+
+    **Every option you leave out is mzLib's to set.** pyMzLib sends nothing for it, and the result
+    says what the aligner used (:attr:`Alignments.gap_open` and the rest). At mzLib 1.0.595 the
+    defaults are gap open 11, gap extend 1, end gaps free and a 200,000,000-cell limit: BLASTP's
+    gap costs for BLOSUM62, and EMBOSS needle's free end gaps.
+
+    Args:
+        pairs: ``(source, target)`` tuples of one-letter sequences, one result row each, in order.
+            Sent to mzLib exactly as given (case is kept, and compared case-insensitively). Either
+            sequence may be empty, not both. mzLib refuses ``-`` and ``.``; it scores any other
+            letter BLOSUM62 does not name (``U``, ``O``, a digit, a space) as ``X``, so strip
+            modifications first.
+        gap_open: Cost of opening a gap, in BLOSUM62's half-bits, charged once per gap: a gap of
+            ``k`` residues costs ``gap_open + k * gap_extend``. ``None`` (default): mzLib's, 11.
+            mzLib refuses a negative value.
+        gap_extend: Cost of each residue in a gap, the first included, in half-bits. ``None``
+            (default): mzLib's, 1. mzLib refuses less than 1.
+        end_gaps: ``"free"`` - a gap at either end of either sequence costs nothing, so a signal
+            peptide or a longer tail on one side is not penalised - or ``"charged"``. ``None``
+            (default): mzLib's, ``"free"``. See :data:`END_GAPS`.
+        max_cells: The largest table mzLib will build, ``(len(source) + 1) * (len(target) + 1)``
+            cells of one byte each. A larger pair is refused rather than allowed to exhaust memory.
+            ``None`` (default): mzLib's, 200,000,000 cells (about 200 MB). Two titin isoforms need
+            about 1.2 billion; mzLib accepts up to 2,147,483,591.
+        residue_map: ``True`` (default) returns :attr:`Alignments.residue_map`, one row per residue
+            of both sequences. ``False`` sends ``--no-residue-map`` and returns only the pairs
+            table, for a large batch where you want the scores and counts.
+        timeout: Seconds to allow. ``None`` (default) waits.
+
+    Returns:
+        An :class:`Alignments`. Its :attr:`~Alignments.alignments` gives one :class:`Alignment`
+        per pair, with :meth:`~Alignment.map_source_to_target`.
+
+    Raises:
+        UsageError: no pairs; a pair that is not two strings; a sequence with a tab or line
+            break; two empty sequences; an option of the wrong type or ``end_gaps`` not in
+            :data:`END_GAPS`. From mzLib, through the bridge: a gap cost or ``max_cells`` out of
+            range, a sequence holding ``-`` or ``.``, or a pair whose table exceeds ``max_cells``
+            (the message names the pair; the whole call fails).
+
+    Examples:
+        A deletion and an extra N-terminus, mzLib's own test cases:
+
+        >>> alns = align_many([("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ"),
+        ...                    ("MLLLPEPTIDE", "PEPTIDE")])
+        >>> alns.aligner_id
+        'global-affine;BLOSUM62;open=11;extend=1;end-gaps=free'
+        >>> alns.columns["score"], alns.columns["source_residues_facing_gap"]
+        ([80, 39], [3, 4])
+        >>> alns.columns["aligned_target"]
+        ['MKTAYIAK---ISFVKSHFSRQ', '----PEPTIDE']
+    """
+    lines = _pair_lines(pairs)
+    if not lines:
+        raise _bridge.UsageError("At least one pair is required, e.g. [('MKTAYIAK', 'MKTSYIAK')].")
+    args = ["proteins", "align", *_aligner_args(gap_open, gap_extend, end_gaps, max_cells)]
+    if not residue_map:
+        args.append("--no-residue-map")
+
+    _bridge.require_verb("proteins align", since=_ALIGN_SINCE)
+    data = _bridge.invoke(*args, stdin="\n".join(lines) + "\n", timeout=timeout)
+    return Alignments._from_wire(data)
+
+
+def align(
+    source: str,
+    target: str,
+    *,
+    gap_open: int | None = None,
+    gap_extend: int | None = None,
+    end_gaps: str | None = None,
+    max_cells: int | None = None,
+    timeout: float | None = None,
+) -> Alignment:
+    """Align two protein sequences with mzLib, and map residues from one onto the other.
+
+    The one-pair form of :func:`align_many`: the same bridge call and the same mzLib defaults,
+    returning one :class:`Alignment` with its residue map.
+
+    Args:
+        source: The sequence whose positions you have, one-letter codes, e.g. the canonical isoform.
+        target: The sequence you want them in.
+        gap_open: Gap-open cost in BLOSUM62's half-bits; ``None`` (default) is mzLib's, 11.
+        gap_extend: Cost per gap residue in half-bits; ``None`` (default) is mzLib's, 1.
+        end_gaps: ``"free"`` or ``"charged"``; ``None`` (default) is mzLib's, ``"free"``.
+        max_cells: Table limit in cells; ``None`` (default) is mzLib's, 200,000,000.
+        timeout: Seconds to allow. ``None`` (default) waits.
+
+    Returns:
+        An :class:`Alignment`.
+
+    Raises:
+        UsageError: as :func:`align_many`.
+
+    Examples:
+        mzLib's own deletion case: ``QRQ`` (source 9 to 11) is missing from the target.
+
+        >>> aln = align("MKTAYIAKQRQISFVKSHFSRQ", "MKTAYIAKISFVKSHFSRQ")
+        >>> print(aln.aligned_source, aln.aligned_target, sep="\\n")
+        MKTAYIAKQRQISFVKSHFSRQ
+        MKTAYIAK---ISFVKSHFSRQ
+        >>> aln.score, aln.identical, aln.source_residues_facing_gap
+        (80, 19, 3)
+        >>> [aln.map_source_to_target(p) for p in (8, 9, 10, 11, 12)]
+        [8, None, None, None, 9]
+
+        Charging the end gaps changes the score of an overhang, and the aligner id says so:
+
+        >>> charged = align("MLLLPEPTIDE", "PEPTIDE", end_gaps="charged")
+        >>> charged.score, charged.aligner_id
+        (24, 'global-affine;BLOSUM62;open=11;extend=1;end-gaps=charged')
+    """
+    for name, value in (("source", source), ("target", target)):
+        if not isinstance(value, str):
+            raise _bridge.UsageError(f"{name} must be a str; got {value!r}.")
+    result = align_many(
+        [(source, target)], gap_open=gap_open, gap_extend=gap_extend, end_gaps=end_gaps,
+        max_cells=max_cells, timeout=timeout,
+    )
+    return result.alignments[0]
+
+
+def _accession_lines(accessions: Iterable[str]) -> list[str]:
+    """The accessions as stdin lines, unchanged: mzLib parses and never repairs, so neither do we."""
+    if isinstance(accessions, str):
+        raise _bridge.UsageError(
+            "accessions must be a list of strings, not one string: that would send one accession "
+            f"per character. Wrap it: [{accessions!r}]."
+        )
+    lines = []
+    for value in accessions:
+        if not isinstance(value, str):
+            raise _bridge.UsageError(f"Every accession must be a str; got {value!r}.")
+        # The bridge skips blank lines and splits on line breaks, so either would put every later
+        # row on the wrong accession. Refused here rather than silently re-aligned. A space around
+        # an accession is NOT stripped: mzLib reads it as unrecognized, and that is the answer.
+        if not value.strip():
+            raise _bridge.UsageError("accessions contains a blank entry; every entry is one result row.")
+        if "\n" in value or "\r" in value:
+            raise _bridge.UsageError(f"An accession contains a line break: {value!r}.")
+        lines.append(value)
+    return lines
+
+
+def parse_accessions(accessions: Iterable[str], *, timeout: float | None = None) -> ParsedAccessions:
+    """Read accessions into entry, isoform or version, and applied variants, with mzLib.
+
+    Wraps mzLib's ``VariantApplication.ParseAccession`` (mzLib #1382), and through it
+    ``ProteinAccession.Parse``. It is the inverse of the names mzLib gives variant proteoforms:
+    ``P04637_S70N`` is entry ``P04637`` with ``S70N`` applied, and ``NP_000537.3_R72P`` is RefSeq
+    ``NP_000537``, version 3, with ``R72P``. Use it to link a search result's accession to anything
+    you keep per entry - genes, orthologs, GO terms - without losing the isoform or the variants.
+
+    **It parses and never repairs.** An accession outside UniProt's and RefSeq's protein grammars
+    comes back ``"unrecognized"`` and verbatim - lower case, a stray space, a FASTA header, a
+    ``DECOY_`` prefix, a ``|``-joined protein group, and ``P12345_2``, mzLib's loader counter for a
+    *different* entry whose accession collided. pyMzLib sends each accession exactly as you give it.
+
+    Args:
+        accessions: One accession per result row, in order, duplicates included. Sent on stdin,
+            unchanged: not stripped, not split. A blank entry or one with a line break is refused,
+            because it would shift every later row.
+        timeout: Seconds to allow. ``None`` (default) waits.
+
+    Returns:
+        A :class:`ParsedAccessions`, one row per accession.
+
+    Raises:
+        UsageError: no accessions; one that is not a str, is blank, or holds a line break; a single
+            string instead of a list.
+
+    Examples:
+        >>> parsed = parse_accessions(["P04637", "P04637-2", "Q13409-2", "NP_000537.3_R72P",
+        ...     "P04637_S70N_A80T", "P04637_2", "DECOY_P02768", "sp|P04637|P53_HUMAN", "P04637|P02768"])
+        >>> parsed.columns["entry_accession"][:5]
+        ['P04637', 'P04637', 'Q13409', 'NP_000537', 'P04637']
+        >>> parsed.columns["isoform"][:3], parsed.columns["version"][3]
+        ([None, 2, 2], 3)
+        >>> parsed.columns["applied_variants"][3:5]
+        ['R72P', 'S70N_A80T']
+        >>> parsed.namespace_counts
+        {'unrecognized': 4, 'uniprot': 4, 'refseq': 1}
+    """
+    lines = _accession_lines(accessions)
+    if not lines:
+        raise _bridge.UsageError("At least one accession is required, e.g. ['P04637-2'].")
+    _bridge.require_verb("proteins parse-accession", since=_ALIGN_SINCE)
+    data = _bridge.invoke("proteins", "parse-accession", stdin="\n".join(lines) + "\n", timeout=timeout)
+    return ParsedAccessions._from_wire(data)
