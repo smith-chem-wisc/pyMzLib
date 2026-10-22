@@ -89,10 +89,12 @@
 |---|---|---|---|---|
 | Decide whether each SDRF file's sample half describes an experimental design - Informative, Partial or Skeleton - with the per-column counts behind the verdict. | `pymzlib.sdrf.assess` | `mzlib::sdrf::assess` | `sdrf_assess` | [`sdrf assess`](reference/sdrf.md) |
 | Read a label-free experimental design out of an SDRF, in MetaMorpheus's terms, or every reason it was refused. | `pymzlib.sdrf.design` | `mzlib::sdrf::design_with` | `sdrf_design` | [`sdrf design`](reference/sdrf.md) |
+| Read an isobaric (TMT, TMTpro, iTRAQ, DiLeu) experimental design out of an SDRF, one row per file and annotated channel, in MetaMorpheus's terms, or every reason it was refused. | `pymzlib.sdrf.isobaric_design` | `mzlib::sdrf::isobaric_design_with` | `sdrf_isobaric_design` | [`sdrf isobaric-design`](reference/sdrf.md) |
 | Find the concepts a set of SDRF documents wrote inconsistently, one row per finding and spelling. | `pymzlib.sdrf.lint` | `mzlib::sdrf::lint_labelled` | `sdrf_lint` | [`sdrf lint`](reference/sdrf.md) |
 | Read characteristics[age] cells into years with an honest precision, refusing any cell that would need a guess. | `pymzlib.sdrf.parse_ages` | `mzlib::sdrf::parse_ages` | `sdrf_parse_ages` | [`sdrf parse-age`](reference/sdrf.md) |
 | Merge several SDRF documents into one analysis table, stamping each row with the document it came from. | `pymzlib.sdrf.pool` | `mzlib::sdrf::pool_with` | `sdrf_pool` | [`sdrf pool`](reference/sdrf.md) |
 | Read one SDRF-Proteomics file as its header and rows of raw cells, keeping repeated column names and ragged rows exactly as written. | `pymzlib.sdrf.read` | `mzlib::sdrf::read_with` | `sdrf_read` | [`sdrf read`](reference/sdrf.md) |
+| Restrict an SDRF to the files one search read, joining each searched file to the row of its acquisition, and report what the join could not place. | `pymzlib.sdrf.restrict` | `mzlib::sdrf::restrict_with` | `sdrf_restrict` | [`sdrf restrict`](reference/sdrf.md) |
 | One row per sample, column and position: what each source name's rows agree on, the columns they disagree about named and withheld, and characteristics[age] read into years. | `pymzlib.sdrf.samples` | `mzlib::sdrf::samples` | `sdrf_samples` | [`sdrf samples`](reference/sdrf.md) |
 | Check SDRF-Proteomics files against the specification's structural rules, one row per finding. | `pymzlib.sdrf.validate` | `mzlib::sdrf::validate` | `sdrf_validate` | [`sdrf validate`](reference/sdrf.md) |
 

@@ -99,6 +99,9 @@ RECORDED_WITH = {
     # ptmqtl: a flag or an option left out takes mzLib's default, which the echo cannot tell apart.
     "ptmqtl_pairs_batch_run_level.json": {"remove-run-level": True},
     "ptmqtl_trait_effects_strict.json": {"min-replicates": "6"},
+    # sdrf isobaric-design echoes the plex source, but a call that declares none must get the
+    # refusal recorded without one, not the design read with the pattern.
+    "sdrf_isobaric_design_PXD008841.json": {"plex-file-name-pattern": r"TMT_?pool(?<plex>\d+)"},
 }
 
 
@@ -224,7 +227,7 @@ def mismatch(data: dict, options: dict) -> str:
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit-logistic", "stats fit-mixed",
-              "diff design", "diff observations"}
+              "diff design", "diff observations", "sdrf restrict"}
 
 
 def _number(text: str):
@@ -264,6 +267,8 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     tests, and weights and effects given or not as the recording's ``weighted`` and ``signed`` say.
     stats fit-logistic and fit-mixed: the same coefficients, in the same order, as the recording's
     ``tested_coefficients``.
+    sdrf restrict: the same searched files, in the same order, as the recording's
+    ``searched_files``, and as many acquired names as its ``acquired_name_count``.
     """
     if verb in ("stats fit-logistic", "stats fit-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
@@ -291,6 +296,16 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
         # --samples narrows the recorded runs to one stratum's, so they need only be among those sent.
         if (recorded != sent) if data.get("samples_file") is None else not recorded <= sent:
             return f"recorded for runs {sorted(recorded)[:3]}..., not {sorted(sent)[:3]}..."
+        return ""
+    if verb == "sdrf restrict":
+        lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]
+        sent = [fields[0].strip() for fields in lines]
+        recorded = list(data.get("searched_files") or [])
+        if sent != recorded:
+            return f"recorded for searched files {recorded}, not {sent}"
+        acquired = sum(1 for fields in lines if len(fields) > 1 and fields[1].strip())
+        if acquired != data.get("acquired_name_count"):
+            return f"recorded with {data.get('acquired_name_count')} acquired names, not {acquired}"
         return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]

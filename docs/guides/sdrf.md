@@ -43,6 +43,8 @@ R get the same answer:
 | What does it say about each sample? | [`samples()`](#one-row-per-sample) | `SdrfSampleBlock` |
 | How old was each sample, in years? | [`parse_ages()`](#parse-ages-safely) | `SdrfAge` |
 | Can this file drive a quantification, and with what design? | [`design()`](#turn-an-sdrf-into-a-quantification-design) | `SdrfLabelFreeDesign` ([#1363][1363]) |
+| The same, for a TMT, iTRAQ or DiLeu experiment: which sample is in which channel? | [`isobaric_design()`](#read-an-isobaric-tmt-design) | `SdrfIsobaricDesign` ([#1380][1380]) |
+| Which rows describe the files my search read? | [`restrict()`](#restrict-an-sdrf-to-one-searchs-files) | `SdrfSearchScope` ([#1451][1451]) |
 
 `validate`, `assess` and `samples` also come as [`*_many`](#many-files-in-one-call), which reads a
 whole corpus in one call.
@@ -601,8 +603,253 @@ True
 The ranked design is identical to the hand-numbered one. (`PXD067622_studywide.sdrf.tsv` is
 PXD067622 with each biological replicate replaced by the number in its file name.)
 
-**Label-free only.** An isobaric SDRF needs a channel design; `design()` does not build one. For the
-channels themselves, see [Isobaric kits](isobaric.md).
+**Label-free only.** An isobaric SDRF needs a channel design; `design()` does not build one. Read it
+with [`isobaric_design()`](#read-an-isobaric-tmt-design), below.
+
+## Read an isobaric (TMT) design
+
+**The question.** In a TMT, TMTpro, iTRAQ or DiLeu experiment, many samples share one run: each
+sits in a channel, and its reporter ion says how much of each peptide came from it. To compare
+samples, MetaMorpheus needs to know which sample is in which channel of which file, and it reads
+that only from a `TmtDesign.txt` beside the spectra. Without one, it writes reporter intensities
+per PSM and quantifies nothing per channel. The SDRF already holds the design: one row per file and
+channel.
+
+**`isobaric_design()` reads it out, or refuses and says why.** It calls mzLib's
+`SdrfIsobaricDesign` ([#1380][1380]), which runs MetaMorpheus's own checks on a TMT design and
+reports every failure at once: one plex, fraction and technical replicate per file; each channel
+described one way within a plex; no sample twice at one fraction of a plex. It needs two facts that
+mzLib will not guess from the SDRF:
+
+| You must say | How | Why mzLib will not guess it |
+|---|---|---|
+| The kit the search used | `kit="TMT10"` | One kit's labels can be a subset of another's: a TMT11 plex that left 131C empty reads exactly like TMT10 |
+| Where each file's plex is written | exactly one of `plex_column=`, `plex_file_name_pattern=`, `single_plex=` | The column that looks like a plex often is not one (see PXD061609 below) |
+
+The kit is named as [`isobaric.kits()`](isobaric.md) takes it, by the same mzLib code: `"TMT10"`,
+`"tmt18"`, `"TMT6-plex"`, `"iTRAQ4"`, `"TMT11 on K"`. A name mzLib does not know is a `UsageError`
+listing the known kits.
+
+The examples use mzLib's own isobaric design files, cut from
+[bigbio/sdrf-annotated-datasets](https://github.com/bigbio/sdrf-annotated-datasets): PXD008841
+(breast tumours, TMT10; two fractions each of two plexes of a nine-plex study) and PXD061609
+(eighteen mouse samples, ten tissues of both sexes, TMTpro 18; two fractions of each of three
+fractionation arms of one plex).
+
+### A valid design
+
+PXD008841 has no plex column. The plex survives only in the file names, spelled two ways
+(`TMTpool1`, `TMT_pool5`), so one regular expression reads both. Its group named `plex` is the
+plex:
+
+```pycon
+>>> tmt = pymzlib.sdrf.isobaric_design(
+...     "PXD008841.subset.sdrf.tsv", kit="TMT10",
+...     plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)",
+... )
+>>> tmt.is_valid, tmt.file_count, tmt.record_count, tmt.plex_ids
+(True, 4, 40, {'1': 1, '5': 2})
+>>> for c in tmt.channels[:3]:
+...     print(c.plex, c.channel, c.sample_name, c.condition, c.biological_replicate, c.fraction, sep=" | ")
+1 | 126 | OSL.53E | basal-like breast carcinoma | 1 | 1
+1 | 127N | OSL.567 | luminal A breast carcinoma | 1 | 1
+1 | 127C | OSL.3FF | basal-like breast carcinoma | 1 | 1
+>>> bridge = tmt.channels[9]
+>>> bridge.channel, bridge.sample_name
+('131N', 'pool')
+
+```
+
+**What each row means.** One row per file and annotated channel: files in SDRF order, each file's
+channels in reporter m/z order (`kit_channels`).
+
+| Field | Meaning |
+|---|---|
+| `full_path` | The file, as the SDRF names it, or the searched path you passed for it |
+| `plex`, `plex_id` | The plex, as your source gives it, and its number, 1..N in name order (MetaMorpheus numbers plexes the same way) |
+| `sample_name`, `channel` | The SDRF `source name` in that channel, and the channel as the kit spells it (`127N`), whatever form `comment[label]` used |
+| `condition` | The condition columns' values joined with `_`, exactly as `design()` builds it |
+| `biological_replicate`, `fraction`, `technical_replicate` | The SDRF's own numbers, **1-based**, never ranked or shifted |
+
+!!! warning "This design is 1-based; `design()` is 0-based"
+    `isobaric_design()` returns the SDRF's numbers as written, starting at 1, which is also what
+    `TmtDesign.txt` holds. `design()` returns mzLib's `SpectraFileInfo` coordinates, starting at
+    0. The split is mzLib's own, and neither the bridge nor pyMzLib converts either table. **Never
+    join or compare the two without adding or removing 1.**
+
+Channel 131N is the reference pool of PXD008841's bridge design. mzLib does not read sample type
+yet, so every annotated channel is a study sample, the pool included: leave it out of a comparison
+yourself. A kit channel the SDRF does not annotate has no row. Read PXD008841 as TMT11 and
+`kit_channels` gains `131C`, the table does not.
+
+### Nothing is guessed
+
+Declare no plex source, and mzLib refuses rather than infer one:
+
+```pycon
+>>> unknown = pymzlib.sdrf.isobaric_design("PXD008841.subset.sdrf.tsv", kit="TMT10")
+>>> unknown.is_valid, unknown.plex_source
+(False, '(not declared)')
+>>> print(unknown.refusals[0])  # doctest: +NORMALIZE_WHITESPACE
+No plex source was declared. Name the column that holds the plex, give a file-name pattern whose
+group captures it, or name the single plex. The plex is never inferred (MAP-09):
+'comment[sample preparation batch]' is often not a plex.
+
+```
+
+PXD061609 is the reason. Its `comment[sample preparation batch]` holds `NoSAX`, `HighSalt` and
+`LowSalt`: three fractionation arms of **one** plex, every arm carrying all eighteen samples and
+numbering its fractions from 1. Read as the one plex it is, the arms' fraction 1s collide, and
+MetaMorpheus could not tell them apart, so mzLib refuses, once for each sample and fraction:
+
+```pycon
+>>> one = pymzlib.sdrf.isobaric_design(
+...     "PXD061609.subset.sdrf.tsv", kit="TMT18", single_plex="tube1"
+... )
+>>> one.is_valid, len(one.refusals)
+(False, 36)
+>>> print(one.refusals[0])  # doctest: +NORMALIZE_WHITESPACE
+Plex 'tube1' has sample 'brain_female' biorep 1 fraction 1 techrep 1 more than once:
+'ea12578.raw' 126, 'ea12603.raw' 126, 'ea12628.raw' 126. Files that share a fraction number
+need different technical replicates, or different plexes.
+
+```
+
+Declare the batch column as the plex, and each arm becomes a plex of its own, which MetaMorpheus
+accepts:
+
+```pycon
+>>> arms = pymzlib.sdrf.isobaric_design(
+...     "PXD061609.subset.sdrf.tsv", kit="TMT18",
+...     plex_column="comment[sample preparation batch]",
+... )
+>>> arms.is_valid, arms.plex_ids, arms.record_count
+(True, {'HighSalt': 1, 'LowSalt': 2, 'NoSAX': 3}, 108)
+>>> arms.channels[1].sample_name, arms.channels[1].biological_replicate, arms.channels[1].condition
+('brain_male', 2, 'NT=brain;AC=UBERON:0000955')
+
+```
+
+Whether a fractionation arm should be quantified as a plex is a decision about your experiment, not
+something mzLib can read from the file; that is why it makes you declare it. Note two more things
+about the rows. `condition` is the factor cell as written, key=value grammar and all. And the
+biological replicate is the SDRF's own number (here, a tissue's female and male samples are
+replicates 1 and 2): an isobaric design never ranks replicates the way `design()` does.
+
+### The traps
+
+- **1-based against 0-based**, above. It is the one to remember.
+- **A refusal is a result.** `is_valid=False` returns normally, with `refusals` filled and the
+  table empty. A missing kit, no plex source, two plex sources and a pattern that does not parse
+  are all refusals, not exceptions. Print `report` for mzLib's whole account.
+- **Searched files match by exact name.** `searched_files=` works as for `design()`: each must be
+  named exactly by some row. A search that read `X-calib.mzML` matches no row naming `X.raw`;
+  [restrict the SDRF to the search first](#restrict-an-sdrf-to-one-searchs-files).
+- **`out=` names a folder.** mzLib writes MetaMorpheus's `TmtDesign.txt` inside it (only for a valid
+  design), replacing one already there. MetaMorpheus reads it only from the folder of the first
+  spectra file, and refuses a folder that also holds an `ExperimentalDesign.tsv`.
+- **TMT16 is TMTpro 16-plex.** MetaMorpheus searches it with its TMT18 label; a TMT16 design is read
+  as is by such a run, with 134C and 135N empty.
+
+## Restrict an SDRF to one search's files
+
+**The question.** A deposited SDRF describes every file the depositors acquired. Your search read
+some of them, often under other names: MetaMorpheus calibrates `X.raw` and searches
+`X-calib.mzML`. Which rows describe the files your search read, and what does the SDRF fail to
+describe?
+
+**`restrict()` answers both.** It calls mzLib's `SdrfSearchScope.Restrict` ([#1451][1451]), which
+joins each searched file to its acquisition **by stem**, ignoring case, after removing the
+derivative suffixes MetaMorpheus writes (`-calib`, `-averaged`, in any order). Each kept row is
+carried cell for cell, with the searched file's name written into a new `comment[searched data
+file]` column, directly after `comment[data file]`. Nothing is renumbered.
+
+Here is a search over PXD008841 that hits every problem but one. It has two calibrated runs, the
+raw file of one of them as well, a renamed file whose acquisition you know, and a file the SDRF
+does not describe:
+
+```pycon
+>>> pool1 = "HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr0"
+>>> pool5 = "HJOSLO2U_QEHF_20150329_TMT_pool5_300ugIPG37-49_7of15ul_fr0"
+>>> scoped = pymzlib.sdrf.restrict("PXD008841.subset.sdrf.tsv", {
+...     rf"D:\search\{pool1}1-calib.mzML": None,
+...     f"{pool1}2-calib.mzML": None,
+...     f"{pool1}2.raw": None,
+...     "sample_A.mzML": f"{pool5}1.raw",
+...     "not_in_sdrf.mzML": None,
+... }, limit=2)
+>>> scoped.input_row_count, scoped.row_count
+(40, 30)
+>>> scoped.value("comment[data file]")[0], scoped.searched_data_files()[0]
+('HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01.raw', 'HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01-calib.mzML')
+>>> scoped.searched_without_row, scoped.dropped_data_files
+(['not_in_sdrf.mzML'], ['HJOSLO2U_QEHF_20150329_TMT_pool5_300ugIPG37-49_7of15ul_fr02.raw'])
+>>> print(scoped.ambiguous[0])  # doctest: +NORMALIZE_WHITESPACE
+HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02:
+HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02-calib.mzML,
+HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02.raw
+
+```
+
+Pass a list when you know only the searched names, or a `{searched: acquired}` mapping when you
+also know which acquired file a searched one came from (MetaMorpheus reads it from an mzML's own
+`sourceFile`). `None` means you do not know. A name you give wins over the suffix rule, which is how
+`sample_A.mzML` found pool 5's first fraction above.
+
+**What each report means.**
+
+| Report | Meaning | What to do |
+|---|---|---|
+| `searched_without_row` | Searched files the SDRF has no row for | They have no design. Fix the SDRF, or leave them out of the quantification |
+| `dropped_data_files` | Acquired files the SDRF describes that the search did not read | Usually expected; check that none was meant to be searched |
+| `ambiguous` | Two or more searched files claimed one acquisition, as `stem: searched, searched` | The first in name order kept the rows. The others have none, and are not in `searched_without_row` |
+| `shared_stem` | One searched file joined rows naming two **different** acquired files (`X.raw` and `X.mzML`), as `searched: acquired, acquired` | Every such row is kept, so the document describes one run twice. Only the depositor knows which row is right |
+
+The restricted document is an [`SdrfDocument`](#this-module-is-row-major-and-every-other-reader-is-columnar):
+`value()`, `all()` and `records` work on it. A row shorter than the header is padded with empty
+cells, so unlike `read()`, its rows are never ragged.
+
+### Restrict, then read the design
+
+`design()` and `isobaric_design()` match `searched_files=` by **exact** name. That is deliberate:
+mzLib leaves the stem join to `restrict()`. Both readers key on `comment[searched data file]` when a
+document has it, so restrict first, write the result, and read the design from it:
+
+```pycon
+>>> searched = [rf"D:\search\{p}{i}-calib.mzML" for p in (pool1, pool5) for i in (1, 2)]
+>>> kept = pymzlib.sdrf.restrict(
+...     "PXD008841.subset.sdrf.tsv", searched, out="PXD008841_searched.sdrf.tsv", limit=2
+... )
+>>> kept.written
+WrittenSdrf(path='PXD008841_searched.sdrf.tsv', row_count=40)
+>>> tmt = pymzlib.sdrf.isobaric_design(
+...     "PXD008841_searched.sdrf.tsv", kit="TMT10",
+...     plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)",
+...     searched_files=searched, out="design",
+... )
+>>> tmt.is_valid, tmt.file_key_column
+(True, 'comment[searched data file]')
+>>> tmt.channels[0].full_path
+'D:\\search\\HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01-calib.mzML'
+>>> tmt.written["record_count"], tmt.written["path"].endswith("TmtDesign.txt")
+(40, True)
+
+```
+
+Give the same searched files to `isobaric_design()` with the unrestricted SDRF and every one is
+refused: the SDRF names `X.raw`, and the search read `X-calib.mzML`.
+
+**The traps.**
+
+- **`out=` must end in `.tsv`; name it `.sdrf.tsv`.** mzLib adds `.sdrf.tsv` to a name that does
+  not already end in it, so `searched.tsv` is written as `searched.tsv.sdrf.tsv`. `written.path`
+  always names the file actually written.
+- **`out=` writes the whole document**, whatever `limit` and `offset` are, with CRLF line endings
+  whatever the input used.
+- **`comment[searched data file]` holds the file name, not the folder.** The design readers take
+  the folder from `searched_files=`.
+- **An SDRF with no `comment[data file]` column cannot be restricted.** mzLib raises, and pyMzLib
+  raises `BridgeError` with `error_type` `"ArgumentException"`.
 
 ## Many files in one call
 
@@ -643,8 +890,10 @@ process:
 mzLib's SDRF builder (mzLib#1327) can write `comment[searched data file]` beside
 `comment[data file]`: the file a search actually read (an `.mzML`) next to the one the instrument
 acquired (a `.raw`). pyMzLib has no builder, but reads and pools such files like any other; the
-column is carried verbatim by `read()` and `pool()`. When it is present, **join search results on it
-rather than on `comment[data file]`**: it names the file whose scans the identifications refer to.
+column is carried verbatim by `read()` and `pool()`, and
+[`restrict()`](#restrict-an-sdrf-to-one-searchs-files) writes it. When it is present, **join search
+results on it rather than on `comment[data file]`**: it names the file whose scans the
+identifications refer to. `design()` and `isobaric_design()` key on it first.
 `lint()` treats it as unique per row, so differing file names are never reported as drift.
 
 ## What this does not do
@@ -676,8 +925,12 @@ Further sources:
 - The specification itself:
   [bigbio/proteomics-sample-metadata](https://github.com/bigbio/proteomics-sample-metadata). mzLib
   validates against v1.1.0.
-- mzLib [#1363][1363] added `SdrfLabelFreeDesign`, the SDRF-to-design reader `design()` projects.
+- mzLib [#1363][1363] added `SdrfLabelFreeDesign`, the SDRF-to-design reader `design()` projects;
+  [#1380][1380] added `SdrfIsobaricDesign`, which `isobaric_design()` projects; [#1451][1451] made
+  `SdrfSearchScope` public, which `restrict()` projects.
 - The curated corpus mzLib's severities and verdict counts were calibrated on:
   [bigbio/sdrf-annotated-datasets](https://github.com/bigbio/sdrf-annotated-datasets).
 
 [1363]: https://github.com/smith-chem-wisc/mzLib/pull/1363
+[1380]: https://github.com/smith-chem-wisc/mzLib/pull/1380
+[1451]: https://github.com/smith-chem-wisc/mzLib/pull/1451

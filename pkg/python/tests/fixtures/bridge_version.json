@@ -32,6 +32,8 @@
   "sdrf samples",
   "sdrf parse-age",
   "sdrf design",
+  "sdrf isobaric-design",
+  "sdrf restrict",
   "isobaric kits",
   "library read",
   "proteins read",

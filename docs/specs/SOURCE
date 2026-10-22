@@ -4,5 +4,5 @@ path: design/verbs
 commit: 1353eb9a1deebbaf882dfd11e0161a06d24a30f3
 uncommitted_changes: no
 synced: 2026-10-21
-specs: 50
-not_vendored: genes.orthology.yaml, modifications.resolve.yaml, sdrf.isobaric-design.yaml, sdrf.restrict.yaml
+specs: 52
+not_vendored: genes.orthology.yaml, modifications.resolve.yaml

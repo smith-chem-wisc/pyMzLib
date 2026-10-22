@@ -1,0 +1,131 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Sdrf.Restrict.cs (Restrict,
+# ReadSearchedFiles, RestrictCaveats) on branch feat/sdrf-isobaric-restrict (off main eaf10e1),
+# mzLib pin d10017ce (tag 1.0.595; SdrfSearchScope was internal since #1355 and is public from #1451,
+# first in 1.0.595). Example fixtures recorded from the staged bridge on that branch, over mzLib's own
+# isobaric design fixture PXD008841.subset.sdrf.tsv (Test/FileReadingTests/ExternalFileTypes/SdrfDesign,
+# from bigbio/sdrf-annotated-datasets, Apache-2.0, at 4f823dc), copied byte for byte. The searched
+# names are illustrative: the deposit's raw files as MetaMorpheus's calibration names them. mzLib
+# master b0c14891d (#1426) changes only a doc comment in SdrfSearchScope.
+verb: sdrf restrict
+module: sdrf
+summary: >-
+  Restrict an SDRF to the files one search read, joining each searched file to the row of its
+  acquisition, and report what the join could not place.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SdrfSearchScope.Restrict, path: mzLib/Readers/Sdrf/SdrfSearchScope.cs, pin: d10017ce}
+  - {symbol: SdrfSearchScoping, path: mzLib/Readers/Sdrf/SdrfSearchScope.cs, pin: d10017ce}
+  - {symbol: SdrfDocument.WriteResults, path: mzLib/Readers/Sdrf/SdrfDocument.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1038/s41467-021-26111-3", for: "SDRF-Proteomics, the format restricted (Dai et al., Nat Commun 12, 5854, 2021)"}
+
+params:
+  - name: path
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: One .sdrf.tsv file, deposited, improved or drafted. A file that does not exist is a usage error.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line of 1 or 2 tab-separated fields"
+    default: null
+    doc: >-
+      The files the search read, one per line, as paths or bare names: searched, or searched TAB
+      acquired when the caller knows the acquired file a searched one came from (MetaMorpheus reads
+      it from an mzML's own sourceFile). An acquired name overrides mzLib's suffix rule for that file
+      and may be given for some lines and not others; with none, mzLib is given no map (its default,
+      acquiredNameOf = null). Blank lines are skipped and a UTF-8 BOM is dropped; fields are trimmed.
+      No line, a blank searched field, more than two fields, or one searched file given two
+      different acquired names (compared ignoring case, as mzLib collapses searched files) is a
+      usage error.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: ".tsv only, any case (PYB-4)"
+    default: null
+    doc: >-
+      Also write the WHOLE restricted document here, whatever offset and limit are, through mzLib's
+      SdrfDocument.WriteResults: atomically (a temp file moved into place), CRLF line endings, a
+      final line break. Must end in .tsv, case-insensitive, checked before the SDRF is read (bridge
+      thread 010, PYB-4, as sdrf pool --out). A missing folder is created (PYB-5). mzLib adds .sdrf.tsv
+      to a name that does not already end in it, so searched.tsv is written as searched.tsv.sdrf.tsv;
+      written.path says which.
+  - name: offset
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: 0
+    doc: Skip this many restricted rows in the payload. The file --out writes is never windowed.
+  - name: limit
+    type: int
+    required: false
+    unit: rows
+    range: ">= 0"
+    default: null
+    doc: Return at most this many restricted rows. Absent means every row.
+
+result:
+  envelope_fields:
+    - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: The SDRF path as given.}
+    - {wire: searched_files, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The searched field of every stdin line, trimmed, in stdin order, as passed to mzLib (duplicates included; mzLib collapses those that differ only in case)."}
+    - {wire: acquired_name_count, type: int, unit: files, nullable: false, null_means: null, doc: "Searched files given an acquired name; 0 when none was, and mzLib was then given no map."}
+    - {wire: input_row_count, type: int, unit: rows, nullable: false, null_means: null, doc: Data rows in the SDRF before the restriction.}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The restricted header: the input's, with comment[searched data file] directly after comment[data file] and any earlier comment[searched data file] removed. A LIST that may repeat names, as for sdrf read."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows kept (SdrfSearchScoping.Document), before the window."}
+    - {wire: returned_count, type: int, unit: rows, nullable: false, null_means: null, doc: Rows in rows.}
+    - {wire: offset, type: int, unit: rows, nullable: false, null_means: null, doc: The offset applied.}
+    - {wire: truncated, type: bool, unit: null, nullable: false, null_means: null, doc: "True whenever rows were left out by offset or limit, including an offset past the end."}
+    - {wire: rows, type: "string[][]", unit: null, nullable: false, null_means: null, doc: "One list of raw cells per kept row, row-major, as sdrf read shapes a document, in input row order. Never ragged: mzLib pads a short row with empty cells."}
+    - {wire: searched_without_row, type: "string[]", unit: null, nullable: false, null_means: null, doc: "SdrfSearchScoping.SearchedWithoutRow: searched files (file names) the SDRF has no row for. Reported, never invented."}
+    - {wire: dropped_data_files, type: "string[]", unit: null, nullable: false, null_means: null, doc: "SdrfSearchScoping.DroppedDataFiles: acquired files the SDRF describes that this search did not read, in row order. A row naming no file is dropped and not listed."}
+    - {wire: ambiguous, type: "string[]", unit: null, nullable: false, null_means: null, doc: "SdrfSearchScoping.Ambiguous: acquisitions two or more searched files claimed, as stem: searched, searched. The first in ordinal name order kept the rows."}
+    - {wire: shared_stem, type: "string[]", unit: null, nullable: false, null_means: null, doc: "SdrfSearchScoping.SharedStem: searched files whose rows name two or more DIFFERENT acquired files, as searched: acquired, acquired. Every such row is kept. The channel rows of one multiplexed file name one file, so are not listed."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "out was not given", doc: "{path, row_count}: path is the file mzLib wrote (the out path, plus .sdrf.tsv when it did not end in it); row_count is the whole restricted document."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: Six static caveats.}
+  columns: []
+  cell_rules:
+    - "Row-major raw strings, as sdrf read: SDRF column names are data and repeat."
+    - "Kept rows are carried cell for cell, replicate and fraction numbers included. The only new cells are comment[searched data file]: the searched file's name, no folder."
+    - "A kept row shorter than the header is padded with empty cells (mzLib), so the document is rectangular even when sdrf read shows the same file ragged."
+
+errors:
+  - {kind: usage, when: "path missing or the file does not exist"}
+  - {kind: usage, when: "stdin has no searched file; a line with a blank searched field or more than two fields; one searched file given two different acquired names"}
+  - {kind: usage, when: "--out without a value, or not ending in .tsv (checked before the SDRF is read)"}
+  - {kind: usage, when: "offset or limit negative or not an integer"}
+  - {kind: correctness, when: "the SDRF has no comment[data file] column (mzLib's ArgumentException), or mzLib cannot read it (MzLibException), or the --out folder cannot be created or written"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "The join is by STEM, case-insensitively, after mzLib removes MetaMorpheus's derivative suffixes (-calib, -averaged, in any order and number), so X-calib.mzML finds the row naming X.raw. A searched TAB acquired line overrides that rule for its file. A row whose stem joins nothing is tried once more by an earlier search's comment[searched data file]."
+  - "Nothing else changes: no replicate or fraction is renumbered. comment[searched data file] goes directly after comment[data file]; an earlier search's is replaced, because it is this search's field."
+  - "A kept row shorter than the header is padded with empty cells, so the document is never ragged, unlike what sdrf read returns for the same file."
+  - "ambiguous: the other claimants of an acquisition get no row and are not in searched_without_row. shared_stem: the document can describe one run twice, and only the depositor can say which row is right."
+  - "The design verbs match searched files by exact name. Restrict first: sdrf design and sdrf isobaric-design key on comment[searched data file] when a document has it."
+  - "--out writes the whole document with CRLF line endings, whatever the input used, and mzLib adds .sdrf.tsv to a name that does not end in it. Name the file .sdrf.tsv."
+
+bindings:
+  py: {name: pymzlib.sdrf.restrict}
+  rust: {name: "mzlib::sdrf::restrict_with", options: RestrictOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
+  r: {name: sdrf_restrict, note: "Planned name: ported after a pyMzLib release carries the verb. The searched files are a character vector, named by acquired file where known."}
+
+examples:
+  - fixture: sdrf_restrict_PXD008841.json
+    py: "scoped = pymzlib.sdrf.restrict('PXD008841.subset.sdrf.tsv', {r'D:\\search\\HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr01-calib.mzML': None, 'HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02-calib.mzML': None, 'HJOS2U_20140410_TMTpool1_300ugIPG37-49_7of15ul_fr02.raw': None, 'sample_A.mzML': 'HJOSLO2U_QEHF_20150329_TMT_pool5_300ugIPG37-49_7of15ul_fr01.raw', 'not_in_sdrf.mzML': None}, limit=2)"
+    rust: "let scoped = mzlib::sdrf::restrict_with(\"PXD008841.subset.sdrf.tsv\", &searched, &RestrictOptions { limit: Some(2), ..Default::default() })?;"
+    r: "scoped <- sdrf_restrict('PXD008841.subset.sdrf.tsv', searched, limit = 2)"
+  - fixture: sdrf_restrict_PXD008841_out.json
+    py: "scoped = pymzlib.sdrf.restrict('PXD008841.subset.sdrf.tsv', searched, out='PXD008841_searched.sdrf.tsv', limit=2)"
+    rust: "let scoped = mzlib::sdrf::restrict_with(\"PXD008841.subset.sdrf.tsv\", &searched, &RestrictOptions { out: Some(\"PXD008841_searched.sdrf.tsv\".into()), limit: Some(2), ..Default::default() })?;"
+    r: "scoped <- sdrf_restrict('PXD008841.subset.sdrf.tsv', searched, out = 'PXD008841_searched.sdrf.tsv', limit = 2)"
+
+open_questions:
+  - "PUSH-TO-MAINLAND: SdrfDocument.WriteResults returns nothing and adds .sdrf.tsv to a name not ending in it, so the bridge reports the path by mzLib's own test (ResultFile.CanRead) instead of being told. Ask mzLib to return the path written, or to refuse rather than rename. sdrf pool --out has the same rename and still reports the path as given."
+  - "No --paths-stdin form: stdin already carries the searched files, and one search restricts one SDRF."
+  - "SdrfSampleCopy (#1451, same PR) is not projected: it only feeds SdrfBuilder.Build, which is G-sdrf-verbs."

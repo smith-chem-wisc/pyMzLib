@@ -49,3 +49,24 @@ cannot contain. `searched_files=` is a list; pyMzLib sends it on stdin and sets
 `ExperimentalDesign.tsv`, which `out=` writes, is 1-based.
 
 --8<-- "docs/reference/_generated/sdrf.design.md"
+
+## `isobaric_design`
+
+**The numbers are 1-based, on the wire and in Python.** `fraction`, `technical_replicate`,
+`biological_replicate` and `plex_id` are the SDRF's own numbers, as mzLib's `SdrfIsobaricDesign`
+keeps them and `TmtDesign.txt` holds them. `design` above is 0-based. Neither the bridge nor
+pyMzLib converts either one, so never compare the two tables without adding or removing 1.
+
+`kit=`, `plex_column=`, `plex_file_name_pattern=` and `single_plex=` are sent only when given.
+`condition_columns=` and `searched_files=` cross exactly as for `design`. `out=` names a **folder**,
+not a file: mzLib writes MetaMorpheus's `TmtDesign.txt` inside it.
+
+--8<-- "docs/reference/_generated/sdrf.isobaric-design.md"
+
+## `restrict`
+
+**Python spells stdin as `searched_files=`.** A list sends one searched file per line. A
+`{searched: acquired}` mapping adds `<TAB>acquired` to each line whose value is not `None`.
+`RestrictedSdrf.columns` is the wire's `column_names`, as for `read`.
+
+--8<-- "docs/reference/_generated/sdrf.restrict.md"

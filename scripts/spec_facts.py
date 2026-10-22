@@ -74,6 +74,23 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "a list in Python; pyMzLib joins it with tabs for the wire",
         },
     },
+    "sdrf isobaric-design": {
+        "param.searched-files-stdin": {
+            "python": "searched_files",
+            "why": "the flag is set, and the stdin lines rendered, from the searched_files list",
+        },
+        "param.condition-columns": {
+            "python": "condition_columns",
+            "why": "a list in Python; pyMzLib joins it with tabs for the wire",
+        },
+    },
+    "sdrf restrict": {
+        "param.stdin": {
+            "python": "searched_files",
+            "why": "one stdin line per searched file; a {searched: acquired} mapping adds the TAB field",
+        },
+        "field.column_names": {"python": "columns", "why": "the header list is RestrictedSdrf.columns"},
+    },
     "peptidoform convert": {
         # from is a Python keyword, so the pair is source/target, the names mzLib's own
         # Convert(input, sourceFormat, targetFormat) uses.
