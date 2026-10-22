@@ -21,6 +21,8 @@
 !/pkg/python/tests/fixtures/*.raw
 # ...and the small protein databases the proteins tests read (a few KB each).
 !/pkg/python/tests/fixtures/proteins/*.fasta
+# ...and the two small spectral libraries (a few KB) library read's fixtures were recorded from.
+!/pkg/python/tests/fixtures/library/*.msl
 
 # Quarantine
 /.project/attic/
