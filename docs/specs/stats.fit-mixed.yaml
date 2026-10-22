@@ -1,0 +1,162 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Statistics.FitMixed.cs (FitMixed,
+# MixedFitStatuses, EstimatorName, ReadGroups, MixedCaveats) and Statistics.cs (ReadResponses,
+# ReadDesign, CheckTestedCoefficients, MzLibRefusal) on branch feat/stats-models (off main 50b4340),
+# mzLib pin d10017ce (tag 1.0.595; MixedModel is from #1367, first in 1.0.594). Example fixtures
+# recorded from the live bridge on that branch. The lmm ones are mzLib's own nlme reference input
+# (Test/StatisticalModels/ReferenceData/lmm_responses.tsv, lmm_design.tsv and lmm_groups.tsv, with
+# feature ids and sample names added; simulated by make_glm_lmm_fixtures.R, seed 20260924), and
+# agreement with nlme 3.1.169's lme (REML and ML) is held through the wire by
+# StatisticsTests.FitMixed_ReproducesNlme_ThroughTheWire. stats_fit_mixed_malat.json is real data:
+# the MALAT1 dilution series stats fit's example uses, grouped by acquisition day
+# (malat_dilution_day.tsv, derived by the rule in
+# StatisticsTests.MixedFixtures_AreMzLibsLmeReference_AndTheDilutionSeriesDays).
+# The status values are read from MixedModel.FitOne at d10017ce: mzLib does not yet say which
+# FeatureFitStatus values each model returns (mzLib#1487 asks it to).
+verb: stats fit-mixed
+module: stats
+summary: >-
+  Fit one linear mixed model per feature of a feature-by-sample table, with a random intercept per
+  group of samples (dataset, donor, day), and test each named coefficient with a Wald t.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: MixedModel.Fit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
+  - {symbol: MixedModelFit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
+  - {symbol: VarianceEstimator, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
+  - {symbol: FeatureFitStatus, path: mzLib/StatisticalModels/LinearModel.cs, pin: d10017ce}
+cite:
+  - {doi: "10.2307/2529876", for: "the random-effects linear model y = X beta + Z u + e this verb fits with one random intercept (Laird and Ware, Biometrics 38:963, 1982)"}
+  - {doi: "10.1093/biomet/58.3.545", for: "restricted maximum likelihood, the default estimator (Patterson and Thompson, Biometrika 58:545, 1971)"}
+
+params:
+  - name: responses
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stats fit's responses table. A TSV with a header row: the first column is the feature id
+      (unique, any header) and every other column is one sample, named by its header. Cells are used
+      as given, so log-transform intensities first. A blank cell, NA or NaN (any case) is missing
+      and is omitted from that feature's fit, never imputed. A 0 is an OBSERVATION. Blank lines
+      are skipped.
+  - name: design
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stats fit's design table: a TSV with a header row and one row per sample, the sample name
+      (matching the responses header exactly, rows matched by name) then one column per fixed-effect
+      coefficient, every cell a finite number. Include an intercept column if you want one; do not
+      add a column per group, which the random intercept replaces. mzLib refuses a design that is
+      not of full column rank over all samples.
+  - name: groups
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row and one row per sample: the sample name, then EXACTLY ONE column, the
+      sample's group label (a dataset accession, a donor, an acquisition day), whose header names
+      the grouping. The sample names must be exactly the responses' sample columns, in any order.
+      Labels are text, trimmed and compared exactly; NA is a label like any other. An empty label is
+      refused by mzLib (MixedModel.Fit), naming the sample.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each a design column name, none repeated"
+    default: null
+    doc: >-
+      The coefficients to report, one design column name per line. The model always fits every
+      design column; the table holds one block of rows per coefficient named here, in this order.
+  - name: estimator
+    type: string
+    required: false
+    unit: null
+    range: "reml | ml"
+    default: null
+    doc: >-
+      How the variances are estimated: reml is mzLib's VarianceEstimator.Reml (restricted maximum
+      likelihood, not biased downward by the number of coefficients), ml is
+      VarianceEstimator.MaximumLikelihood (biased variances in small samples, but log-likelihoods
+      comparable between designs). Absent, the bridge sends none and MixedModel.Fit's default
+      applies (Reml at d10017ce); the envelope's estimator says which was used.
+  - {name: threads, type: int, required: false, unit: threads, range: ">= 1, or -1 for every core", default: 1, doc: "Features fitted at once. The bridge default is 1 (BULK.md); mzLib's own default is -1. Results are identical at any value (mzLib)."}
+
+result:
+  envelope_fields:
+    - {wire: responses_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the responses table."}
+    - {wire: design_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the design table."}
+    - {wire: groups_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the groups table."}
+    - {wire: grouping, type: string, unit: null, nullable: false, null_means: null, doc: "The groups file's label column header."}
+    - {wire: group_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The distinct labels, in order of first appearance over the responses' samples (the order mzLib numbers them in)."}
+    - {wire: group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Distinct labels over all samples. A feature's own count, over its observed samples, is its groups column."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Feature rows read."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Sample columns read."}
+    - {wire: sample_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "In responses header order, which is the order the design and group rows were put in."}
+    - {wire: coefficient_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every design column, in order."}
+    - {wire: tested_coefficients, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stdin coefficients, in order; the table holds one block of feature_count rows per entry."}
+    - {wire: estimator, type: string, unit: null, nullable: false, null_means: null, doc: "reml or ml: the estimator mzLib reports it fitted with (MixedModelFit.Estimator), the default when --estimator was absent."}
+    - {wire: threads, type: int, unit: threads, nullable: false, null_means: null, doc: "The thread count used."}
+    - {wire: missing_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that were blank, NA or NaN."}
+    - {wire: zero_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that are exactly 0, fitted as observations."}
+    - {wire: status_counts, type: "map<string,int>", unit: features, nullable: false, null_means: null, doc: "Features per status, always these six keys: fitted, too_few_observations, rank_deficient, too_few_groups, variance_ratio_at_limit, not_converged. They are the outcomes MixedModel.Fit's body can return at d10017ce; a stop-gap until mzLib says per model (mzLib#1487)."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "feature_count x the number of tested coefficients."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (tested coefficient, feature): coefficient blocks in stdin order, features in file order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Seven static caveats (one of them says which estimator), plus one each, with counts, when any feature was not fitted, when a fitted row has no df, when a fitted feature's group_variance is 0, and when any cell is 0."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
+    - {wire: coefficient, type: string, unit: null, nullable: false, null_means: null, doc: "The coefficient this row reports."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "fitted | too_few_observations (no more observed samples than coefficients) | rank_deficient (the design restricted to the observed samples is not of full rank) | too_few_groups (fewer than two observed groups, or no group observed twice, so group and residual variance cannot be told apart) | variance_ratio_at_limit (group_variance / residual_variance ran to the top of mzLib's search, e^12, typically near-identical replicates within each group) | not_converged (the likelihood at the chosen variance ratio could not be evaluated: a non-finite value, or a residual sum of squares of 0 or below). Only fitted rows carry statistics."}
+    - {wire: estimate, type: float, unit: "response units per coefficient unit (e.g. log2 fold change for a 0/1 column on log2 intensities)", nullable: true, null_means: "status is not fitted", doc: "The generalized-least-squares fixed-effect coefficient at the estimated variances: the effect within groups, each group keeping its own baseline."}
+    - {wire: standard_error, type: float, unit: "response units per coefficient unit", nullable: true, null_means: "not fitted", doc: "sqrt of the diagonal of s^2 (X' V^-1 X)^-1 with s^2 = RSS / (observed - coefficients), under both estimators, as nlme's summary reports."}
+    - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted, or the containment df is not positive (a group-level coefficient with too few observed groups to test it)", doc: "Denominator df of the t test, by nlme's containment rule for one grouping level, a whole number: observed - observed groups - within-group coefficients for a coefficient that varies within some group and for the intercept; observed groups - group-level coefficients, minus 1 more with an intercept, for one constant within every group."}
+    - {wire: t, type: float, unit: "standard errors", nullable: true, null_means: "not fitted", doc: "Wald statistic, estimate / standard_error. Reported even when df is null."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted, or df is null", doc: "Two-sided p-value of the t test on df. Not adjusted across features."}
+    - {wire: residual_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted", doc: "sigma^2, the within-group variance: RSS / (observed - coefficients) under reml, RSS / observed under ml. The same in every coefficient block."}
+    - {wire: group_variance, type: float, unit: "squared response units", nullable: true, null_means: "not fitted", doc: "tau^2, the between-group variance of the random intercept. 0 is the boundary estimate (no between-group variance), which nlme cannot reach and reports as a tiny positive value. The same in every coefficient block."}
+    - {wire: log_likelihood, type: float, unit: "log-likelihood (natural log)", nullable: true, null_means: "not fitted", doc: "The maximized log-likelihood, restricted under reml. The same in every coefficient block."}
+    - {wire: observed, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a finite response for this feature."}
+    - {wire: groups, type: int, unit: groups, nullable: false, null_means: null, doc: "Distinct groups among this feature's observed samples."}
+
+errors:
+  - {kind: usage, when: "responses, design or groups missing, blank or not found; a table empty, header-only or with too few columns; the groups file with other than two columns or an empty label header; a row whose field count differs from its header; an empty or repeated feature id, sample or coefficient name; a response cell that is not a number (other than blank, NA, NaN); a design cell that is not a finite number"}
+  - {kind: usage, when: "the design's or the groups' samples are not exactly the responses' sample columns (both differences are named); no coefficient on stdin, one named twice, or one not in the design; --estimator other than reml or ml, or without a value; --threads 0 or below -1"}
+  - {kind: usage, when: "mzLib refuses the input (its ArgumentException, reclassified): a design not of full column rank; a sample whose group label is empty, named by 0-based position and then by its name"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A random intercept per group and nothing more, as nlme::lme(y ~ ..., random = ~ 1 | group): no random slopes, nested or crossed groupings, or residual correlation."
+  - "Fixed effects are tested by Wald t on nlme's containment degrees of freedom. Satterthwaite and Kenward-Roger (lmerTest, pbkrtest) are not implemented, so p-values differ from lmerTest's. mzLib matches nlme 3.1.169 to 1e-5 relative (nlme's own optimizer precision) in estimates, standard errors, variances, p-values and log-likelihoods, with identical df."
+  - "group_variance 0 is the boundary estimate. nlme works on the log scale, cannot reach 0, and reports a tiny positive value there instead."
+  - "Under reml, log_likelihood is the restricted log-likelihood: compare it only between models with the same fixed effects, and use --estimator ml to compare designs. Under ml, residual_variance is RSS / observed, but standard errors use RSS / (observed - coefficients), as nlme's summary reports ML fits."
+  - "p_value is not adjusted across features. Send one coefficient's p_value column to stats adjust for Benjamini-Hochberg."
+  - "A 0 is an observation. Log-transform intensities first, and blank any cell that means 'not measured'."
+  - "A feature the fixed effects fit exactly (a constant one, say) is reported fitted, with a residual_variance at rounding level (about 1e-16) and a meaningless t and p_value: MixedModel's not_converged guard catches only a residual sum of squares of exactly 0 (d10017ce). Check residual_variance before trusting a very small p_value. Pinned by StatisticsTests.FitMixed_AnExactFit_IsReportedFitted_WithRoundingLevelVariance."
+
+bindings:
+  py: {name: pymzlib.stats.fit_mixed}
+  rust: {name: "mzlib::stats::fit_mixed_with", options: FitMixedOptions, note: "not yet ported"}
+  r: {name: stats_fit_mixed, note: "not yet ported"}
+
+examples:
+  - fixture: stats_fit_mixed_lmm_reml.json
+    py: "fit = pymzlib.stats.fit_mixed('lmm_reference_responses.tsv', 'lmm_reference_design.tsv', 'lmm_reference_groups.tsv', ['Intercept', 'age', 'wp'])"
+    rust: "let fit = mzlib::stats::fit_mixed_with(\"lmm_reference_responses.tsv\", \"lmm_reference_design.tsv\", \"lmm_reference_groups.tsv\", &[\"Intercept\", \"age\", \"wp\"], &FitMixedOptions::default())?;"
+    r: "fit <- stats_fit_mixed('lmm_reference_responses.tsv', 'lmm_reference_design.tsv', 'lmm_reference_groups.tsv', c('Intercept', 'age', 'wp'))"
+  - fixture: stats_fit_mixed_lmm_ml.json
+    py: "fit = pymzlib.stats.fit_mixed('lmm_reference_responses.tsv', 'lmm_reference_design.tsv', 'lmm_reference_groups.tsv', ['Intercept', 'age', 'wp'], estimator='ml')"
+    rust: "let fit = mzlib::stats::fit_mixed_with(\"lmm_reference_responses.tsv\", \"lmm_reference_design.tsv\", \"lmm_reference_groups.tsv\", &[\"Intercept\", \"age\", \"wp\"], &FitMixedOptions { estimator: Some(\"ml\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit_mixed('lmm_reference_responses.tsv', 'lmm_reference_design.tsv', 'lmm_reference_groups.tsv', c('Intercept', 'age', 'wp'), estimator = 'ml')"
+  - fixture: stats_fit_mixed_malat.json
+    py: "fit = pymzlib.stats.fit_mixed('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', 'malat_dilution_day.tsv', ['malat_250ng', 'malat_125ng'])"
+    rust: "let fit = mzlib::stats::fit_mixed_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_dilution_design.tsv\", \"malat_dilution_day.tsv\", &[\"malat_250ng\", \"malat_125ng\"], &FitMixedOptions::default())?;"
+    r: "fit <- stats_fit_mixed('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', 'malat_dilution_day.tsv', c('malat_250ng', 'malat_125ng'))"
+
+open_questions: []

@@ -1,0 +1,5 @@
+score	q_value	partner_score	partner_q_value
+85	0.003	100	0.001
+75	0.006	70	0.008
+65	0.01		
+55	0.03	20	0.5

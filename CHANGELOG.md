@@ -61,6 +61,27 @@ envelope is not a breaking change unless Python callers can see it.
   p-value was computed (`exact` for n of 9 or fewer without ties, as R's `cor.test`; `asymptotic`;
   or `not_estimable`, with rho and p as `None`). Not adjusted across features: chain `adjust()`.
   Wire verb `stats correlate`.
+- **`stats.fit_logistic()`: a logistic regression per feature of a 0/1 table,** by mzLib's
+  `LogisticRegression.Fit` (#1367), as R's `glm(family = binomial)` per feature: the question "is
+  this protein's detection related to the condition?". Same files as `fit()`, every cell 0, 1 or
+  blank. Each coefficient comes back on the log-odds scale with a Wald z and a two-sided p-value.
+  A feature whose outcomes the design separates is reported `separated`, with `None` statistics,
+  instead of R's huge coefficient. mzLib holds it to R 4.6.1's `glm` to 1e-8 (1e-6 in standard
+  errors), and pyMzLib ships that reference. `max_iterations=` and `tolerance=` are mzLib's when
+  left out. Wire verb `stats fit-logistic`.
+- **`stats.fit_mixed()`: a linear mixed model per feature, with a random intercept for each group
+  of samples** (a day, a donor, a dataset), by mzLib's `MixedModel.Fit` (#1367), as
+  `nlme::lme(random = ~ 1 | group)` per feature. Same files as `fit()`, plus a groups table.
+  Coefficients are tested by Wald t on nlme's containment df, and each row carries the within- and
+  between-group variances. `estimator="reml"` or `"ml"`; left out, mzLib's default (REML), and the
+  result says which was used. mzLib holds it to nlme 3.1.169 to 1e-5, and pyMzLib ships that
+  reference. Wire verb `stats fit-mixed`.
+- **`stats.entrapment_fdp()`: check a search's FDR claim with entrapment,** by mzLib's
+  `EntrapmentFdp.Sweep` (#1385, Wen et al. 2025, as FDRBench): the lower bound, combined and paired
+  estimates of the false discovery proportion at each q-value threshold, from a targets table and
+  an entrapments table with each entrapment's partner. `ratio=` is required (mzLib has no default);
+  `paired` is reported only at a ratio of exactly 1. Left out, `thresholds=` is mzLib's default
+  sweep, 0.001 to 0.100. Wire verb `stats entrapment-fdp`.
 
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,

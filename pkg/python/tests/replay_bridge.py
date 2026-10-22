@@ -22,7 +22,10 @@ recorded for different arguments:
   without ``--out`` only if it is null;
 * a recording listed in ``RECORDED_WITH`` fits only a call that sends the options it was made with;
 * an optional input file in ``OPTIONAL_FILES`` (echoed as ``<name>_file``, null when absent) must
-  be given by the call exactly when the recording used one.
+  be given by the call exactly when the recording used one;
+* a recording with a key in ``GIVEN_ECHOES`` (``thresholds_given``) fits only a call that sends
+  its option exactly when that key is true, and a numeric echo matches a call's option by value
+  (``--ratio 1.0`` fits a recorded ``ratio`` of 1).
 
 No match, or more than one, is answered as a usage error naming the candidates, so the doctest
 fails and says why. Standard library only: it runs under whatever Python runs the tests.
@@ -89,6 +92,7 @@ RECORDED_WITH = {
     # would not stop a recording made with them from answering it.
     "library_read_fragments.json": {"fragments": True},
     "library_read_index_only.json": {"index-only-threshold": "0"},
+    "stats_fit_mixed_lmm_ml.json": {"estimator": "ml"},
 }
 
 
@@ -98,8 +102,27 @@ RECORDED_WITH = {
 OPTIONAL_FILES = ("given",)
 
 
+#: Echoes that say whether an option was given, when its value echo cannot (stats entrapment-fdp
+#: echoes the thresholds it used, which are mzLib's default when --thresholds was absent).
+GIVEN_ECHOES = {"thresholds_given": "thresholds"}
+
+
+def same_number(recorded: object, value: str) -> bool:
+    """A numeric echo against an option's text: JSON writes 1.0 as 1, Python sends repr(1.0)."""
+    if isinstance(recorded, bool) or not isinstance(recorded, (int, float)):
+        return False
+    try:
+        return float(value) == float(recorded)
+    except ValueError:
+        return False
+
+
 def mismatch(data: dict, options: dict) -> str:
     """Why this recording cannot be the answer to these options, or "" if it can."""
+    for key, name in GIVEN_ECHOES.items():
+        given = data.get(key)
+        if isinstance(given, bool) and (name in options) != given:
+            return f"recorded {'with' if given else 'without'} --{name}"
     for name in OPTIONAL_FILES:
         key = f"{name}_file"
         if key in data and (name in options) != (data[key] is not None):
@@ -125,7 +148,7 @@ def mismatch(data: dict, options: dict) -> str:
         if key == "path" or key.endswith("_file"):
             if base(str(recorded)) != base(value):
                 return f"recorded from {base(str(recorded))!r}, not {base(value)!r}"
-        elif str(recorded) != value:
+        elif str(recorded) != value and not same_number(recorded, value):
             return f"recorded with {key}={recorded!r}, not {value!r}"
     # BULK.md: a --paths-stdin call has its own envelope (files[], read_count, ...). Neither shape
     # answers for the other, or a one-path example would "fit" a bulk recording that has no path.
@@ -184,7 +207,7 @@ def mismatch(data: dict, options: dict) -> str:
 #: Verbs whose input travels on stdin and is echoed in the recording, so a recording answers only a
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
-              "stats combine-p"}
+              "stats combine-p", "stats fit-logistic", "stats fit-mixed"}
 
 
 def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
@@ -196,7 +219,15 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     gaps removed (mzLib refuses a '-' in an input sequence, so removing them is exact).
     stats combine-p: the same features in the same first-appearance order, the same number of
     tests, and weights and effects given or not as the recording's ``weighted`` and ``signed`` say.
+    stats fit-logistic and fit-mixed: the same coefficients, in the same order, as the recording's
+    ``tested_coefficients``.
     """
+    if verb in ("stats fit-logistic", "stats fit-mixed"):
+        sent = [line.strip() for line in stdin.splitlines() if line.strip()]
+        recorded = list(data.get("tested_coefficients") or [])
+        if sent != recorded:
+            return f"recorded for coefficients {recorded}, not {sent}"
+        return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]
         features = list(dict.fromkeys(fields[0].strip() for fields in lines))

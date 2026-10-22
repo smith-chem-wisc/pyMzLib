@@ -1,0 +1,493 @@
+oligo	2026_09_18_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_18_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_24_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_24_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_25_1MALAT_500ng_1FLuc_500ng_20mer-2_50ng_147mingrad-3	2026_09_18_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_18_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3	2026_09_24_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-4	2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_27_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3	2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_26_1MALAT_250ng_2FLuc_500ng_20mer-2_50ng_147mingrad-3	2026_09_18_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_18_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_24_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_24_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1	2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-2	2026_09_27_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-3	2026_09_26_1MALAT_125ng_4FLuc_500ng_20mer-2_50ng_147mingrad-1
+MALAT1:AAAAAAAAACUCG	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	1	0	0	0	0
+MALAT1:AAAAAAAAACUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	0	1	1	0	0	0	0	0	0	0	0	1	1	1	1	1	0	0	0	1	0	0
+MALAT1:AAAAAAUAG	0	0	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0
+MALAT1:AAAAAAUCCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0
+MALAT1:AAAAAAUG	0	1	0	1	1	1	1	0	0	1	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0
+MALAT1:AAAAAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	1	1	0	0	0	0	0	1	1	1	0
+MALAT1:AAAAACAAG	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AAAAAUAUAAAG	1	1	1	1	1	1	1	1	0	1	0	0	0	0	0	0	1	1	1	1	1	0	1	1	0	1	0
+MALAT1:AAAAAUAUAAAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	0	1	0	1	1	1	1	1
+FLuc:AAAAAUCAG	1	1	1	0	0	0	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	0
+FLuc:AAAAAUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0	1	1	1	1	1	1	1	1	1	0
+MALAT1:AAAAAUCUAG	1	1	0	1	1	1	1	1	0	1	1	0	0	0	1	0	1	1	0	1	1	1	1	1	1	1	0
+MALAT1:AAAAAUUUCCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAAAUUUCCGUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAACAACACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAACAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0
+MALAT1:AAAACAG	1	1	0	1	1	1	1	1	0	1	1	0	0	1	1	1	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:AAAACCAAAUG	1	1	1	1	1	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+MALAT1:AAAACCAAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	1	0	1	0	1	1	0	0	0	0	0	1	1	0	0	1	0	1	1	1	1	0
+MALAT1:AAAACCAUUAAAUCAUUCAAAAUAAUAAACUAUUUUUAUUAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAACCAUUAAAUCAUUCAAAAUAAUAAACUAUUUUUAUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AAAACUCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0	0	0	0
+FLuc:AAAACUCUCUUCAAUUCUUUAUG	0	0	1	1	1	1	1	0	0	1	1	0	0	0	0	0	1	1	1	0	0	1	1	1	1	1	1
+FLuc:AAAACUCUCUUCAAUUCUUUAUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	1	0	0	1	1	0	1	1	0	0	1	1	0	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:AAAACUG	1	1	0	1	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAACUUAACAAUUUUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAACUUAACAAUUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAAUAUUG	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	1	0	0	0	1	0	1	0
+MALAT1:AAAAUAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	1	0	0	1	0	0	0	0	0	0	0	1	1	0	0	0	0	1	1	1	1	0
+MALAT1:AAAAUCCAAUAUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	1	0
+FLuc:AAAAUCG	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	1	1	0	0	0	1
+FLuc:AAAAUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	1	1	1	1	1	0	0	0	0	1	0	1	1	1	1	0	0	1	1	0	1	0	0
+FLuc:AAAAUUAUUAUCAUG	0	0	1	1	1	1	0	1	0	1	1	0	0	0	0	1	1	1	1	0	1	1	1	1	1	1	0
+FLuc:AAAAUUAUUAUCAUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	0	0	1	0	1	0	1	1	0	0	1	1	1	1	1	1	1	0	1	1	1	1	1	1
+MALAT1:AAACAAAAAG	1	1	1	0	1	1	1	1	0	1	1	0	0	0	0	0	1	1	1	0	1	0	0	1	1	1	0
+MALAT1:AAACAAAAAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0
+MALAT1:AAACAAUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	1	0
+MALAT1:AAACAAUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	1	0	0	0	0	1	0	0
+MALAT1:AAACUUUUUUUUUUUCUAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAGUCCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUAACAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	0	0	1	1	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0	1	0	0
+FLuc:AAAUAAUUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	1	1	1	0	0	0	0	1	1	1	1
+MALAT1:AAAUACAAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUACUUUUCCAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	1	0	0	0
+MALAT1:AAAUCCAUG	0	0	0	0	1	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUUAAACUG	1	1	1	0	0	0	1	1	0	0	1	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUUAAACUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	1	1	0	0	0	0	0	0
+MALAT1:AAAUUAUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUUUCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAAUUUUUCCAUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	0	1	0	1	0	0	0	0	0	0	1	1	1	1	0	0	1	1	0	1	0
+MALAT1:AACAAAAAAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	1	0	1	0	1	0	1	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0	0
+FLuc:AACAAUUG	0	1	1	0	0	1	0	1	0	1	1	1	1	1	0	1	1	1	1	0	0	0	1	1	0	0	0
+MALAT1:AACACAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AACACCUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AACACUCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACACUCUUUAAUG	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	1	0	0	0	1	1	0	0
+MALAT1:AACACUCUUUAAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	1	1	1	1	1	0	1	0	1	1	0
+FLuc:AACACUUCUUCAUAG	1	1	1	1	0	1	1	1	0	1	1	0	0	0	1	1	1	1	1	0	0	1	1	1	1	1	1
+FLuc:AACACUUCUUCAUAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	1	0	1	0	1	0	0	0	1	0	0	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:AACAUAACAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AACAUCACG	0	1	1	0	0	0	0	0	1	0	1	1	1	0	0	0	0	0	1	0	1	1	0	1	1	0	0
+FLuc:AACAUCACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	1	0	0	0	0	1	1	1	0
+MALAT1:AACAUUAUCUG	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	1	0	0	0	0
+MALAT1:AACAUUAUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	1	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+FLuc:AACAUUUCG	0	0	0	0	0	1	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AACAUUUCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACCAAUUUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0
+MALAT1:AACCAAUUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACCACUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AACCUAUUUUUAACCG	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	1	0
+MALAT1:AACCUAUUUUUAACCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	1	0	0	0	1	1	1	1	0
+MALAT1:AACUACUUUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACUACUUUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	0	0
+MALAT1:AACUAUAUACAUCCUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACUAUAUACAUCCUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:AACUAUAUACAUCCUUGAUGUAUAAUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AACUAUAUCCG	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:AACUAUCACACUUUAAUCUUCCUUCAAAAG	0	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACUCGCUUUCCAUGGCGAUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AACUUAAAG	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	1	0	1	1	1	1	1	0	0	0	0
+MALAT1:AACUUACUUAUG	1	1	0	1	1	1	1	1	0	1	1	0	0	0	0	0	1	0	0	1	1	1	1	0	0	0	0
+MALAT1:AACUUACUUAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	1	1	0	0	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	1	0
+MALAT1:AACUUCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0
+FLuc:AACUUCCCG	0	0	1	1	1	1	1	0	0	1	1	0	0	0	0	0	1	1	1	0	0	1	1	0	0	0	0
+FLuc:AACUUCCCG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	1	1	0	0	1	0	1	0	0	0
+MALAT1:AAGCCUCAGCUCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AAGUACCGAAAGGUCUUACCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	1	1	0	0
+MALAT1:AAUAAAAAAAUCUUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:AAUAAAAAAAUCUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAUAAAAG	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AAUAAAUAACCUCUUAG	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:AAUAAAUAACCUCUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AAUACAAAUCACAG	1	0	1	1	1	1	1	1	0	1	1	0	0	0	1	0	1	1	1	1	1	1	1	1	1	1	1
+FLuc:AAUACAAAUCACAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	1	0	0	0	1	1	1	1	1	1	1	1	0	1	1	1	1	0
+MALAT1:AAUACAAG	1	1	0	0	1	1	0	1	1	0	1	0	0	0	0	0	0	0	1	1	1	0	1	1	1	0	0
+MALAT1:AAUACAAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	1	1	0	0	1	1	1	0
+FLuc:AAUACUUCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AAUACUUCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	1	0	0	1	0	1	0	0	1	1	1	0	0	1	0	0	1	1	1	0	0	0	1	0
+MALAT1:AAUAUCAACUUCCAAG	0	1	1	0	0	1	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	1	0	0	0
+MALAT1:AAUAUCAACUUCCAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	1	1	0	0	1	0	0	0
+MALAT1:AAUCCUAAAG	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAUCCUAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0	0
+MALAT1:AAUCUACCAUUUUAAAG	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	0	1	0	0
+MALAT1:AAUCUACCAUUUUAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	0	0
+MALAT1:AAUCUCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAUCUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:AAUCUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+MALAT1:AAUUAAUACCAAUAG	0	0	0	1	0	0	0	0	0	1	1	0	0	0	0	0	1	1	1	0	0	0	1	0	0	0	0
+MALAT1:AAUUAAUACCAAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	1	0	0	0
+MALAT1:AAUUCACCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAUUCACCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0
+MALAT1:AAUUCACG	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAUUCACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	1	1	1	0
+FLuc:AAUUCCUCUG	1	1	1	0	0	1	1	1	0	1	1	0	0	0	0	1	1	1	1	1	1	1	1	0	0	0	0
+FLuc:AAUUCCUCUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	1	0	0	1	1	0	1	0	0	0	0	0	0	1	0	0	1	0	1	1	1	1	1	0
+MALAT1:AAUUUUCCUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AAUUUUUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	1	0
+FLuc:ACAAAACAAUUG	1	1	1	1	1	1	1	1	1	1	1	1	1	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:ACAAACUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:ACAAAUACG	1	1	1	1	0	1	0	1	1	1	1	1	1	1	0	1	1	1	1	1	0	1	1	0	0	0	0
+FLuc:ACAAAUACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	0	1	1	1	1	1	1	0	0	0	0	1	1	1	1	1	1	1	1	1	0
+MALAT1:ACAAAUUUUAUUCUUCAUAAAG	0	0	1	0	0	0	1	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0
+MALAT1:ACAAAUUUUAUUCUUCAUAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACAAUUUCAG	1	1	1	1	0	1	1	1	0	1	0	0	0	0	0	1	1	0	0	0	1	0	0	0	0	0	0
+MALAT1:ACAAUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACACUAUAG	1	1	1	0	0	1	1	0	0	1	1	0	0	0	0	1	1	0	1	0	1	0	0	0	0	0	0
+MALAT1:ACACUAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:ACAUUAACUACAAUUAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0
+MALAT1:ACAUUAACUACAAUUAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0	0
+FLuc:ACAUUUAUAAUG	1	1	1	1	1	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	1
+FLuc:ACAUUUAUAAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	1	1	1	1	0	1	1	0	0	0	0	1	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:ACCACCACAG	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACCACCACAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:ACCCCUUCCCUAG	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACCCCUUCCCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACCCUUCACCCCUCACCUCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACCCUUCACCCCUCACCUCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0
+FLuc:ACGCCGGUGAACUUCCCGCCGCCGUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0
+MALAT1:ACUAAAACCAACUUAAACCAG	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:ACUAAAACCAACUUAAACCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0	0	0	0	1	0	0	0
+FLuc:ACUACAUCAG	1	0	1	0	1	1	0	0	1	1	0	1	1	0	0	0	1	0	0	1	1	1	0	0	0	0	0
+FLuc:ACUACAUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	1	0	0	0	0	0	1	1	1	0	0	0	0	0	1	0	0	1	0	1	1	1	0	1	0
+FLuc:ACUACAUCAGCUAUUCUGAUUACACCCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACUACUAAUCUG	0	1	0	0	0	1	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0
+FLuc;MALAT1:ACUCACUAUAGG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACUCUUUCUG	0	0	0	0	1	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACUCUUUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACUUAAACAG	0	0	1	0	0	0	1	0	0	0	1	0	0	0	0	0	1	0	1	0	0	0	1	0	0	0	0
+MALAT1:ACUUAAACAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:ACUUCUUAAAAG	0	1	0	0	1	0	1	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	0
+MALAT1:ACUUUAAAAG	1	0	0	1	0	1	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:ACUUUUUUCAG	1	1	0	1	0	1	1	0	0	1	1	0	0	0	0	0	1	1	0	1	1	0	0	0	0	0	0
+MALAT1:ACUUUUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+FLuc:AGACUACAUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AGGAUGGAACCGCUGG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0
+FLuc:AGGAUGGAACCGCUGGAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0
+MALAT1:AGGGAGGGGAAACUUUUUUUUUUUCUAUAG	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AGGGUGGGCUUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:AUAAAAACAUACUUUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	1	0	0	1	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	0	0	0
+MALAT1:AUAAAACCACUCAAACUCUG	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+FLuc:AUAAACCG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0
+FLuc:AUAAACCG-[Digestion Termini:Cyclic Phosphate on X]	1	0	1	1	0	0	1	1	0	0	1	0	0	1	1	1	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:AUAAACUCAUG	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUAAACUCAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUAAAUUUAAACCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	1	0	0	0	0
+MALAT1:AUAAAUUUAAACCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	1	1	1	0
+MALAT1:AUAACAUCUUCUG	0	1	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUAACAUCUUCUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0
+FLuc:AUAUAACCAUG	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AUAUAACCAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AUAUCAG	1	1	1	1	0	1	1	1	0	0	1	0	0	0	0	0	1	1	1	1	1	1	1	0	0	0	0
+FLuc:AUAUCAGGUGGCCCCCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AUAUCAGGUGGCCCCCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	1	0
+FLuc:AUAUCAGGUGGCCCCCGCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+FLuc:AUAUGGGCUCACUGAGACUACAUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUCCAUAAUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+FLuc:AUCCCUUCAG	1	0	0	0	0	1	1	1	0	0	1	0	0	0	1	0	0	1	1	1	1	0	0	0	0	0	0
+FLuc:AUCCCUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0
+FLuc:AUCCUAUUUUUG	1	1	1	1	1	1	1	1	1	1	1	1	1	0	0	0	0	1	0	1	1	1	1	1	1	1	0
+FLuc:AUCCUAUUUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	1	0	1	1	1	1	1	1	1	0	0	0	1	1	1	1	1	1	1	0	1	1	0
+FLuc:AUCCUCAUAAAG	1	1	1	0	0	1	0	1	1	1	1	1	1	1	0	1	1	1	1	1	1	1	1	1	0	0	0
+FLuc:AUCUACUG	1	1	1	1	1	1	1	0	0	1	0	0	0	1	1	1	0	0	1	1	0	1	0	0	0	0	0
+FLuc:AUCUACUG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	1	0	0	0	0	0	0
+MALAT1:AUCUUUUAAAAAG	1	1	1	0	0	1	1	1	0	1	0	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:AUCUUUUAAAAAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	1	1	0	0	1	0
+MALAT1:AUUAAAAG	1	0	0	1	0	1	1	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	1	1	0	0	0
+MALAT1:AUUAAAAUAAUUUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	1	0	1	0
+MALAT1:AUUAAAAUAAUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	0	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	0	1	1	0
+MALAT1:AUUAAAAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUUAAACUG	0	0	0	1	0	0	0	1	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:AUUAAUACAACUACUUAAAAAAUAUAG	1	1	1	1	0	0	0	1	0	0	1	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:AUUAAUACAACUACUUAAAAAAUAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+FLuc:AUUACAAAAUUCAAAG	0	0	1	1	1	1	0	1	0	1	1	0	0	1	0	0	1	1	1	0	1	1	1	1	1	1	0
+FLuc:AUUACAAAAUUCAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	1	0	1	0	0	0	1	1	0	0	0	1	0	1	1	1	1	0	1	1	1	1	1	1
+FLuc:AUUACACCCG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:AUUACACCCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	0	1	0	0	1	1	0	0	0	0	0	0	1	0	1	1	0	0	1	1	1	0
+FLuc:AUUACCAG	0	1	0	0	0	0	0	1	0	1	0	0	0	1	1	0	0	0	0	1	1	1	0	0	0	0	0
+MALAT1:AUUAUUUUUUAAAUCCUG	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0	0	0	1	0	0	0	0
+MALAT1:AUUAUUUUUUAAAUCCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	1	0	0	0	0	0	1	1	0	0	0	0	0	1	1	1	0	0	0	1	1	0	1	0
+FLuc:AUUCUAAAACG	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	0	1	1	0	0	0	0	0	0
+FLuc:AUUCUAAAACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:AUUCUAUUUUCAG	1	1	1	1	1	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	1	1	0
+MALAT1:AUUCUAUUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0	1	1	0	1	0	1	0	0	0	0	0
+FLuc:AUUCUCG	1	1	1	0	0	0	0	0	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	0	0	0	1
+MALAT1:AUUCUUACUACUG	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	1	0	0	0	0
+MALAT1:AUUCUUACUACUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	0	0	0	0
+MALAT1:AUUUAAUAAUAAUUUAAAACUACUAUAG	0	0	1	1	0	0	1	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+FLuc:AUUUAUCUAAUUUACACG	0	1	1	1	0	0	1	1	0	1	1	0	0	0	0	0	1	1	1	0	0	1	1	1	1	1	1
+FLuc:AUUUAUCUAAUUUACACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	0	0	0	1	0	1	1	0	0	1	1	0	1	1	0	1	1	1	1	1	1	1	1
+MALAT1:AUUUCCAUG	0	0	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0
+MALAT1:AUUUCCAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:AUUUCCCAAG	1	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	0	0	1	0	0	0	0	0	0
+MALAT1:AUUUCUCG	1	1	0	1	1	0	0	0	0	1	1	0	0	0	0	0	1	1	1	0	1	0	1	0	0	0	0
+MALAT1:AUUUCUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	1	1	1	0	0	0	0	0	1	1	1	0	1	0	1	0	0	0	0
+MALAT1:AUUUCUUCUG	1	0	1	1	0	1	1	1	0	0	1	0	0	0	0	0	1	1	1	0	1	0	0	0	0	0	0
+MALAT1:AUUUCUUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0	1	0	1	0	0	0	0
+FLuc;MALAT1:AUUUUAAG	1	1	1	1	0	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	0	0
+MALAT1:AUUUUCCACAG	1	1	0	1	0	0	1	1	0	1	0	0	0	0	0	0	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:AUUUUCCACAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	1	1	1	0
+MALAT1:AUUUUUAUUAG	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	0	1	0	0
+MALAT1:AUUUUUAUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:AUUUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:CAAAAAAAAUUACCAAUAAUCCAG	1	0	1	1	0	1	0	1	0	1	1	0	0	1	0	0	1	1	1	0	1	1	1	1	1	1	1
+FLuc:CAAAAAAAAUUACCAAUAAUCCAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	1	0	0	0	1	0	1	1	0	0	0	1	0	1	0	1	0	0	0	1	1	1	1	1
+FLuc:CAAAAAAUUUUG	0	1	1	0	0	1	1	1	1	1	1	1	1	0	0	1	1	1	1	1	1	1	1	0	0	1	0
+FLuc:CAAAAAAUUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	0	1	1	1	1	1	1
+MALAT1:CAAAAAUUCUCUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	1	0	0	0
+MALAT1:CAAAACAAAAACCCCUAAAAAAG	0	1	1	1	0	0	0	1	0	1	0	0	0	0	0	0	1	0	0	0	0	0	1	1	0	1	1
+MALAT1:CAAAACAAAAACCCCUAAAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	1	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	1	0	1	0
+MALAT1:CAAAACAAG	0	1	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:CAAAACAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+FLuc;MALAT1:CAAAACG	0	0	0	0	1	0	0	0	0	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAAAUAUUG	1	0	0	0	0	1	0	1	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:CAACCACACG	0	0	0	1	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAACCACACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	1	1	0	0	1	0	0	0	0	0	1	1	1	1	1	0	0	0	0	0	0
+MALAT1:CAACUGGCCUCUCCUGCCCUCUUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAACUUCUCUG	0	1	1	0	0	0	0	1	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAACUUCUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:CAAUAAACAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:CAAUCAAAUCAUUCCG	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	1	1	1	0	1	0
+FLuc:CAAUCAAAUCAUUCCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	1	0	0	0	0	1	0	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:CACAAUAUCUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CACAAUAUCUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+FLuc:CACAUAUCG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:CACAUAUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	1	0	0	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+FLuc:CACCUCUUUCG	1	1	1	1	1	1	1	1	0	1	1	0	0	1	0	1	1	0	0	1	1	1	1	0	0	0	0
+FLuc:CACCUCUUUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	0	1	1	1	1	1	1	0	0	0	0	1	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:CACUUUCAG	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CACUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CACUUUCUCCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:CAGCCAACGGCCCCCGGGGCUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUAACACAG	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0	0
+MALAT1:CAUACUCAAAAUUUUUUUCCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUACUCAAAAUUUUUUUCCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	1	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUAUAAUAAUUCCAG	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	1	0	0	0	0
+MALAT1:CAUAUAAUAAUUCCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:CAUCUUUAAAUAAUUUCUUAAAAG	0	0	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+MALAT1:CAUCUUUAAAUAAUUUCUUAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUUAAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:CAUUAAUUUG	1	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUUAAUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUUCAAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUUCAUUUUAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CAUUUAG	1	1	1	1	1	1	1	1	0	0	0	0	0	1	1	1	0	1	0	1	1	1	1	0	0	0	1
+MALAT1:CAUUUCAUCCUUCAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:CAUUUCAUCCUUCAUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	1	1	0
+20mer2:CC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UGAAG[Modomics:2'-O-methylguanosine on G]CA	1	1	1	1	1	0	0	1	0	0	0	0	0	1	0	1	1	1	1	1	1	1	1	1	1	1	1
+FLuc:CCAAAAACAUAAAG	0	1	1	1	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	0	0	1	1	1	1	1	0
+FLuc:CCAAAAACAUAAAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	1	1	0	1	0	0	0	0	1	0	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:CCAAAAAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+FLuc:CCAAAAG	0	0	0	0	1	0	0	1	0	0	1	0	0	1	1	1	0	0	0	0	0	1	0	0	0	0	1
+MALAT1:CCAACUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCACUUCUCAACCG	0	1	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0
+MALAT1:CCACUUCUCAACCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	1	0	1	0	0	0	0	0	1	1	1	1	1	0	0	0	0	0	0
+MALAT1:CCACUUUUCCCUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCACUUUUCCCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCAUUAAUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCAUUCCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:CCAUUCUAUCCUCUAG	0	1	1	0	0	0	1	0	0	1	1	0	0	0	0	1	1	0	1	0	1	1	1	1	0	1	0
+FLuc:CCAUUCUAUCCUCUAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	1	1	0	1	0	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:CCCAAAUCUCAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCCAUCAAUUUAAUUUCUG	0	1	0	1	0	0	0	0	0	1	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:CCCAUCAAUUUAAUUUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	1	0	1	1	1	0	0
+FLuc:CCCGGCGCCAUUCUAUCCUCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	1	1	0	0
+MALAT1:CCCUCUAAAUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+MALAT1:CCCUCUUAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0
+MALAT1:CCCUCUUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0
+FLuc:CCCUUCCG	0	0	1	1	1	1	1	0	0	1	0	0	0	1	1	1	0	0	0	0	0	1	1	0	0	0	0
+FLuc:CCGGUGAACUUCCCGCCGCCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0
+MALAT1:CCUACUG	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0
+MALAT1:CCUAUUUACUUUAAAUAAACCAAACAUUCCAUUUUAAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUCAACUCCCUCUUUCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUCCCUCACAAAG	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUCCCUCACAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUCCCUCACAAAGGCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUCUAAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CCUUAAAUAUAG	0	1	1	1	1	0	1	1	1	1	1	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0
+MALAT1:CCUUUUUAAAAUUG	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	1	1	0	0	0	0	0	0
+MALAT1:CCUUUUUAAAAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	1	0	0	0
+MALAT1:CCUUUUUCUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	0	0	0	0
+MALAT1:CCUUUUUCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:CCUUUUUUUAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+FLuc:CGCCAUUCUAUCCUCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0
+MALAT1:CUAAAAUUUACAUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	1	0	1	0
+MALAT1:CUACACAG	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:CUACAUUCUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	1	0	0	1	1	1	1	0	0	0	0
+MALAT1:CUACCAAUUUAAAG	1	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:CUACCAAUUUAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	1	0	0	0	1	0	0
+MALAT1:CUACUAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUAUCUUAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUAUUAUCCUAAG	0	0	0	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0	0
+FLuc:CUAUUCUG	0	0	0	0	0	0	0	0	0	1	1	0	0	0	1	0	0	1	0	1	0	1	1	0	0	0	0
+MALAT1:CUCAAAUCUUUCCACACG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUCAAAUCUUUCCACACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	1	0	0	0	0	1	0
+FLuc:CUCAACAG	0	1	1	1	1	1	0	1	0	1	1	0	0	1	1	1	0	1	0	1	0	1	0	0	0	0	0
+FLuc:CUCAACAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	1	0	1	1	0	1	0	0	0	0
+FLuc:CUCACUG	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0
+MALAT1:CUCAUACCUAACCG	1	0	1	1	0	1	1	0	0	1	0	0	0	0	0	0	0	0	0	1	0	0	1	0	0	0	0
+MALAT1:CUCAUACCUAACCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:CUCUAAAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:CUCUUCCUUCUG	1	1	0	0	0	0	1	1	0	0	1	0	0	0	0	0	1	1	0	0	1	0	0	0	0	0	0
+MALAT1:CUCUUCCUUCUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+MALAT1:CUGGCCAUUCCAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUUAACCCCUUAAACUUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:CUUAACCCCUUAAACUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	1	1	0	0	0
+FLuc:CUUACUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:CUUACUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUUAUACUCAUG	0	1	0	1	1	0	1	1	0	0	0	0	0	0	0	0	1	0	0	1	0	0	0	0	0	0	0
+MALAT1:CUUAUACUCAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	0	1	1	0	1	0	0	0	0	0	1	1	1	0	0	0	1	1	1	1	0
+MALAT1:CUUAUUUUUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:CUUCAAAAAUUUUG	1	1	0	0	0	0	1	1	0	1	0	0	0	0	0	0	1	1	0	1	1	0	1	0	0	0	0
+MALAT1:CUUCAAAAAUUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	1	1	1	0	0	0	0	0	0
+MALAT1:CUUCAUUUCAUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+FLuc:CUUCCAUCUUCCAG	1	0	1	1	1	1	1	1	1	1	1	1	1	0	0	1	0	1	1	1	1	1	1	1	1	1	0
+FLuc:CUUCCAUCUUCCAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	1	1	0	0	1	1	1	1	1	1	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+FLuc:CUUCUGGGGGCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	1	1	0	0	0	0	0	0
+FLuc:CUUCUGGGGGCGCACCUCUUUCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0
+MALAT1:CUUCUUCAUG	0	1	0	1	0	0	1	0	0	1	1	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0
+MALAT1:CUUCUUCAUG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0
+MALAT1:CUUUCCAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUUUCCAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	1	0	0	1	0	1	0	0	0	0
+FLuc:CUUUUACAG	0	0	1	0	0	1	0	0	1	1	1	1	1	0	0	0	0	1	0	0	0	0	0	0	0	0	0
+FLuc:CUUUUACAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	1	1	0	1	0	0	0	0	0	1	1	0	1	1	0	1	0	0	0	0
+MALAT1:CUUUUAUCCUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUUUUAUUUUUCUUCCUG	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0
+MALAT1:CUUUUAUUUUUCUUCCUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	1	0	0	0	1	0	1	0	0	0	0	0	0	1	1	1	0	0	0	1	1	1	1	0
+MALAT1:CUUUUCCAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:CUUUUUUUUUUUACAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0
+MALAT1:CUUUUUUUUUUUACAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+20mer2:GU[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0
+20mer2:GU[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	1	0	0	1	1	1	0	0	0
+20mer2:GU[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UGAAG[Modomics:2'-O-methylguanosine on G]CA	0	0	1	0	1	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	1
+FLuc:GUCUUCCCGACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	1	1	0	0	0	0	0	0
+20mer2:U[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	1	1	1	1	1	1	0	0	0	1	1	1	0	0	1	0	0	1	1	0	0	1	0
+20mer2:U[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UGAAG[Modomics:2'-O-methylguanosine on G]CA	1	1	1	1	1	1	1	1	0	1	1	0	0	1	1	1	1	1	1	1	1	1	1	1	1	1	1
+MALAT1:UAAAAAAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:UAAAAAUCCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	0	1	1	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0
+MALAT1:UAAAACCUCUACAAAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAAAACUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	1	1	0	0	0	0
+FLuc:UAAACAAUCCG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UAAACAAUCCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	1	0	0	0	1	1	1	0	0	0	0	0	0	0	0	0	1	0	0	0	0	1	1	0
+MALAT1:UAAACACUUCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAAACACUUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	1	0	1	0	1	0	0	0	0	0	1	1	1	0	1	0	0	1	0	0	0
+MALAT1:UAAACUAUACCUACUG	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAAACUAUACCUACUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	1	0	0	0	0	0
+FLuc:UAACAACCG	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0	0	1	0	0	0	0	0
+FLuc:UAACAACCG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	0
+MALAT1:UAACCAAUUUAUUUUAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAACCAUUAUAAG	1	1	0	0	0	0	1	1	0	0	0	0	0	0	0	0	1	1	1	1	0	0	1	0	0	1	0
+MALAT1:UAACCAUUAUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	1	0	0	0	0	0	0
+MALAT1:UAACUCCCAAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAACUCCCAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAAUACUUUUUCACAUUUCCAAAG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAAUACUUUUUCACAUUUCCAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAAUUACCAACUUAAUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0	0
+MALAT1:UAAUUACCAACUUAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	1	1	1	0	0
+MALAT1:UAAUUCAAG	0	1	0	0	0	0	0	0	1	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAAUUUAAAAAAAACUAAG	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	0	0	1	0	0	0	0	1	0	0	0	0
+MALAT1:UAAUUUAAG	0	1	0	0	0	1	1	1	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	1	0	0	0
+MALAT1:UACAAACUUAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UACACUUCACUCAG	1	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	1	0	1	0	0	0	0	0
+FLuc:UACCAACCCUAUUUUCAUUCUUCG	0	0	1	0	0	0	1	1	0	1	1	0	0	0	0	0	1	1	1	0	0	0	1	1	1	0	0
+FLuc:UACCAACCCUAUUUUCAUUCUUCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	1	1	1	1	0	1	0	1	1	0	0	1	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:UACCCCUCACUAAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+FLuc:UACCGAAAGGUCUUACCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0
+MALAT1:UACCUCUAG	0	0	0	0	1	1	0	0	0	0	1	0	0	0	0	1	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UACCUCUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAUAUUCAUAUUUACACG	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAUAUUCAUAUUUACACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAUUAAAACCACAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAUUAAAACCACAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	0	1	1	0	0	0	0	1	0
+MALAT1:UAUUCCCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UAUUUAAAAG	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+MALAT1:UAUUUAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	1	0	0	0
+MALAT1:UAUUUCAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UAUUUCUCCUUUUCUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+FLuc:UCACAUCUCAUCUACCUCCCG	1	0	0	0	0	1	1	1	0	1	1	0	0	0	0	0	1	1	1	0	1	1	1	0	1	1	0
+FLuc:UCACAUCUCAUCUACCUCCCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	0	1	1	1	1	0	1	1	0	0	0	1	1	1	1	1	0	1	1	1	1	1	1	1
+FLuc:UCACCAUCACCAUCACCACG	0	0	1	0	0	1	1	1	0	1	1	0	0	0	0	0	1	1	1	0	0	1	1	1	0	1	0
+FLuc:UCACCAUCACCAUCACCACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:UCAUAAUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCAUACCUCCAUUG	1	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0
+MALAT1:UCAUACCUCCAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	0	1	0	1	0	0	0	0	0	0
+MALAT1:UCAUCUCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:UCAUCUCAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0
+MALAT1:UCAUUUAAAG	0	1	1	1	0	1	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCAUUUAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+FLuc:UCCAAACUCG	0	1	1	1	0	1	0	1	0	1	1	0	0	0	0	0	1	1	1	0	0	1	0	0	0	0	0
+FLuc:UCCAAACUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	0	0	0	0	1	1	0	0	0	0	0	1	1	1	1	1	0	0	0	0	0	0
+MALAT1:UCCCCUCUG	0	0	1	1	1	1	1	1	0	1	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0
+MALAT1:UCCCUCAAG	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCCCUCAAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:UCCUUAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UCCUUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0
+MALAT1:UCUAAAG	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCUAUAAAUACG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	1	0	1	0	1	0	0	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+MALAT1:UCUAUAAAUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+MALAT1:UCUAUAAAUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	1	1	0	0
+MALAT1:UCUCCCCACAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCUCCCCACAAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCUCCUUAUUUAAAUAAAAUAG	0	0	1	0	0	1	1	0	0	0	1	0	0	0	0	0	1	0	1	0	0	0	1	0	0	0	0
+MALAT1:UCUCCUUAUUUAAAUAAAAUAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UCUUAAUG	0	1	0	1	1	1	1	0	0	1	1	0	0	1	1	1	1	0	1	1	0	1	0	0	0	0	0
+FLuc:UCUUAAUG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	1	0	1	1	1	1	0	0	1	1	0	1	1	1	1	1	1	1	0	0	0	0
+MALAT1:UCUUAAUUCUUACAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UCUUAAUUCUUACAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	1	1	1	0	0
+FLuc:UCUUACCG	0	0	1	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0
+FLuc:UCUUACCG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+FLuc:UCUUCCCG	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+FLuc:UCUUUAAUUAAAUACAAAG	0	0	0	0	0	1	1	0	0	1	1	0	0	0	0	0	1	0	0	0	0	1	1	1	0	1	1
+FLuc:UCUUUAAUUAAAUACAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	0	1	0	1	1	1	1	0
+MALAT1:UUAAAAAUCACAUCAAAAAG	0	1	0	1	0	0	0	1	0	1	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+FLuc:UUAACCUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UUAACCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUAACUUUAAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	0	1	1	0	0	0	0	0	0	0
+FLuc:UUAAUCAG	0	0	0	0	0	1	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+FLuc:UUAAUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	1	1	1	0	0	1	0	0	0	0	0
+FLuc:UUACAACACCCCAACAUCUUCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	1	0	0	0	0	1	0	1	1	0	0	0	0	0	1	1	1	0	1	1	1	1	1	1	1
+MALAT1:UUACACUACAUUAAUCCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UUACCUAAG	0	1	1	0	0	1	0	1	0	0	1	0	0	1	1	0	1	0	1	0	1	1	1	0	0	0	0
+MALAT1:UUACUAAG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+FLuc:UUAUUUAUCG	0	1	0	1	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+FLuc:UUAUUUAUCG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	1	0	1	1	1	1	0	1	1	1	0
+MALAT1:UUAUUUUUUACUUG	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	1	0	0
+MALAT1:UUAUUUUUUACUUG-[Digestion Termini:Cyclic Phosphate on X]	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	0	1	1	1	0	0	1	1	0	0
+MALAT1:UUCAUAUUCAG	1	1	1	1	0	0	1	1	0	1	1	0	0	0	0	0	1	1	0	1	1	0	1	1	0	1	0
+MALAT1:UUCAUAUUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	0	1	1	0	1	0	0
+MALAT1:UUCAUUUCUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0
+MALAT1:UUCCAUAAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+FLuc:UUCCAUUCCAUCACG	0	1	0	0	0	1	1	0	0	1	0	0	0	0	0	0	1	1	1	0	0	1	1	1	0	0	0
+FLuc:UUCCAUUCCAUCACG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	1	1	0	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	1
+FLuc:UUCCAUUUUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	1	1	0	1	1	1	1	1	1	0	0	1	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:UUCCCCAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUCUCACG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUCUCUUUUG	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0
+MALAT1:UUCUCUUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+MALAT1:UUCUUAAAUAUCAACCAUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUCUUUUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0
+FLuc:UUGCGCCCGCGAACGACAUUUAUAAUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUGGUCUACUUUAAAAGGCCACUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUAAAAG	0	0	1	0	0	0	0	0	0	0	1	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+FLuc:UUUAACUUUAAG	0	1	1	1	1	1	1	1	0	1	1	1	1	0	0	1	1	1	1	1	1	1	1	1	1	1	0
+FLuc:UUUAACUUUAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	1	0	0	1	0	1	1	0	0	0	0	1	1	1	1	1	1	1	1	1	1	1	1
+FLuc:UUUACUACACUCG	1	1	1	1	1	1	1	1	1	1	1	1	1	0	0	0	1	1	1	1	1	1	1	0	1	0	0
+FLuc:UUUACUACACUCG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	1	1	1	1	1	1	1	1	0	0	1	1	1	1	1	1	0	0	1	1	1	1
+FLuc:UUUCCAAAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0	0	1	0	0
+MALAT1:UUUCUAAAACAUG	1	1	0	1	1	1	1	1	0	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	1	1	0
+MALAT1:UUUCUAAAACAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	1	1	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	1	1	1	0
+MALAT1:UUUCUCUCUCCCCUCCCUUG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUCUCUCUCCCCUCCCUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UUUCUCUUUUUCAG	1	1	0	0	0	1	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+MALAT1:UUUCUCUUUUUCAG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	1	0	0	0	0	0	0
+MALAT1:UUUCUUUUG	1	1	0	0	1	1	0	1	0	0	0	0	0	0	0	0	1	1	0	1	1	0	1	0	0	0	0
+MALAT1:UUUUACACUAUUG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUUAUUAAAG	1	1	1	1	0	0	1	1	0	0	1	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0
+MALAT1:UUUUCCAAUAAUG	0	1	1	0	0	1	0	0	0	1	0	0	0	0	0	0	1	0	1	0	1	0	1	0	0	0	0
+MALAT1:UUUUCCAAUAAUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	1	0	0	1	1	1	0	0	1	0	0	0	0	0	1	1	1	1	1	1	1	1	1	1	0
+MALAT1:UUUUCCUUCAAAG	1	1	0	0	0	1	0	1	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUUCCUUCAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	1	1	0	0	0	0	0	0	0	0	0
+FLuc:UUUUUACG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	1	1	0	0	0	1	0	0	0	0
+FLuc:UUUUUACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	1	1	0	0	0	1	0	0	0	0
+FLuc:UUUUUACGAUCCCUUCAGGAUUACAAAAUUCAAAG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUUUACUUCCUCACCCUG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	1	1	0	0	1	0	0	0	0	0	0
+MALAT1:UUUUUUUCCCCCCAG	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	0	0	0	0	0	0	0	0
+MALAT1:UUUUUUUCCCCCCAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	1	1	0	0	0	0	0	0
+MALAT1:UUUUUUUCUAAG	1	1	1	0	1	0	1	1	0	0	1	0	0	0	0	0	1	1	1	1	1	0	0	0	0	0	0
+MALAT1:UUUUUUUCUCUUUG	1	1	1	1	0	0	1	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	0	0	0
+MALAT1:UUUUUUUCUCUUUG-[Digestion Termini:Cyclic Phosphate on X]	1	1	0	1	0	1	0	1	1	1	1	0	0	0	0	0	1	1	1	1	1	0	1	0	1	0	0
+MALAT1:UUUUUUUUUAG	0	1	0	0	0	0	0	1	0	0	1	0	0	0	0	0	1	1	1	0	1	0	1	0	0	0	0
+MALAT1:UUUUUUUUUAG-[Digestion Termini:Cyclic Phosphate on X]	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	1	0	0	0	0	0	0	0	0
+MALAT1:UUUUUUUUUUUUUACACG	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+MALAT1:UUUUUUUUUUUUUACACG-[Digestion Termini:Cyclic Phosphate on X]	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	1	0	0	0	0	1	0	0	1	0

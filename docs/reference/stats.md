@@ -9,9 +9,10 @@ explains the mechanism. For the Python signatures and result classes, see the
 
 **Python spells stdin as a list argument.** Each verb reads its list input on stdin, and pyMzLib
 writes it for you: `stats fit`'s `stdin` is `coefficients=`, `stats adjust`'s is `p_values=` (with
-`None` for an untested entry), `stats meta`'s is `studies=` and `stats combine-p`'s is `tests=`
-(with `None` for a blank field). The `stdin` rows below describe the wire. `stats correlate` reads
-no stdin: its three tables are files, as `stats fit`'s are.
+`None` for an untested entry), `stats meta`'s is `studies=`, `stats combine-p`'s is `tests=`
+(with `None` for a blank field), and `stats fit-logistic`'s and `stats fit-mixed`'s are
+`coefficients=`, as `stats fit`'s. The `stdin` rows below describe the wire. `stats correlate` and
+`stats entrapment-fdp` read no stdin: their tables are files, as `stats fit`'s are.
 
 **Performance:** each call starts one bridge process, about 120 ms before mzLib does any work.
 `stats fit` then fits every feature in one pass: a 10,000-feature by 24-sample table takes about
@@ -19,8 +20,13 @@ no stdin: its three tables are files, as `stats fit`'s are.
 since the model is fitted once and moderated per coefficient. `stats correlate` on the same
 10,000 by 24 table takes about 0.4 s (0.5 s with one covariate), and `stats combine-p` on 50,000
 tests about 0.8 s, most of it writing and reading the text; neither takes threads, because mzLib's
-calls take no degree of parallelism. **Every number is mzLib's**; the bridge parses the tables and
-shapes the result, and pyMzLib does no arithmetic.
+calls take no degree of parallelism. `stats fit-logistic` on a 10,000 by 24 table of 0s and 1s
+takes about 1.7 s on one thread and 0.5 s with `threads=-1`; `stats fit-mixed` on a 10,000 by 24
+table in six groups about 3.9 s and 2.5 s, since each feature is a one-dimensional likelihood
+search. `stats entrapment-fdp` on 100,000 targets and 100,000 entrapments at mzLib's default
+thresholds takes about 0.5 s; it takes no threads, because mzLib's call takes no degree of
+parallelism. **Every number is mzLib's**; the bridge parses the tables and shapes the result, and
+pyMzLib does no arithmetic.
 
 ## `fit`
 
@@ -48,3 +54,28 @@ blank field. `CombinedPValues.p_values` is the `p_value` column keyed by feature
 `pymzlib.stats.SPEARMAN_METHODS`.
 
 --8<-- "docs/reference/_generated/stats.correlate.md"
+
+## `fit-logistic`
+
+`fit_logistic()` sends `--max-iterations` and `--tolerance` only when they are set, so leaving them
+out is mzLib's default, and `LogisticModelFit.max_iterations` and `.tolerance` are then `None`.
+`LogisticModelFit.status_counts` is keyed by `pymzlib.stats.LOGISTIC_STATUSES`, and
+`LogisticModelFit.rows()` gives one coefficient's block.
+
+--8<-- "docs/reference/_generated/stats.fit-logistic.md"
+
+## `fit-mixed`
+
+`fit_mixed()` sends `--estimator` only when `estimator=` is set; `MixedModelFit.estimator` reports
+what mzLib used either way. `MixedModelFit.status_counts` is keyed by
+`pymzlib.stats.MIXED_STATUSES`, and `MixedModelFit.rows()` gives one coefficient's block.
+
+--8<-- "docs/reference/_generated/stats.fit-mixed.md"
+
+## `entrapment-fdp`
+
+`entrapment_fdp()` always sends `--ratio`: it has no default, in Python or on the wire, because
+mzLib has none. It sends `--thresholds` (comma-separated) only when `thresholds=` is set.
+`EntrapmentFdpEstimates.at()` gives one threshold's row.
+
+--8<-- "docs/reference/_generated/stats.entrapment-fdp.md"
