@@ -33,6 +33,12 @@ MESSY = {
     "not_in_sdrf.mzML": None,
 }
 CLEAN = [rf"D:\search\{p}{i}-calib.mzML" for p in (POOL1, POOL5) for i in (1, 2)]
+# The same four under this platform's own separator. restrict reduces either separator on any
+# platform, but the design readers split only this platform's (Path.GetFileName), so a design
+# given D:\search\... on Linux keys on the whole string (SDRF-B5 asks mzLib for one rule).
+NATIVE_CLEAN = [
+    str(Path(os.sep, "search", f"{p}{i}-calib.mzML")) for p in (POOL1, POOL5) for i in (1, 2)
+]
 
 
 def _load(name: str) -> dict:
@@ -188,14 +194,15 @@ def test_live_out_writes_the_whole_document_where_mzlib_says(built_bridge, tmp_p
 def test_live_restrict_then_design(built_bridge):
     d = sdrf.isobaric_design(
         FIXTURES / "PXD008841_searched.sdrf.tsv", kit="TMT10",
-        plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)", searched_files=CLEAN,
+        plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)", searched_files=NATIVE_CLEAN,
     )
     assert d.is_valid, d.report
     assert d.file_key_column == "comment[searched data file]"
-    assert sorted({c.full_path for c in d.channels}) == sorted(CLEAN)
+    assert sorted({c.full_path for c in d.channels}) == sorted(NATIVE_CLEAN)
 
     unrestricted = sdrf.isobaric_design(
-        PXD008841, kit="TMT10", plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)", searched_files=CLEAN,
+        PXD008841, kit="TMT10", plex_file_name_pattern=r"TMT_?pool(?<plex>\d+)",
+        searched_files=NATIVE_CLEAN,
     )
     assert not unrestricted.is_valid
     assert any("has no SDRF row" in r for r in unrestricted.refusals)
