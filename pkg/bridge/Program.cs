@@ -300,6 +300,8 @@ public static partial class Program
             "stats fit" => Statistics.Fit(arguments),
             "stats adjust" => Statistics.Adjust(arguments),
             "stats meta" => Statistics.Meta(arguments),
+            "stats combine-p" => Statistics.CombineP(arguments),
+            "stats correlate" => Statistics.Correlate(arguments),
             // The list is Verbs, generated from this switch's own keys at build time (see the
             // DeriveVerbList target in MzLibBridge.csproj), so it cannot fall behind the switch.
             _ => throw new UsageException(

@@ -9,7 +9,7 @@ through `rpy2`, or reimplementing the method and hoping it agrees.
 limma to better than one part in 10^8, and the first section of this page lets you check that
 yourself rather than take it on trust.
 
-Every code block on this page is executed in CI, against recordings of the real bridge, on the
+Every `>>>` example on this page is executed in CI, against recordings of the real bridge, on the
 files pyMzLib ships in `pkg/python/tests/fixtures/stats/`.
 
 ## Which function do I want?
@@ -19,9 +19,13 @@ files pyMzLib ships in `pkg/python/tests/fixtures/stats/`.
 | Which features change with a coefficient, and how surely? | [`stats.fit`][pymzlib.stats.fit] | `LinearModel.Fit`, then `EmpiricalBayes.Moderate` | limma `lmFit` + `eBayes(legacy = TRUE)` |
 | Which of my p-values survive a false discovery rate? | [`stats.adjust`][pymzlib.stats.adjust] | `MultipleTesting.BenjaminiHochberg` | Benjamini and Hochberg 1995 |
 | What is one feature's effect, pooled across studies? | [`stats.meta`][pymzlib.stats.meta] | `RandomEffectsMeta.Pool` | DerSimonian and Laird 1986, as metafor `rma(method = "DL")` |
+| What do several studies' p-values for a feature say together? | [`stats.combine_p`][pymzlib.stats.combine_p] | `PValueCombination.Fisher` / `.Stouffer`, with `.OneSided` for signed tests | Fisher 1925; Stouffer 1949; as R's `pchisq` / `qnorm` |
+| Which features rise or fall with a per-sample trait (age, dose, load)? | [`stats.correlate`][pymzlib.stats.correlate] | `SpearmanCorrelation.Correlate` / `.PartialCorrelate` | Spearman 1904, as R's `cor.test`; partial as ppcor `pcor.test` |
 
 `fit` already adjusts its own p-values, so you need `adjust` only for p-values from somewhere else,
-and `meta` only when you have one estimate per study and want them combined.
+and `meta` only when you have one estimate per study and want them combined. `combine_p` is for
+when you have only p-values (and the direction of each effect), and `correlate` for a trait measured
+on a scale rather than in groups.
 
 ## 1. Check it against limma
 
@@ -248,6 +252,211 @@ The `heterogeneous` case is the one to learn from: its interval barely excludes 
 variation (I² = 0.82) is between studies rather than within them, and one study disagrees in sign.
 A pooled estimate like that summarises studies that do not agree.
 
+## 6. Combining p-values across studies
+
+Sometimes all you have from each study is a p-value: a supplementary table, a reanalysis that used
+another test, or effect sizes on scales too different to pool with `meta`. `combine_p` turns several
+independent p-values for the same feature into one, by one of two rules mzLib implements:
+
+| `method=` | Statistic | What drives it |
+|---|---|---|
+| `"fisher"` | X = -2 sum ln p, against chi-square on 2k degrees of freedom | the smallest p-values: one very strong study is enough |
+| `"stouffer"` | Z = sum w z / sqrt(sum w²), against the standard normal | every study, each by its weight (for example the square root of its sample size) |
+
+There is no default: mzLib prefers neither, so you choose. mzLib's own reference cases show the
+difference. In `mixed`, one p-value of 0.001 sits among four that disagree:
+
+```pycon
+>>> with open("combination_inputs.tsv", newline="") as fh:
+...     rows = list(csv.DictReader(fh, delimiter="\t"))
+>>> [(float(r["p"]), float(r["weight"])) for r in rows if r["case"] == "mixed"]
+[(0.001, 1.5), (0.999, 2.5), (0.5, 3.5), (0.05, 4.5), (0.95, 5.5)]
+>>> fisher = pymzlib.stats.combine_p([(r["case"], float(r["p"])) for r in rows], method="fisher")
+>>> stouffer = pymzlib.stats.combine_p([(r["case"], float(r["p"]), float(r["weight"])) for r in rows],
+...                                    method="stouffer")
+>>> round(fisher.p_values["mixed"], 3), round(stouffer.p_values["mixed"], 3)
+(0.019, 0.713)
+
+```
+
+Fisher says the five studies together are significant, because one of them is. Weighted Stouffer
+says they are not, because the heaviest study (p = 0.95) points the other way. Both agree with R's
+`pchisq` and `qnorm` to 1e-8 (the [`combine_p`][pymzlib.stats.combine_p] example checks it).
+
+### The trap: two-sided p-values have no direction
+
+Both rules combine **one-sided** p-values. A two-sided p-value - which is what `fit` reports - says
+how surprising an effect is, not which way it went. Combine those and two studies that disagree
+count as two that agree. Here are three proteins, each tested in three cohorts of 16, 25 and 9
+people (illustrative numbers, written here, not measured):
+
+```pycon
+>>> cohorts = [
+...     # (protein, two-sided p, weight = sqrt(cohort size), log2 fold change)
+...     ("up_everywhere", 0.003, 4, 0.8), ("up_everywhere", 0.02, 5, 0.5), ("up_everywhere", 0.3, 3, 0.3),
+...     ("flips_sign", 0.001, 4, 1.2), ("flips_sign", 0.004, 5, -0.9), ("flips_sign", 0.4, 3, 0.2),
+...     ("no_effect", 0.6, 4, -0.1), ("no_effect", 0.45, 5, 0.1), ("no_effect", 0.85, 3, -0.05),
+... ]
+>>> ignored = pymzlib.stats.combine_p([c[:3] for c in cohorts], method="stouffer")
+>>> signed = pymzlib.stats.combine_p(cohorts, method="stouffer")
+>>> for protein in signed.p_values:
+...     print(f"{protein:>13}  direction ignored {ignored.p_values[protein]:<8.2g}  signed {signed.p_values[protein]:.2g}")
+up_everywhere  direction ignored 0.00062   signed 8.4e-05
+   flips_sign  direction ignored 9.5e-05   signed 0.43
+    no_effect  direction ignored 0.69      signed 0.44
+
+```
+
+**Ignoring direction, `flips_sign` is the strongest result of the three.** It rose sharply in one
+cohort and fell sharply in another. Give each test its effect (the fourth value; only its sign is
+used) and mzLib first turns each two-sided p into the one-sided p-value for "effect > 0"
+(`PValueCombination.OneSided`: p/2 for a positive effect, 1 - p/2 for a negative one). Opposite
+effects then cancel, and `flips_sign` comes out at 0.43. The result says so:
+
+```pycon
+>>> signed.signed, signed.weighted, signed.method
+(True, True, 'stouffer')
+
+```
+
+What the columns mean:
+
+- `studies` is how many tests were combined, and `omitted` how many were not: a `None` p-value (a
+  test that could not be run) or, signed, an effect of 0 or `None` (no direction).
+- `statistic` is X (Fisher) or Z (Stouffer). `None` means it was infinite: a p-value of exactly 0
+  makes `p_value` 0, and in Stouffer a p-value of exactly 1 makes it 1.
+- `p_value` is the **upper tail**: it tests one direction. Signed, that is effect > 0; a Stouffer
+  `p_value` near 1 means a consistently *negative* effect. mzLib computes no two-sided combined
+  p-value.
+
+Before you trust a combined p-value:
+
+- **The studies must be independent.** Two analyses of the same samples are one study.
+- **It is not adjusted across features.** Send `p_values` to `adjust` for that.
+- **It is not an effect size.** If every study reports an estimate and a standard error on one
+  scale, `meta` pools those and tells you how much the studies disagree; prefer it.
+
+## 7. Correlating features with a trait
+
+When the samples differ by a number rather than a group - age, dose, the amount loaded - the
+question is which features rise or fall with it. `correlate` answers it with Spearman's rank
+correlation (Spearman 1904): for each feature, mzLib ranks the feature's values and the trait over
+the samples where both are known, correlates the ranks, and tests rho = 0, two-sided. Ranks make it
+indifferent to a log transform and to one extreme value, and it finds any relationship that only
+ever rises (or only ever falls), not only a straight line.
+
+It reads `fit`'s responses table and a **trait** table: one row per sample, the sample name, then
+one value column, whose header names the trait. The dilution series from section 2 has one ready,
+derived from its design by a rule held in the bridge's tests:
+
+```pycon
+>>> with open("malat_dilution_load_ng.tsv") as fh:
+...     header, *runs = [line.rstrip("\n").split("\t") for line in fh]
+>>> header, Counter(load for _, load in runs)
+(['run', 'malat_ng'], Counter({'250': 12, '125': 8, '500': 7}))
+>>> result = pymzlib.stats.correlate("malat_dilution_log2_vs_fluc.tsv", "malat_dilution_load_ng.tsv")
+>>> result.feature_count, result.sample_count, result.method_counts
+(492, 27, {'exact': 4, 'asymptotic': 308, 'not_estimable': 180})
+
+```
+
+Per transcript, with the unadjusted p-value below 0.01:
+
+```pycon
+>>> for transcript in ["MALAT1", "FLuc", "20mer2"]:
+...     rows = [r for r in result.records
+...             if r["rho"] is not None and r["feature"].split(":")[0] == transcript]
+...     rho = statistics.median(r["rho"] for r in rows)
+...     print(f"{transcript:>6}  {len(rows):>3} oligos  median rho {rho:+.2f}  "
+...           f"p < 0.01: {sum(r['p_value'] < 0.01 for r in rows)}")
+MALAT1  194 oligos  median rho +0.43  p < 0.01: 9
+  FLuc  111 oligos  median rho +0.00  p < 0.01: 2
+20mer2    5 oligos  median rho +0.49  p < 0.01: 2
+
+```
+
+MALAT1's oligos rise with its load, and FLuc's, the spike every run was normalised to, do not. The
+20-mer was loaded at a constant 50 ng, yet its five oligos lean positive too, like the 20-mer
+calls `fit` made in section 2. A known-answer experiment is how you see that: the measurement, not
+the statistics, carries it.
+
+What each row says:
+
+- `rho` runs from -1 to 1; ties take their average rank.
+- `p_value` is two-sided against rho = 0. Its `method` says how it was computed: `"exact"` (the
+  full permutation distribution, for n of 9 or fewer with no ties, as R's `cor.test`),
+  `"asymptotic"` (t on n - 2 degrees of freedom, as `cor.test(exact = FALSE)`), or
+  `"not_estimable"`, where `rho` and `p_value` are `None`.
+- `n` is how many samples the correlation used: those with both a response and a trait.
+- `has_ties` says whether either was tied. Here the trait has only three values, so any oligo seen
+  in more than three runs has ties, and its p-value is asymptotic.
+
+**Small n cannot be significant.** The four exact rows each used three runs:
+
+```pycon
+>>> [(r["n"], r["rho"], round(r["p_value"], 3)) for r in result.records if r["method"] == "exact"]
+[(3, -1, 0.333), (3, -0.5, 1), (3, 0.5, 1), (3, 0.5, 1)]
+
+```
+
+Three samples have six orderings, so even a perfect rank correlation has p = 1/3. And the 180
+`not_estimable` oligos were seen in fewer than three runs, or only in runs of one load, where the
+trait is constant.
+
+### Partial correlation: holding a nuisance variable fixed
+
+If something else also varies by sample - batch, run order, sex - and could produce the
+correlation by itself, give it in a **given** table of the same shape, with one column per
+covariate. mzLib then correlates what is left of the feature's ranks and the trait's ranks after
+each is regressed on the covariates' ranks (`SpearmanCorrelation.PartialCorrelate`, as
+`ppcor::pcor.test(method = "spearman")`). On the limma reference input from section 1, age given
+sex:
+
+```pycon
+>>> plain = pymzlib.stats.correlate("limma_reference_responses.tsv", "limma_reference_age.tsv")
+>>> partial = pymzlib.stats.correlate("limma_reference_responses.tsv", "limma_reference_age.tsv",
+...                                   given="limma_reference_sex.tsv")
+>>> partial.partial, partial.covariate_names
+(True, ['sex'])
+>>> plain.method_counts, partial.method_counts
+({'exact': 22, 'asymptotic': 378, 'not_estimable': 0}, {'exact': 0, 'asymptotic': 400, 'not_estimable': 0})
+>>> for p, q in zip(plain.records[:5], partial.records[:5]):
+...     print(f'{p["feature"]}  n={p["n"]}  rho {p["rho"]:+.2f} -> {q["rho"]:+.2f}   p {p["p_value"]:.2g} -> {q["p_value"]:.2g}')
+g1  n=12  rho +0.38 -> +0.37   p 0.23 -> 0.26
+g2  n=11  rho +0.93 -> +0.97   p 4e-05 -> 4.2e-06
+g3  n=11  rho +0.65 -> +0.64   p 0.029 -> 0.046
+g4  n=11  rho +0.12 -> +0.12   p 0.73 -> 0.74
+g5  n=11  rho +0.43 -> +0.37   p 0.19 -> 0.29
+
+```
+
+The partial test is always asymptotic, on n - 2 - k degrees of freedom for k covariates, so the 22
+features that had exact p-values lose them. mzLib drops a covariate that the others already carry
+and counts only the ones kept; it does not report that count.
+
+Before you trust a correlation:
+
+- **Partial out only nuisance variables.** A covariate that follows the trait takes the trait's
+  signal with it: correlate dose given a batch that ran one dose per day, and nothing is left.
+- **An asymptotic p-value of exactly 0 means rho is exactly -1 or 1.** It is the t-test's limit,
+  not a measured probability. Eleven of the 400 reference features have one:
+
+  ```pycon
+  >>> [(r["feature"], r["n"], r["rho"], r["p_value"]) for r in plain.records if r["p_value"] == 0][:3]
+  [('g6', 12, -1, 0), ('g34', 12, 1, 0), ('g50', 11, 1, 0)]
+
+  ```
+
+- **For 10 to 1289 samples without ties, R's default `cor.test` uses an Edgeworth series** that
+  mzLib does not, so p-values there differ slightly from R's default output (not from
+  `cor.test(exact = FALSE)`).
+- **It is not adjusted across features.** Send the column to `adjust`; a `None` (not estimable)
+  stays out of the family:
+
+  ```python title="Not run: no recording holds the adjustment of these p-values"
+  adjusted = pymzlib.stats.adjust(result.columns["p_value"])
+  ```
+
 ## What these functions will not do
 
 - **No imputation.** A missing value is left out of its feature's fit. If your pipeline imputes,
@@ -258,6 +467,8 @@ A pooled estimate like that summarises studies that do not agree.
   among the features you tested, which is a different question from identification FDR.
 - **`meta` uses a normal reference** (no Hartung-Knapp adjustment), so its intervals do not widen
   for two or three studies. Treat such pooled estimates with care.
+- **`combine_p` gives no two-sided combined p-value and no effect size**, and `correlate` does not
+  report how many covariates mzLib kept. Neither adjusts across features: that is `adjust`.
 - **pyMzLib does no arithmetic.** Every number on this page came from mzLib's
   `StatisticalModels`; pyMzLib parses the bridge's answer into the classes documented in the
   [API reference](../reference.md#pymzlibstats).

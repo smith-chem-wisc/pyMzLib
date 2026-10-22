@@ -16,7 +16,7 @@ namespace MzLibBridge.Tests;
 /// </summary>
 [TestFixture]
 [NonParallelizable] // swaps Console.In
-public class StatisticsTests
+public partial class StatisticsTests
 {
     private const double Tolerance = 1e-8;
 

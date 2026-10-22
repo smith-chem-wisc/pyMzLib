@@ -1,0 +1,126 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Statistics.Correlate.cs (Correlate,
+# ReadSampleTable, CorrelateCaveats) on branch feat/stats-combine-correlate (off main b6a90d7,
+# pyMzLib 0.5.0), mzLib pin d10017ce (tag 1.0.595; Correlate is from #1367, first in 1.0.594, and
+# PartialCorrelate from #1446, first in 1.0.595). Example fixtures recorded from the live bridge on
+# that branch. stats_correlate_malat.json is real data: the MALAT1 dilution series stats fit's
+# example uses, with the load in ng as the trait (malat_dilution_load_ng.tsv, derived from
+# malat_dilution_design.tsv by the rule in StatisticsTests.CorrelateFixtures_AreColumnsOfTheCommittedDesigns).
+# The limma ones are mzLib's simulated limma reference input (age_decades given sex). Agreement with
+# R 4.6.1's cor.test and ppcor 1.1's pcor.test is held through the wire, one call per mzLib reference
+# case, by StatisticsTests.Correlate_ReproducesRsCorTest_ThroughTheWire and
+# StatisticsTests.Correlate_Given_ReproducesPpcor_ThroughTheWire.
+verb: stats correlate
+module: stats
+summary: >-
+  Spearman's rank correlation of every feature of a feature-by-sample table with one per-sample
+  trait, with a two-sided p-value, optionally partial given per-sample covariates.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: SpearmanCorrelation.Correlate, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
+  - {symbol: SpearmanCorrelation.PartialCorrelate, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
+  - {symbol: SpearmanCorrelation.ExactMaxN, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
+  - {symbol: SpearmanResult, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
+  - {symbol: SpearmanPValueMethod, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
+cite:
+  - {doi: "10.2307/1412159", for: "the rank correlation coefficient rho (Spearman, Am J Psychol 15:72, 1904)"}
+  - {doi: "10.5351/CSAM.2015.22.6.665", for: "ppcor, whose pcor.test(method = 'spearman') the partial form (--given) reproduces (Kim, Commun Stat Appl Methods 22:665, 2015)"}
+  - {doi: "10.2307/2347111", for: "the Edgeworth series (AS 89) R's cor.test uses by default for 10 <= n < 1290, which mzLib does NOT use (Best and Roberts, Appl Stat 24:377, 1975)"}
+
+params:
+  - name: responses
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stats fit's responses table. A TSV with a header row: the first column is the feature id
+      (unique, any header) and every other column is one sample, named by its header. A blank cell,
+      NA or NaN (any case) is missing. Only ranks are used, so a monotone transform such as log2
+      changes nothing; but a 0 is an observation, ranked like any other value, so blank any 0 that
+      means not measured. Blank lines are skipped.
+  - name: trait
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row and one row per sample: the sample name, then EXACTLY ONE value
+      column, whose header names the trait (for example age or dose). The sample names must be
+      exactly the responses' sample columns, in any order: rows are matched by name. A blank, NA or
+      NaN cell is a sample with no trait value, left out of every feature's correlation.
+  - name: given
+    type: path
+    required: false
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Optional. A TSV with the trait file's shape but one or more covariate columns, each named by
+      its header: per-sample nuisance variables (batch, run order, loading) to partial out. With it,
+      every feature is correlated by PartialCorrelate instead of Correlate. The sample names must
+      be exactly the responses' sample columns; a blank, NA or NaN cell leaves that sample out of
+      every feature's correlation. Absent, the bridge sends none and the correlation is plain.
+
+result:
+  envelope_fields:
+    - {wire: responses_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the responses table."}
+    - {wire: trait_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the trait table."}
+    - {wire: given_file, type: string, unit: null, nullable: true, null_means: "no --given: the correlation is plain", doc: "Absolute path of the covariates table."}
+    - {wire: trait_name, type: string, unit: null, nullable: false, null_means: null, doc: "The trait file's value column header."}
+    - {wire: covariate_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The --given file's column headers, in order; empty without --given."}
+    - {wire: partial, type: bool, unit: null, nullable: false, null_means: null, doc: "True with --given: rows are partial correlations (PartialCorrelate)."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Feature rows read; the table's row count."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Sample columns read."}
+    - {wire: sample_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "In responses header order, which is the order the trait and covariate rows were put in."}
+    - {wire: missing_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Response cells that were blank, NA or NaN."}
+    - {wire: trait_missing_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with no finite trait value, so in no feature's correlation."}
+    - {wire: given_incomplete_count, type: int, unit: samples, nullable: true, null_means: "no --given", doc: "Samples missing at least one covariate, so in no feature's correlation."}
+    - {wire: method_counts, type: "map<string,int>", unit: features, nullable: false, null_means: null, doc: "Features per method: exact, asymptotic, not_estimable."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Equal to feature_count."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per feature, in responses file order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Four static caveats (five with --given), plus one when any feature is not_estimable, with the count."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
+    - {wire: rho, type: float, unit: "unitless correlation (-1 to 1)", nullable: true, null_means: "not_estimable (see method)", doc: "Spearman's rho: Pearson's correlation of the ranks, ties given their average rank. With --given, the partial rho: the correlation of the feature's and the trait's ranks after each is regressed on the covariates' ranks, all ranked over the complete samples."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not_estimable", doc: "Two-sided p-value against rho = 0, computed as method says. 0 when rho is exactly -1 or 1 with the asymptotic test. Not adjusted across features."}
+    - {wire: n, type: int, unit: samples, nullable: false, null_means: null, doc: "Complete samples the correlation used: the response, the trait and (with --given) every covariate finite."}
+    - {wire: has_ties, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether any variable (the response, the trait or, with --given, a covariate) has tied values among the complete samples. Also false when there were too few complete samples to rank at all (n below 3, or below 4 with --given), where mzLib does not look."}
+    - {wire: method, type: string, unit: null, nullable: false, null_means: null, doc: "exact (the full permutation distribution of S = sum d^2, for n <= 9 with no ties and no --given, as R's cor.test exact = TRUE) | asymptotic (t = rho sqrt(df / (1 - rho^2)) on df = n - 2, or n - 2 - k for k covariates kept, as cor.test exact = FALSE and ppcor::pcor.test) | not_estimable (fewer than 3 complete samples, or k + 3 with --given; a constant variable; or covariates that carry the response or the trait entirely)."}
+
+errors:
+  - {kind: usage, when: "responses or trait missing, blank or not found; --given given without a value or not found; a table empty, header-only or with too few columns; the trait file with other than exactly one value column; a row whose field count differs from its header; an empty or repeated feature id, sample or column name; a cell that is not a number (other than blank, NA, NaN)"}
+  - {kind: usage, when: "the trait's or the covariates' samples are not exactly the responses' sample columns (both differences are named)"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Plain: p_value is exact, from the full permutation distribution, for n <= 9 without ties, as R's cor.test(method = 'spearman'); otherwise it is asymptotic, t with n - 2 degrees of freedom, as cor.test(exact = FALSE)."
+  - "Plain: for 10 <= n < 1290 without ties, R's cor.test default is an Edgeworth series (AS 89), which mzLib does not use, so p-values there differ slightly from R's default output."
+  - "With --given: every variable is ranked over the samples complete in all of them, rho is the correlation of the feature's and the trait's ranks after each is regressed on the covariates' ranks, and p_value is from t with n - 2 - k degrees of freedom, as ppcor::pcor.test(method = 'spearman'). mzLib drops a covariate that the others carry entirely, and k counts the covariates kept; mzLib does not report k, so neither does this verb."
+  - "With --given: give only nuisance covariates. A covariate that follows the trait takes the trait's own signal with it."
+  - "A sample enters a feature's correlation only when its response, its trait and every covariate are finite: missing values are omitted, never imputed. n is the number of samples used."
+  - "p_value is not adjusted across features. Send the p_value column to stats adjust for Benjamini-Hochberg."
+
+bindings:
+  py: {name: pymzlib.stats.correlate}
+  rust: {name: "mzlib::stats::correlate_with", options: CorrelateOptions, note: "not yet ported"}
+  r: {name: stats_correlate, note: "not yet ported"}
+
+examples:
+  - fixture: stats_correlate_malat.json
+    py: "result = pymzlib.stats.correlate('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_load_ng.tsv')"
+    rust: "let result = mzlib::stats::correlate_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_dilution_load_ng.tsv\", &CorrelateOptions::default())?;"
+    r: "result <- stats_correlate('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_load_ng.tsv')"
+  - fixture: stats_correlate_limma_age.json
+    py: "result = pymzlib.stats.correlate('limma_reference_responses.tsv', 'limma_reference_age.tsv')"
+    rust: "let result = mzlib::stats::correlate_with(\"limma_reference_responses.tsv\", \"limma_reference_age.tsv\", &CorrelateOptions::default())?;"
+    r: "result <- stats_correlate('limma_reference_responses.tsv', 'limma_reference_age.tsv')"
+  - fixture: stats_correlate_limma_age_given_sex.json
+    py: "result = pymzlib.stats.correlate('limma_reference_responses.tsv', 'limma_reference_age.tsv', given='limma_reference_sex.tsv')"
+    rust: "let result = mzlib::stats::correlate_with(\"limma_reference_responses.tsv\", \"limma_reference_age.tsv\", &CorrelateOptions { given: Some(\"limma_reference_sex.tsv\".into()), ..Default::default() })?;"
+    r: "result <- stats_correlate('limma_reference_responses.tsv', 'limma_reference_age.tsv', given = 'limma_reference_sex.tsv')"
+
+open_questions: []

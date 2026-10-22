@@ -18,6 +18,11 @@ PYMZLIB_REGENERATE_STATS_FIXTURES=1 dotnet test pkg/bridge.tests --filter "Fully
 | `limma_ebayes_notrend.tsv` | limma 3.68.5's `eBayes(legacy = TRUE)` output for `age_decades` on that input, verbatim. | same |
 | `metafor_dl_inputs.tsv`, `metafor_dl_results.tsv` | metafor 5.2.1's DerSimonian-Laird reference cases and results, verbatim. Constructed cases, not proteomics data. | same |
 | `limma_metafor_PROVENANCE.txt` | mzLib's record of the R, limma and metafor versions and the seed that produced the reference files. | same |
+| `combination_inputs.tsv`, `combination_results.tsv` | mzLib's p-value combination reference cases (case, p, weight) and R 4.6.1's Fisher (`pchisq`), Stouffer and weighted Stouffer (`qnorm`) results for them, verbatim. Constructed p-values, not proteomics data. | `CombinationFixtures_AreMzLibsReferenceCases` |
+| `combination_PROVENANCE.txt` | mzLib's `PROVENANCE_glm_lmm.txt`, verbatim: the R version and seed, and the note that the combination files were regenerated on 2026-09-28. | same |
+| `malat_dilution_load_ng.tsv` | One row per run of the dilution series: `malat_ng`, the MALAT1 load in ng (250 where `malat_250ng` is 1, 125 where `malat_125ng` is 1, else 500), from `malat_dilution_design.tsv`. The trait `stats.correlate` reads. | `CorrelateFixtures_AreColumnsOfTheCommittedDesigns` |
+| `limma_reference_age.tsv`, `limma_reference_sex.tsv` | The `age_decades` and `sex` columns of `limma_reference_design.tsv`, verbatim, as one-column per-sample tables: the trait and the covariate of the partial-correlation example. | same |
 
 The recorded bridge payloads that answer these calls in the examples are one folder up:
-`stats_fit_malat.json`, `stats_fit_limma.json`, `stats_adjust.json` and `stats_meta_metafor.json`.
+`stats_fit_malat.json`, `stats_fit_limma.json`, `stats_adjust.json`, `stats_meta_metafor.json`,
+`stats_combine_p_*.json` and `stats_correlate_*.json`.

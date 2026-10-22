@@ -35,6 +35,20 @@ envelope is not a breaking change unless Python callers can see it.
   stray space and mzLib's collision counter `P04637_2` all come back `unrecognized`, verbatim.
   `namespace` is spelled as `resolve_genes()` spells it, so the two tables join. Wire verb
   `proteins parse-accession`.
+- **`stats.combine_p()`: one p-value per feature from several independent studies,** by mzLib's
+  `PValueCombination` (#1367): Fisher's method or Stouffer's, weighted (for example by the square
+  root of each study's size) or not. `method=` is required, because mzLib prefers neither. Give
+  each test's effect and every p-value is read as two-sided and converted to the one-sided p-value
+  for effect > 0 first (`PValueCombination.OneSided`), so studies whose effects point opposite ways
+  cancel instead of reinforcing each other. mzLib holds both rules to R's `pchisq` and `qnorm` to
+  1e-8. Wire verb `stats combine-p`.
+- **`stats.correlate()`: Spearman's rank correlation of every feature with a per-sample trait,** by
+  mzLib's `SpearmanCorrelation` (#1367), over `fit()`'s responses table and a one-column trait
+  table. `given=` adds per-sample covariates to partial out (`PartialCorrelate`, #1446, as
+  `ppcor::pcor.test`). Each row carries rho, a two-sided p-value, the samples used and how the
+  p-value was computed (`exact` for n of 9 or fewer without ties, as R's `cor.test`; `asymptotic`;
+  or `not_estimable`, with rho and p as `None`). Not adjusted across features: chain `adjust()`.
+  Wire verb `stats correlate`.
 
 ### Changed
 - **PRIDE's metadata calls add no timeout of their own.** `pride.list_files()`,

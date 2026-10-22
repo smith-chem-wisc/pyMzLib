@@ -24,7 +24,7 @@ namespace MzLibBridge;
 /// the fit's residual variances, residual df and (with a trend) average responses alone.
 /// </para>
 /// </remarks>
-internal static class Statistics
+internal static partial class Statistics
 {
     /// <summary>Row columns of the <c>stats fit</c> table, in order.</summary>
     internal static readonly string[] FitColumns =
