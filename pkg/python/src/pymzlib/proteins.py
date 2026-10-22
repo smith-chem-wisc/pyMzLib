@@ -70,8 +70,25 @@ guess::
     >>> parsed.columns["namespace"][4:7]
     ['uniprot', 'unrecognized', 'unrecognized']
 
+**Which genes are orthologous across species?** :func:`build_orthology` builds mzLib's snapshot of
+Ensembl Compara's homologies among your species, from their gene sets, the gene trees and **every**
+species' homology dump (Compara splits each pair's relationships between the pair's two dumps), and
+writes it as Parquet with ``out=``. With ``pair_status=`` it says, gene by gene, how far Compara's
+inference got in one other species::
+
+    >>> gtfs = {"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf",
+    ...         "mus_musculus": "Mus_musculus.GRCm39.116.gtf",
+    ...         "rattus_norvegicus": "Rattus_norvegicus.GRCr8.116.gtf"}
+    >>> snap = pymzlib.proteins.build_orthology(
+    ...     "116", gtfs=gtfs, gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+    ...     dumps=[f"homologies/{s}/Compara.116.protein_default.homologies.tsv.gz" for s in gtfs],
+    ...     pair_status=("homo_sapiens", "mus_musculus"))
+    >>> snap.pair_status.status_counts["has_ortholog"], snap.pair_status.row_count
+    (2, 4)
+
 These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
-databases in ``pkg/python/tests/fixtures/proteins/``. The GO example's table is a real MetaMorpheus
+databases in ``pkg/python/tests/fixtures/proteins/`` (and, for orthology, mzLib's own three-species
+test world in ``pkg/python/tests/fixtures/orthology/``). The GO example's table is a real MetaMorpheus
 1.1.11 search (PXD036557).
 
 :func:`read`, :func:`resolve_genes` and :func:`classify_peptides` take **one database or many**.
@@ -94,9 +111,9 @@ to a gene, and a peptide it shares with a target is shared.
 - *Masses are of the unmodified sequence as written* - the precursor, initiator methionine and
   signal peptide included - so they are not the mass of the mature protein.
 
-Wire verbs: ``proteins read``, ``genes resolve``, ``proteins classify-peptides``,
-``proteins annotate-go``, ``proteins update-go``, ``proteins align`` and
-``proteins parse-accession``; their language-neutral specs live in the bridge repository under
+Wire verbs: ``proteins read``, ``genes resolve``, ``genes orthology``,
+``proteins classify-peptides``, ``proteins annotate-go``, ``proteins update-go``,
+``proteins align`` and ``proteins parse-accession``; their language-neutral specs live in the bridge repository under
 ``design/verbs/``.
 """
 
@@ -115,6 +132,7 @@ __all__ = [
     "END_GAPS",
     "NAMESPACES",
     "NOT_IN_DATABASE",
+    "ORTHOLOGY_STATUSES",
     "OUTCOMES",
     "SHARED_ACROSS_GENES",
     "SHARED_WITHIN_GENE",
@@ -127,19 +145,27 @@ __all__ = [
     "FileError",
     "GeneResolutions",
     "GeneSet",
+    "GeneTrees",
     "GoAnnotations",
     "GoCategories",
     "GoRelease",
     "GoUpdate",
+    "HomologyDump",
+    "OrthologySnapshot",
+    "PairStatus",
     "ParsedAccessions",
     "PeptideClassification",
     "ProteinDatabase",
+    "SnapshotFile",
+    "SpeciesPair",
     "Table",
+    "WrittenSnapshot",
     "WrittenTable",
     "XrefTable",
     "align",
     "align_many",
     "annotate_go",
+    "build_orthology",
     "classify_peptides",
     "parse_accessions",
     "read",
@@ -190,6 +216,22 @@ NAMESPACES = ("uniprot", "refseq", "unrecognized")
 
 #: The pyMzLib release whose bridge first dispatches ``proteins align`` and ``parse-accession``.
 _ALIGN_SINCE = "0.6.0"
+
+#: Every status :func:`build_orthology` can report in :attr:`OrthologySnapshot.pair_status`, as
+#: mzLib writes it (``OrthologySnapshot.StatusName``), in mzLib's order. Every gene gets exactly one,
+#: so "Compara found nothing", "there was nothing to compare against" and "no call was attempted"
+#: never share an empty result. ``not_in_gene_set`` is for a gene id from elsewhere, and never occurs
+#: in a pair-status table, whose rows are the gene set itself.
+ORTHOLOGY_STATUSES = (
+    "has_ortholog",
+    "no_edge_in_shared_tree",
+    "tree_lacks_target_species",
+    "not_in_any_tree",
+    "not_in_gene_set",
+)
+
+#: The pyMzLib release whose bridge first dispatches ``genes orthology``.
+_ORTHOLOGY_SINCE = "0.6.0"
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -1269,6 +1311,312 @@ class ParsedAccessions(_Table):
         )
 
 
+@dataclass(frozen=True)
+class GeneTrees:
+    """Compara's gene-tree file a snapshot was built with, and what was kept from it.
+
+    Attributes:
+        source_file_name: The file's name, e.g. ``vertebrates.GeneTree_content.default.e116.txt.gz``.
+        sha256: Lower-case hex sha256 of the file's bytes as read (the compressed bytes for a
+            ``.gz``).
+        release: The release in the file name (``.e116.txt``); ``None`` when the name carries none,
+            and then mzLib could not hold the file to the release you gave - a caveat says so.
+        collection: The Compara collection in the file name, e.g. ``"vertebrates"``; ``None`` when
+            the name does not start ``<collection>.GeneTree_content.``.
+        member_count: Genes held in memory from the file, in genes: every gene in it, or with
+            ``restrict_gene_trees=True`` only those in your gene sets.
+        restricted_to_gene_sets: The sha256s of the gene sets the members were restricted to;
+            ``None`` when every gene in the file was kept (``restrict_gene_trees=False``).
+    """
+
+    source_file_name: str
+    sha256: str
+    release: str | None
+    collection: str | None
+    member_count: int
+    restricted_to_gene_sets: list[str] | None = None
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> GeneTrees:
+        restricted = data.get("restricted_to_gene_sets")
+        return cls(
+            source_file_name=data.get("source_file_name", ""),
+            sha256=data.get("sha256", ""),
+            release=data.get("release"),
+            collection=data.get("collection"),
+            member_count=int(data.get("member_count", 0)),
+            restricted_to_gene_sets=list(restricted) if restricted is not None else None,
+        )
+
+
+@dataclass(frozen=True)
+class HomologyDump:
+    """One species' Compara homology dump, as read.
+
+    Attributes:
+        source_file_name: The file's name. Ensembl names every species' dump
+            ``Compara.<release>.protein_default.homologies.tsv.gz``, so this alone does not say whose
+            it is: the key of :attr:`OrthologySnapshot.dumps` does, read from the dump's rows.
+        sha256: Lower-case hex sha256 of the file's bytes as read.
+        release: The release in the file name; ``None`` when it carries none (then not checked).
+        rows_read: Every data row read and checked, kept or not, in rows.
+        rows_kept: Rows whose two species are both snapshot species, in rows.
+    """
+
+    source_file_name: str
+    sha256: str
+    release: str | None
+    rows_read: int
+    rows_kept: int
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> HomologyDump:
+        return cls(
+            source_file_name=data.get("source_file_name", ""),
+            sha256=data.get("sha256", ""),
+            release=data.get("release"),
+            rows_read=int(data.get("rows_read", 0)),
+            rows_kept=int(data.get("rows_kept", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class SpeciesPair:
+    """How many relationships one species pair holds: one row each in ``pairs/<a>__<b>.parquet``.
+
+    Attributes:
+        species_a: The species that sorts first: side A of every row of the pair.
+        species_b: The other; the same species for its paralogs, the pair ``(s, s)``.
+        row_count: Relationships between the two, in rows. One row each, never merged or picked.
+        ortholog_count: Of those, orthologs (``ortholog_one2one``, ``ortholog_one2many``,
+            ``ortholog_many2many``), in rows. Always 0 for ``(s, s)``.
+        paralog_count: Paralogs (``within_species_paralog``, ``other_paralog``, ``gene_split``),
+            in rows. Always 0 between two species.
+        homoeolog_count: Homoeologs, between subgenomes of one polyploid species, in rows.
+    """
+
+    species_a: str
+    species_b: str
+    row_count: int
+    ortholog_count: int
+    paralog_count: int
+    homoeolog_count: int
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> SpeciesPair:
+        return cls(
+            species_a=data.get("species_a", ""),
+            species_b=data.get("species_b", ""),
+            row_count=int(data.get("row_count", 0)),
+            ortholog_count=int(data.get("ortholog_count", 0)),
+            paralog_count=int(data.get("paralog_count", 0)),
+            homoeolog_count=int(data.get("homoeolog_count", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class SnapshotFile:
+    """One file of a written snapshot.
+
+    Attributes:
+        path: Relative to :attr:`WrittenSnapshot.directory`, with forward slashes, e.g.
+            ``"pairs/homo_sapiens__mus_musculus.parquet"``.
+        rows: Rows in the Parquet table; ``None`` for a file that is not a table (``views.sql``).
+            A pair with no relationship is still written, with 0 rows.
+        bytes: The file's size in bytes.
+        sha256: Lower-case hex sha256 of the file, as ``manifest.json`` lists it.
+    """
+
+    path: str
+    rows: int | None
+    bytes: int
+    sha256: str
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> SnapshotFile:
+        rows = data.get("rows")
+        return cls(
+            path=data.get("path", ""),
+            rows=int(rows) if rows is not None else None,
+            bytes=int(data.get("bytes", 0)),
+            sha256=data.get("sha256", ""),
+        )
+
+
+@dataclass(frozen=True)
+class WrittenSnapshot:
+    """Where :func:`build_orthology` wrote the snapshot, with ``out=``.
+
+    Attributes:
+        directory: The ``out`` directory, absolute.
+        files: Every file written but ``manifest.json``, in order of path: the Parquet tables
+            ``genes/<species>.parquet``, ``members/<species>.parquet`` and
+            ``pairs/<a>__<b>.parquet``, and ``views.sql``.
+    """
+
+    directory: str
+    files: list[SnapshotFile] = field(default_factory=list)
+
+    @property
+    def manifest(self) -> str:
+        """The path of ``manifest.json``, which lists every input and file with its sha256."""
+        return os.path.join(self.directory, "manifest.json")
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any] | None) -> WrittenSnapshot | None:
+        if data is None:
+            return None
+        return cls(
+            directory=data.get("directory", ""),
+            files=[SnapshotFile._from_wire(f) for f in data.get("files") or []],
+        )
+
+
+@dataclass(frozen=True)
+class PairStatus(_Table):
+    """Every gene of one species with how far Compara's inference got in another.
+
+    One row per gene of :attr:`from_species`'s gene set, every biotype, in order of gene id:
+
+    ================  ====  ==================================================================
+    column            type  meaning; ``None`` means
+    ================  ====  ==================================================================
+    ``gene_id``       str   stable Ensembl gene id, unversioned
+    ``gene_name``     str   the release's gene name, a label; ``None``: the GTF gives none
+    ``gene_biotype``  str   the release's biotype (``unknown`` when the GTF omits it)
+    ``status``        str   one of :data:`ORTHOLOGY_STATUSES` but ``not_in_gene_set``
+    ================  ====  ==================================================================
+
+    Attributes:
+        from_species: Whose genes the rows are.
+        to_species: The species each status is about.
+        row_count: Genes: every gene of ``from_species``.
+        status_counts: Status -> genes with it. Every key in :data:`ORTHOLOGY_STATUSES` is
+            present, zeros included; ``not_in_gene_set`` is always 0 here.
+        column_names: Column order.
+        columns: Column name -> one value per gene.
+    """
+
+    from_species: str
+    to_species: str
+    row_count: int
+    status_counts: dict[str, int] = field(default_factory=dict)
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+
+    def genes(self, status: str) -> list[str]:
+        """The gene ids with one status, in order of gene id.
+
+        Raises:
+            UsageError: ``status`` is not one of :data:`ORTHOLOGY_STATUSES`.
+
+        See :func:`build_orthology` for an example.
+        """
+        if status not in ORTHOLOGY_STATUSES:
+            raise _bridge.UsageError(
+                f"status must be one of {', '.join(ORTHOLOGY_STATUSES)}; got {status!r}."
+            )
+        ids = self.columns.get("gene_id", [])
+        return [g for g, s in zip(ids, self.columns.get("status", [])) if s == status]
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any] | None) -> PairStatus | None:
+        if data is None:
+            return None
+        return cls(
+            from_species=data.get("from_species", ""),
+            to_species=data.get("to_species", ""),
+            row_count=int(data.get("row_count", 0)),
+            status_counts=dict(data.get("status_counts") or {}),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+        )
+
+
+@dataclass(frozen=True)
+class OrthologySnapshot:
+    """What :func:`build_orthology` returns: an Ensembl Compara orthology snapshot, as built.
+
+    The relationships themselves are in the Parquet files ``out=`` writes, not here: this says what
+    went in, what came out, and, with ``pair_status=``, every gene's status in one other species.
+
+    Attributes:
+        release: The Ensembl release you gave.
+        species: The snapshot's species, Ensembl production names, in sorted order.
+        format: ``"ensembl-orthology-snapshot"``, as ``manifest.json`` names the format.
+        format_version: The format's version (1 at mzLib 1.0.595).
+        snapshot_id: mzLib's id for the snapshot: a sha256 over the format, the release, the
+            species and every input's sha256. The same inputs give the same id, written or not,
+            and it is ``manifest.json``'s ``snapshot_id``. Record it with any result drawn from the
+            snapshot.
+        identical_duplicates_dropped: Homology rows found in both of a pair's dumps, identical, and
+            counted once, in rows. 0 in release 116, whose dumps partition.
+        gene_sets: Species -> the :class:`GeneSet` it was counted against, the same type
+            :func:`resolve_genes` reports. Its ``sha256`` is what ``manifest.json``'s
+            ``gene_set_sha256`` and :func:`resolve_genes`'s ``gene_set_sha256`` column carry, so a
+            resolution and a snapshot can be checked against one gene set.
+        gene_trees: The gene-tree file, as :class:`GeneTrees`.
+        dumps: Species -> its :class:`HomologyDump`. The species is read from the dump's rows.
+        pairs: One :class:`SpeciesPair` per species pair ``(a, b)``, ``a <= b``, ``(s, s)``
+            included. :meth:`pair` finds one in either order.
+        written: Where the snapshot was written, as :class:`WrittenSnapshot`; ``None`` without
+            ``out=``, when nothing was written.
+        pair_status: Every gene's status, as :class:`PairStatus`; ``None`` without
+            ``pair_status=``.
+        caveats: This call's traps: a file name with no release (not checked against it), dumps
+            sharing one file name, a GTF named for another release, duplicate rows, unrestricted
+            gene trees.
+    """
+
+    release: str
+    species: list[str]
+    format: str
+    format_version: int
+    snapshot_id: str
+    identical_duplicates_dropped: int
+    gene_sets: dict[str, GeneSet] = field(default_factory=dict)
+    gene_trees: GeneTrees | None = None
+    dumps: dict[str, HomologyDump] = field(default_factory=dict)
+    pairs: list[SpeciesPair] = field(default_factory=list)
+    written: WrittenSnapshot | None = None
+    pair_status: PairStatus | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    def pair(self, a: str, b: str) -> SpeciesPair:
+        """The counts for species ``a`` and ``b``, given in either order.
+
+        Raises:
+            UsageError: ``a`` or ``b`` is not one of :attr:`species`.
+
+        See :func:`build_orthology` for an example.
+        """
+        first, second = sorted((a, b))
+        for pair in self.pairs:
+            if (pair.species_a, pair.species_b) == (first, second):
+                return pair
+        raise _bridge.UsageError(
+            f"({a!r}, {b!r}) is not a pair of this snapshot's species: {', '.join(self.species)}."
+        )
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> OrthologySnapshot:
+        return cls(
+            release=data.get("release", ""),
+            species=list(data.get("species") or []),
+            format=data.get("format", ""),
+            format_version=int(data.get("format_version", 0)),
+            snapshot_id=data.get("snapshot_id", ""),
+            identical_duplicates_dropped=int(data.get("identical_duplicates_dropped", 0)),
+            gene_sets={s: GeneSet._from_wire(g) for s, g in (data.get("gene_sets") or {}).items()},
+            gene_trees=GeneTrees._from_wire(data.get("gene_trees") or {}),
+            dumps={s: HomologyDump._from_wire(d) for s, d in (data.get("dumps") or {}).items()},
+            pairs=[SpeciesPair._from_wire(p) for p in data.get("pairs") or []],
+            written=WrittenSnapshot._from_wire(data.get("written")),
+            pair_status=PairStatus._from_wire(data.get("pair_status")),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
 # ---- argument shaping --------------------------------------------------------------------------
 
 
@@ -1991,3 +2339,198 @@ def parse_accessions(accessions: Iterable[str], *, timeout: float | None = None)
     _bridge.require_verb("proteins parse-accession", since=_ALIGN_SINCE)
     data = _bridge.invoke("proteins", "parse-accession", stdin="\n".join(lines) + "\n", timeout=timeout)
     return ParsedAccessions._from_wire(data)
+
+
+def _species_lines(
+    gtfs: Mapping[str, _PathLike] | None, gene_sets: Mapping[str, _PathLike] | None
+) -> list[str]:
+    """The stdin species lines, ``species<TAB>gtf|gene-set<TAB>path``, in the order given."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for kind, mapping, what in (("gtf", gtfs, "gtfs"), ("gene-set", gene_sets, "gene_sets")):
+        if mapping is None:
+            continue
+        if not isinstance(mapping, Mapping):
+            raise _bridge.UsageError(
+                f"{what} must be a dict from Ensembl production name to path, e.g. "
+                f"{{'homo_sapiens': 'Homo_sapiens.GRCh38.116.gtf.gz'}}; got {mapping!r}."
+            )
+        for species, path in mapping.items():
+            if not isinstance(species, str) or not species.strip():
+                raise _bridge.UsageError(
+                    f"Every species in {what} must be a non-empty str; got {species!r}."
+                )
+            name = species.strip()
+            if any(c in name for c in "\t\r\n,"):
+                raise _bridge.UsageError(
+                    f"A species name cannot hold a tab, line break or comma: {species!r}."
+                )
+            if name in seen:
+                raise _bridge.UsageError(
+                    f"'{name}' is in both gtfs and gene_sets; give each species one gene set."
+                )
+            seen.add(name)
+            lines.append(f"{name}\t{kind}\t{_paths(path, f'{what} {name}')[0]}")
+    if not lines:
+        raise _bridge.UsageError(
+            "At least one species is required: gtfs={'homo_sapiens': 'Homo_sapiens.GRCh38.116.gtf.gz', "
+            "...} (or gene_sets= for compact gene tables)."
+        )
+    return lines
+
+
+def build_orthology(
+    release: str | int,
+    *,
+    gene_trees: _PathLike,
+    dumps: Iterable[_PathLike],
+    gtfs: Mapping[str, _PathLike] | None = None,
+    gene_sets: Mapping[str, _PathLike] | None = None,
+    restrict_gene_trees: bool = False,
+    out: _PathLike | None = None,
+    pair_status: Sequence[str] | None = None,
+    timeout: float | None = None,
+) -> OrthologySnapshot:
+    """Build an Ensembl Compara orthology snapshot for your species, and write it as Parquet.
+
+    Wraps mzLib's ``OrthologySnapshot.Build`` and ``OrthologySnapshotWriter.WriteAsync`` (mzLib
+    #1381). Which genes of one species are orthologous to which genes of another, kept exactly as
+    Compara states it: one-to-many and many-to-many orthologies are several rows, paralogs are kept,
+    and nothing is picked, merged or collapsed. Local files only; nothing is downloaded.
+
+    **Every species' homology dump is required, and mzLib refuses a call without one.** Compara puts
+    each of a pair's relationships in one of the pair's two dumps, arbitrarily, and in practice they
+    partition: in release 116 every human-mouse orthology is in the *mouse* dump and none is in the
+    human one. Reading the dump named after your species gives a complete-looking, badly incomplete
+    answer.
+
+    **Orthology is pairwise and not transitive.** A~B and B~C do not make A~C, so never chain pairs
+    into groups. The written ``views.sql`` has a ``species_set3`` macro that forms a tuple only when
+    every two members are orthologs.
+
+    The relationships are in the Parquet files ``out=`` writes, which mzLib cannot read back and
+    pyMzLib does not read (it has no third-party dependency): query them with DuckDB, pyarrow or
+    R's arrow, as the proteins guide shows. Without ``out=``, the call
+    checks that the inputs fit together and, with ``pair_status=``, says gene by gene how far
+    Compara's inference got in one other species.
+
+    Args:
+        release: The Ensembl release of the Compara inputs, e.g. ``"116"`` (an int is sent as its
+            digits). Required: mzLib holds the gene trees and every dump to it when their file names
+            carry a release. A GTF's own number is not compared with it (Ensembl publishes some
+            species with their own annotation release).
+        gtfs: Species -> its Ensembl primary-assembly GTF, plain or ``.gz``, e.g.
+            ``{"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf.gz"}``. The keys are Ensembl production
+            names, as the dumps' ``species`` column spells them, and they are the snapshot's species.
+            Sent on stdin, one line per species.
+        gene_sets: Species -> a compact gene table mzLib's ``EnsemblGeneSetWriter`` made from a GTF,
+            instead of the GTF itself (it keeps the GTF's provenance, so the snapshot is the same).
+            A species may be in ``gtfs`` or ``gene_sets``, not both.
+        dumps: One Compara homology dump per species
+            (``homologies/<species>/Compara.<release>.protein_default.homologies.tsv.gz``), in any
+            order: each dump's species is read from its rows. Sent on stdin after the species lines.
+        gene_trees: Compara's gene-tree file,
+            ``<collection>.GeneTree_content.default.e<release>.txt.gz``. It tells a gene whose tree
+            holds no gene of the other species from one whose tree does but got no ortholog call.
+        restrict_gene_trees: Keep only the gene-tree members in your gene sets. ``False``
+            (default) is mzLib's default and keeps every gene in the file - 4.2 million for the
+            vertebrates of release 116. The snapshot is the same either way; only memory differs.
+        out: A directory to write the snapshot to: Parquet tables (``genes/``, ``members/``,
+            ``pairs/``), ``views.sql`` and ``manifest.json``. It must not exist yet or be empty:
+            mzLib writes a snapshot once and never updates one in place. ``None`` (default): nothing
+            is written.
+        pair_status: ``(from_species, to_species)``: return every gene of ``from_species`` with its
+            status in ``to_species`` (:class:`PairStatus`). Two different species of the snapshot,
+            in that order: a status is not symmetric. ``None`` (default): not computed.
+        timeout: Seconds to allow. ``None`` (default) waits: for human, mouse and rat at release
+            116, mzLib reports about 20 s to build and 40 s more to write.
+
+    Returns:
+        An :class:`OrthologySnapshot`.
+
+    Raises:
+        UsageError: a missing input file; no species, no dumps, or a species in both ``gtfs`` and
+            ``gene_sets``; ``out`` naming a file or a directory that is not empty; ``pair_status``
+            not two different species of the snapshot (all checked before any input is read); and
+            mzLib's refusal of inputs that do not fit together - a species without a dump, two
+            dumps of one species, a dump of a species not given, or a file of another release.
+        BridgeError: a file mzLib's reader refuses (``InvalidDataException``, naming the file and
+            line), or data that breaks the snapshot's rules, such as a homology naming a gene its
+            species' gene set lacks: the GTF and the dumps are from different releases.
+
+    Examples:
+        mzLib's own test world: three genes of human, mouse and rat, with every human-mouse row
+        in the mouse dump, as in release 116.
+
+        >>> gtfs = {"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf",
+        ...         "mus_musculus": "Mus_musculus.GRCm39.116.gtf",
+        ...         "rattus_norvegicus": "Rattus_norvegicus.GRCr8.116.gtf"}
+        >>> dumps = [f"homologies/{s}/Compara.116.protein_default.homologies.tsv.gz" for s in gtfs]
+        >>> snap = build_orthology("116", gtfs=gtfs, dumps=dumps,
+        ...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+        ...     pair_status=("homo_sapiens", "mus_musculus"))
+        >>> snap.dumps["mus_musculus"].rows_kept, snap.pair("mus_musculus", "homo_sapiens").row_count
+        (5, 3)
+        >>> snap.pair_status.columns["status"]
+        ['has_ortholog', 'has_ortholog', 'tree_lacks_target_species', 'not_in_any_tree']
+        >>> snap.pair_status.genes("not_in_any_tree")
+        ['ENSG00000000004']
+
+        With ``out=``, the snapshot is written, and its id is the same:
+
+        >>> written = build_orthology("116", gtfs=gtfs, dumps=dumps,
+        ...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+        ...     restrict_gene_trees=True, out="compara-116")
+        >>> written.snapshot_id == snap.snapshot_id
+        True
+        >>> [f.rows for f in written.written.files if f.path.startswith("pairs/")]
+        [0, 3, 1, 1, 2, 0]
+    """
+    if isinstance(release, bool) or not isinstance(release, (str, int)):
+        raise _bridge.UsageError(f"release must be an Ensembl release, e.g. '116'; got {release!r}.")
+    release_text = str(release).strip()
+    if not release_text or any(c.isspace() for c in release_text):
+        raise _bridge.UsageError(f"release must be an Ensembl release, e.g. '116'; got {release!r}.")
+
+    species_lines = _species_lines(gtfs, gene_sets)
+    dump_lines = _paths(dumps, "homology dump")
+    if not dump_lines:
+        raise _bridge.UsageError(
+            "dumps is empty. Give every species' Compara homology dump: each pair's relationships are "
+            "split between the pair's two dumps, so mzLib requires them all."
+        )
+
+    args = [
+        "genes", "orthology", "--release", release_text,
+        "--gene-trees", _one_path(gene_trees, "gene_trees", required=True) or "",
+    ]
+    if not isinstance(restrict_gene_trees, bool):
+        raise _bridge.UsageError(
+            f"restrict_gene_trees must be True or False; got {restrict_gene_trees!r}."
+        )
+    if restrict_gene_trees:
+        args.append("--restrict-gene-trees")
+    out_text = _one_path(out, "out", required=False)
+    if out_text is not None:
+        args += ["--out", out_text]
+    if pair_status is not None:
+        if (
+            isinstance(pair_status, (str, bytes))
+            or not isinstance(pair_status, Sequence)
+            or len(pair_status) != 2
+        ):
+            raise _bridge.UsageError(
+                f"pair_status must be a (from_species, to_species) tuple, e.g. ('homo_sapiens', "
+                f"'mus_musculus'); got {pair_status!r}."
+            )
+        for name in pair_status:
+            if not isinstance(name, str) or not name.strip() or any(c in name for c in "\t\r\n,"):
+                raise _bridge.UsageError(
+                    f"Each species in pair_status must be a production name; got {name!r}."
+                )
+        args += ["--pair-status", ",".join(name.strip() for name in pair_status)]
+
+    _bridge.require_verb("genes orthology", since=_ORTHOLOGY_SINCE)
+    stdin = "\n".join([*species_lines, _SECTION, *dump_lines]) + "\n"
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return OrthologySnapshot._from_wire(data)

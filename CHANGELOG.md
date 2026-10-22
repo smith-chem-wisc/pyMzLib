@@ -91,6 +91,19 @@ envelope is not a breaking change unless Python callers can see it.
   11, gap extend 1, end gaps free, a 200,000,000-cell limit at 1.0.595), and the result says what
   was used. `score` is a raw BLOSUM62 score in half-bits, not an identity. Many pairs go in one call.
   Wire verb `proteins align`.
+- **`proteins.build_orthology()`: an Ensembl Compara orthology snapshot for your species, written
+  as Parquet** (mzLib 1.0.595, #1381, `OrthologySnapshot.Build`, `OrthologySnapshotWriter`). From
+  each species' GTF (or compact gene table), Compara's gene-tree file and **every species' homology
+  dump**, which mzLib requires: Compara splits each pair's relationships between the pair's two
+  dumps, and in release 116 every human-mouse orthology is in the mouse dump. One-to-many orthologs
+  and paralogs are kept as rows, never picked or merged, and no group is formed by chaining pairs.
+  `out=` writes mzLib's snapshot directory (Parquet tables per species and species pair, DuckDB
+  macros in `views.sql`, a `manifest.json` of sha256s); a directory that is not empty is refused.
+  `pair_status=(from, to)` gives every gene of one species exactly one of `has_ortholog`,
+  `no_edge_in_shared_tree`, `tree_lacks_target_species` or `not_in_any_tree` in the other. The
+  result carries mzLib's `snapshot_id`, every input's sha256, and each species pair's row counts.
+  pyMzLib reads no Parquet (no new dependency); the proteins guide shows DuckDB and pyarrow over the
+  files. Wire verb `genes orthology`.
 - **`proteins.parse_accessions()`: read accessions into entry, isoform or version, and applied
   variants** (mzLib 1.0.595, #1382, `VariantApplication.ParseAccession`). `NP_000537.3_R72P` is
   RefSeq `NP_000537`, version 3, with `R72P` applied; `P04637-2_S70N` is isoform 2 of `P04637`

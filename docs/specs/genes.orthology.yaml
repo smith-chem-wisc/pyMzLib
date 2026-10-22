@@ -1,0 +1,273 @@
+# Written 2026-10-21 with the verb, from pyMzLib pkg/bridge/Proteins.Orthology.cs (Orthology,
+# OrthologyCaveats) on branch feat/genes-orthology (off main eaf10e1), mzLib pin d10017ce (tag
+# 1.0.595, which carries mzLib #1381). The example fixtures were recorded from the live bridge on
+# that branch over mzLib's own three-species test world (Test/FileReadingTests/
+# TestOrthologySnapshot.cs at d10017ce: its GTF, dump and gene-tree rows verbatim), written to
+# pkg/python/tests/fixtures/orthology/ with each dump in Ensembl's homologies/<species>/ layout.
+# mzLib's tests write those files at run time and ship none, so they were made once from its rows
+# (fixtures/orthology/PROVENANCE.txt). The proposal this replaces is "Module genes (existing)" in
+# design/scouting/2026-10-20/inv-sdrf-pride.md; it differs in three ways. Both input lists always
+# travel on stdin, so there are no --species-stdin or --dumps-stdin flags; each species line names
+# its gene-set kind, as genes resolve's --gtf and --gene-set do; and --restrict-gene-trees is added.
+verb: genes orthology
+module: genes
+summary: >-
+  Build an Ensembl Compara orthology snapshot for a set of species from their gene sets, the gene
+  trees and every species' homology dump, and optionally write it as Parquet and say, gene by gene,
+  how far Compara's inference got in another species.
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: OrthologySnapshot.Build, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshot.cs, pin: d10017ce}
+  - {symbol: OrthologySnapshot.PairStatus, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshot.cs, pin: d10017ce}
+  - {symbol: OrthologySnapshot.StatusName, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshot.cs, pin: d10017ce}
+  - {symbol: OrthologySnapshotWriter.WriteAsync, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshotWriter.cs, pin: d10017ce}
+  - {symbol: OrthologySnapshotWriter.SnapshotId, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshotWriter.cs, pin: d10017ce}
+  - {symbol: ComparaHomologyDump.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaHomologyDump.cs, pin: d10017ce}
+  - {symbol: ComparaGeneTreeContent.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeContent.cs, pin: d10017ce}
+  - {symbol: EnsemblGeneSet.LoadGtf, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSet.cs, pin: d10017ce}
+  - {symbol: EnsemblGeneSetReader.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSetReader.cs, pin: d10017ce}
+cite:
+  - {doi: "10.1101/gr.073585.107", for: "Ensembl Compara gene trees, the duplication-aware phylogenies its orthology and paralogy calls are read from (Vilella et al. 2009, Genome Res 19:327)"}
+  - {doi: "10.1093/nar/gkaf1239", for: "Ensembl releases, their GTFs and the Compara homology dumps (Ensembl 2026, NAR)"}
+
+params:
+  - name: release
+    type: string
+    required: true
+    unit: null
+    range: "an Ensembl release number, e.g. 116"
+    default: null
+    doc: >-
+      The Ensembl release of the Compara inputs. Required, never defaulted: the release is part of
+      the answer. mzLib holds the gene trees and every dump to it, but only when their file names
+      carry a release (Compara.116.protein_default.homologies.tsv.gz,
+      vertebrates.GeneTree_content.default.e116.txt.gz); a renamed file is not checked, and the
+      result's caveats say which. A GTF's own number is not compared with it: Ensembl publishes some
+      species with their own annotation release (Saccharomyces_cerevisiae.R64-1-1.63.gtf.gz in
+      release 116), so mzLib holds a gene set to the dumps by content instead.
+  - name: species
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each exactly three tab-separated fields"
+    default: null
+    doc: >-
+      Read from stdin (not an option), first: one line per species, the species' Ensembl production
+      name (homo_sapiens, as the dumps' species column spells it), a tab, gtf or gene-set, a tab, and
+      the path. gtf is an Ensembl primary-assembly GTF, plain or .gz, read with
+      EnsemblGeneSet.LoadGtf; gene-set is the compact table mzLib's EnsemblGeneSetWriter makes from
+      one, read with EnsemblGeneSetReader.Load, which keeps the GTF's provenance. These lines are the
+      snapshot's species. A species listed twice, a kind other than gtf or gene-set, or a missing
+      file is a usage error. Blank lines are skipped.
+  - name: dumps
+    type: "string[]"
+    required: true
+    unit: null
+    range: "exactly one per species"
+    default: null
+    doc: >-
+      Read from stdin (not an option), after a line holding only --: one Compara homology dump path
+      per line (homologies/SPECIES/Compara.RELEASE.protein_default.homologies.tsv.gz, plain or
+      .gz), each read with ComparaHomologyDump.Load for every species given. The dump's genome is
+      read from its rows, not its name. mzLib requires EVERY species' dump: Compara puts each of a
+      pair's relationships in one of the pair's two dumps, arbitrarily, so a missing dump would
+      silently lose them. A missing dump, two of one species, or one of a species not given is
+      mzLib's refusal, a usage error.
+  - name: gene-trees
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Compara's gene-tree membership dump, COLLECTION.GeneTree_content.default.eRELEASE.txt.gz
+      (plain or .gz), read with ComparaGeneTreeContent.Load. It is what tells a gene whose tree holds
+      no gene of the other species from one whose tree does but got no ortholog call.
+  - name: restrict-gene-trees
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: false
+    doc: >-
+      Keep only the gene-tree members in the given gene sets (ComparaGeneTreeContent.Load with
+      restrictTo, the gene sets). Absent: mzLib's default, restrictTo null, which keeps every gene in
+      the file, 4.2 million for the vertebrate collection of release 116 (mzLib's
+      ComparaGeneTreeContent remarks). The snapshot, its id and every written byte are the same
+      either way; only memory, gene_trees.member_count and gene_trees.restricted_to_gene_sets
+      differ. mzLib checks the one-tree and one-canonical-protein rules only on the genes kept.
+  - name: out
+    type: path
+    required: false
+    unit: null
+    range: "a directory that does not exist or is empty"
+    default: null
+    doc: >-
+      Write the snapshot to this directory with OrthologySnapshotWriter.WriteAsync: Parquet tables
+      (zstd) genes/SPECIES.parquet, members/SPECIES.parquet and pairs/A__B.parquet, plus
+      views.sql (DuckDB table macros) and manifest.json. The directory and its subfolders are
+      created. A DIRECTORY, not a .tsv file: the PYB-1 extension rule is for options that write one
+      table. mzLib refuses a directory that is not empty, because a snapshot is written once and
+      compared with a later one, never updated in place; the bridge applies that same refusal, and
+      refuses a path that is a file, before any input is read. Absent: nothing is written.
+  - name: pair-status
+    type: string
+    required: false
+    unit: null
+    range: "FROM,TO: two different species of the snapshot"
+    default: null
+    doc: >-
+      Return pair_status: every gene of FROM's gene set, in ordinal order of gene id, with its status
+      in TO (OrthologySnapshot.PairStatus). Two production names separated by a comma, e.g.
+      homo_sapiens,mus_musculus. Both must be species given on stdin, and different; the bridge
+      checks that before any input is read, with the rule mzLib's PairStatus applies. One direction
+      per call: status is not symmetric. Absent: pair_status is null.
+
+result:
+  envelope_fields:
+    - {wire: release, type: string, unit: null, nullable: false, null_means: null, doc: "The --release given (OrthologySnapshot.Release)."}
+    - {wire: species, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The snapshot's species, Ensembl production names, in ordinal order (OrthologySnapshot.Species)."}
+    - {wire: format, type: string, unit: null, nullable: false, null_means: null, doc: "ensembl-orthology-snapshot (OrthologySnapshotWriter.FormatName): what manifest.json's format says."}
+    - {wire: format_version, type: int, unit: null, nullable: false, null_means: null, doc: "1 at d10017ce (OrthologySnapshotWriter.FormatVersion)."}
+    - {wire: snapshot_id, type: string, unit: null, nullable: false, null_means: null, doc: "OrthologySnapshotWriter.SnapshotId: lower-case hex sha256 over the format, the release, the species and every input's sha256. The same inputs give the same id, written or not; with --out it is manifest.json's snapshot_id. Record it with any result drawn from the snapshot."}
+    - {wire: identical_duplicates_dropped, type: int, unit: rows, nullable: false, null_means: null, doc: "Homology rows met in both of a pair's dumps, identical in every value, and counted once (OrthologySnapshot.IdenticalDuplicatesDropped). 0 in release 116, whose dumps partition; counted so a change is visible."}
+    - {wire: gene_sets, type: "map<string,object>", unit: null, nullable: false, null_means: null, doc: "Species to its gene set, in species order; each value has genes resolve's gene_set fields (typed under result.tables.gene_sets)."}
+    - {wire: gene_trees, type: object, unit: null, nullable: false, null_means: null, doc: "The gene-tree file and what was kept from it (typed under result.tables.gene_trees)."}
+    - {wire: dumps, type: "map<string,object>", unit: null, nullable: false, null_means: null, doc: "Species (the dump's genome, read from its rows) to its homology dump, in species order (typed under result.tables.dumps)."}
+    - {wire: pairs, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One entry per species pair (a, b) with a <= b in ordinal order, (s, s) included, in OrthologySnapshot.Pairs order: how many relationships of each class it holds (typed under result.tables.pairs)."}
+    - {wire: written, type: object, unit: null, nullable: true, null_means: "no --out was given; nothing was written", doc: "The written snapshot: its directory and every file but manifest.json, which sits beside them (typed under result.tables.written)."}
+    - {wire: pair_status, type: object, unit: null, nullable: true, null_means: "no --pair-status was given", doc: "{from_species, to_species, row_count, status_counts, column_names, columns}: one row per gene of from_species (typed under result.tables.pair_status and result.tables.pair_status_columns)."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "This call's traps: an input whose file name carries no release (not checked against --release), dumps sharing one file name (source_dump cannot tell them apart), a GTF named for another release, identical duplicate rows, unrestricted gene trees holding genes outside the gene sets."}
+  columns: []
+  tables:
+    gene_sets:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The GTF's file name; for a gene-set table, still the GTF's (EnsemblGeneSet.SourceFileName)."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the GTF's bytes as read, the compressed bytes for a .gz (EnsemblGeneSet.SourceSha256). manifest.json's gene_set_sha256 and genes resolve's gene_set_sha256 carry the same value, so a resolution and a snapshot can be checked against one gene set."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the GTF's file name carries no release", doc: "The annotation release from the GTF's name; it may differ from --release (see the release param)."}
+      - {wire: genome_build, type: string, unit: null, nullable: true, null_means: "the GTF has no #!genome-build header", doc: "e.g. GRCh38.p14."}
+      - {wire: genebuild_last_updated, type: string, unit: null, nullable: true, null_means: "the GTF has no #!genebuild-last-updated header", doc: "The header's value."}
+      - {wire: gene_count, type: int, unit: genes, nullable: false, null_means: null, doc: "Genes in the set, every biotype."}
+    gene_trees:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The file's name."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the file's bytes as read (compressed for a .gz)."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the file name carries no .eRELEASE.txt suffix, so the release was not checked", doc: "The release parsed from the file name."}
+      - {wire: collection, type: string, unit: null, nullable: true, null_means: "the file name does not start COLLECTION.GeneTree_content.", doc: "The Compara collection, e.g. vertebrates; manifest.json's collection."}
+      - {wire: member_count, type: int, unit: genes, nullable: false, null_means: null, doc: "Genes held from the file (ComparaGeneTreeContent.Count): every gene in it, or with --restrict-gene-trees only those in the gene sets."}
+      - {wire: restricted_to_gene_sets, type: "string[]", unit: null, nullable: true, null_means: "no --restrict-gene-trees: every gene in the file was kept", doc: "The sha256s of the gene sets the members were restricted to, in ordinal order (ComparaGeneTreeContent.RestrictedToGeneSets)."}
+    dumps:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The dump's file name. Ensembl gives every species' dump the same name, so this alone does not say which dump it is: the key does."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the file's bytes as read (compressed for a .gz)."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the file name does not start Compara.RELEASE., so the release was not checked", doc: "The release parsed from the file name."}
+      - {wire: rows_read, type: int, unit: rows, nullable: false, null_means: null, doc: "Every data row read and checked, kept or not (ComparaHomologyDump.RowsRead)."}
+      - {wire: rows_kept, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows whose two species are both snapshot species (ComparaHomologyDump.Rows). The rest name a species not given."}
+    pairs:
+      - {wire: species_a, type: string, unit: null, nullable: false, null_means: null, doc: "The species that sorts first; side A of every row in pairs/A__B.parquet."}
+      - {wire: species_b, type: string, unit: null, nullable: false, null_means: null, doc: "The other species; the same as species_a for the paralogs of one species."}
+      - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Relationships between the two (OrthologySnapshot.Pair), one row each, never merged or picked; the rows of pairs/A__B.parquet."}
+      - {wire: ortholog_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Of those, ortholog_one2one, ortholog_one2many or ortholog_many2many (relationship_class ortholog). Always 0 for (s, s)."}
+      - {wire: paralog_count, type: int, unit: rows, nullable: false, null_means: null, doc: "within_species_paralog, other_paralog or gene_split. Always 0 between two species."}
+      - {wire: homoeolog_count, type: int, unit: rows, nullable: false, null_means: null, doc: "homoeolog_one2one, homoeolog_one2many or homoeolog_many2many: between subgenomes of one polyploid species."}
+    written:
+      - {wire: directory, type: string, unit: null, nullable: false, null_means: null, doc: "The --out directory, absolute. manifest.json is in it."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Every file written but manifest.json, in ordinal order of path (OrthologySnapshotWriter's SnapshotManifest.Files): {path, rows, bytes, sha256} (typed under result.tables.written_files)."}
+    written_files:
+      - {wire: path, type: string, unit: null, nullable: false, null_means: null, doc: "Relative to directory, with forward slashes, e.g. pairs/homo_sapiens__mus_musculus.parquet."}
+      - {wire: rows, type: int, unit: rows, nullable: true, null_means: "the file is not a table (views.sql)", doc: "Rows in the Parquet table; 0 for a pair with no relationship, which is still written."}
+      - {wire: bytes, type: int, unit: bytes, nullable: false, null_means: null, doc: "The file's size."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the file; manifest.json lists the same."}
+    pair_status:
+      - {wire: from_species, type: string, unit: null, nullable: false, null_means: null, doc: "FROM: whose genes the rows are."}
+      - {wire: to_species, type: string, unit: null, nullable: false, null_means: null, doc: "TO: the species each status is about."}
+      - {wire: row_count, type: int, unit: genes, nullable: false, null_means: null, doc: "Every gene of from_species' gene set, all biotypes."}
+      - {wire: status_counts, type: "map<string,int>", unit: genes, nullable: false, null_means: null, doc: "Status name to genes with it, every OrthologyStatus in mzLib's order, zeros included. not_in_gene_set is always 0 here: every row is a gene of the gene set."}
+      - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "gene_id, gene_name, gene_biotype, status."}
+      - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per gene."}
+    pair_status_columns:
+      - {wire: gene_id, type: string, unit: null, nullable: false, null_means: null, doc: "Stable Ensembl gene id, unversioned as Ensembl GTFs write it."}
+      - {wire: gene_name, type: string, unit: null, nullable: true, null_means: "the GTF gives the gene no gene_name (common for novel lncRNAs)", doc: "The release's gene_name: a display label, never a key."}
+      - {wire: gene_biotype, type: string, unit: null, nullable: false, null_means: null, doc: "The release's gene_biotype, unknown when the GTF omits it. Filter on it to choose the denominator: all biotypes are rows, and protein_coding alone is not the same set."}
+      - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "OrthologySnapshot.StatusName: has_ortholog (at least one ortholog in to_species), no_edge_in_shared_tree (the gene's tree holds a to_species gene and Compara called no ortholog to it: the closest the data comes to no ortholog exists), tree_lacks_target_species (the tree holds no to_species gene, so nothing was compared), or not_in_any_tree (in the gene set but in no gene tree: no call was attempted)."}
+    parquet_genes:
+      - {wire: gene_id, type: string, unit: null, nullable: false, null_means: null, doc: "genes/SPECIES.parquet, one row per gene of the gene set."}
+      - {wire: gene_version, type: int, unit: null, nullable: true, null_means: "the GTF gives no gene_version (absent is not 0)", doc: "The gene_version attribute."}
+      - {wire: gene_biotype, type: string, unit: null, nullable: false, null_means: null, doc: "unknown when the GTF omits it."}
+      - {wire: gene_name, type: string, unit: null, nullable: true, null_means: "the GTF gives no gene_name", doc: "A display label."}
+      - {wire: seq_region, type: string, unit: null, nullable: false, null_means: null, doc: "The GTF's first column: chromosome or scaffold."}
+      - {wire: species, type: string, unit: null, nullable: false, null_means: null, doc: "The production name."}
+    parquet_members:
+      - {wire: gene_id, type: string, unit: null, nullable: false, null_means: null, doc: "members/SPECIES.parquet, one row per gene of the gene set that is in a gene tree."}
+      - {wire: species, type: string, unit: null, nullable: false, null_means: null, doc: "The production name."}
+      - {wire: group_id, type: string, unit: null, nullable: false, null_means: null, doc: "compara-RELEASE:TREE_ID, so a tree id is never compared across releases."}
+      - {wire: source_group_id, type: string, unit: null, nullable: false, null_means: null, doc: "Compara's gene-tree stable id, e.g. ENSGT00940000153582."}
+      - {wire: canonical_protein_id, type: string, unit: null, nullable: false, null_means: null, doc: "The protein Compara used for the gene (the row flagged Y)."}
+    parquet_pairs:
+      - {wire: homology_id, type: string, unit: null, nullable: false, null_means: null, doc: "pairs/A__B.parquet, one row per relationship, ordered by homology id. Compara's id, unique within a release."}
+      - {wire: relationship_type, type: string, unit: null, nullable: false, null_means: null, doc: "Compara's homology_type verbatim, e.g. ortholog_one2many."}
+      - {wire: relationship_class, type: string, unit: null, nullable: false, null_means: null, doc: "ortholog, paralog or homoeolog (ComparaHomologyDump.ClassName)."}
+      - {wire: species_a, type: string, unit: null, nullable: false, null_means: null, doc: "The species that sorts first."}
+      - {wire: species_b, type: string, unit: null, nullable: false, null_means: null, doc: "The other species."}
+      - {wire: gene_a, type: string, unit: null, nullable: false, null_means: null, doc: "Side A's gene; every value moves with its gene when a row is reoriented."}
+      - {wire: protein_a, type: string, unit: null, nullable: false, null_means: null, doc: "Side A's protein in the alignment."}
+      - {wire: identity_a, type: float, unit: percent, nullable: true, null_means: "Compara gave NULL", doc: "Percentage of A's protein identical to B's in the alignment, 0 to 100."}
+      - {wire: gene_b, type: string, unit: null, nullable: false, null_means: null, doc: "Side B's gene."}
+      - {wire: protein_b, type: string, unit: null, nullable: false, null_means: null, doc: "Side B's protein."}
+      - {wire: identity_b, type: float, unit: percent, nullable: true, null_means: "Compara gave NULL", doc: "Percentage of B's protein identical to A's, 0 to 100. Not identity_a: each is over its own protein's length."}
+      - {wire: dn, type: float, unit: "nonsynonymous substitutions per nonsynonymous site", nullable: true, null_means: "Compara gave NULL (it computes dN for few comparisons)", doc: "Compara's dn verbatim."}
+      - {wire: ds, type: float, unit: "synonymous substitutions per synonymous site", nullable: true, null_means: "Compara gave NULL", doc: "Compara's ds verbatim."}
+      - {wire: goc_score, type: int, unit: "score, 0 to 100", nullable: true, null_means: "Compara gave NULL (not computed for this pair)", doc: "Gene order conservation score."}
+      - {wire: wga_coverage, type: float, unit: percent, nullable: true, null_means: "Compara gave NULL (no whole-genome alignment for this pair)", doc: "Whole-genome alignment coverage, 0 to 100."}
+      - {wire: is_high_confidence, type: bool, unit: null, nullable: true, null_means: "Compara gave NULL: it declines to say, which is not false", doc: "Compara's high-confidence flag."}
+      - {wire: source_dump, type: string, unit: null, nullable: false, null_means: null, doc: "The FILE NAME of the dump the row was read from. Which of a pair's two dumps holds a row is arbitrary, so this is provenance, not meaning; and as Ensembl names every dump the same, it cannot say which species' dump."}
+
+errors:
+  - {kind: usage, when: "--release or --gene-trees missing or given without a value; --out or --pair-status given without a value; a value after --restrict-gene-trees"}
+  - {kind: usage, when: "no species lines on stdin, no line holding only --, or no dump paths after it; a species line that is not species, tab, gtf or gene-set, tab, path; a species listed twice"}
+  - {kind: usage, when: "a GTF, gene-set table, dump or gene-trees file that does not exist; --out naming a file or a directory that is not empty (OrthologySnapshotWriter.WriteAsync's refusal, applied before any input is read)"}
+  - {kind: usage, when: "--pair-status not two comma-separated names, naming a species not given on stdin, or one species twice (the rule of OrthologySnapshot.PairStatus, applied before any input is read)"}
+  - {kind: usage, when: "mzLib's OrthologySnapshot.Build refused the inputs as not fitting together (ArgumentException, with mzLib's message): the gene trees or a dump name a release other than --release; a dump is of a species not given, two dumps are of one species, or a species has no dump"}
+  - {kind: correctness, when: "a file mzLib's reader refuses (InvalidDataException, naming file and line): a GTF gene row without gene_id; a table that is not a gene-set table; a dump with other columns, a short row, a value that is not a number, an unknown homology_type, a paralog between two species, an ortholog within one, or a second genome; a gene-tree row without four cells or with a flag other than Y or N, or a kept gene in two trees or without exactly one canonical protein"}
+  - {kind: correctness, when: "OrthologySnapshot.Build found data that breaks the snapshot's rules (InvalidDataException): one gene in two species' gene sets, a homology naming a gene its species' gene set lacks (the gene set and the dumps are from different releases), or one homology id with two different rows"}
+  - {kind: correctness, when: "the snapshot could not be written (IOException from the disk)"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Every species' homology dump is required, and mzLib refuses a call without one. Compara's README warns that each genome's dump holds an arbitrary subset of its relationships, and in practice they partition: in release 116 every human-mouse orthology is in the mouse dump and none is in the human one, so the dump named after one species gives a complete-looking, badly incomplete answer."
+  - "Orthology is asserted per species pair and is not transitive: A~B and B~C do not make A~C. Never chain pairs into groups. The written views.sql's species_set3 macro, and mzLib's OrthologySnapshot.SpeciesSet, form a tuple only when every two members are orthologs."
+  - "Nothing is picked, merged or collapsed: a one-to-many or many-to-many orthology is several rows, and a gene's paralogs are the pair (s, s)."
+  - "A status says how far Compara's inference got, not what biology holds. no_edge_in_shared_tree is the nearest the data comes to no ortholog exists; tree_lacks_target_species and not_in_any_tree mean nothing was compared."
+  - "Every biotype is in pair_status and in genes/SPECIES.parquet. Which genes form a denominator is the caller's choice: filter on gene_biotype. mzLib's own human-to-mouse check counted protein-coding plus IG and TR genes, which is not the same set as protein_coding alone."
+  - "Values are Compara's, verbatim: a NULL in a dump stays null in the Parquet (identity, dn, ds, goc_score, wga_coverage, is_high_confidence), never 0 or false. identity_a and identity_b differ because each is over its own protein."
+  - "The gene set and the dumps must be from one release: mzLib refuses a homology whose gene is not in its species' gene set. Use the primary-assembly GTF (Species.Assembly.Release.gtf.gz), as for genes resolve."
+  - "A snapshot is written once. The same inputs give the same bytes and the same snapshot_id, so a later release is a new directory compared with the old one; a directory that is not empty is refused, never overwritten."
+  - "mzLib ships a writer and no reader. Query the Parquet with DuckDB (load views.sql for the orthologs, pair_status and species_set3 macros), pyarrow, polars or R's arrow."
+  - "Ensembl names every species' dump Compara.RELEASE.protein_default.homologies.tsv.gz in its own folder, and the pairs tables' source_dump column records only the file name, so it cannot tell two species' dumps apart. manifest.json's inputs list each dump with its species and sha256."
+
+performance: >-
+  Everything is read into memory, and the inputs are large: human release 116's GTF is 141 MB
+  compressed (mzLib's EnsemblGeneSet remarks), and the vertebrate gene-tree file holds 4.2 million
+  genes unless --restrict-gene-trees keeps only the given species'. For human, mouse and rat at
+  release 116, mzLib #1381 reports the build from the three dumps at about 20 s and the written
+  snapshot (13 files, 9.0 MB) at about 40 s more. No call here takes a degree of parallelism, so
+  there is no --threads.
+
+bindings:
+  py: {name: pymzlib.proteins.build_orthology, note: "The species lines are rendered from gtfs= and gene_sets=, two dicts from production name to path; dumps= is the list."}
+  rust: {name: "mzlib::proteins::build_orthology_with", options: OrthologyOptions, note: "planned; not yet ported"}
+  r: {name: proteins_build_orthology, note: "planned; not yet ported"}
+
+examples:
+  - fixture: genes_orthology_pair_status.json
+    py: "snap = pymzlib.proteins.build_orthology('116', gtfs=gtfs, gene_trees=trees, dumps=dumps, pair_status=('homo_sapiens', 'mus_musculus'))"
+    rust: "let snap = mzlib::proteins::build_orthology_with('116', &OrthologyOptions { gtfs, gene_trees, dumps, pair_status: Some((human, mouse)), ..Default::default() })?;"
+    r: "snap <- proteins_build_orthology('116', gtfs = gtfs, gene_trees = trees, dumps = dumps, pair_status = c('homo_sapiens', 'mus_musculus'))"
+  - fixture: genes_orthology_written.json
+    py: "snap = pymzlib.proteins.build_orthology('116', gtfs=gtfs, gene_trees=trees, dumps=dumps, restrict_gene_trees=True, out='compara-116')"
+    rust: "let snap = mzlib::proteins::build_orthology_with('116', &OrthologyOptions { gtfs, gene_trees, dumps, restrict_gene_trees: true, out: Some(dir), ..Default::default() })?;"
+    r: "snap <- proteins_build_orthology('116', gtfs = gtfs, gene_trees = trees, dumps = dumps, restrict_gene_trees = TRUE, out = 'compara-116')"
+
+open_questions:
+  - "result.tables (gene_sets, gene_trees, dumps, pairs, written, pair_status and the Parquet tables) is not validated by tools/check_verbs.py, which checks only envelope_fields, columns and bulk. Bridge tests pin each nested object's keys (GenesOrthologyTests)."
+  - "The Parquet tables' units are mzLib's doc comments (ComparaHomology: identity percent, goc_score and wga_coverage 0 to 100). dn and ds are written as dN and dS conventionally are, substitutions per site; neither mzLib nor this bridge has checked Compara's own definition."
+  - "Only one pair-status direction per call, and no SpeciesSet tuples or ortholog rows on the wire: the written Parquet and views.sql answer those. Whether a binding needs them without a Parquet reader (pyMzLib has no third-party dependency) is open."
+  - "source_dump records the dump's file name, which Ensembl gives every species' dump (PUSH-TO-MAINLAND: mzLib could record the dump's genome, or the path under homologies/, beside it)."
+  - "Not yet ported to mzLibRust or mzLibR; the binding names above are proposals."

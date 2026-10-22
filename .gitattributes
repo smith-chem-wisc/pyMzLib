@@ -29,3 +29,4 @@
 # checkout on Windows must not change them.
 ###############################################################################
 pkg/python/tests/fixtures/proteins/** -text
+pkg/python/tests/fixtures/orthology/** -text

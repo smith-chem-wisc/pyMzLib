@@ -1,0 +1,20 @@
+source       mzLib d10017ce (tag 1.0.595), Test/FileReadingTests/TestOrthologySnapshot.cs (mzLib #1381)
+what         mzLib's three-species test world, rows verbatim: the GeneSet() GTF rows, the
+             HumanDump/MouseDump/RatDump rows built by Row(), and the Trees() gene-tree rows
+layout       each dump where Ensembl publishes it, homologies/<species>/Compara.116.protein_default.homologies.tsv.gz
+             (the path ComparaHomologyDump's summary names); mzLib's test gives the human and rat
+             dumps release-less names, which the bridge tests reproduce by copying to such a name
+why written  mzLib's tests write these files to a temp directory at run time and ship none
+script       make_inputs.py (this folder): python make_inputs.py <folder>
+determinism  gzip with mtime 0, no file name in the header, level 9; two runs gave identical sha256s
+sha256       35b3febdccaafba412257ee15d7a1f6be482d996afde1a07b28c2323355efc0f  homologies/homo_sapiens/Compara.116.protein_default.homologies.tsv.gz
+             51fec6573fc5b18b61ba5dcffbca662868a39181dcbaeddf1d16b2b543553605  homologies/mus_musculus/Compara.116.protein_default.homologies.tsv.gz
+             96d50cf4b7c4e5e7ce39305a5c87e73beff01a53e74996c174acda377f2e9621  homologies/rattus_norvegicus/Compara.116.protein_default.homologies.tsv.gz
+             ae27e02c15f0178ccb78b57a01cc6ed3837892d1cbb284f4d7c5b50f136f16e3  Homo_sapiens.GRCh38.116.gtf
+             db30f593b4c0147705a3c72df42f5ba7a88652953b2c52a1efd4ab7b1dd4fc8b  Mus_musculus.GRCm39.116.gtf
+             fddb41e152a28d313bb53d933b7750c71a5b9c99e7ed37c7ddfa7c064852d641  Rattus_norvegicus.GRCr8.116.gtf
+             c19715a9d15aad121d25d3860e451fb6cc6be71ada973876012d5418e6f2f587  vertebrates.GeneTree_content.default.e116.txt.gz
+byte-exact   .gitattributes marks this folder -text: the sha256s are part of what the fixtures record
+traps held   every human-mouse row is in the MOUSE dump (as in release 116); H2~M2 and M2~R2 are
+             orthologs and H2~R2 is not called; ENSG00000000004 is in no gene tree; ENSGT9 holds a
+             zebrafish gene no gene set has

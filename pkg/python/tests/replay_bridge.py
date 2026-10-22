@@ -202,6 +202,20 @@ def mismatch(data: dict, options: dict) -> str:
     # proteins align: --no-residue-map leaves residue_map null, and only then.
     if "residue_map" in data and ("no-residue-map" in options) != (data["residue_map"] is None):
         return "a recording with the other --no-residue-map choice"
+    # genes orthology: --pair-status FROM,TO fills pair_status for that direction, and only then;
+    # and only a --restrict-gene-trees call says which gene sets its gene trees were restricted to.
+    if "pair_status" in data:
+        status = data["pair_status"]
+        if ("pair-status" in options) != (status is not None):
+            return "a recording with the other --pair-status choice"
+        if status is not None:
+            direction = f"{status.get('from_species')},{status.get('to_species')}"
+            if options["pair-status"] != direction:
+                return f"recorded for --pair-status {direction}"
+    trees = data.get("gene_trees")
+    if isinstance(trees, dict) and "restricted_to_gene_sets" in trees:
+        if ("restrict-gene-trees" in options) != (trees["restricted_to_gene_sets"] is not None):
+            return "a recording with the other --restrict-gene-trees choice"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
@@ -227,7 +241,7 @@ def mismatch(data: dict, options: dict) -> str:
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit-logistic", "stats fit-mixed",
-              "diff design", "diff observations", "sdrf restrict"}
+              "diff design", "diff observations", "sdrf restrict", "genes orthology"}
 
 
 def _number(text: str):
@@ -269,6 +283,8 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     ``tested_coefficients``.
     sdrf restrict: the same searched files, in the same order, as the recording's
     ``searched_files``, and as many acquired names as its ``acquired_name_count``.
+    genes orthology: the same species (the first field of each line before ``--``) as the
+    recording's ``species``, and as many dump paths after it as the recording has ``dumps``.
     """
     if verb in ("stats fit-logistic", "stats fit-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
@@ -306,6 +322,16 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
         acquired = sum(1 for fields in lines if len(fields) > 1 and fields[1].strip())
         if acquired != data.get("acquired_name_count"):
             return f"recorded with {data.get('acquired_name_count')} acquired names, not {acquired}"
+        return ""
+    if verb == "genes orthology":
+        lines = [line.strip() for line in stdin.splitlines() if line.strip()]
+        cut = lines.index("--") if "--" in lines else len(lines)
+        species = sorted(line.split("\t")[0].strip() for line in lines[:cut])
+        if species != list(data.get("species") or []):
+            return f"recorded for species {data.get('species')}, not {species}"
+        dumps = len(lines[cut + 1 :])
+        if dumps != len(data.get("dumps") or {}):
+            return f"recorded with {len(data.get('dumps') or {})} dumps, not {dumps}"
         return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]

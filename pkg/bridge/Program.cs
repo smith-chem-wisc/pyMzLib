@@ -300,6 +300,7 @@ public static partial class Program
             "proteins align" => Proteins.Align(arguments),
             "proteins parse-accession" => Proteins.ParseAccession(arguments),
             "genes resolve" => Proteins.ResolveGenes(arguments),
+            "genes orthology" => await Proteins.OrthologyAsync(arguments).ConfigureAwait(false),
             "stats fit" => Statistics.Fit(arguments),
             "stats adjust" => Statistics.Adjust(arguments),
             "stats meta" => Statistics.Meta(arguments),
