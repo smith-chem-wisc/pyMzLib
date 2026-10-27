@@ -56,13 +56,9 @@ class Fragment:
         neutral_mass: Monoisotopic neutral mass in daltons. **Not** an m/z: no proton has been
             added and no charge assumed.
 
-            Fragments deliberately expose no ``mz()``. Converting one correctly requires the fixed
-            charge *within this fragment's span* — a c or z ion carries only the permanently
-            charged modifications on the residues it contains, not the whole peptide's
-            :attr:`Peptide.fixed_charges`. For an unmodified or neutrally-modified peptide,
-            ``(neutral_mass + z * PROTON_MASS) / z`` is correct; for a fragment bearing a
-            quaternary-ammonium modification (e.g. trimethyllysine) it is not, and per-fragment
-            charge accounting is not yet provided.
+            A permanently charged modification (e.g. trimethyllysine) is included at mzLib's
+            charge-corrected mass, so ``(neutral_mass + z * PROTON_MASS) / z`` is the fragment's
+            m/z at charge ``z``.
         neutral_loss: Neutral loss in daltons, ``0.0`` when there is none.
         residue_position: One-based residue position in the peptide.
     """
@@ -81,11 +77,15 @@ class Peptide:
     Attributes:
         base_sequence: The bare amino-acid sequence.
         full_sequence: The sequence with modifications written inline, as mzLib renders them.
-        monoisotopic_mass: The neutral monoisotopic mass, modifications included.
+        monoisotopic_mass: The neutral monoisotopic mass, modifications included. A permanently
+            charged modification counts at mzLib's charge-corrected mass, the neutral convention
+            Unimod and MetaMorpheus use: trimethyllysine is C₃H₆, 42.046951, not UniProt's
+            43.054227.
         one_based_start / one_based_end: Position within the parent protein.
         missed_cleavages: How many cleavage sites the peptide spans.
-        fixed_charges: Charges the peptide carries before any protonation, from modifications
-            that leave a permanently charged residue. :meth:`mz` accounts for these.
+        fixed_charges: Deprecated, always ``0``. mzLib already folds each permanently charged
+            modification's charge into its mass, so no peptide carries a charge on top of
+            :attr:`monoisotopic_mass`. It will be removed in a future release.
         modifications: Each applied modification. ``one_based_residue`` indexes the peptide's own
             residues and is ``None`` for a terminal modification, which carries ``terminus``
             instead. (mzLib's internal dictionary reserves slot 1 for the N-terminus, so its keys
@@ -119,19 +119,15 @@ class Peptide:
         0.55 mDa — 1.1 ppm at m/z 500, which on an Orbitrap is a match versus a miss. Libraries
         differ on this and rarely say which they used.
 
-        **Fixed charges are not double-counted.** Some modifications leave the residue permanently
-        charged: trimethylation of a lysine ε-amine gives a quaternary ammonium, and UniProt
-        records the delta as 43.054227 — C₃H₇ *minus an electron* — rather than the neutral
-        43.054775. So :attr:`monoisotopic_mass` already carries that charge, and only
-        ``charge - fixed_charges`` protons are added. Adding a full complement would put a 2+
-        trimethylated peptide half a Thomson high, on the most important histone modification
-        there is.
-
-        A peptide with a fixed charge is therefore observable at that charge with no protonation
-        at all, which is why ``charge`` may not be below :attr:`fixed_charges`.
+        **Permanently charged modifications are not double-counted.** Trimethylation of a lysine
+        ε-amine gives a quaternary ammonium, which carries its charge with no proton. UniProt
+        records the delta as 43.054227 (C₃H₇ *minus an electron*). mzLib loads it one proton
+        lighter, at 42.046951 (C₃H₆), so adding ``charge`` protons to :attr:`monoisotopic_mass`
+        gives the right m/z. Adding a full complement to UniProt's mass would put a 2+
+        trimethylated peptide half a Thomson high.
 
         Args:
-            charge: The total charge state, at least :attr:`fixed_charges` and at least 1.
+            charge: The total charge state, at least 1.
         """
         if not isinstance(charge, int) or isinstance(charge, bool) or charge < 1:
             raise _bridge.UsageError(f"charge must be a positive whole number; got {charge!r}.")

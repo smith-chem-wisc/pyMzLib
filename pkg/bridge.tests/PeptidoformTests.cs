@@ -245,6 +245,58 @@ public class PeptidoformTests
         });
     }
 
+    /// <summary>
+    /// An entry whose only modification is permanently charged: trimethyllysine's quaternary
+    /// ammonium, PSI-MOD formal charge 1+. UniProt records its delta as the charged 43.054227.
+    /// </summary>
+    private const string TrimethylEntryXml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <uniprot xmlns="http://uniprot.org/uniprot">
+          <entry dataset="Swiss-Prot">
+            <accession>P00003</accession>
+            <name>TRIMETHYL_HUMAN</name>
+            <protein><recommendedName><fullName>Trimethyl test protein</fullName></recommendedName></protein>
+            <organism><name type="scientific">Homo sapiens</name></organism>
+            <feature type="modified residue" description="N6,N6,N6-trimethyllysine"><location><position position="6"/></location></feature>
+            <sequence length="12" mass="1300">MPEPTKAGVDER</sequence>
+          </entry>
+        </uniprot>
+        """;
+
+    [Test]
+    public async Task AChargedModificationCountsAtMzLibsCorrectedNeutralMass()
+    {
+        // G-bridge-psimod-charges. The bridge used to read PSI-MOD with a parser that found no
+        // terms, so trimethyllysine kept UniProt's charged 43.054227 and the bridge inferred a
+        // fixed charge of 1 from the electron gap. mzLib's own UniProt list applies the formal
+        // charge, giving Unimod Trimethyl, C3H6 at 42.046951 (the invariant mzLib#1270 pins).
+        // fixed_charges and formal_charge stay on the wire, deprecated and always 0.
+        const double Trimethyl = 42.046951;
+        UseXml(TrimethylEntryXml);
+        JsonElement with = await InvokeAsync("peptidoform", "fragments", "--accession", "P00003", "--min-length", "1");
+        UseXml(TrimethylEntryXml);
+        JsonElement without = await InvokeAsync(
+            "peptidoform", "fragments", "--accession", "P00003", "--min-length", "1", "--no-modifications");
+
+        JsonElement modified = with.GetProperty("peptides").EnumerateArray()
+            .Single(p => p.GetProperty("base_sequence").GetString() == "MPEPTK"
+                         && p.GetProperty("modification_count").GetInt32() == 1);
+        JsonElement bare = without.GetProperty("peptides").EnumerateArray()
+            .Single(p => p.GetProperty("base_sequence").GetString() == "MPEPTK");
+        JsonElement modification = modified.GetProperty("modifications")[0];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(modification.GetProperty("id").GetString(), Is.EqualTo("N6,N6,N6-trimethyllysine on K"));
+            Assert.That(modification.GetProperty("mass").GetDouble(), Is.EqualTo(Trimethyl).Within(1e-6));
+            Assert.That(modification.GetProperty("formal_charge").GetInt32(), Is.EqualTo(0));
+            Assert.That(modified.GetProperty("fixed_charges").GetInt32(), Is.EqualTo(0));
+            Assert.That(modified.GetProperty("monoisotopic_mass").GetDouble()
+                        - bare.GetProperty("monoisotopic_mass").GetDouble(),
+                Is.EqualTo(Trimethyl).Within(1e-6));
+        });
+    }
+
     [Test]
     public async Task NoModificationsPreservesProteolysisProductsSoTheControlDiffersOnlyByMods()
     {

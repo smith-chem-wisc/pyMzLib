@@ -12,7 +12,7 @@ Unimod or ProForma notation, so it can be handed to another tool (see
 |---|---|---|
 | Which peptides and fragments a protein gives | [`fragments()`](#reading-the-result) | `Protein.Digest`, `PeptideWithSetModifications.Fragment` |
 | Which UniProt modifications were used, and which were not | [`Digest.modification_census`](#modifications-what-was-annotated-and-what-could-be-used) | the UniProt XML reader and its PTM list |
-| A peptide's m/z at a charge | [`Peptide.mz()`](#mz-and-why-trimethyllysine-needs-care) | `ClassExtensions.ToMz`, with fixed charges accounted for |
+| A peptide's m/z at a charge | [`Peptide.mz()`](#mz-and-why-trimethyllysine-needs-care) | `ClassExtensions.ToMz` |
 | Whether the list is complete | [`Digest.truncated`](#the-isoform-cap-truncates-silently) | `DigestionParams.MaxModificationIsoforms` |
 | A MetaMorpheus full sequence in Unimod accessions | [`convert()`](#converting-full-sequences-to-unimod-or-proforma) | `SequenceConversionService.Convert`, Unimod serializer |
 | The same sequence in ProForma | [`convert(target="ProForma")`](#proforma-gives-the-same-accessions) | `SequenceConversionService.Convert`, ProForma serializer |
@@ -143,11 +143,15 @@ that are invisible in the answer if you get them wrong:
 0.55 mDa, about 1.1 ppm at m/z 500. On an Orbitrap that is the difference between a match and a
 miss. Libraries differ on this and rarely say which they used.
 
-**It does not double-count fixed charges.** Some modifications leave a residue permanently charged.
-Trimethylation of a lysine ε-amine gives a quaternary ammonium, and UniProt records its delta as
-43.054227 Da (C₃H₇ *minus an electron*) rather than the neutral 43.054775 Da. The peptide's mass
-already carries that charge, so `mz()` adds only `charge − fixed_charges` protons. No albumin
-peptide carries a fixed charge:
+**It does not double-count a permanent charge.** Trimethylation of a lysine ε-amine gives a
+quaternary ammonium, which is charged without any proton. UniProt records its delta as 43.054227 Da
+(C₃H₇ *minus an electron*). mzLib loads it one proton lighter, at 42.046951 Da (C₃H₆, Unimod's
+Trimethyl and MetaMorpheus's mass), so the peptide's mass is the neutral-convention mass and `mz()`
+adds the usual `charge` protons. Adding a full complement to UniProt's mass would put a 2+
+trimethylated peptide half a Thomson too high.
+
+`Peptide.fixed_charges` is left over from before pyMzLib took its masses from mzLib's corrected
+list. It is always 0 and will be removed:
 
 ```pycon
 >>> {q.fixed_charges for q in digest.peptides}
@@ -155,17 +159,9 @@ peptide carries a fixed charge:
 
 ```
 
-On a trimethylated histone peptide, `fixed_charges` is 1, and `mz(2)` adds one proton, not two.
-Adding a full complement would put a 2+ trimethylated peptide half a Thomson too high, on one of the
-most studied histone modifications there is. A peptide with a fixed charge is observable at that
-charge with no protonation at all, so `charge` may not be **below** `fixed_charges`.
-
-!!! note "Fragments deliberately have no `mz()`"
-    Converting a fragment correctly needs the fixed charge *within that fragment's span*: a b, y, c or
-    z ion carries only the charged modifications on the residues it contains, not the whole peptide's
-    `fixed_charges`. That per-fragment accounting is not provided yet, so `Fragment` has
-    `neutral_mass` only. For an unmodified or neutrally modified peptide,
-    `(neutral_mass + z × 1.007276) / z` is correct.
+!!! note "Fragments have no `mz()`"
+    A fragment's `neutral_mass` includes any charged modification at its corrected mass too, so
+    `(neutral_mass + z × 1.007276) / z` is its m/z at charge `z`.
 
 ## Two defaults that bite silently
 

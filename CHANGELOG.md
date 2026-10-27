@@ -6,6 +6,26 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+- **A peptide with a permanently charged modification reports mzLib's neutral-convention mass.**
+  `fragments()` now takes UniProt's modifications from mzLib's own corrected list
+  (`Mods.UniprotModifications`), which applies PSI-MOD's formal charges. Trimethyllysine, for
+  example, counts as C₃H₆ at 42.046951 Da, the mass Unimod and MetaMorpheus use, not UniProt's
+  43.054227. `Peptide.monoisotopic_mass`, each modification's `mass` and the fragments'
+  `neutral_mass` are one proton lower per charge for such peptides. `Peptide.mz()` gives the same
+  value as before. [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md)
+  has the details.
+
+### Deprecated
+- **`Peptide.fixed_charges` and each modification's `formal_charge`** are always `0` and will be
+  removed in a future release. No peptide carries a charge on top of its mass any more.
+
+### Fixed
+- **The bridge's own charge table was always empty.** It read PSI-MOD's XML with a text-OBO
+  parser that found no terms, and inferred each charge from the gap between UniProt's formula
+  and its recorded mass. It also needed a file that mzLib#1415 removes, so
+  `fragments()` would have failed with `FileNotFoundException` once pyMzLib moved to that mzLib.
+
 ## [0.6.0] - 2026-10-22
 
 Still built from mzLib 1.0.595 (tag commit `d10017ce`). This release adds calls for most of what
