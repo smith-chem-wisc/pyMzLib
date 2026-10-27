@@ -9,6 +9,21 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
+## Unreleased (still built from mzLib 1.0.595)
+
+### Same file, different value
+
+- **`peptidoform.fragments()` gives a peptide with a permanently charged modification a mass one
+  proton lower per charge.** pyMzLib now takes UniProt's modifications from mzLib's corrected list,
+  as MetaMorpheus does. Trimethyllysine counts as C₃H₆, 42.046951 Da (Unimod's Trimethyl), not
+  UniProt's charged 43.054227. The other modifications PSI-MOD marks charged move the same way,
+  e.g. trimethylalanine, dimethylproline and O-(2-cholinephosphoryl)serine. This changes
+  `Peptide.monoisotopic_mass`, the modification's `mass` and every fragment's `neutral_mass`
+  that includes it. `Peptide.mz()` is unchanged, because `fixed_charges` drops from 1 to 0 at the
+  same time. `fixed_charges` and `formal_charge` are now always 0 and deprecated. Every other
+  peptide is unchanged. N,N,N-trimethylglycine is the exception: it stays at UniProt's mass, one
+  hydrogen heavy, until pyMzLib builds from an mzLib that includes mzLib#1415.
+
 ## 0.6.0 (still built from mzLib 1.0.595)
 
 mzLib did not move. These are pyMzLib's own.
