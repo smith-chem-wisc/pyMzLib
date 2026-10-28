@@ -1,25 +1,25 @@
-site_key	protein_accession	position	residue	modification	category	run	state	modified_intensity	covering_intensity	fraction	unmodified_quantified
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_0	quantified	146.1652303973821	1000	0.14616523039738208	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_1	quantified	143.3181044031285	1000	0.1433181044031285	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_0	quantified	122.92695083285749	1000	0.12292695083285748	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_1	quantified	120.78684339420937	1000	0.12078684339420936	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_0	quantified	191.5453485614675	1000	0.19154534856146752	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_1	quantified	188.92659628081975	1000	0.18892659628081976	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_0	quantified	176.53527477911672	1000	0.1765352747791167	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_1	quantified	173.21658792823388	1000	0.17321658792823388	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_0	quantified	286.99983724771835	1000	0.2869998372477183	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_1	quantified	282.92471450702743	1000	0.28292471450702744	true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_0	floor	0	744.596915827476		true
-CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_1	quantified	252.1836187907089	252.1836187907089	1	false
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_0	quantified	146.1652303973821	1000	0.14616523039738208	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_1	quantified	143.3181044031285	1000	0.1433181044031285	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_0	quantified	122.92695083285749	1000	0.12292695083285748	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_1	quantified	120.78684339420937	1000	0.12078684339420936	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_0	quantified	191.5453485614675	1000	0.19154534856146752	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_1	quantified	188.92659628081975	1000	0.18892659628081976	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_0	quantified	176.53527477911672	1000	0.1765352747791167	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_1	quantified	173.21658792823388	1000	0.17321658792823388	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_0	quantified	286.99983724771835	1000	0.2869998372477183	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_1	quantified	282.92471450702743	1000	0.28292471450702744	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_0	quantified	255.40308417252405	1000	0.25540308417252405	true
-TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_1	quantified	252.1836187907089	1000	0.2521836187907089	true
+site_key	protein_accession	position	residue	modification	category	run	state	modified_intensity	covering_intensity	fraction	unmodified_quantified	covering_peptidoforms	modified_peptidoforms
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_0	quantified	146.1652303973821	1000	0.14616523039738208	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_1	quantified	143.3181044031285	1000	0.1433181044031285	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_0	quantified	122.92695083285749	1000	0.12292695083285748	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_1	quantified	120.78684339420937	1000	0.12078684339420936	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_0	quantified	191.5453485614675	1000	0.19154534856146752	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_1	quantified	188.92659628081975	1000	0.18892659628081976	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_0	quantified	176.53527477911672	1000	0.1765352747791167	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_1	quantified	173.21658792823388	1000	0.17321658792823388	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_0	quantified	286.99983724771835	1000	0.2869998372477183	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_1	quantified	282.92471450702743	1000	0.28292471450702744	true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_0	floor	0	744.596915827476		true	2	1
+CENSORED_SITE:S13:Common Biological:Phosphorylation on S	CENSORED_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_1	quantified	252.1836187907089	252.1836187907089	1	false	1	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_0	quantified	146.1652303973821	1000	0.14616523039738208	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R0_1	quantified	143.3181044031285	1000	0.1433181044031285	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_0	quantified	122.92695083285749	1000	0.12292695083285748	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R1_1	quantified	120.78684339420937	1000	0.12078684339420936	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_0	quantified	191.5453485614675	1000	0.19154534856146752	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R2_1	quantified	188.92659628081975	1000	0.18892659628081976	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_0	quantified	176.53527477911672	1000	0.1765352747791167	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R3_1	quantified	173.21658792823388	1000	0.17321658792823388	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_0	quantified	286.99983724771835	1000	0.2869998372477183	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R4_1	quantified	282.92471450702743	1000	0.28292471450702744	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_0	quantified	255.40308417252405	1000	0.25540308417252405	true	2	1
+TRAIT_SITE:S13:Common Biological:Phosphorylation on S	TRAIT_SITE	13	S	Common Biological:Phosphorylation on S	Common Biological	R5_1	quantified	252.1836187907089	1000	0.2521836187907089	true	2	1

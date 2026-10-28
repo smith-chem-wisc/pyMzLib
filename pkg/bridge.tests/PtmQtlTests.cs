@@ -187,6 +187,94 @@ internal static class PtmQtlCases
         return list;
     }
 
+    /// <summary>
+    /// BoundsEnterTypeAAsTiedRanks: two sites with a value in six of ten runs, and in the other four a
+    /// covered-zero, a floor, a ceiling, or a count-only cell seen only modified (a bound) or in both forms (no
+    /// rank). Occupancy in percent of a covering intensity of 100.
+    /// </summary>
+    internal static List<PeptidoformObservation> Bounds()
+    {
+        double[] valuesS = { 10, 20, 30, 40, 50, 60 }, valuesT = { 15, 10, 35, 30, 60, 45 };
+        string s = Prefixes[0], t = Prefixes[1];
+        var list = new List<PeptidoformObservation>();
+        for (int r = 0; r < 6; r++)
+        {
+            Site(list, $"r{r}", "BOUND_S", 10, valuesS[r], 100, s);
+            Site(list, $"r{r}", "BOUND_T", 40, valuesT[r], 100, t);
+        }
+        // r6: s a covered-zero (only the unmodified form identified); t a ceiling (only the modified form quantified).
+        list.Add(Obs("r6", $"{s}SK", 10, 100, "BOUND_S"));
+        list.Add(Obs("r6", $"{t}S[{Phos}]K", 40, 100, "BOUND_T"));
+        // r7: s a floor (modified identified, unquantified; unmodified quantified); t a covered-zero.
+        list.Add(Obs("r7", $"{s}S[{Phos}]K", 10, double.NaN, "BOUND_S"));
+        list.Add(Obs("r7", $"{s}SK", 10, 100, "BOUND_S"));
+        list.Add(Obs("r7", $"{t}SK", 40, 100, "BOUND_T"));
+        // r8: s a ceiling; t count-only with both forms identified, nothing quantified: no rank.
+        list.Add(Obs("r8", $"{s}S[{Phos}]K", 10, 100, "BOUND_S"));
+        list.Add(Obs("r8", $"{t}S[{Phos}]K", 40, double.NaN, "BOUND_T"));
+        list.Add(Obs("r8", $"{t}SK", 40, double.NaN, "BOUND_T"));
+        // r9: s count-only seen only modified (a high bound); t a floor.
+        list.Add(Obs("r9", $"{s}S[{Phos}]K", 10, double.NaN, "BOUND_S"));
+        list.Add(Obs("r9", $"{t}S[{Phos}]K", 40, double.NaN, "BOUND_T"));
+        list.Add(Obs("r9", $"{t}SK", 40, 100, "BOUND_T"));
+        return list;
+    }
+
+    /// <summary>
+    /// APairWhoseSitesAreBothMostlyBoundsIsNotTested: twenty runs; s and t have a value in the same two runs and
+    /// are covered-zeros elsewhere, u varies everywhere. Occupancy in percent of a covering intensity of 100.
+    /// </summary>
+    internal static List<PeptidoformObservation> MostlyBounds()
+    {
+        var list = new List<PeptidoformObservation>();
+        for (int r = 0; r < 20; r++)
+        {
+            string run = $"r{r:D2}";
+            if (r < 2)
+            {
+                Site(list, run, "MOSTLY_S", 10, 10 + 10 * r, 100, Prefixes[0]);
+                Site(list, run, "MOSTLY_T", 40, 20 + 10 * r, 100, Prefixes[1]);
+            }
+            else
+            {
+                list.Add(Obs(run, $"{Prefixes[0]}SK", 10, 100, "MOSTLY_S"));
+                list.Add(Obs(run, $"{Prefixes[1]}SK", 40, 100, "MOSTLY_T"));
+            }
+            Site(list, run, "MOSTLY_U", 4, (7 * r) % 20 + 1, 100, Prefixes[2]);
+        }
+        return list;
+    }
+
+    /// <summary>The target PSMs per run of ARunCovariateIsPartialledOut: the run's depth.</summary>
+    internal static readonly double[] DepthPsms = { 9000, 12000, 8000, 15000, 11000, 7000, 16000, 10000, 13000, 9500, 14000, 8500 };
+
+    /// <summary>
+    /// ARunCovariateIsPartialledOut: twelve runs in two batches, two sites that rise with the run's depth (target
+    /// PSMs), and four background sites at the batch's centre. Occupancy in millionths of a covering intensity of
+    /// 1e6, so every intensity is an exact integer.
+    /// </summary>
+    internal static List<PeptidoformObservation> Depth()
+    {
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        var list = new List<PeptidoformObservation>();
+        for (int r = 0; r < 12; r++)
+        {
+            string run = $"r{r:D2}";
+            double batch = r < 6 ? 100_000 : 300_000;
+            Site(list, run, "DEPTH_S", 10, batch + 10_000 * noiseS[r % 6] + DepthPsms[r], 1_000_000, Prefixes[0]);
+            Site(list, run, "DEPTH_T", 40, batch + 10_000 * noiseT[r % 6] + 2 * DepthPsms[r], 1_000_000, Prefixes[1]);
+            for (int i = 1; i <= 4; i++)
+                Site(list, run, $"DEPTH_LEVEL_{i}", 4, batch + 35_000, 1_000_000, Prefixes[1 + i]);
+        }
+        return list;
+    }
+
+    internal static Dictionary<string, double> DepthMap() =>
+        Enumerable.Range(0, 12).ToDictionary(r => $"r{r:D2}", r => DepthPsms[r]);
+
+    internal static string DepthPsmsTsv() =>
+        "run\ttarget_psms\n" + string.Concat(Enumerable.Range(0, 12).Select(r => $"r{r:D2}\t{R(DepthPsms[r])}\n"));
+
     /// <summary>Run, replicate, the trait (dose) and the injection covariate of TraitFitReportsCovariateEffects.</summary>
     internal static IEnumerable<(string Run, string Replicate, double Dose, double Injection)> TraitRuns() =>
         from r in Enumerable.Range(0, 6)
@@ -267,6 +355,14 @@ public class PtmQtlTests
 
     private static string? S(JsonElement e) => e.ValueKind == JsonValueKind.Null ? null : e.GetString();
 
+    private static int? I(JsonElement e) => e.ValueKind == JsonValueKind.Null ? null : e.GetInt32();
+
+    private static string ReplaceLast(string text, string what, string with)
+    {
+        int at = text.LastIndexOf(what, StringComparison.Ordinal);
+        return text[..at] + with + text[(at + what.Length)..];
+    }
+
     private static List<string> Caveats(JsonElement root) =>
         root.GetProperty("caveats").EnumerateArray().Select(e => e.GetString()!).ToList();
 
@@ -303,6 +399,8 @@ public class PtmQtlTests
             Assert.That(Column(root, "covering_intensity")[i].GetDouble(), Is.EqualTo(c.CoveringIntensity), at);
             Assert.That(D(Column(root, "fraction")[i]), Is.EqualTo(Finite(c.Fraction)), at);
             Assert.That(Column(root, "unmodified_quantified")[i].GetBoolean(), Is.EqualTo(c.UnmodifiedQuantified), at);
+            Assert.That(I(Column(root, "covering_peptidoforms")[i]), Is.EqualTo(c.CoveringPeptidoforms), at);
+            Assert.That(I(Column(root, "modified_peptidoforms")[i]), Is.EqualTo(c.ModifiedPeptidoforms), at);
         }
     }
 
@@ -327,6 +425,10 @@ public class PtmQtlTests
             Assert.That(S(Column(root, "spearman_method")[i]),
                 Is.EqualTo(p.SpearmanMethod is SpearmanPValueMethod m ? Statistics.SpearmanMethodName(m) : null), at);
             Assert.That(Column(root, "run_level_removed")[i].GetBoolean(), Is.EqualTo(p.RunLevelRemoved), at);
+            Assert.That(S(Column(root, "test_status")[i]),
+                Is.EqualTo(p.TestStatus is PairTestStatus t ? PtmQtl.TestStatusName(t) : null), at);
+            Assert.That(Column(root, "bounds_included")[i].GetBoolean(), Is.EqualTo(p.BoundsIncluded), at);
+            Assert.That(Column(root, "run_covariate_removed")[i].GetBoolean(), Is.EqualTo(p.RunCovariateRemoved), at);
         }
     }
 
@@ -359,6 +461,9 @@ public class PtmQtlTests
         AssertFixture("batch.tsv", PtmQtlCases.ObservationsTsv(PtmQtlCases.Batch()));
         AssertFixture("trait.tsv", PtmQtlCases.ObservationsTsv(PtmQtlCases.Trait()));
         AssertFixture("trait_runs.tsv", PtmQtlCases.TraitRunsTsv());
+        AssertFixture("bounds.tsv", PtmQtlCases.ObservationsTsv(PtmQtlCases.Bounds()));
+        AssertFixture("depth.tsv", PtmQtlCases.ObservationsTsv(PtmQtlCases.Depth()));
+        AssertFixture("depth_psms.tsv", PtmQtlCases.DepthPsmsTsv());
     }
 
     /// <summary>
@@ -499,7 +604,7 @@ public class PtmQtlTests
         Assert.That(lines, Has.Length.EqualTo(expected.Count + 1));
         string[] floor = lines.Single(l => l.Contains("\tfloor\t")).Split('\t');
         Assert.That(floor[Array.IndexOf(PtmQtl.OccupancyColumns, "fraction")], Is.Empty, "null is an empty cell");
-        Assert.That(lines.Count(l => l.EndsWith("\tfalse")), Is.GreaterThan(0));
+        Assert.That(lines.Count(l => l.Contains("\tfalse\t")), Is.GreaterThan(0));
 
         Assert.That(Usage(PtmQtl.Occupancy, "ptmqtl", "occupancy", "--observations", path, "--out", Path.Combine(_temp, "o.csv")),
             Does.Contain(".tsv"));
@@ -557,6 +662,11 @@ public class PtmQtlTests
             Assert.That(PtmQtl.TraitStatuses, Does.Contain(PtmQtl.TraitStatusName(status.ToString())));
         Assert.Throws<InvalidOperationException>(() => PtmQtl.TraitStatusName("Separated"), "a logistic-only outcome MixedModel never reports");
         Assert.Throws<InvalidOperationException>(() => PtmQtl.TraitStatusName("SomethingNew"));
+        Assert.That(Enum.GetValues<PairTestStatus>().Select(PtmQtl.TestStatusName),
+            Is.EqualTo(new[] { "tested", "not_estimable", "too_few_shared_runs", "both_sites_mostly_bounds" }));
+        Assert.Throws<InvalidOperationException>(() => PtmQtl.TestStatusName((PairTestStatus)99));
+        Assert.That(Enum.GetValues<OccupancyScale>().Select(PtmQtl.ScaleName), Is.EqualTo(new[] { "natural_log_odds", "log2_odds" }));
+        Assert.Throws<InvalidOperationException>(() => PtmQtl.ScaleName((OccupancyScale)99));
         Assert.That(Program.Verbs, Is.SupersetOf(new[] { "ptmqtl occupancy", "ptmqtl pairs", "ptmqtl trait-effects" }));
     }
 
@@ -681,6 +791,164 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void Pairs_IncludeBounds_EntersOneFormCellsAsTiedRanks()
+    {
+        // mzLib's BoundsEnterTypeAAsTiedRanks, through the observations.
+        var observations = PtmQtlCases.Bounds();
+        string path = WriteObservations(observations);
+        var occupancy = SiteOccupancyCalculator.Calculate(observations);
+
+        // Without bounds, each site has a value in 6 of 10 runs: below 70 %, so no pair.
+        JsonElement plain = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying");
+        Assert.That(plain.GetProperty("row_count").GetInt32(), Is.EqualTo(0));
+        Assert.That(plain.GetProperty("include_bounds").GetBoolean(), Is.False);
+        Assert.That(plain.GetProperty("min_untied_share").ValueKind, Is.EqualTo(JsonValueKind.Null));
+
+        JsonElement bounded = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying", "--include-bounds");
+        var expected = PtmPairEngine.CoVarying(occupancy, observations, includeBounds: true);
+        AssertPairsAre(bounded, expected);
+        Assert.That(bounded.GetProperty("row_count").GetInt32(), Is.EqualTo(1));
+        Assert.That(Column(bounded, "n")[0].GetInt32(), Is.EqualTo(9), "r8 is left out: t's count-only cell there has no rank");
+        Assert.That(Column(bounded, "test_status")[0].GetString(), Is.EqualTo("tested"));
+        Assert.That(Column(bounded, "bounds_included")[0].GetBoolean(), Is.True);
+        // mzLib's own expectation: low bounds tie below every fraction and high bounds above.
+        double lo = -5, hi = 9;
+        var vs = new[] { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, lo, lo, hi, hi };
+        var vt = new[] { 0.15, 0.1, 0.35, 0.3, 0.6, 0.45, hi, lo, double.NaN, lo };
+        Assert.That(D(Column(bounded, "statistic")[0]), Is.EqualTo(SpearmanCorrelation.Correlate(vs, vt).Rho).Within(1e-12));
+        Assert.That(bounded.GetProperty("include_bounds").GetBoolean(), Is.True);
+        Assert.That(bounded.GetProperty("min_untied_share").GetDouble(), Is.EqualTo(PtmPairEngine.MinUntiedShare));
+        Assert.That(bounded.GetProperty("exclude_ceiling").ValueKind, Is.EqualTo(JsonValueKind.Null), "mzLib decided: a ceiling is a bound");
+        Assert.That(Caveats(bounded), Has.Some.StartsWith("With --include-bounds, a pair is tested only if"));
+        Assert.That(Caveats(bounded), Has.Some.Contains("enters as a bound"));
+
+        // --keep-ceiling sends excludeCeiling false, which mzLib accepts with bounds: the same pair.
+        JsonElement kept = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying", "--include-bounds", "--keep-ceiling");
+        AssertPairsAre(kept, PtmPairEngine.CoVarying(occupancy, observations, excludeCeiling: false, includeBounds: true));
+        Assert.That(D(Column(kept, "statistic")[0]), Is.EqualTo(D(Column(bounded, "statistic")[0])));
+        Assert.That(kept.GetProperty("exclude_ceiling").GetBoolean(), Is.False);
+    }
+
+    [Test]
+    public void Pairs_IncludeBounds_LeavesAPairOfMostlyBoundSitesUntested()
+    {
+        // mzLib's APairWhoseSitesAreBothMostlyBoundsIsNotTested, through the observations.
+        var observations = PtmQtlCases.MostlyBounds();
+        var occupancy = SiteOccupancyCalculator.Calculate(observations);
+        JsonElement root = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", WriteObservations(observations),
+            "--type", "covarying", "--include-bounds");
+        AssertPairsAre(root, PtmPairEngine.CoVarying(occupancy, observations, includeBounds: true));
+
+        string phos = PtmQtlCases.Phos;
+        int Row(string a, string b) => Enumerable.Range(0, root.GetProperty("row_count").GetInt32())
+            .Single(i => Column(root, "site_a")[i].GetString() == a && Column(root, "site_b")[i].GetString() == b);
+        int st = Row($"MOSTLY_S:S13:{phos}", $"MOSTLY_T:S43:{phos}");
+        Assert.That(Column(root, "test_status")[st].GetString(), Is.EqualTo("both_sites_mostly_bounds"));
+        Assert.That(Column(root, "n")[st].GetInt32(), Is.EqualTo(20));
+        Assert.That(D(Column(root, "statistic")[st]), Is.Null);
+        Assert.That(D(Column(root, "q")[st]), Is.Null, "left out of the adjustment");
+        Assert.That(Column(root, "spearman_method")[st].GetString(), Is.EqualTo("not_estimable"));
+        int su = Row($"MOSTLY_S:S13:{phos}", $"MOSTLY_U:S7:{phos}");
+        Assert.That(Column(root, "test_status")[su].GetString(), Is.EqualTo("tested"), "one site with values in most runs is enough");
+        Assert.That(D(Column(root, "q")[su]), Is.Not.Null);
+        Assert.That(Caveats(root), Has.Some.EqualTo(
+            "1 co-varying pairs were not tested (1 both_sites_mostly_bounds): their statistic, p_value and q are null, and spearman_method is not_estimable."));
+    }
+
+    [Test]
+    public void Pairs_RunCovariate_IsMzLibsPartialCorrelationGivenTheRunsValue()
+    {
+        // mzLib's ARunCovariateIsPartialledOut, through the observations: two sites that rise with each run's depth.
+        var observations = PtmQtlCases.Depth();
+        string path = WriteObservations(observations);
+        var occupancy = SiteOccupancyCalculator.Calculate(observations);
+        string psms = Write("psms.tsv", PtmQtlCases.DepthPsmsTsv());
+        string s = $"DEPTH_S:S13:{PtmQtlCases.Phos}", t = $"DEPTH_T:S43:{PtmQtlCases.Phos}";
+        int PairRow(JsonElement root) => Enumerable.Range(0, root.GetProperty("row_count").GetInt32())
+            .Single(i => Column(root, "site_a")[i].GetString() == s && Column(root, "site_b")[i].GetString() == t);
+
+        JsonElement given = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying", "--run-covariate", psms);
+        AssertPairsAre(given, PtmPairEngine.CoVarying(occupancy, observations, runCovariate: PtmQtlCases.DepthMap()));
+        int row = PairRow(given);
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6] + PtmQtlCases.DepthPsms[r] * 1e-6).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6] + PtmQtlCases.DepthPsms[r] * 2e-6).ToArray();
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vt, PtmQtlCases.DepthPsms);
+        Assert.That(D(Column(given, "statistic")[row]), Is.EqualTo(expected.Rho).Within(1e-12), "mzLib's hand expectation");
+        Assert.That(D(Column(given, "p_value")[row]), Is.EqualTo(expected.PValue).Within(1e-12));
+        Assert.That(Column(given, "run_covariate_removed")[row].GetBoolean(), Is.True);
+        Assert.That(Column(given, "run_level_removed")[row].GetBoolean(), Is.False);
+        Assert.That(given.GetProperty("run_covariate_file").GetString(), Is.EqualTo(Path.GetFullPath(psms)));
+        Assert.That(given.GetProperty("run_covariate_name").GetString(), Is.EqualTo("target_psms"));
+        Assert.That(given.GetProperty("run_covariate_runs_missing").GetArrayLength(), Is.EqualTo(0));
+        Assert.That(given.GetProperty("min_runs_for_run_level").GetInt32(), Is.EqualTo(PtmPairEngine.MinRunsForRunLevel),
+            "a pair partial on a covariate is held to the same shared runs");
+        Assert.That(given.GetProperty("min_sites_for_run_level").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        Assert.That(Caveats(given), Has.Some.StartsWith("With --run-covariate, rho and p_value are the partial Spearman correlation given each run's target_psms"));
+
+        // With the run level too: both.
+        JsonElement both = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", psms, "--remove-run-level");
+        AssertPairsAre(both, PtmPairEngine.CoVarying(occupancy, observations, removeRunLevel: true, runCovariate: PtmQtlCases.DepthMap()));
+
+        // A run with no value is left out of every pair and reported; below MinRunsForRunLevel the pair is not tested.
+        string lines = PtmQtlCases.DepthPsmsTsv();
+        string missing = Write("missing.tsv", string.Join('\n', lines.Split('\n').Where(l => !l.StartsWith("r00"))));
+        JsonElement withoutOne = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying", "--run-covariate", missing);
+        Assert.That(Column(withoutOne, "n")[PairRow(withoutOne)].GetInt32(), Is.EqualTo(11));
+        Assert.That(withoutOne.GetProperty("run_covariate_runs_missing").EnumerateArray().Select(e => e.GetString()), Is.EqualTo(new[] { "r00" }));
+        Assert.That(Caveats(withoutOne), Has.Some.StartsWith("1 run(s) have no target_psms in the --run-covariate file"));
+        string eight = Write("eight.tsv", string.Join('\n', lines.Split('\n').Take(9)) + "\n");
+        JsonElement few = Run(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying", "--run-covariate", eight);
+        Assert.That(Column(few, "test_status")[PairRow(few)].GetString(), Is.EqualTo("too_few_shared_runs"));
+        Assert.That(D(Column(few, "p_value")[PairRow(few)]), Is.Null);
+
+        // mzLib's refusal of a value that is not finite, in mzLib's words.
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("nan.tsv", "run\ttarget_psms\nr00\tNA\n")), Does.Contain("Every run covariate value must be finite"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("one.tsv", "run\nr00\n")), Does.Contain("needs a header of two fields"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("wide.tsv", "run\tdepth\nr00\t1\t2\n")), Does.Contain("has 3 fields"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("twice.tsv", "run\tdepth\nr00\t1\nr00\t2\n")), Does.Contain("more than once"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("blankrun.tsv", "run\tdepth\n\t1\n")), Does.Contain("empty run"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("empty.tsv", "run\tdepth\n")), Does.Contain("has a header but no runs"));
+        Assert.That(Usage(PtmQtl.Pairs, "ptmqtl", "pairs", "--observations", path, "--type", "covarying",
+            "--run-covariate", Write("word.tsv", "run\tdepth\nr00\tdeep\n")), Does.Contain("is not a number"));
+    }
+
+    [Test]
+    public void Occupancy_CountsPeptidoformsPerCell_AsMzLibDoes()
+    {
+        // mzLib's ACoveredZeroNeedsOnlyAnIdentificationAndCellsCountPeptidoforms.
+        string phos = PtmQtlCases.Phos;
+        var observations = new List<PeptidoformObservation>
+        {
+            PtmQtlCases.Obs("idOnly", "PEPSK", 10, double.NaN, "P1"),
+            PtmQtlCases.Obs("quant", $"PEPS[{phos}]K", 10, 5, "P1"), PtmQtlCases.Obs("quant", "PEPSK", 10, 45, "P1"),
+            PtmQtlCases.Obs("quant", "AAPEPSKR", 8, 50, "P1"),
+            PtmQtlCases.Obs("onlyModified", $"PEPS[{phos}]K", 10, double.NaN, "P1"),
+            PtmQtlCases.Obs("bothForms", $"PEPS[{phos}]K", 10, double.NaN, "P1"), PtmQtlCases.Obs("bothForms", "PEPSK", 10, double.NaN, "P1"),
+            PtmQtlCases.Obs("elsewhere", "GGGGK", 30, 20, "P1"),
+        };
+        JsonElement root = Run(PtmQtl.Occupancy, "ptmqtl", "occupancy", "--observations", WriteObservations(observations));
+        AssertOccupancyIs(root, SiteOccupancyCalculator.Calculate(observations));
+        (string State, int? Covering, int? Modified) Cell(string run)
+        {
+            int i = RowOf(root, $"P1:S13:{phos}", run);
+            return (Column(root, "state")[i].GetString()!, I(Column(root, "covering_peptidoforms")[i]), I(Column(root, "modified_peptidoforms")[i]));
+        }
+        Assert.That(Cell("idOnly"), Is.EqualTo(("not_detected", (int?)1, (int?)0)), "a covered-zero needs only an identification");
+        Assert.That(Cell("quant"), Is.EqualTo(("quantified", (int?)3, (int?)1)));
+        Assert.That(Cell("onlyModified"), Is.EqualTo(("count_only", (int?)1, (int?)1)));
+        Assert.That(Cell("bothForms"), Is.EqualTo(("count_only", (int?)2, (int?)1)));
+        Assert.That(Caveats(root), Has.Some.StartsWith("covering_peptidoforms and modified_peptidoforms count identifications"));
+    }
+
+    [Test]
     public void Pairs_WithSamples_FeedsCombinedObservationsToPhysicalAndCoVarying()
     {
         string gg = PtmQtlCases.Gg, phos = PtmQtlCases.Phos;
@@ -721,6 +989,11 @@ public class PtmQtlTests
         Assert.That(Usage(PtmQtl.Pairs, Call("--type", "covarying", "--remove-run-level", "--run-level-group", "category",
             "--run-level-groups", path)), Does.Contain("not both"));
         Assert.That(Usage(PtmQtl.Pairs, Call("--type", "covarying", "--keep-ceiling", "false")), Does.Contain("takes no value"));
+        Assert.That(Usage(PtmQtl.Pairs, Call("--type", "physical", "--include-bounds")), Does.Contain("--include-bounds shapes co-varying pairs only"));
+        Assert.That(Usage(PtmQtl.Pairs, Call("--type", "physical", "--run-covariate", path)), Does.Contain("--run-covariate shapes co-varying pairs only"));
+        Assert.That(Usage(PtmQtl.Pairs, Call("--type", "covarying", "--include-bounds", "yes")), Does.Contain("takes no value"));
+        Assert.That(Usage(PtmQtl.Pairs, Call("--type", "covarying", "--run-covariate")), Does.Contain("without a value"));
+        Assert.That(Usage(PtmQtl.Pairs, Call("--type", "covarying", "--run-covariate", Path.Combine(_temp, "absent.tsv"))), Does.Contain("was not found"));
     }
 
     [Test]
@@ -731,6 +1004,9 @@ public class PtmQtlTests
         Assert.That(typeof(PtmPairEngine).GetMethod(nameof(PtmPairEngine.CoVarying))!.GetParameters()
             .Single(p => p.Name == "excludeCeiling").DefaultValue, Is.Null, "mzLib resolves it inside CoVarying, so the bridge sends null");
         Assert.That(PtmQtl.CoVaryingDefault<bool>("removeRunLevel"), Is.False);
+        Assert.That(PtmQtl.CoVaryingDefault<bool>("includeBounds"), Is.False);
+        Assert.That(typeof(PtmPairEngine).GetMethod(nameof(PtmPairEngine.CoVarying))!.GetParameters()
+            .Single(p => p.Name == "runCovariate").DefaultValue, Is.Null, "absent, the bridge sends none");
     }
 
     // ---- ptmqtl trait-effects ----------------------------------------------------------------------
@@ -842,6 +1118,39 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void TraitEffects_Scale_IsSiteTraitOptionsScale()
+    {
+        string occupancyPath = TraitOccupancy();
+        string runs = Write("runs.tsv", PtmQtlCases.TraitRunsTsv());
+        var occupancy = SiteOccupancyCalculator.Calculate(PtmQtlCases.Trait());
+        var (trait, replicate, covariates) = TraitMaps();
+        string[] Call(params string[] extra) => new[] { "ptmqtl", "trait-effects", "--occupancy", occupancyPath, "--runs", runs }.Concat(extra).ToArray();
+
+        JsonElement natural = Run(PtmQtl.TraitEffects, Call());
+        Assert.That(natural.GetProperty("scale").GetString(), Is.EqualTo("natural_log_odds"), "absent, mzLib's default");
+        Assert.That(Caveats(natural), Has.Some.StartsWith("scale is natural_log_odds"));
+
+        JsonElement log2 = Run(PtmQtl.TraitEffects, Call("--scale", "log2_odds"));
+        AssertEffectsAre(log2, SiteTraitEffects.Fit(occupancy, trait, replicate, covariates, new[] { "injection" },
+            new SiteTraitOptions { Scale = OccupancyScale.Log2Odds }));
+        Assert.That(log2.GetProperty("scale").GetString(), Is.EqualTo("log2_odds"));
+        Assert.That(Caveats(log2), Has.Some.StartsWith("scale is log2_odds"));
+        // mzLib's TraitFitOnLog2OddsIsTheNaturalLogFitDividedByLn2: a change of unit, not a refit.
+        for (int i = 0; i < log2.GetProperty("row_count").GetInt32(); i++)
+        {
+            Assert.That(D(Column(log2, "effect")[i]), Is.EqualTo(D(Column(natural, "effect")[i]) / Math.Log(2)));
+            Assert.That(D(Column(log2, "p_value")[i]), Is.EqualTo(D(Column(natural, "p_value")[i])));
+            Assert.That(D(Column(log2, "df")[i]), Is.EqualTo(D(Column(natural, "df")[i])));
+        }
+
+        JsonElement explicitNatural = Run(PtmQtl.TraitEffects, Call("--scale", "natural_log_odds"));
+        Assert.That(Column(explicitNatural, "effect").Select(D), Is.EqualTo(Column(natural, "effect").Select(D)));
+
+        Assert.That(Usage(PtmQtl.TraitEffects, Call("--scale", "log10_odds")), Does.Contain("must be one of natural_log_odds, log2_odds"));
+        Assert.That(Usage(PtmQtl.TraitEffects, Call("--scale")), Does.Contain("without a value"));
+    }
+
+    [Test]
     public void TraitEffects_ReadsTheReportedFraction_AndRefusesARepeatedCell()
     {
         // A stored cell whose intensities are rounded: the fraction column wins, as mzLib's ReportedFraction does.
@@ -853,7 +1162,8 @@ public class PtmQtlTests
         {
             double fraction = 0.1 + 0.01 * i;
             cells.Add(new SiteRunOccupancy(site, run, OccupancyState.Quantified, 1000, 5000, true) { ReportedFraction = fraction });
-            lines.Append($"{site.Key}\tP1\t13\tS\t{PtmQtlCases.Phos}\tCommon Biological\t{run}\tquantified\t1000\t5000\t{PtmQtlCases.R(fraction)}\ttrue\n");
+            // The peptidoform counts left blank: not supplied, as a stored table may not have them.
+            lines.Append($"{site.Key}\tP1\t13\tS\t{PtmQtlCases.Phos}\tCommon Biological\t{run}\tquantified\t1000\t5000\t{PtmQtlCases.R(fraction)}\ttrue\t\t\n");
         }
         string runs = Write("runs.tsv", PtmQtlCases.TraitRunsTsv(covariate: false));
         var (trait, replicate, _) = TraitMaps();
@@ -896,7 +1206,8 @@ public class PtmQtlTests
         string BadOccupancy(string text) => Usage(PtmQtl.TraitEffects, "ptmqtl", "trait-effects",
             "--occupancy", Write($"o{Guid.NewGuid():N}.tsv", text), "--runs", Write("runs_ok.tsv", PtmQtlCases.TraitRunsTsv()));
         Assert.That(BadOccupancy(occupancyText.Replace("\tquantified\t", "\tmeasured\t")), Does.Contain("must be one of quantified, floor, count_only, not_detected"));
-        Assert.That(BadOccupancy(occupancyText.Replace("\ttrue\n", "\tyes\n")), Does.Contain("must be true or false"));
+        Assert.That(BadOccupancy(occupancyText.Replace("\ttrue\t", "\tyes\t")), Does.Contain("must be true or false"));
+        Assert.That(BadOccupancy(ReplaceLast(occupancyText, "\t1\n", "\tone\n")), Does.Contain("modified_peptidoforms must be an integer"));
         Assert.That(BadOccupancy(occupancyText.Replace("unmodified_quantified", "unmodified")), Does.Contain("no column unmodified_quantified"));
     }
 }

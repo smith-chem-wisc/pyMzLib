@@ -1,5 +1,5 @@
 {
- "observations_file": "E:\\CodeReview\\wt-py-ptmqtl-verbs\\pkg\\python\\tests\\fixtures\\ptmqtl\\cases.tsv",
+ "observations_file": "F:\\ClaudeTestBuilds\\pymzlib-opts\\pkg\\python\\tests\\fixtures\\ptmqtl\\cases.tsv",
  "samples_file": null,
  "observation_count": 22,
  "run_count": 6,
@@ -35,7 +35,9 @@
   "modified_intensity",
   "covering_intensity",
   "fraction",
-  "unmodified_quantified"
+  "unmodified_quantified",
+  "covering_peptidoforms",
+  "modified_peptidoforms"
  ],
  "columns": {
   "site_key": [
@@ -229,16 +231,49 @@
    false,
    false,
    false
+  ],
+  "covering_peptidoforms": [
+   1,
+   1,
+   3,
+   3,
+   3,
+   1,
+   2,
+   1,
+   2,
+   3,
+   3,
+   1,
+   1,
+   1
+  ],
+  "modified_peptidoforms": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   0,
+   1,
+   2,
+   1,
+   1,
+   1,
+   1
   ]
  },
  "written": null,
  "caveats": [
   "Intensity occupancy (mzLib's SiteOccupancyCalculator, QuantProject DEF-OCC-INT, the estimator MetaMorpheus writes as IntensityOccupancy_): for a site in a run, the summed intensity of the quantified peptidoforms carrying the modification there, over the summed intensity of every quantified peptidoform covering the position. Supply MS/MS identifications only: a match-between-runs transfer must not be a row.",
-  "fraction is null unless state is quantified. floor (the modified form was identified but not quantified while the site was covered) and not_detected (covered, modified form not identified) are censored, never 0; count_only means nothing covering the site was quantified.",
+  "fraction is null unless state is quantified. floor (the modified form was identified but not quantified while the site was covered) is low but not 0. not_detected is a covered-zero (mzLib's DEF-OCC-COVERED-ZERO): peptidoforms covering the site were identified in the run and none carried the modification, so the occupancy is below what the run could detect, a bound and not a measured 0. count_only means nothing covering the site was quantified.",
   "A fraction of 1 with unmodified_quantified false is a ceiling: the site was seen only modified, and the unmodified form may be present below detection.",
   "position is 1-based in the protein, and a protein N-terminal modification sits at the residue it is on (1, or 2 after the initiator Met is removed). readers read-occupancy counts the other way (0 is the N-terminus), so do not join the two tables on position.",
   "Excluded by mzLib, whatever --modifications or --categories say: the categories Common Variable and Common Fixed, peptide-terminal modifications, and every C-terminal modification (the protein's length is not supplied). An N-terminal modification is a site only on a peptide starting at residue 1, or at 2 when previous_residue is M or blank; whether it is protein- or peptide-terminal comes from mzLib's modification registry, and a name the registry does not know is treated as protein N-terminal.",
   "A peptide shared by several proteins is one row per protein, and each protein gets its full intensity. MetaMorpheus instead gives a shared peptide a proportional share per protein group, so its IntensityOccupancy_ can differ.",
+  "covering_peptidoforms and modified_peptidoforms count identifications, not intensity (mzLib's SiteRunOccupancy.CoveringPeptidoforms and ModifiedPeptidoforms): the distinct peptidoforms covering the position identified in the run, quantified or not, and how many of them carried the modification there. They are the k of n of a cell with no fraction, and tell a count_only cell seen only modified (k = n) from one where both forms were identified.",
   "2 cells are floor or not_detected: censored values with no fraction. Averaging them in as 0 would bias occupancy down."
  ]
 }

@@ -23,7 +23,11 @@ hand-computed test cases, so each number below is one mzLib's tests assert.
 | The same for a sample measured as several fractions? | [`ptmqtl.occupancy`][pymzlib.ptmqtl.occupancy] with `samples=` | `SiteOccupancyCalculator.Calculate` with a run-to-sample map |
 | Which two modifications sit on one molecule? | [`ptmqtl.pairs`][pymzlib.ptmqtl.pairs] with `type="physical"` | `PtmPairEngine.Physical` |
 | Which two sites rise and fall together across runs? | [`ptmqtl.pairs`][pymzlib.ptmqtl.pairs] with `type="covarying"` | `PtmPairEngine.CoVarying` (Spearman, BH) |
+| The same, counting runs where a site was seen in only one form? | [`ptmqtl.pairs`][pymzlib.ptmqtl.pairs] with `include_bounds=True` | `PtmPairEngine.CoVarying(includeBounds)`, `PairTestStatus` |
+| The same, given each run's depth? | [`ptmqtl.pairs`][pymzlib.ptmqtl.pairs] with `run_covariate=` | `PtmPairEngine.CoVarying(runCovariate)` |
+| How many peptidoforms covered a site in a run, and how many carried the mark? | [`ptmqtl.occupancy`][pymzlib.ptmqtl.occupancy], columns `covering_peptidoforms`, `modified_peptidoforms` | `SiteRunOccupancy.CoveringPeptidoforms`, `.ModifiedPeptidoforms` |
 | Does a site's occupancy change with a per-run trait? | [`ptmqtl.trait_effects`][pymzlib.ptmqtl.trait_effects] | `SiteTraitEffects.Fit` (a mixed model per site) |
+| The same, with the effect in log2 odds? | [`ptmqtl.trait_effects`][pymzlib.ptmqtl.trait_effects] with `scale="log2_odds"` | `SiteTraitOptions.Scale`, `OccupancyScale` |
 
 All three read the same input: one table of peptidoforms and their intensities. `occupancy` can
 write its result to a file, and `trait_effects` reads that file.
@@ -144,7 +148,27 @@ quant       quantified    0.1
 | `quantified` | the modified form was quantified | a measured fraction in (0, 1] |
 | `floor` | the modified form was identified but not quantified, while forms covering the site were | low, **not zero** |
 | `count_only` | the modified form was identified, but nothing covering the site was quantified | present, amount unknown |
-| `not_detected` | the site was covered, but no modified form was identified | unknown, **not zero** |
+| `not_detected` | peptidoforms covering the site were identified, and none carried the modification | a **bound**: below what this run could detect, **not zero** |
+
+**Each cell also counts peptidoforms.** `covering_peptidoforms` is how many distinct peptidoforms
+covering the position were identified in the run, quantified or not. `modified_peptidoforms` is how
+many of them carried the modification there. They count identifications, not intensity, so they
+are the "k of n" of a cell that has no fraction:
+
+```pycon
+>>> for r in occ.records:
+...     if r["protein_accession"] == "STATES":
+...         print(f'{r["run"]:<12}{r["state"]:<14}{r["modified_peptidoforms"]} of {r["covering_peptidoforms"]}')
+countOnly   count_only    1 of 1
+floor       floor         1 of 2
+notDetected not_detected  0 of 1
+quant       quantified    1 of 2
+
+```
+
+The `count_only` cell is 1 of 1: the site was seen only modified. Had the unmodified form been
+identified too, it would read 1 of 2. That difference decides how
+[`include_bounds`](#counting-one-form-runs-as-bounds) ranks the cell.
 
 **A 1 can be a ceiling.** When a site is seen only in its modified form, every quantified form
 covering it carries the modification, so the fraction is 1. The unmodified form may be there below
@@ -292,6 +316,100 @@ phosphorylations together, pass a two-column file (`modification`, `group`) as
 - **`keep_ceiling=True`** keeps runs where a site was seen only modified. Two unrelated sites that
   both read 1 in low-load runs then correlate through detection alone; that is why mzLib leaves
   them out by default.
+- **`test_status`** says whether a co-varying pair was tested, and if not, why: `not_estimable`
+  (too few complete runs, or a constant site), `too_few_shared_runs` (a partial correlation on
+  fewer than `min_runs_for_run_level` runs), or `both_sites_mostly_bounds` (next section). An
+  untested pair has no `statistic`, `p_value` or `q`, and is not in its family's adjustment.
+
+### Counting one-form runs as bounds
+
+A site seen in only one form in a run has no fraction, but it is not missing either. A
+`not_detected` cell says the occupancy was below what the run could see; a ceiling says it was at
+the top. By default mzLib leaves such runs out of the correlation. A site that is often below
+detection then never reaches the 70% guard, and its pairs are never tested.
+
+`include_bounds=True` lets those runs in as **tied ranks**, never as invented values. A
+`not_detected` or `floor` cell ties below every fraction of its site. A ceiling, or a `count_only`
+cell whose covering peptidoforms all carry the mark (k of n with k = n), ties above. A `count_only`
+cell where both forms were identified has no rank and stays out.
+
+The example is mzLib's `BoundsEnterTypeAAsTiedRanks`: two sites with a value in six of ten runs,
+and a bound in the other four.
+
+```pycon
+>>> plain = pymzlib.ptmqtl.pairs("bounds.tsv", type="covarying")
+>>> plain.row_count, plain.include_bounds
+(0, False)
+>>> bounded = pymzlib.ptmqtl.pairs("bounds.tsv", type="covarying", include_bounds=True)
+>>> r = bounded.records[0]
+>>> r["n"], r["test_status"], r["bounds_included"], f'{r["statistic"]:.3f}'
+(9, 'tested', True, '0.004')
+>>> bounded.min_untied_share, bounded.exclude_ceiling
+(0.5, None)
+
+```
+
+Six of ten is below the guard, so the plain call tests nothing. With bounds, `BOUND_S` has a value
+or a bound in all ten runs and `BOUND_T` in nine, and the pair is tested on the nine they share.
+The tenth is `BOUND_T`'s `count_only` cell with both forms identified (1 of 2): it has no rank. The
+two sites turn out unrelated (rho 0.004).
+
+**Too many ties make the test unreliable.** When both sites are mostly one bound, Spearman's
+t test calls far too many pairs: in mzLib's simulation, 2 to 5 times the nominal rate at
+p < 0.001 with no relation at all. So a pair is tested only if one of its sites has at least
+`min_untied_share` (half) of the shared runs outside its largest tie. Otherwise its `test_status`
+is `both_sites_mostly_bounds`, and it has no p-value.
+
+`exclude_ceiling` stays `None`: with bounds, mzLib treats a ceiling as a high bound.
+`keep_ceiling=True` sends `False` and gives the same answer.
+
+### Given each run's depth
+
+Shallow runs miss low-abundance forms everywhere at once. With bounds in, that makes covered-zeros
+co-occur across unrelated sites, and any site that rises with depth correlates with every other.
+`run_covariate=` takes a per-run value, such as the run's target PSMs, and correlates the two sites
+**given** it: a partial Spearman correlation, as for the run level.
+
+The file has a header row whose second field names the covariate, then one row per run:
+
+```tsv
+run	target_psms
+r00	9000
+r01	12000
+```
+
+The example is mzLib's `ARunCovariateIsPartialledOut`: twelve runs in two batches, and two sites
+that also rise a little with each run's depth.
+
+```pycon
+>>> def depth_pair(result):
+...     r = next(r for r in result.records
+...              if r["site_a"].startswith("DEPTH_S") and r["site_b"].startswith("DEPTH_T"))
+...     return f'rho {r["statistic"]:.2f}  p {r["p_value"]:.3f}  n {r["n"]}'
+>>> depth_pair(pymzlib.ptmqtl.pairs("depth.tsv", type="covarying"))
+'rho 0.77  p 0.003  n 12'
+>>> given = pymzlib.ptmqtl.pairs("depth.tsv", type="covarying", run_covariate="depth_psms.tsv")
+>>> depth_pair(given)
+'rho 0.76  p 0.006  n 12'
+>>> given.run_covariate_name, given.run_covariate_runs_missing, given.min_runs_for_run_level
+('target_psms', [], 10)
+>>> both = pymzlib.ptmqtl.pairs("depth.tsv", type="covarying", run_covariate="depth_psms.tsv",
+...                             remove_run_level=True)
+>>> depth_pair(both)
+'rho 0.08  p 0.832  n 12'
+
+```
+
+Depth alone barely moves rho: in these runs most of the shared rise is the batch. Given the batch's
+run level as well, the pair is unrelated. A covariate removes only what it explains.
+
+- **Any increasing transform gives the same answer.** The covariate is ranked, so target PSMs and
+  log2 target PSMs are the same input.
+- **Leave a run out for "unknown".** It is then left out of every pair, and listed in
+  `run_covariate_runs_missing`. A blank or `NA` value is not "unknown": mzLib refuses it, and
+  pyMzLib raises `UsageError`.
+- **The same floor of shared runs applies.** A pair partial on the covariate is tested only on at
+  least `min_runs_for_run_level` shared runs; below that it is `too_few_shared_runs`.
 
 ## 5. Does occupancy change with a trait?
 
@@ -335,9 +453,9 @@ TRAIT_SITE    fitted  effect 0.50 (SE 0.06, df 4)  q 0.0016  12 runs, 6 replicat
 
 ```
 
-`TRAIT_SITE` recovers the 0.5 it was built with. **`effect` is in logit units per unit of the
-trait**, so `exp(0.5)` = 1.65: each dose unit multiplies the odds of the modified form by about
-1.65. The degrees of freedom are between replicates (six replicates, less the intercept and the
+`TRAIT_SITE` recovers the 0.5 it was built with. **`effect` is in logit (natural-log odds) units
+per unit of the trait**, so `exp(0.5)` = 1.65: each dose unit multiplies the odds of the modified
+form by about 1.65. The degrees of freedom are between replicates (six replicates, less the intercept and the
 dose), because the dose never varies within a replicate.
 
 `CENSORED_SITE` is the same site with replicate R5's two runs replaced by a floor and a ceiling.
@@ -356,6 +474,26 @@ CENSORED_SITE below_support None
 TRAIT_SITE fitted 0.5
 
 ```
+
+**In log2 odds.** Natural-log odds are mzLib's default. `scale="log2_odds"` reports the same fit in
+log2 odds, where an effect of +1 doubles the odds of the modified form per trait unit:
+
+```pycon
+>>> log2 = pymzlib.ptmqtl.trait_effects("trait_occupancy.tsv", "trait_runs.tsv", scale="log2_odds")
+>>> fit.scale, log2.scale
+('natural_log_odds', 'log2_odds')
+>>> for natural, base2 in zip(fit.records, log2.records):
+...     print(f'{natural["protein_accession"]:<14}{natural["effect"]:.3f} -> {base2["effect"]:.3f}  '
+...           f'p {natural["p_value"]:.5f} -> {base2["p_value"]:.5f}')
+CENSORED_SITE 0.543 -> 0.783  p 0.00361 -> 0.00361
+TRAIT_SITE    0.501 -> 0.723  p 0.00082 -> 0.00082
+
+```
+
+`TRAIT_SITE`'s 0.50 natural-log units are 0.72 log2 units: 2^0.72 = 1.65, the same odds ratio per
+dose unit. mzLib does not refit. It divides the effects and standard errors by ln 2 and the two
+variances by (ln 2)², so `df`, `p_value` and `q` are unchanged. Pick the scale your other results
+use; the science does not change.
 
 **What it does not tell you.**
 
@@ -393,3 +531,15 @@ If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#ci
 methods it uses:
 
 --8<-- "docs/reference/_generated/cite.ptmqtl.md"
+
+Further sources, in mzLib. They cite no paper for these rules, so the code is the reference:
+
+- Bounds, the run covariate and the per-cell peptidoform counts: mzLib [#1468][1468]
+  (`PtmPairEngine.CoVarying`, `Quantification/PtmQtl/PtmPairs.cs:238`; `PairTestStatus`, `:19`;
+  `MinUntiedShare` and the simulation behind it, `:128`; `SiteRunOccupancy.CoveringPeptidoforms`,
+  `Quantification/PtmQtl/SiteOccupancy.cs:99`).
+- The log2-odds scale: mzLib [#1464][1464] (`OccupancyScale`,
+  `Quantification/PtmQtl/SiteTraitEffects.cs:34`; `SiteTraitOptions.Scale`, `:66`).
+
+[1468]: https://github.com/smith-chem-wisc/mzLib/pull/1468
+[1464]: https://github.com/smith-chem-wisc/mzLib/pull/1464

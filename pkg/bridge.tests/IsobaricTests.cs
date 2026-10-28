@@ -31,9 +31,39 @@ public class IsobaricTests
             Assert.That(data.GetProperty("record_count").GetInt32(), Is.EqualTo(channels));
             Assert.That(data.GetProperty("absolute_tolerance").GetDouble(), Is.EqualTo(0.003));
             Assert.That(Strings(data.GetProperty("column_names")), Is.EqualTo(new[]
-                { "kit", "channel_index", "channel_label", "reporter_ion_mz", "mz_min", "mz_max" }));
-            Assert.That(data.GetProperty("caveats").GetArrayLength(), Is.EqualTo(5));
+                { "kit", "channel_index", "channel_label", "reporter_ion_mz", "mz_min", "mz_max", "sdrf_label" }));
+            Assert.That(data.GetProperty("caveats").GetArrayLength(), Is.EqualTo(6));
         });
+    }
+
+    /// <summary>
+    /// sdrf_label is mzLib's SdrfIsobaricLabels.GetSdrfLabel for every (kit, channel), and reads back to its
+    /// channel through mzLib's TryGetChannel, the rule sdrf isobaric-design applies (mzLib #1467).
+    /// </summary>
+    [Test]
+    public void Kits_SdrfLabelIsMzLibsLabelForEveryChannel()
+    {
+        JsonElement columns = Invoke("isobaric", "kits").GetProperty("columns");
+        string[] kits = Strings(columns.GetProperty("kit"));
+        string[] channels = Strings(columns.GetProperty("channel_label"));
+        string[] labels = Strings(columns.GetProperty("sdrf_label"));
+
+        for (int i = 0; i < kits.Length; i++)
+        {
+            var type = Enum.Parse<Omics.Modifications.IsobaricMassTagType>(kits[i]);
+            Assert.That(labels[i], Is.EqualTo(Readers.SdrfIsobaricLabels.GetSdrfLabel(type, channels[i])), $"{kits[i]} {channels[i]}");
+            Assert.That(Readers.SdrfIsobaricLabels.TryGetChannel(type, labels[i], out string? back), Is.True);
+            Assert.That(back, Is.EqualTo(channels[i]));
+        }
+
+        string Label(string kit, string channel) =>
+            labels[Enumerable.Range(0, kits.Length).Single(i => kits[i] == kit && channels[i] == channel)];
+        // PRIDE's spelling (PRIDE:0000529), the one channel whose SDRF label is not the family and the channel.
+        Assert.That(Label("TMT10", "131N"), Is.EqualTo("TMT131"));
+        Assert.That(Label("TMT11", "131N"), Is.EqualTo("TMT131N"));
+        Assert.That(Label("TMT18", "135N"), Is.EqualTo("TMT135N"));
+        Assert.That(Label("iTRAQ4", "114"), Is.EqualTo("ITRAQ114"));
+        Assert.That(Label("diLeu12", "115a"), Is.EqualTo("DiLeu115a"));
     }
 
     [Test]

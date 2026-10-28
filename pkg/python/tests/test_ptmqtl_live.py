@@ -57,10 +57,21 @@ def assert_same_columns(live: dict, recorded: dict) -> None:
         ("ptmqtl_pairs_batch.json", lambda: ptmqtl.pairs(PTMQTL / "batch.tsv", type="covarying")),
         ("ptmqtl_pairs_batch_run_level.json", lambda: ptmqtl.pairs(
             PTMQTL / "batch.tsv", type="covarying", remove_run_level=True)),
+        ("ptmqtl_pairs_bounds_plain.json", lambda: ptmqtl.pairs(PTMQTL / "bounds.tsv", type="covarying")),
+        ("ptmqtl_pairs_bounds.json", lambda: ptmqtl.pairs(
+            PTMQTL / "bounds.tsv", type="covarying", include_bounds=True)),
+        ("ptmqtl_pairs_depth.json", lambda: ptmqtl.pairs(PTMQTL / "depth.tsv", type="covarying")),
+        ("ptmqtl_pairs_depth_covariate.json", lambda: ptmqtl.pairs(
+            PTMQTL / "depth.tsv", type="covarying", run_covariate=PTMQTL / "depth_psms.tsv")),
+        ("ptmqtl_pairs_depth_covariate_run_level.json", lambda: ptmqtl.pairs(
+            PTMQTL / "depth.tsv", type="covarying", run_covariate=PTMQTL / "depth_psms.tsv",
+            remove_run_level=True)),
         ("ptmqtl_trait_effects.json", lambda: ptmqtl.trait_effects(
             PTMQTL / "trait_occupancy.tsv", PTMQTL / "trait_runs.tsv")),
         ("ptmqtl_trait_effects_strict.json", lambda: ptmqtl.trait_effects(
             PTMQTL / "trait_occupancy.tsv", PTMQTL / "trait_runs.tsv", min_replicates=6)),
+        ("ptmqtl_trait_effects_log2.json", lambda: ptmqtl.trait_effects(
+            PTMQTL / "trait_occupancy.tsv", PTMQTL / "trait_runs.tsv", scale="log2_odds")),
     ],
 )
 def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
@@ -72,6 +83,11 @@ def test_the_recordings_are_what_the_bridge_returns_today(fixture, call):
         # Keys from mzLib enums; a repin that grows one must not slip past the recording.
         if counts in recorded:
             assert getattr(live, counts) == recorded[counts]
+    # The settings echoed (mzLib's defaults when not given), and the run covariate's bookkeeping.
+    for echo in ("include_bounds", "min_untied_share", "exclude_ceiling", "run_covariate_name",
+                 "run_covariate_runs_missing", "min_runs_for_run_level", "scale"):
+        if echo in recorded:
+            assert getattr(live, echo) == recorded[echo], echo
 
 
 def test_occupancy_out_writes_the_table_trait_effects_reads(tmp_path):
@@ -108,3 +124,10 @@ def test_refusals_cross_as_usage_errors(tmp_path):
         ptmqtl.occupancy(repeated)
     with pytest.raises(_bridge.UsageError, match="above 0 and below 0.5"):
         ptmqtl.trait_effects(PTMQTL / "trait_occupancy.tsv", PTMQTL / "trait_runs.tsv", logit_epsilon=0.5)
+    with pytest.raises(_bridge.UsageError, match="--include-bounds shapes co-varying pairs only"):
+        ptmqtl.pairs(PTMQTL / "bounds.tsv", type="physical", include_bounds=True)
+    # mzLib refuses a covariate that is not finite, in its own words.
+    nan = tmp_path / "psms.tsv"
+    nan.write_text("run\ttarget_psms\nr00\tNaN\n", encoding="utf-8")
+    with pytest.raises(_bridge.UsageError, match="must be finite"):
+        ptmqtl.pairs(PTMQTL / "depth.tsv", type="covarying", run_covariate=nan)

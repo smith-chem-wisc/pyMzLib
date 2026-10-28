@@ -15,7 +15,8 @@
   "channel_label",
   "reporter_ion_mz",
   "mz_min",
-  "mz_max"
+  "mz_max",
+  "sdrf_label"
  ],
  "columns": {
   "kit": [
@@ -137,6 +138,26 @@
    134.151244694699,
    134.157564635319,
    135.154599529769
+  ],
+  "sdrf_label": [
+   "TMT126",
+   "TMT127N",
+   "TMT127C",
+   "TMT128N",
+   "TMT128C",
+   "TMT129N",
+   "TMT129C",
+   "TMT130N",
+   "TMT130C",
+   "TMT131N",
+   "TMT131C",
+   "TMT132N",
+   "TMT132C",
+   "TMT133N",
+   "TMT133C",
+   "TMT134N",
+   "TMT134C",
+   "TMT135N"
   ]
  },
  "caveats": [
@@ -144,6 +165,7 @@
   "mz_min and mz_max are reporter_ion_mz -/+ absolute_tolerance (0.003 Da, the window mzLib takes from doi:10.1021/acs.jproteome.1c00168). mzLib uses the same window to read reporter intensities from a spectrum, keeping the most intense peak inside it.",
   "TMT16 and TMT18 are TMTpro. TMT16 is the lowest sixteen channels of the TMTpro 18-plex set and has no modification entry of its own, so its m/z are TMT18's first sixteen.",
   "iTRAQ8 has no 120 channel: the phenylalanine immonium ion sits at 120.081, so the eighth reagent is 121.",
-  "channel_index is 0-based and ascends with reporter_ion_mz; channel_label at that index names the channel whose reporter ion it is."
+  "channel_index is 0-based and ascends with reporter_ion_mz; channel_label at that index names the channel whose reporter ion it is.",
+  "sdrf_label is the SDRF comment[label] that names the channel (mzLib's SdrfIsobaricLabels.GetSdrfLabel): PRIDE's term as sdrf-pipelines reads it, TMT or ITRAQ and the channel, except TMT10's 131N, which PRIDE names TMT131 (PRIDE:0000529); TMT11 and TMTpro keep TMT131N. DiLeu has no PRIDE term, so its label is DiLeu and the channel. sdrf isobaric-design reads each of these labels back to its channel."
  ]
 }

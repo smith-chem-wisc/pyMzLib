@@ -1,0 +1,36 @@
+run	full_sequence	protein_accession	start_residue	end_residue	intensity	previous_residue
+r0	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	10	
+r0	PEPSK	BOUND_S	10	14	90	
+r0	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	15	
+r0	GGASK	BOUND_T	40	44	85	
+r1	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	20	
+r1	PEPSK	BOUND_S	10	14	80	
+r1	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	10	
+r1	GGASK	BOUND_T	40	44	90	
+r2	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	30	
+r2	PEPSK	BOUND_S	10	14	70	
+r2	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	35	
+r2	GGASK	BOUND_T	40	44	65	
+r3	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	40	
+r3	PEPSK	BOUND_S	10	14	60	
+r3	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	30	
+r3	GGASK	BOUND_T	40	44	70	
+r4	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	50	
+r4	PEPSK	BOUND_S	10	14	50	
+r4	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	60	
+r4	GGASK	BOUND_T	40	44	40	
+r5	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	60	
+r5	PEPSK	BOUND_S	10	14	40	
+r5	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	45	
+r5	GGASK	BOUND_T	40	44	55	
+r6	PEPSK	BOUND_S	10	14	100	
+r6	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44	100	
+r7	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14		
+r7	PEPSK	BOUND_S	10	14	100	
+r7	GGASK	BOUND_T	40	44	100	
+r8	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14	100	
+r8	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44		
+r8	GGASK	BOUND_T	40	44		
+r9	PEPS[Common Biological:Phosphorylation on S]K	BOUND_S	10	14		
+r9	GGAS[Common Biological:Phosphorylation on S]K	BOUND_T	40	44		
+r9	GGASK	BOUND_T	40	44	100	

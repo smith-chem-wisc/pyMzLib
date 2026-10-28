@@ -1,5 +1,5 @@
 {
- "observations_file": "F:\\ClaudeTestBuilds\\pymzlib-596\\pkg\\python\\tests\\fixtures\\ptmqtl\\batch.tsv",
+ "observations_file": "F:\\ClaudeTestBuilds\\pymzlib-opts\\pkg\\python\\tests\\fixtures\\ptmqtl\\batch.tsv",
  "samples_file": null,
  "type": "covarying",
  "observation_count": 144,
@@ -22,6 +22,11 @@
  "covarying_run_count": 12,
  "min_quantified_fraction": 0.7,
  "exclude_ceiling": null,
+ "include_bounds": false,
+ "min_untied_share": null,
+ "run_covariate_file": null,
+ "run_covariate_name": null,
+ "run_covariate_runs_missing": null,
  "remove_run_level": false,
  "run_level_group": null,
  "run_level_groups_file": null,
@@ -46,7 +51,10 @@
   "n",
   "statistic_n",
   "spearman_method",
-  "run_level_removed"
+  "run_level_removed",
+  "test_status",
+  "bounds_included",
+  "run_covariate_removed"
  ],
  "columns": {
   "result_type": [
@@ -269,10 +277,61 @@
    false,
    false,
    false
+  ],
+  "test_status": [
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested",
+   "tested"
+  ],
+  "bounds_included": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "run_covariate_removed": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
   ]
  },
  "caveats": [
-  "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs, on the runs where both are quantified. Floors and not_detected cells are not values and are left out, and so, unless --keep-ceiling, are ceilings: two unrelated sites both read 1 in low-load runs, which would correlate them through detection alone.",
+  "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs, on the runs where both are quantified. Floors and not_detected cells are not values and are left out, and so, unless --keep-ceiling, are ceilings: two unrelated sites both read 1 in low-load runs, which would correlate them through detection alone. --include-bounds enters them as tied bounds instead.",
   "A site enters co-varying pairs only if it is quantified in at least min_quantified_fraction of covarying_run_count, the runs (or samples) where any site was identified or covered.",
   "q is Benjamini-Hochberg within fdr_family (the type, then intra or inter protein). An overlapping pair, two sites one peptide covers, is reported but left out of the family (q null): shared peptides correlate it by construction. q is not a target-decoy q-value.",
   "p_value is Spearman's two-sided p, exact for 9 or fewer runs without ties, otherwise asymptotic (t on n - 2 degrees of freedom), as stats correlate reports it.",

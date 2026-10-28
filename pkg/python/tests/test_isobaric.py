@@ -53,7 +53,19 @@ def test_every_kit_groups_the_table(replay):
         assert [c.index for c in kit.channels] == list(range(kit.channel_count))
         assert kit.reporter_ion_mzs == sorted(kit.reporter_ion_mzs)
     assert result.absolute_tolerance == 0.003
-    assert len(result.caveats) == 5
+    assert len(result.caveats) == 6
+
+
+def test_every_channel_carries_mzlibs_sdrf_label(replay):
+    # mzLib #1467: SdrfIsobaricLabels.GetSdrfLabel, PRIDE's spelling as sdrf-pipelines reads it.
+    replay("isobaric_kits.json")
+    result = isobaric.kits()
+    assert all(c.sdrf_label for c in result.channels)
+    assert result.kit_named("TMT10").sdrf_labels[-1] == "TMT131"
+    assert result.kit_named("TMT11").sdrf_labels[-2] == "TMT131N"
+    assert result.kit_named("iTRAQ4").sdrf_labels == ["ITRAQ114", "ITRAQ115", "ITRAQ116", "ITRAQ117"]
+    assert result.kit_named("diLeu12").sdrf_labels[0] == "DiLeu115a"
+    assert any(c.startswith("sdrf_label is the SDRF comment[label]") for c in result.caveats)
 
 
 def test_tmtpro_16_is_the_first_sixteen_of_18(replay):

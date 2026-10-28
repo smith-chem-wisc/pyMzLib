@@ -9,7 +9,8 @@ namespace MzLibBridge;
 /// <summary>
 /// The <c>ptmqtl</c> verbs: intensity-based site occupancy per run, PTM-PTM pairs, and the effect of a
 /// per-run trait on a site's occupancy, by mzLib's <c>Quantification.PtmQtl</c> (mzLib #1369, first in
-/// 1.0.594; fractions combined per sample #1430 and the run level #1446, first in 1.0.595). The bridge
+/// 1.0.594; fractions combined per sample #1430 and the run level #1446, first in 1.0.595; the
+/// log2-odds scale #1464, and bounds, a run covariate and peptidoform counts #1468, first in 1.0.596). The bridge
 /// reads plain tab-separated tables into mzLib's own plain records and shapes the answer; every
 /// number is mzLib's.
 /// </summary>
@@ -45,6 +46,7 @@ internal static class PtmQtl
     {
         "site_key", "protein_accession", "position", "residue", "modification", "category", "run", "state",
         "modified_intensity", "covering_intensity", "fraction", "unmodified_quantified",
+        "covering_peptidoforms", "modified_peptidoforms",
     };
 
     /// <summary>Row columns of <c>ptmqtl pairs</c>, in order.</summary>
@@ -52,6 +54,7 @@ internal static class PtmQtl
     {
         "result_type", "site_a", "site_b", "same_protein", "overlapping", "statistic", "p_value", "q",
         "fdr_family", "n", "statistic_n", "spearman_method", "run_level_removed",
+        "test_status", "bounds_included", "run_covariate_removed",
     };
 
     /// <summary>Row columns of <c>ptmqtl trait-effects</c>, in order.</summary>
@@ -123,6 +126,7 @@ internal static class PtmQtl
             cell.Site.Key, cell.Site.ProteinAccession, cell.Site.Position, cell.Site.Residue.ToString(),
             cell.Site.Modification, cell.Site.Category, cell.Run, StateName(cell.State),
             cell.ModifiedIntensity, cell.CoveringIntensity, Finite(cell.Fraction), cell.UnmodifiedQuantified,
+            cell.CoveringPeptidoforms, cell.ModifiedPeptidoforms,
         };
 
     /// <summary>
@@ -143,11 +147,12 @@ internal static class PtmQtl
         var caveats = new List<string>
         {
             "Intensity occupancy (mzLib's SiteOccupancyCalculator, QuantProject DEF-OCC-INT, the estimator MetaMorpheus writes as IntensityOccupancy_): for a site in a run, the summed intensity of the quantified peptidoforms carrying the modification there, over the summed intensity of every quantified peptidoform covering the position. Supply MS/MS identifications only: a match-between-runs transfer must not be a row.",
-            "fraction is null unless state is quantified. floor (the modified form was identified but not quantified while the site was covered) and not_detected (covered, modified form not identified) are censored, never 0; count_only means nothing covering the site was quantified.",
+            "fraction is null unless state is quantified. floor (the modified form was identified but not quantified while the site was covered) is low but not 0. not_detected is a covered-zero (mzLib's DEF-OCC-COVERED-ZERO): peptidoforms covering the site were identified in the run and none carried the modification, so the occupancy is below what the run could detect, a bound and not a measured 0. count_only means nothing covering the site was quantified.",
             "A fraction of 1 with unmodified_quantified false is a ceiling: the site was seen only modified, and the unmodified form may be present below detection.",
             "position is 1-based in the protein, and a protein N-terminal modification sits at the residue it is on (1, or 2 after the initiator Met is removed). readers read-occupancy counts the other way (0 is the N-terminus), so do not join the two tables on position.",
             "Excluded by mzLib, whatever --modifications or --categories say: the categories Common Variable and Common Fixed, peptide-terminal modifications, and every C-terminal modification (the protein's length is not supplied). An N-terminal modification is a site only on a peptide starting at residue 1, or at 2 when previous_residue is M or blank; whether it is protein- or peptide-terminal comes from mzLib's modification registry, and a name the registry does not know is treated as protein N-terminal.",
             "A peptide shared by several proteins is one row per protein, and each protein gets its full intensity. MetaMorpheus instead gives a shared peptide a proportional share per protein group, so its IntensityOccupancy_ can differ.",
+            "covering_peptidoforms and modified_peptidoforms count identifications, not intensity (mzLib's SiteRunOccupancy.CoveringPeptidoforms and ModifiedPeptidoforms): the distinct peptidoforms covering the position identified in the run, quantified or not, and how many of them carried the modification there. They are the k of n of a cell with no fraction, and tell a count_only cell seen only modified (k = n) from one where both forms were identified.",
         };
         if (combined)
             caveats.Add(
@@ -166,6 +171,7 @@ internal static class PtmQtl
     /// <summary>
     /// <c>ptmqtl pairs --observations FILE --type physical|covarying|both [--samples FILE]
     /// [--modifications NAMES | --categories NAMES] [--min-quantified-fraction F] [--keep-ceiling]
+    /// [--include-bounds] [--run-covariate FILE]
     /// [--remove-run-level [--run-level-group category|modification | --run-level-groups FILE]]</c>.
     /// </summary>
     public static object Pairs(Program.Arguments arguments)
@@ -184,12 +190,15 @@ internal static class PtmQtl
 
         bool fractionGiven = arguments.WasProvided("min-quantified-fraction");
         bool keepCeiling = Flag(arguments, "keep-ceiling");
+        bool includeBounds = Flag(arguments, "include-bounds");
+        bool covariateGiven = arguments.WasProvided("run-covariate");
         bool removeRunLevel = Flag(arguments, "remove-run-level");
         bool groupGiven = arguments.WasProvided("run-level-group");
         bool groupsGiven = arguments.WasProvided("run-level-groups");
         if (!covarying)
         {
             string? stray = new[] { ("min-quantified-fraction", fractionGiven), ("keep-ceiling", keepCeiling),
+                    ("include-bounds", includeBounds), ("run-covariate", covariateGiven),
                     ("remove-run-level", removeRunLevel), ("run-level-group", groupGiven), ("run-level-groups", groupsGiven) }
                 .Where(o => o.Item2).Select(o => o.Item1).FirstOrDefault();
             if (stray is not null)
@@ -223,10 +232,12 @@ internal static class PtmQtl
                     $"Option --run-level-group must be one of {string.Join(", ", RunLevelGroupRules)}; got '{groupRule}'. For any other grouping, map each modification to a group in a file and pass --run-level-groups.");
         }
         string? groupsPath = groupsGiven ? RequireFile(arguments, "run-level-groups") : null;
+        string? covariatePath = covariateGiven ? RequireFile(arguments, "run-covariate") : null;
 
         ObservationTable table = ReadObservations(observationsPath);
         Dictionary<string, string>? samples = samplesPath is null ? null : ReadSamples(samplesPath);
         Dictionary<string, string>? groups = groupsPath is null ? null : ReadModificationGroups(groupsPath);
+        RunCovariate? runCovariate = covariatePath is null ? null : ReadRunCovariate(covariatePath);
 
         // As mzLib's CombineObservations says: feed the combined observations to Physical and to Calculate,
         // so both see samples rather than fractions.
@@ -237,8 +248,12 @@ internal static class PtmQtl
         var pairs = new List<PtmPair>();
         int? physicalCount = null, covaryingCount = null, covaryingRunCount = null;
         bool? excludeCeiling = null;
-        // Absent, mzLib's own default (false at the pin), read off the method like the others.
+        List<string>? covariateRunsMissing = null;
+        // Absent, mzLib's own defaults (false at the pin), read off the method like the others.
         bool remove = covarying && (removeRunLevel || CoVaryingDefault<bool>("removeRunLevel"));
+        bool bounds = covarying && (includeBounds || CoVaryingDefault<bool>("includeBounds"));
+        // mzLib holds a pair partial on a run covariate, as on the run level, to MinRunsForRunLevel shared runs.
+        bool partial = remove || runCovariate is not null;
         if (physical)
         {
             IReadOnlyList<PtmPair> found = FromMzLib(() => PtmPairEngine.Physical(observations, filter.Include));
@@ -266,12 +281,16 @@ internal static class PtmQtl
             // Absent options take mzLib's own defaults, read off the method, so the bridge sets none.
             minFraction ??= CoVaryingDefault<double>("minQuantifiedFraction");
             // mzLib's excludeCeiling is nullable and resolves its own default inside CoVarying, so absent
-            // stays null on the wire too: the bridge does not restate the rule to name the value.
+            // stays null on the wire too: the bridge does not restate the rule to name the value. With
+            // --include-bounds it is still never true, so mzLib's refusal of the two together cannot arise.
             excludeCeiling = keepCeiling ? false : null;
             IReadOnlyList<PtmPair> found = FromMzLib(() => PtmPairEngine.CoVarying(occupancy, observations,
-                minFraction.Value, excludeCeiling, remove, runLevelGroup));
+                minFraction.Value, excludeCeiling, remove, runLevelGroup, bounds, runCovariate?.Values));
             covaryingCount = found.Count;
-            covaryingRunCount = occupancy.Select(o => o.Run).Distinct(StringComparer.Ordinal).Count();
+            List<string> runs = occupancy.Select(o => o.Run).Distinct(StringComparer.Ordinal).OrderBy(r => r, StringComparer.Ordinal).ToList();
+            covaryingRunCount = runs.Count;
+            if (runCovariate is not null)
+                covariateRunsMissing = runs.Where(r => !runCovariate.Values.ContainsKey(r)).ToList();
             pairs.AddRange(found);
         }
 
@@ -281,7 +300,9 @@ internal static class PtmQtl
                 PairTypeName(pair.ResultType), pair.SiteA.Key, pair.SiteB.Key, pair.SameProtein, pair.Overlapping,
                 Finite(pair.Statistic), Finite(pair.PValue), Finite(pair.Q), pair.FdrFamily, pair.N, pair.StatisticN,
                 pair.SpearmanMethod is SpearmanPValueMethod method ? Statistics.SpearmanMethodName(method) : null,
-                pair.RunLevelRemoved);
+                pair.RunLevelRemoved,
+                pair.TestStatus is PairTestStatus status ? TestStatusName(status) : null,
+                pair.BoundsIncluded, pair.RunCovariateRemoved);
 
         return new
         {
@@ -295,10 +316,15 @@ internal static class PtmQtl
             covarying_run_count = covaryingRunCount,
             min_quantified_fraction = covarying ? minFraction : null,
             exclude_ceiling = excludeCeiling,
+            include_bounds = covarying ? bounds : (bool?)null,
+            min_untied_share = bounds ? PtmPairEngine.MinUntiedShare : (double?)null,
+            run_covariate_file = covariatePath is null ? null : Path.GetFullPath(covariatePath),
+            run_covariate_name = runCovariate?.Name,
+            run_covariate_runs_missing = covariateRunsMissing,
             remove_run_level = covarying ? remove : (bool?)null,
             run_level_group = !remove ? null : groupRule ?? (groups is null ? "none" : "file"),
             run_level_groups_file = groupsPath is null ? null : Path.GetFullPath(groupsPath),
-            min_runs_for_run_level = remove ? PtmPairEngine.MinRunsForRunLevel : (int?)null,
+            min_runs_for_run_level = partial ? PtmPairEngine.MinRunsForRunLevel : (int?)null,
             min_sites_for_run_level = remove ? PtmPairEngine.MinSitesForRunLevel : (int?)null,
             modifications = filter.Modifications,
             categories = filter.Categories,
@@ -308,9 +334,23 @@ internal static class PtmQtl
             row_count = columns.RowCount,
             column_names = columns.Names,
             columns = columns.Columns(),
-            caveats = PairCaveats(physical, covarying, remove, samples is not null, table.IgnoredColumns, pairs),
+            caveats = PairCaveats(physical, covarying, remove, bounds, runCovariate, covariateRunsMissing,
+                samples is not null, table.IgnoredColumns, pairs),
         };
     }
+
+    /// <summary>
+    /// mzLib's <see cref="PairTestStatus"/> as the wire writes it. Every value is named here, so a value
+    /// mzLib adds fails a test on the repin instead of reaching the wire under its C# name.
+    /// </summary>
+    internal static string TestStatusName(PairTestStatus status) => status switch
+    {
+        PairTestStatus.Tested => "tested",
+        PairTestStatus.NotEstimable => "not_estimable",
+        PairTestStatus.TooFewSharedRuns => "too_few_shared_runs",
+        PairTestStatus.BothSitesMostlyBounds => "both_sites_mostly_bounds",
+        _ => throw new InvalidOperationException($"PairTestStatus.{status} has no wire name. Name it in PtmQtl.TestStatusName."),
+    };
 
     /// <summary>mzLib's <see cref="PairResultType"/> as the wire writes it.</summary>
     internal static string PairTypeName(PairResultType type) => type switch
@@ -328,8 +368,8 @@ internal static class PtmQtl
         (T)typeof(PtmPairEngine).GetMethod(nameof(PtmPairEngine.CoVarying))!.GetParameters()
             .Single(p => p.Name == parameter).DefaultValue!;
 
-    private static List<string> PairCaveats(bool physical, bool covarying, bool removeRunLevel, bool combined,
-        List<string> ignored, List<PtmPair> pairs)
+    private static List<string> PairCaveats(bool physical, bool covarying, bool removeRunLevel, bool includeBounds,
+        RunCovariate? runCovariate, List<string>? covariateRunsMissing, bool combined, List<string> ignored, List<PtmPair> pairs)
     {
         var caveats = new List<string>();
         if (physical)
@@ -337,10 +377,15 @@ internal static class PtmQtl
                 "physical (mzLib's PtmPairEngine.Physical, type P): both modifications were identified on one peptidoform, so on one molecule. statistic is the median over runs of the co-occupancy, the intensity of peptidoforms carrying both over the intensity of peptidoforms covering both positions, on the statistic_n runs where both were quantified; n counts the runs where the doubly modified form was identified. There is no test: p_value and q are null.");
         if (covarying)
         {
-            caveats.Add(
-                "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs, on the runs where both are quantified. Floors and not_detected cells are not values and are left out, and so, unless --keep-ceiling, are ceilings: two unrelated sites both read 1 in low-load runs, which would correlate them through detection alone.");
-            caveats.Add(
-                "A site enters co-varying pairs only if it is quantified in at least min_quantified_fraction of covarying_run_count, the runs (or samples) where any site was identified or covered.");
+            caveats.Add(includeBounds
+                ? "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs. With --include-bounds, a run where a site was seen in only one form enters as a bound, never as an invented value: not_detected (a covered-zero) and floor cells tie below every fraction of that site, and a ceiling, or a count_only cell whose covering peptidoforms all carry the modification, ties above every fraction. A count_only cell where both forms were identified has no rank and is left out. Bounds count toward min_quantified_fraction."
+                : "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs, on the runs where both are quantified. Floors and not_detected cells are not values and are left out, and so, unless --keep-ceiling, are ceilings: two unrelated sites both read 1 in low-load runs, which would correlate them through detection alone. --include-bounds enters them as tied bounds instead.");
+            caveats.Add(includeBounds
+                ? "A site enters co-varying pairs only if it has a value or a bound in at least min_quantified_fraction of covarying_run_count, the runs (or samples) where any site was identified or covered."
+                : "A site enters co-varying pairs only if it is quantified in at least min_quantified_fraction of covarying_run_count, the runs (or samples) where any site was identified or covered.");
+            if (includeBounds)
+                caveats.Add(
+                    $"With --include-bounds, a pair is tested only if at least one of its sites has at least min_untied_share ({PtmPairEngine.MinUntiedShare.ToString(CultureInfo.InvariantCulture)}) of the shared runs outside its largest tie of bounds; otherwise test_status is both_sites_mostly_bounds and it has no statistic, p_value or q. mzLib's reason: when both sites are mostly one bound, Spearman's t test calls 2 to 5 times too many pairs at p < 0.001 with no relation at all (mzLib's simulation, PtmPairEngine.MinUntiedShare).");
             caveats.Add(
                 "q is Benjamini-Hochberg within fdr_family (the type, then intra or inter protein). An overlapping pair, two sites one peptide covers, is reported but left out of the family (q null): shared peptides correlate it by construction. q is not a target-decoy q-value.");
             caveats.Add(
@@ -348,7 +393,15 @@ internal static class PtmQtl
         }
         if (removeRunLevel)
             caveats.Add(
-                $"With --remove-run-level, rho and p_value are the partial Spearman correlation given each run's level: the median occupancy, in that run, of the other tested sites of the pair's group (one group, or one per --run-level-group). A run whose group has fewer than {PtmPairEngine.MinSitesForRunLevel} other sites there has no level, and a pair sharing fewer than {PtmPairEngine.MinRunsForRunLevel} runs with a level is not_estimable. Use it for a batch or loading shift only: where the run level follows the design, removing it tests the correlation within conditions instead, which is a different question.");
+                $"With --remove-run-level, rho and p_value are the partial Spearman correlation given each run's level: the median occupancy, in that run, of the other tested sites of the pair's group (one group, or one per --run-level-group). A run whose group has fewer than {PtmPairEngine.MinSitesForRunLevel} other sites there has no level, and a pair sharing fewer than {PtmPairEngine.MinRunsForRunLevel} runs with a level is not tested (test_status too_few_shared_runs). Use it for a batch or loading shift only: where the run level follows the design, removing it tests the correlation within conditions instead, which is a different question.");
+        if (runCovariate is not null)
+        {
+            caveats.Add(
+                $"With --run-covariate, rho and p_value are the partial Spearman correlation given each run's {runCovariate.Name} (with --remove-run-level, given both). It is ranked like every variable, so any increasing transform of it, such as log2, gives the same result. Shallow runs make covered-zeros co-occur across unrelated sites, which a depth covariate takes out. A run with no value is left out of every pair, and a pair sharing fewer than {PtmPairEngine.MinRunsForRunLevel} runs is not tested (test_status too_few_shared_runs).");
+            if (covariateRunsMissing is { Count: > 0 })
+                caveats.Add(
+                    $"{covariateRunsMissing.Count} run(s) have no {runCovariate.Name} in the --run-covariate file and were left out of every pair: {string.Join(", ", covariateRunsMissing.Take(10))}{(covariateRunsMissing.Count > 10 ? ", ..." : "")}.");
+        }
         if (combined)
             caveats.Add(
                 "With --samples, each peptidoform's intensity is summed over a sample's runs first (mzLib's CombineObservations), so pairs are computed across samples. Map only fractions of one sample together, never technical replicates.");
@@ -357,9 +410,11 @@ internal static class PtmQtl
         if (ignored.Count > 0)
             caveats.Add(
                 $"{ignored.Count} column(s) of the observations file were not read, because mzLib's observation has no such field: {string.Join(", ", ignored)}.");
-        int notEstimable = pairs.Count(p => p.SpearmanMethod == SpearmanPValueMethod.NotEstimable);
-        if (notEstimable > 0)
-            caveats.Add($"{notEstimable} co-varying pairs are not_estimable: their statistic, p_value and q are null.");
+        var untested = pairs.Where(p => p.TestStatus is PairTestStatus s && s != PairTestStatus.Tested)
+            .GroupBy(p => p.TestStatus!.Value).OrderBy(g => g.Key).ToList();
+        if (untested.Count > 0)
+            caveats.Add(
+                $"{untested.Sum(g => g.Count())} co-varying pairs were not tested ({string.Join(", ", untested.Select(g => $"{g.Count()} {TestStatusName(g.Key)}"))}): their statistic, p_value and q are null, and spearman_method is not_estimable.");
         return caveats;
     }
 
@@ -367,10 +422,16 @@ internal static class PtmQtl
 
     /// <summary>
     /// <c>ptmqtl trait-effects --occupancy FILE --runs FILE [--min-runs N] [--min-replicates N]
-    /// [--logit-epsilon E] [--keep-ceiling]</c>.
+    /// [--logit-epsilon E] [--keep-ceiling] [--scale natural_log_odds|log2_odds]</c>.
     /// </summary>
     public static object TraitEffects(Program.Arguments arguments)
     {
+        OccupancyScale? scale = null;
+        if (arguments.WasProvided("scale"))
+        {
+            RequireValueIfProvided(arguments, "scale");
+            scale = ParseScale(arguments.Optional("scale")!);
+        }
         string occupancyPath = RequireFile(arguments, "occupancy");
         string runsPath = RequireFile(arguments, "runs");
 
@@ -391,13 +452,14 @@ internal static class PtmQtl
         // Only what the caller gave is set; the rest stays at mzLib's SiteTraitOptions defaults, and with
         // nothing given no options object is passed at all.
         SiteTraitOptions? options = null;
-        if (minRuns is not null || minReplicates is not null || epsilon is not null || keepCeiling)
+        if (minRuns is not null || minReplicates is not null || epsilon is not null || keepCeiling || scale is not null)
         {
             options = new SiteTraitOptions();
             if (minRuns is int r) options = options with { MinRuns = r };
             if (minReplicates is int g) options = options with { MinReplicates = g };
             if (epsilon is double e) options = options with { LogitEpsilon = e };
             if (keepCeiling) options = options with { ExcludeCeiling = false };
+            if (scale is OccupancyScale s) options = options with { Scale = s };
         }
         SiteTraitOptions used = options ?? new SiteTraitOptions();
 
@@ -437,6 +499,7 @@ internal static class PtmQtl
             min_replicates = used.MinReplicates,
             logit_epsilon = used.LogitEpsilon,
             exclude_ceiling = used.ExcludeCeiling,
+            scale = ScaleName(used.Scale),
             status_counts = statusCounts,
             ignored_columns = cells.IgnoredColumns,
             row_count = columns.RowCount,
@@ -474,6 +537,28 @@ internal static class PtmQtl
             : throw new InvalidOperationException($"SiteTraitEffect status '{status}' is not one MixedModel reports. Add it to PtmQtl.TraitStatuses.");
     }
 
+    /// <summary>
+    /// mzLib's <see cref="OccupancyScale"/> as the wire writes it, both for <c>--scale</c> and its echo.
+    /// Every value is named here, so a value mzLib adds fails a test on the repin instead of reaching
+    /// the wire under its C# name.
+    /// </summary>
+    internal static string ScaleName(OccupancyScale scale) => scale switch
+    {
+        OccupancyScale.NaturalLogOdds => "natural_log_odds",
+        OccupancyScale.Log2Odds => "log2_odds",
+        _ => throw new InvalidOperationException($"OccupancyScale.{scale} has no wire name. Name it in PtmQtl.ScaleName."),
+    };
+
+    private static OccupancyScale ParseScale(string raw)
+    {
+        string cell = raw.Trim();
+        foreach (OccupancyScale scale in Enum.GetValues<OccupancyScale>())
+            if (ScaleName(scale) == cell)
+                return scale;
+        throw new Program.UsageException(
+            $"Option --scale must be one of {string.Join(", ", Enum.GetValues<OccupancyScale>().Select(ScaleName))}; got '{cell}'.");
+    }
+
     private static List<string> TraitCaveats(SiteTraitOptions used, Dictionary<string, int> statusCounts, int siteCount,
         List<string> notUsed, List<string> ignored)
     {
@@ -484,7 +569,15 @@ internal static class PtmQtl
             used.ExcludeCeiling
                 ? "Ceiling cells (a fraction of 1 with unmodified_quantified false) are left out (mzLib's SiteTraitOptions.ExcludeCeiling); --keep-ceiling keeps them."
                 : "With --keep-ceiling, ceiling cells (a fraction of 1 seen only modified) are responses, clamped below 1 before the logit.",
-            $"Each fraction is clamped to [logit_epsilon, 1 - logit_epsilon] before the logit, so a fraction of 0 or 1 has a finite logit. effect is in logit occupancy per unit of the trait as given: rescale the trait to change the unit.",
+            $"Each fraction is clamped to [logit_epsilon, 1 - logit_epsilon] before the logit, so a fraction of 0 or 1 has a finite logit. effect is per unit of the trait as given: rescale the trait to change the unit.",
+            used.Scale switch
+            {
+                OccupancyScale.NaturalLogOdds =>
+                    "scale is natural_log_odds (mzLib's default): effect, standard_error and covariate_effects are in natural-log odds of occupancy, ln(f / (1 - f)), per unit, so exp(effect) is the odds ratio of the modified form per unit; replicate_variance and residual_variance are in squared natural-log odds. --scale log2_odds reports them in log2 odds.",
+                OccupancyScale.Log2Odds =>
+                    "scale is log2_odds (mzLib's OccupancyScale.Log2Odds): effect, standard_error and covariate_effects are the natural-log fit's divided by ln 2, in log2 odds of occupancy, log2(f / (1 - f)), per unit, so an effect of +1 doubles the odds of the modified form per unit; replicate_variance and residual_variance are divided by (ln 2)^2. df, p_value and q are the natural-log fit's, unchanged: a change of unit, not a refit.",
+                _ => throw new InvalidOperationException($"OccupancyScale.{used.Scale} has no caveat. Describe it in PtmQtl.TraitCaveats."),
+            },
             $"A site is fitted only with at least min_runs runs and min_replicates distinct replicates contributing a response; otherwise it is below_support with null statistics. Sites with no usable response in a run of the runs table do not appear.",
             "q is Benjamini-Hochberg over the sites with a p-value in this call. It is not a target-decoy q-value, and it is not adjusted across datasets.",
         };
@@ -508,6 +601,9 @@ internal static class PtmQtl
 
     private sealed record RunTable(int RunCount, string TraitName, List<string> CovariateNames,
         Dictionary<string, double> Trait, Dictionary<string, string> Replicate, Dictionary<string, double[]> Covariates);
+
+    /// <summary>A per-run covariate for <c>ptmqtl pairs</c>: its name (the file's second header) and value per run.</summary>
+    private sealed record RunCovariate(string Name, Dictionary<string, double> Values);
 
     /// <summary>
     /// The observations: a TSV with a header row naming its columns, in any order, as
@@ -550,8 +646,9 @@ internal static class PtmQtl
     /// An occupancy table as <c>ptmqtl occupancy --out</c> writes it, read back into mzLib's
     /// <see cref="SiteRunOccupancy"/>. <c>site_key</c> and <c>category</c> are derived by mzLib and not
     /// read; a <c>fraction</c> cell becomes <see cref="SiteRunOccupancy.ReportedFraction"/>, mzLib's slot for
-    /// a fraction its producer wrote exactly. A (site, run) given twice is refused: mzLib's trait fit would
-    /// silently use the first.
+    /// a fraction its producer wrote exactly, and the optional peptidoform counts become
+    /// <see cref="SiteRunOccupancy.CoveringPeptidoforms"/> and <see cref="SiteRunOccupancy.ModifiedPeptidoforms"/>
+    /// (blank: not supplied). A (site, run) given twice is refused: mzLib's trait fit would silently use the first.
     /// </summary>
     private static OccupancyTable ReadOccupancy(string path)
     {
@@ -561,7 +658,8 @@ internal static class PtmQtl
         int protein = Column("protein_accession"), position = Column("position"), residue = Column("residue"),
             modification = Column("modification"), run = Column("run"), state = Column("state"),
             modified = Column("modified_intensity"), covering = Column("covering_intensity"),
-            unmodified = Column("unmodified_quantified"), fraction = Column("fraction");
+            unmodified = Column("unmodified_quantified"), fraction = Column("fraction"),
+            coveringForms = Column("covering_peptidoforms"), modifiedForms = Column("modified_peptidoforms");
 
         var cells = new List<SiteRunOccupancy>(rows.Count);
         var seen = new HashSet<(ModificationSite, string)>();
@@ -580,7 +678,12 @@ internal static class PtmQtl
             double? reported = fraction < 0 ? null : NullIfMissing(ParseOptional(row[fraction], $"{where}, fraction"));
             cells.Add(new SiteRunOccupancy(site, runName, ParseState(row[state], $"{where}, state"),
                 ParseRequired(row[modified], $"{where}, modified_intensity"), ParseRequired(row[covering], $"{where}, covering_intensity"),
-                ParseBool(row[unmodified], $"{where}, unmodified_quantified")) { ReportedFraction = reported });
+                ParseBool(row[unmodified], $"{where}, unmodified_quantified"))
+            {
+                ReportedFraction = reported,
+                CoveringPeptidoforms = coveringForms < 0 ? null : ParseOptionalInt(row[coveringForms], $"{where}, covering_peptidoforms"),
+                ModifiedPeptidoforms = modifiedForms < 0 ? null : ParseOptionalInt(row[modifiedForms], $"{where}, modified_peptidoforms"),
+            });
         }
         var known = OccupancyColumns.ToHashSet(StringComparer.Ordinal);
         return new OccupancyTable(cells, header.Where(h => !known.Contains(h)).ToList());
@@ -633,6 +736,37 @@ internal static class PtmQtl
     /// <summary>A modification-to-group map: a header row, then <c>modification&lt;TAB&gt;group</c>.</summary>
     private static Dictionary<string, string> ReadModificationGroups(string path) =>
         ReadPairs(path, "run-level-groups", "modification", "group");
+
+    /// <summary>
+    /// A per-run covariate: a header row whose second field names the covariate, then
+    /// <c>run&lt;TAB&gt;value</c> per run. A value is read as written: blank, NA or NaN become NaN, which
+    /// mzLib refuses in its own words (a run with no value is left out of the file instead).
+    /// </summary>
+    private static RunCovariate ReadRunCovariate(string path)
+    {
+        List<string[]> rows = ReadTsv(path, "run-covariate");
+        string[] header = rows[0].Select(h => h.Trim()).ToArray();
+        if (header.Length != 2 || header[1].Length == 0)
+            throw new Program.UsageException(
+                $"The --run-covariate file '{path}' needs a header of two fields: run, then the covariate's name (for example log2_target_psms).");
+        var values = new Dictionary<string, double>(StringComparer.Ordinal);
+        for (int r = 1; r < rows.Count; r++)
+        {
+            string[] row = rows[r];
+            string where = $"Line {r + 1} of the --run-covariate file";
+            if (row.Length != 2)
+                throw new Program.UsageException($"{where} has {row.Length} fields; it needs two: run, then {header[1]}.");
+            string run = row[0].Trim();
+            if (run.Length == 0)
+                throw new Program.UsageException($"{where} has an empty run.");
+            if (values.ContainsKey(run))
+                throw new Program.UsageException($"The run '{run}' appears more than once in the --run-covariate file.");
+            values[run] = ParseOptional(row[1], $"{where}, {header[1]}");
+        }
+        if (values.Count == 0)
+            throw new Program.UsageException($"The --run-covariate file '{path}' has a header but no runs.");
+        return new RunCovariate(header[1], values);
+    }
 
     private static Dictionary<string, string> ReadPairs(string path, string what, string key, string value)
     {
@@ -740,6 +874,10 @@ internal static class PtmQtl
         int.TryParse(raw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
             ? value
             : throw new Program.UsageException($"{what} must be an integer; got '{raw.Trim()}'.");
+
+    /// <summary>An integer, or null for a blank cell.</summary>
+    private static int? ParseOptionalInt(string raw, string what) =>
+        raw.Trim().Length == 0 ? null : ParseInt(raw, what);
 
     /// <summary>A number, or NaN for blank, NA or NaN (any case); anything else is refused.</summary>
     private static double ParseOptional(string raw, string what)
