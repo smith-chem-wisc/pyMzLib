@@ -152,9 +152,31 @@ internal static partial class Proteins
                 $"gene-set for a compact gene table), then a line holding only '{StdinSectionSeparator}', then one " +
                 "Compara homology dump per line. No such line was found.");
 
+        List<GeneSetInput> geneSets = SpeciesLinesFrom(stdin.Take(separator));
+        if (geneSets.Count == 0)
+            throw new Program.UsageException(
+                "No species lines before the '--' line: give one per species, e.g. " +
+                "'homo_sapiens<TAB>gtf<TAB>Homo_sapiens.GRCh38.116.gtf.gz'.");
+
+        List<string> dumps = stdin.Skip(separator + 1).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        if (dumps.Count == 0)
+            throw new Program.UsageException(
+                "No homology dumps after the '--' line. Give every species' dump " +
+                "(homologies/<species>/Compara.<release>.protein_default.homologies.tsv.gz): Compara splits each " +
+                "pair's relationships between the pair's two dumps, so mzLib requires them all.");
+        return (geneSets, dumps);
+    }
+
+    /// <summary>
+    /// Species lines (<c>species TAB gtf|gene-set TAB path</c>), shared by <c>genes orthology</c> and
+    /// <c>genes map-residues</c>. A line that is not three fields, a kind other than gtf or gene-set, or a
+    /// species given twice is a usage error. None is not an error here: each verb says whether it needs one.
+    /// </summary>
+    private static List<GeneSetInput> SpeciesLinesFrom(IEnumerable<string> lines)
+    {
         var geneSets = new List<GeneSetInput>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (string line in stdin.Take(separator))
+        foreach (string line in lines)
         {
             string[] fields = line.Split('\t');
             if (fields.Length != 3 || fields.Any(f => f.Trim().Length == 0))
@@ -171,18 +193,7 @@ internal static partial class Proteins
                 throw new Program.UsageException($"Species '{species}' is listed twice; give one gene set per species.");
             geneSets.Add(new GeneSetInput(species, kind, fields[2].Trim()));
         }
-        if (geneSets.Count == 0)
-            throw new Program.UsageException(
-                "No species lines before the '--' line: give one per species, e.g. " +
-                "'homo_sapiens<TAB>gtf<TAB>Homo_sapiens.GRCh38.116.gtf.gz'.");
-
-        List<string> dumps = stdin.Skip(separator + 1).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
-        if (dumps.Count == 0)
-            throw new Program.UsageException(
-                "No homology dumps after the '--' line. Give every species' dump " +
-                "(homologies/<species>/Compara.<release>.protein_default.homologies.tsv.gz): Compara splits each " +
-                "pair's relationships between the pair's two dumps, so mzLib requires them all.");
-        return (geneSets, dumps);
+        return geneSets;
     }
 
     /// <summary><c>--pair-status FROM,TO</c>: two different species given on stdin, or null when absent.</summary>

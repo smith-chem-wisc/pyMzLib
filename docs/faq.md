@@ -100,6 +100,15 @@ in `files[i].absent_fields` rather than letting an empty table pass for "no anno
 UniProt XML of the same proteome instead: the accessions are the same. See
 [Protein databases](guides/proteins.md#before-you-start-xml-or-fasta).
 
+## Why does `map_residues` say `SourceNotInAlignment` for a protein I know is in Ensembl?
+
+Compara aligns one protein per gene, the gene's canonical protein: the row flagged `Y` in the
+gene-tree file. Another isoform's Ensembl id, or a UniProt accession, is not in the alignment, and
+mzLib reports that rather than guessing which aligned protein you meant. Use the canonical protein,
+and reach it from a UniProt position with `align()` first. `proteins=True` lists the proteins kept.
+The result is also this when the gene is outside the gene sets you gave. See
+[Protein databases](guides/proteins.md#map-a-residue-across-species-comparas-gene-tree-alignment).
+
 ## Why does `annotate_go` give a group more terms than any one member has?
 
 Because a group's rows are the **union** over its members, and each member's terms include their

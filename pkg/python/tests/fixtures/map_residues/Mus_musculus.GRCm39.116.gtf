@@ -1,0 +1,7 @@
+#!genome-build GRCm39
+#!genome-version GRCm39
+#!genome-date 2020-06
+#!genome-build-accession GCA_000001635.9
+#!genebuild-last-updated 2025-11
+6	ensembl_havana	gene	125135289	125143518	.	-	.	gene_id "ENSMUSG00000057666"; gene_version "20"; gene_name "Gapdh"; gene_source "ensembl_havana"; gene_biotype "protein_coding";
+11	ensembl_havana	gene	69469669	69482701	.	+	.	gene_id "ENSMUSG00000059552"; gene_version "15"; gene_name "Trp53"; gene_source "ensembl_havana"; gene_biotype "protein_coding";

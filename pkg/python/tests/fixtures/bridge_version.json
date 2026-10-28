@@ -45,6 +45,7 @@
   "proteins parse-accession",
   "genes resolve",
   "genes orthology",
+  "genes map-residues",
   "stats fit",
   "stats adjust",
   "stats meta",

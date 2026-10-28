@@ -86,10 +86,22 @@ inference got in one other species::
     >>> snap.pair_status.status_counts["has_ortholog"], snap.pair_status.row_count
     (2, 4)
 
+**Which mouse residue is human p53's Ser15?** :func:`map_residues` reads Ensembl Compara's gene-tree
+alignments and says, per query, which residue of the target protein shares the source residue's
+alignment column - or that the target has a gap there, or why the alignment cannot say::
+
+    >>> site = pymzlib.proteins.map_residues(
+    ...     [("ENSP00000269305", 15, "ENSMUSP00000104298")],
+    ...     alignment="Compara.116.protein_default.aa.fasta.gz",
+    ...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz", gtfs=gtfs)
+    >>> site.columns["outcome"], site.columns["target_position"], site.columns["target_residue"]
+    (['Aligned'], [18], ['S'])
+
 These examples are the calls that recorded the payloads in pyMzLib's test fixtures, over the small
 databases in ``pkg/python/tests/fixtures/proteins/`` (and, for orthology, mzLib's own three-species
-test world in ``pkg/python/tests/fixtures/orthology/``). The GO example's table is a real MetaMorpheus
-1.1.11 search (PXD036557).
+test world in ``pkg/python/tests/fixtures/orthology/``, and for residue mapping a real cut of Ensembl
+release 116 in ``pkg/python/tests/fixtures/map_residues/``). The GO example's table is a real
+MetaMorpheus 1.1.11 search (PXD036557).
 
 :func:`read`, :func:`resolve_genes` and :func:`classify_peptides` take **one database or many**.
 Pass a list and they are read in one bridge call, in order; ``threads`` says how many are read at
@@ -111,7 +123,7 @@ to a gene, and a peptide it shares with a target is shared.
 - *Masses are of the unmodified sequence as written* - the precursor, initiator methionine and
   signal peptide included - so they are not the mass of the mature protein.
 
-Wire verbs: ``proteins read``, ``genes resolve``, ``genes orthology``,
+Wire verbs: ``proteins read``, ``genes resolve``, ``genes orthology``, ``genes map-residues``,
 ``proteins classify-peptides``, ``proteins annotate-go``, ``proteins update-go``,
 ``proteins align`` and ``proteins parse-accession``; their language-neutral specs live in the bridge repository under
 ``design/verbs/``.
@@ -129,6 +141,7 @@ from .readers import _Table
 
 __all__ = [
     "ANNOTATION_STATUSES",
+    "COLUMN_OUTCOMES",
     "END_GAPS",
     "NAMESPACES",
     "NOT_IN_DATABASE",
@@ -138,9 +151,11 @@ __all__ = [
     "SHARED_WITHIN_GENE",
     "TABLES",
     "UNIQUE",
+    "AlignedProteins",
     "Alignment",
     "Alignments",
     "AnnotationDatabase",
+    "ComparaAlignment",
     "DatabaseFile",
     "FileError",
     "GeneResolutions",
@@ -156,6 +171,7 @@ __all__ = [
     "ParsedAccessions",
     "PeptideClassification",
     "ProteinDatabase",
+    "ResidueMappings",
     "SnapshotFile",
     "SpeciesPair",
     "Table",
@@ -167,6 +183,7 @@ __all__ = [
     "annotate_go",
     "build_orthology",
     "classify_peptides",
+    "map_residues",
     "parse_accessions",
     "read",
     "resolve_genes",
@@ -232,6 +249,21 @@ ORTHOLOGY_STATUSES = (
 
 #: The pyMzLib release whose bridge first dispatches ``genes orthology``.
 _ORTHOLOGY_SINCE = "0.6.0"
+
+#: Every outcome :func:`map_residues` can report: mzLib's ``ComparaColumnOutcome`` names, verbatim and
+#: in mzLib's order. Every query gets exactly one: a residue (``Aligned``), a gap in the target's row
+#: (``GapInTarget``), proteins in different gene trees (``DifferentAlignments``), or a protein the
+#: alignment does not hold (``SourceNotInAlignment``, ``TargetNotInAlignment``).
+COLUMN_OUTCOMES = (
+    "Aligned",
+    "GapInTarget",
+    "DifferentAlignments",
+    "SourceNotInAlignment",
+    "TargetNotInAlignment",
+)
+
+#: The pyMzLib release whose bridge first dispatches ``genes map-residues``.
+_MAP_RESIDUES_SINCE = "0.7.0"
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -1617,6 +1649,157 @@ class OrthologySnapshot:
         )
 
 
+@dataclass(frozen=True)
+class ComparaAlignment:
+    """Compara's gene-tree alignment file a :func:`map_residues` call read, and what was kept.
+
+    Attributes:
+        source_file_name: The file's name, e.g. ``Compara.116.protein_default.aa.fasta.gz``.
+        sha256: Lower-case hex sha256 of the file's bytes as read (the compressed bytes for a
+            ``.gz``).
+        release: The Ensembl release in the file name (``Compara.116.``); ``None`` when the name
+            carries none.
+        collection: The collection in the file name, e.g. ``"protein_default"``; ``None`` when the
+            name does not match ``Compara.<release>.<collection>.aa.fasta``.
+        alignment_count: Alignments in the file, one per gene tree, kept proteins or not.
+        protein_count: Proteins kept: the canonical proteins of the genes kept from the gene-tree
+            file.
+        restricted_to_gene_tree_content: The sha256 of the gene-tree file whose canonical proteins
+            were kept; the same as :attr:`ResidueMappings.gene_trees`' ``sha256``.
+    """
+
+    source_file_name: str
+    sha256: str
+    release: str | None
+    collection: str | None
+    alignment_count: int
+    protein_count: int
+    restricted_to_gene_tree_content: str
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> ComparaAlignment:
+        return cls(
+            source_file_name=data.get("source_file_name", ""),
+            sha256=data.get("sha256", ""),
+            release=data.get("release"),
+            collection=data.get("collection"),
+            alignment_count=int(data.get("alignment_count", 0)),
+            protein_count=int(data.get("protein_count", 0)),
+            restricted_to_gene_tree_content=data.get("restricted_to_gene_tree_content", ""),
+        )
+
+
+@dataclass(frozen=True)
+class AlignedProteins(_Table):
+    """The proteins a :func:`map_residues` call kept from the alignment, with ``proteins=True``.
+
+    One row per kept protein, in order of protein id:
+
+    ===================  ====  ============================================================
+    column               type  meaning
+    ===================  ====  ============================================================
+    ``protein_id``       str   the Ensembl protein stable id, as the alignment writes it
+    ``alignment_index``  int   which alignment holds it, from 0 in file order; two proteins
+                               share a column only when they share this
+    ``tree_id``          str   its gene's Compara gene tree, e.g. ``ENSGT00950000183153``
+    ``sequence``         str   its residues with the alignment's gaps removed: the sequence
+                               every position counts in
+    ===================  ====  ============================================================
+
+    Attributes:
+        row_count: Proteins kept.
+        column_names: Column order.
+        columns: Column name -> one value per protein.
+    """
+
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+
+    def sequences(self) -> dict[str, str]:
+        """Protein id -> its ungapped sequence, to align with a UniProt sequence by :func:`align`.
+
+        See :func:`map_residues` for an example.
+        """
+        return dict(zip(self.columns.get("protein_id", []), self.columns.get("sequence", [])))
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any] | None) -> AlignedProteins | None:
+        if data is None:
+            return None
+        return cls(
+            row_count=int(data.get("row_count", 0)),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+        )
+
+
+@dataclass(frozen=True)
+class ResidueMappings(_Table):
+    """What :func:`map_residues` returns: each query's residue in the other protein, or why none.
+
+    One row per query, in the order given:
+
+    =====================  ====  ===============================================================
+    column                 type  meaning; ``None`` means
+    =====================  ====  ===============================================================
+    ``source_protein_id``  str   the query's source protein, as given
+    ``position``           int   the query's 1-based position in it, as given
+    ``target_protein_id``  str   the query's target protein, as given
+    ``outcome``            str   one of :data:`COLUMN_OUTCOMES`
+    ``column``             int   the source residue's 1-based alignment column; ``None``: the
+                                 two proteins share no alignment
+    ``target_position``    int   1-based position of the target's residue in that column;
+                                 ``None``: the outcome is not ``Aligned``
+    ``target_residue``     str   the target's residue there, one letter; ``None``: not
+                                 ``Aligned``. It may be a different amino acid
+    =====================  ====  ===============================================================
+
+    Attributes:
+        alignment: The alignment file, as :class:`ComparaAlignment`.
+        gene_trees: The gene-tree file, as :class:`GeneTrees` (``restricted_to_gene_sets`` is
+            ``None`` when no gene set was given, and every gene was kept).
+        gene_sets: Species -> the :class:`GeneSet` its genes were kept from; empty when none was
+            given.
+        row_count: Queries, one row each.
+        outcome_counts: Outcome -> queries with it. Every key in :data:`COLUMN_OUTCOMES` is
+            present, zeros included.
+        column_names: Column order.
+        columns: Column name -> one value per query.
+        proteins_included: Whether the call asked for :attr:`proteins`.
+        proteins: The kept proteins with their sequences, as :class:`AlignedProteins`; ``None``
+            without ``proteins=True``.
+        caveats: This call's traps: gene trees read unrestricted, files named for different
+            releases or for none, queries naming a protein the alignment did not keep.
+    """
+
+    alignment: ComparaAlignment | None = None
+    gene_trees: GeneTrees | None = None
+    gene_sets: dict[str, GeneSet] = field(default_factory=dict)
+    row_count: int = 0
+    outcome_counts: dict[str, int] = field(default_factory=dict)
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    proteins_included: bool = False
+    proteins: AlignedProteins | None = None
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> ResidueMappings:
+        return cls(
+            alignment=ComparaAlignment._from_wire(data.get("alignment") or {}),
+            gene_trees=GeneTrees._from_wire(data.get("gene_trees") or {}),
+            gene_sets={s: GeneSet._from_wire(g) for s, g in (data.get("gene_sets") or {}).items()},
+            row_count=int(data.get("row_count", 0)),
+            outcome_counts=dict(data.get("outcome_counts") or {}),
+            column_names=list(data.get("column_names") or []),
+            columns=dict(data.get("columns") or {}),
+            proteins_included=bool(data.get("proteins_included", False)),
+            proteins=AlignedProteins._from_wire(data.get("proteins")),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
 # ---- argument shaping --------------------------------------------------------------------------
 
 
@@ -2534,3 +2717,135 @@ def build_orthology(
     stdin = "\n".join([*species_lines, _SECTION, *dump_lines]) + "\n"
     data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
     return OrthologySnapshot._from_wire(data)
+
+
+def _query_lines(queries: Iterable[Sequence[Any]]) -> list[str]:
+    """The queries as stdin lines, ``source<TAB>position<TAB>target``, refusing what cannot travel."""
+    if isinstance(queries, (str, bytes)):
+        raise _bridge.UsageError(
+            "queries must be a list of (source_protein_id, position, target_protein_id) tuples, "
+            "not one string."
+        )
+    lines = []
+    for index, query in enumerate(queries):
+        if isinstance(query, (str, bytes)) or not isinstance(query, Sequence) or len(query) != 3:
+            raise _bridge.UsageError(
+                f"Query {index} must be a (source_protein_id, position, target_protein_id) tuple; "
+                f"got {query!r}."
+            )
+        source, position, target = query
+        if isinstance(position, bool) or not isinstance(position, int):
+            raise _bridge.UsageError(
+                f"Query {index}'s position must be an int (a 1-based residue number); got {position!r}."
+            )
+        for name, value in (("source", source), ("target", target)):
+            if not isinstance(value, str) or not value.strip():
+                raise _bridge.UsageError(f"Query {index}'s {name} must be a protein id; got {value!r}.")
+            if "\t" in value or "\n" in value or "\r" in value:
+                raise _bridge.UsageError(f"Query {index}'s {name} contains a tab or line break: {value!r}.")
+        lines.append(f"{source.strip()}\t{position}\t{target.strip()}")
+    if not lines:
+        raise _bridge.UsageError(
+            "queries is empty. Give at least one (source_protein_id, position, target_protein_id)."
+        )
+    return lines
+
+
+def map_residues(
+    queries: Iterable[Sequence[Any]],
+    *,
+    alignment: _PathLike,
+    gene_trees: _PathLike,
+    gtfs: Mapping[str, _PathLike] | None = None,
+    gene_sets: Mapping[str, _PathLike] | None = None,
+    proteins: bool = False,
+    timeout: float | None = None,
+) -> ResidueMappings:
+    """Map residues across species through Ensembl Compara's gene-tree alignments.
+
+    Wraps mzLib's ``ComparaGeneTreeAlignment`` (mzLib #1465): ``Load`` reads Compara's peptide
+    alignment of every gene tree, keeping the canonical proteins of your species' genes, and
+    ``MapResidue`` answers, per query, which residue of the target protein sits in the same
+    alignment column as residue ``position`` of the source protein. Local files only; nothing is
+    downloaded.
+
+    Every query gets exactly one outcome (:data:`COLUMN_OUTCOMES`): ``Aligned`` (with the column,
+    the target position and its residue), ``GapInTarget`` (no target residue in that column -
+    never the nearest one), ``DifferentAlignments`` (the proteins are in different gene trees),
+    or ``SourceNotInAlignment`` / ``TargetNotInAlignment`` (that protein was not kept: only each
+    gene's canonical protein is aligned).
+
+    **Positions are Ensembl's.** To start from a UniProt position, align the UniProt sequence to the
+    canonical Ensembl protein with :func:`align` first, and align the target's Ensembl protein to its
+    UniProt sequence after. ``proteins=True`` returns the Ensembl sequences for that.
+
+    **A position outside the source protein fails the whole call.** mzLib's ``MapResidue`` throws for
+    it rather than returning an outcome, and pyMzLib passes positions through unchecked, so keep them
+    within each source protein (its length is that of its sequence in
+    :attr:`ResidueMappings.proteins`).
+
+    Args:
+        queries: ``(source_protein_id, position, target_protein_id)`` tuples: Ensembl protein stable
+            ids and a 1-based residue position (an int) in the source. One row each, in this order.
+        alignment: Compara's peptide alignments,
+            ``Compara.<release>.protein_<collection>.aa.fasta.gz`` (908 MB for ``protein_default``
+            in release 116), from ``emf/ensembl-compara/homologies/``.
+        gene_trees: Compara's gene-tree file of the same release,
+            ``<collection>.GeneTree_content.default.e<release>.txt.gz``. It names each gene's tree
+            and canonical protein.
+        gtfs: Species -> its Ensembl primary-assembly GTF, as for :func:`build_orthology`. Only the
+            genes in these are kept, and so only their canonical proteins. ``None`` (default) with
+            no ``gene_sets``: mzLib's default keeps every gene in the gene-tree file - millions for
+            the vertebrates - and a caveat says so.
+        gene_sets: Species -> a compact gene table (``EnsemblGeneSetWriter``) instead of its GTF. A
+            species may be in ``gtfs`` or ``gene_sets``, not both.
+        proteins: Also return the kept proteins with their ungapped sequences
+            (:attr:`ResidueMappings.proteins`). ``False`` (default): ``proteins`` is ``None``.
+        timeout: Seconds to allow. ``None`` (default) waits: for human, mouse and rat at release
+            116 the whole call takes about a minute, nearly all of it reading the alignment.
+
+    Returns:
+        A :class:`ResidueMappings`.
+
+    Raises:
+        UsageError: no queries, or a query that is not ``(str, int, str)``; a missing alignment,
+            gene-tree file or GTF; a species in both ``gtfs`` and ``gene_sets``. From mzLib: a
+            position outside its source protein (``0``, negative, or past its last residue), which
+            stops the call, no row returned.
+        BridgeError: a file mzLib's reader refuses (type ``InvalidDataException``, naming the file
+            and line), such as alignment rows of different widths or a gene-tree row without four
+            cells.
+
+    Examples:
+        Human p53's Ser15 (Ensembl's canonical TP53 protein) in mouse p53, through release 116's
+        TP53 gene-tree alignment:
+
+        >>> gtfs = {"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf",
+        ...         "mus_musculus": "Mus_musculus.GRCm39.116.gtf",
+        ...         "rattus_norvegicus": "Rattus_norvegicus.GRCr8.116.gtf"}
+        >>> site = map_residues([("ENSP00000269305", 15, "ENSMUSP00000104298")],
+        ...     alignment="Compara.116.protein_default.aa.fasta.gz",
+        ...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz", gtfs=gtfs)
+        >>> row = site.records[0]
+        >>> row["outcome"], row["column"], row["target_position"], row["target_residue"]
+        ('Aligned', 476, 18, 'S')
+        >>> site.alignment.release, site.gene_trees.collection
+        ('116', 'vertebrates')
+    """
+    query_lines = _query_lines(queries)
+    species_lines = _species_lines(gtfs, gene_sets) if (gtfs or gene_sets) else []
+    if not isinstance(proteins, bool):
+        raise _bridge.UsageError(f"proteins must be True or False; got {proteins!r}.")
+
+    args = [
+        "genes", "map-residues",
+        "--alignment", _one_path(alignment, "alignment", required=True) or "",
+        "--gene-trees", _one_path(gene_trees, "gene_trees", required=True) or "",
+    ]
+    if proteins:
+        args.append("--proteins")
+
+    _bridge.require_verb("genes map-residues", since=_MAP_RESIDUES_SINCE)
+    stdin = "\n".join([*species_lines, _SECTION, *query_lines]) + "\n"
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return ResidueMappings._from_wire(data)

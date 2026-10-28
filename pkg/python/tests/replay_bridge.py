@@ -232,9 +232,17 @@ def mismatch(data: dict, options: dict) -> str:
             if options["pair-status"] != direction:
                 return f"recorded for --pair-status {direction}"
     trees = data.get("gene_trees")
-    if isinstance(trees, dict) and "restricted_to_gene_sets" in trees:
+    if isinstance(trees, dict) and "restricted_to_gene_sets" in trees and "alignment" not in data:
         if ("restrict-gene-trees" in options) != (trees["restricted_to_gene_sets"] is not None):
             return "a recording with the other --restrict-gene-trees choice"
+    # genes map-residues: --proteins fills proteins, and only then; and the alignment file is the
+    # recording's (by file name), as --path is.
+    if "proteins_included" in data and ("proteins" in options) != bool(data["proteins_included"]):
+        return "a recording with the other --proteins choice"
+    alignment = data.get("alignment")
+    if isinstance(alignment, dict) and isinstance(options.get("alignment"), str):
+        if base(options["alignment"]) != alignment.get("source_file_name"):
+            return f"recorded from {alignment.get('source_file_name')!r}, not {base(options['alignment'])!r}"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
@@ -261,7 +269,7 @@ def mismatch(data: dict, options: dict) -> str:
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit", "stats fit-logistic", "stats fit-mixed",
               "diff design", "diff observations", "sdrf restrict", "genes orthology",
-              "library calibrate-rt"}
+              "genes map-residues", "library calibrate-rt"}
 
 
 def _number(text: str):
@@ -305,6 +313,8 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     ``searched_files``, and as many acquired names as its ``acquired_name_count``.
     genes orthology: the same species (the first field of each line before ``--``) as the
     recording's ``species``, and as many dump paths after it as the recording has ``dumps``.
+    genes map-residues: the same species as the recording's ``gene_sets``, and the same queries
+    after ``--``, in the same order, as the recording's source, position and target columns.
     library calibrate-rt: the same lines, in the same order, as the recording's rows: each line's
     group, role (anchor before ``--``; to_irt or to_minutes after it, by which time is given) and
     the times it gives, compared as numbers.
@@ -357,6 +367,22 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
         dumps = len(lines[cut + 1 :])
         if dumps != len(data.get("dumps") or {}):
             return f"recorded with {len(data.get('dumps') or {})} dumps, not {dumps}"
+        return ""
+    if verb == "genes map-residues":
+        lines = [line.strip() for line in stdin.splitlines() if line.strip()]
+        cut = lines.index("--") if "--" in lines else len(lines)
+        species = sorted(line.split("	")[0].strip() for line in lines[:cut])
+        if species != sorted(data.get("gene_sets") or {}):
+            return f"recorded for species {sorted(data.get('gene_sets') or {})}, not {species}"
+        sent = [tuple(f.strip() for f in line.split("	")) for line in lines[cut + 1 :]]
+        columns = data.get("columns") or {}
+        recorded = [
+            (s, str(p), t)
+            for s, p, t in zip(columns.get("source_protein_id") or [], columns.get("position") or [],
+                               columns.get("target_protein_id") or [])
+        ]
+        if sent != recorded:
+            return f"recorded for queries {recorded[:2]}..., not {sent[:2]}..."
         return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]
