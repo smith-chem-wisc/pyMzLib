@@ -244,7 +244,9 @@ class PtmPairs(_Table):
             the denominator of ``min_quantified_fraction``. ``None`` for ``type="physical"``.
         min_quantified_fraction: The guard used (fraction of the runs, 0 to 1): yours, or mzLib's
             default. ``None`` for ``type="physical"``.
-        exclude_ceiling: Whether ceilings were left out; ``None`` for ``type="physical"``.
+        exclude_ceiling: ``False`` with ``keep_ceiling=True``. ``None`` when you did not choose,
+            so mzLib's own default applied (ceilings left out; ``PtmPairEngine.CoVarying``), and
+            for ``type="physical"``.
         remove_run_level: Whether the run level was removed; ``None`` for ``type="physical"``.
         run_level_group: ``"none"`` (one group), ``"category"``, ``"modification"`` or ``"file"``;
             ``None`` when the run level was not removed.

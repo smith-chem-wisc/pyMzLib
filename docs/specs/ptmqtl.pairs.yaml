@@ -17,7 +17,7 @@ summary: >-
 since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: PtmPairEngine.Physical, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
-  - {symbol: PtmPairEngine.CoVarying, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
+  - {symbol: PtmPairEngine.CoVarying, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: cc67b7a2}
   - {symbol: PtmPairEngine.DefaultMinQuantifiedFraction, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
   - {symbol: PtmPairEngine.MinRunsForRunLevel, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
   - {symbol: PtmPairEngine.MinSitesForRunLevel, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
@@ -96,7 +96,7 @@ params:
     required: false
     unit: null
     range: null
-    default: "absent: mzLib's excludeCeiling default, true at the pin, so ceilings are left out"
+    default: "absent: null is sent, and mzLib's CoVarying resolves its nullable excludeCeiling itself (ceilings left out)"
     doc: >-
       Co-varying only. Keep a run where a site was seen only modified (a fraction of 1 with
       unmodified_quantified false). Two unrelated sites both read 1 in low-load runs, so ceilings can
@@ -146,7 +146,7 @@ result:
     - {wire: run_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The runs, or with --samples the samples, the pairs were computed over, in ordinal order."}
     - {wire: covarying_run_count, type: int, unit: runs, nullable: true, null_means: "type physical: no co-varying pairs computed", doc: "The runs (or samples) where any site was identified or covered: the denominator of min_quantified_fraction."}
     - {wire: min_quantified_fraction, type: float, unit: "fraction of the runs (0 to 1)", nullable: true, null_means: "type physical", doc: "The guard used: as given, or mzLib's default."}
-    - {wire: exclude_ceiling, type: bool, unit: null, nullable: true, null_means: "type physical", doc: "Whether ceilings were left out: false with --keep-ceiling, else mzLib's default."}
+    - {wire: exclude_ceiling, type: bool, unit: null, nullable: true, null_means: "type physical, or covarying without --keep-ceiling (mzLib decided)", doc: "false with --keep-ceiling. Null when the caller did not choose: mzLib's CoVarying resolved its nullable excludeCeiling itself (since mzLib #1468), and the bridge does not restate that rule to name the value."}
     - {wire: remove_run_level, type: bool, unit: null, nullable: true, null_means: "type physical", doc: "Whether co-varying pairs were correlated given the run level."}
     - {wire: run_level_group, type: string, unit: null, nullable: true, null_means: "the run level was not removed (or type physical)", doc: "none (one group of every site, mzLib's default), category, modification, or file (--run-level-groups)."}
     - {wire: run_level_groups_file, type: string, unit: null, nullable: true, null_means: "no --run-level-groups", doc: "Absolute path of the modification-to-group table."}

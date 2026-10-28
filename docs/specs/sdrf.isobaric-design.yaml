@@ -170,6 +170,7 @@ caveats:
   - "Nothing is guessed. The kit is only the one named, because one kit's labels can be a subset of another's (TMT11 with 131C unannotated reads exactly like TMT10). The plex is only the source declared; comment[sample preparation batch] is often not a plex (in PXD061609 it holds three fractionation arms of one plex)."
   - "Rows are the annotated channels only. mzLib's quantification design (ToExperimentalDesign) carries every kit channel, an unannotated one with biological replicate 0 and no sample; that design is not on the wire."
   - "A plex is one channel-to-sample map: every file of a plex carries all of its channels, so fractions share their samples."
+  - "Channel labels are read through mzLib's SdrfIsobaricLabels, one rule for readers and writers. For TMT10, TMT131 (PRIDE's spelling of the last channel) names 131N (since mzLib #1467); TMT131 is still refused for TMT11, where 131N and 131C are both channels."
   - "Sample type is not read (mzLib MAP-08): every annotated channel is a study sample, a reference or pool channel included."
   - "--out names a folder. MetaMorpheus reads TmtDesign.txt only from the folder of the first spectra file, and refuses a folder that also holds ExperimentalDesign.tsv. mzLib's writer replaces an existing TmtDesign.txt; MetaMorpheus's own --sdrfDesign never does."
   - "TMT16 is mzLib's TMTpro 16-plex. MetaMorpheus searches it with its TMT18 label; a TMT16 design is read as is by such a run, with 134C and 135N empty."

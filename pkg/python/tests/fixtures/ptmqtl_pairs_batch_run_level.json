@@ -1,5 +1,5 @@
 {
- "observations_file": "E:\\CodeReview\\wt-py-ptmqtl-verbs\\pkg\\python\\tests\\fixtures\\ptmqtl\\batch.tsv",
+ "observations_file": "F:\\ClaudeTestBuilds\\pymzlib-596\\pkg\\python\\tests\\fixtures\\ptmqtl\\batch.tsv",
  "samples_file": null,
  "type": "covarying",
  "observation_count": 144,
@@ -21,7 +21,7 @@
  ],
  "covarying_run_count": 12,
  "min_quantified_fraction": 0.7,
- "exclude_ceiling": true,
+ "exclude_ceiling": null,
  "remove_run_level": true,
  "run_level_group": "none",
  "run_level_groups_file": null,

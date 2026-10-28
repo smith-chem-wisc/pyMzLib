@@ -132,9 +132,15 @@ internal static partial class Sdrf
         "SpectraFileInfo and the quant verbs take them. ExperimentalDesign.tsv (written by --out) is " +
         "1-based; mzLib converts when it writes.",
 
-        "notes records every relabelling: biological replicates ranked within each condition (with " +
-        "the mapping), and rows dropped because the search does not read their file. Read it; it is " +
-        "the only record of a renumbering.",
+        "Replicate and fraction numbers are the SDRF's, gaps included; mzLib never ranks or closes " +
+        "them up, because replicate 4 of one condition can be the same subject as replicate 4 of " +
+        "another, and a gap can be a lost sample. Only where the SDRF gives no biological replicate " +
+        "(no column, or 'not available') does mzLib add one.",
+
+        "notes records what mzLib added, dropped or wants checked: biological replicates it added " +
+        "(with the numbers), rows dropped because the search does not read their file, conditions " +
+        "whose numbers are not 1..N, and sample names whose one number disagrees with their " +
+        "replicate. Read it; it is the only record of an added number.",
 
         "With no condition columns declared, mzLib uses the document's only factor value column and " +
         "refuses a document that has several. A factor holding 'not available' or 'not applicable' " +

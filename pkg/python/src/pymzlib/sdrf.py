@@ -1905,14 +1905,15 @@ def design(
         cannot be built from an unknown factor; fill it in, or leave the column out of the
         declared condition columns to pool these rows.
 
-        Study-wide replicate numbers are ranked within each condition, and the mapping is kept:
+        Study-wide replicate numbers are kept as the SDRF writes them, and the gaps are noted:
 
-        >>> ranked = design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
-        >>> ranked.is_valid, len(ranked.notes)
+        >>> kept = design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
+        >>> kept.is_valid, len(kept.notes)
         (True, 7)
-        >>> print(ranked.notes[1])  # doctest: +NORMALIZE_WHITESPACE
-        Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered
-        22 -> 1, 23 -> 2, 24 -> 3.
+        >>> print(kept.notes[1])  # doctest: +NORMALIZE_WHITESPACE
+        Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates 22, 23, 24,
+        kept as the SDRF numbers them. Every row of the SDRF is searched, so the gaps are how the
+        SDRF numbers its samples, not lost samples.
     """
     args = ["sdrf", "design", "--path", _one_path(path)]
     args += _condition_columns_args(condition_columns)

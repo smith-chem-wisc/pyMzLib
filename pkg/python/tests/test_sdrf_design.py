@@ -68,7 +68,7 @@ def test_a_valid_design_projects_every_run(replay):
     assert {f.biological_replicate for f in d.files} == {0, 1, 2}
     assert all(f.full_path == f.file_name + ".raw" for f in d.files)
     assert "24 file(s), 8 condition(s)" in d.report
-    assert len(d.caveats) == 6
+    assert len(d.caveats) == 7
 
 
 def test_the_design_feeds_flashlfq_unchanged(replay):
@@ -105,15 +105,17 @@ def test_a_refusal_is_a_result_and_blocks_only_the_hand_off(replay):
         d.run_design()
 
 
-def test_the_renumbering_is_kept_in_notes(replay):
+def test_the_sdrfs_replicate_numbers_are_kept_and_noted(replay):
     replay("sdrf_design_studywide.json")
-    ranked = sdrf.design(STUDYWIDE, condition_columns=BOTH)
+    kept = sdrf.design(STUDYWIDE, condition_columns=BOTH)
     replay("sdrf_design_PXD067622.json")
     reference = sdrf.design(VALID, condition_columns=BOTH)
 
-    assert ranked.is_valid and len(ranked.notes) == 7
-    assert any("22 -> 1, 23 -> 2, 24 -> 3" in n for n in ranked.notes)
-    assert ranked.columns == reference.columns
+    # mzLib #1426: the SDRF's numbers are written as given, never ranked; notes flags the gaps.
+    assert kept.is_valid and len(kept.notes) == 7
+    assert any("biological replicates 22, 23, 24, kept as the SDRF numbers them" in n for n in kept.notes)
+    assert max(kept.columns["biological_replicate"]) == 23
+    assert kept.columns != reference.columns
 
 
 def test_no_condition_columns_sends_no_option(replay):

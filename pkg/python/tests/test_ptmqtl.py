@@ -160,7 +160,8 @@ def test_pairs_parses_the_physical_recording(bridge):
 def test_pairs_parses_mzlibs_defaults_and_the_run_level(bridge):
     bridge["payload"] = recorded("ptmqtl_pairs_batch.json")
     plain = ptmqtl.pairs("batch.tsv", type="covarying")
-    assert plain.min_quantified_fraction == 0.7 and plain.exclude_ceiling is True
+    # mzLib's excludeCeiling is nullable since #1468 and resolved inside CoVarying: absent stays None.
+    assert plain.min_quantified_fraction == 0.7 and plain.exclude_ceiling is None
     assert plain.remove_run_level is False and plain.run_level_group is None
     assert plain.covarying_run_count == 12 and plain.physical_count is None
     assert plain.min_runs_for_run_level is None

@@ -199,15 +199,16 @@ kind. Name the stratum column, and each stratum gets its own design:
 >>> [(s.stratum, s.sample_ids) for s in design.strata]
 [('organism part=kidney', ['s7', 's8']), ('organism part=liver', ['s1', 's3', 's5']), ('organism part=muscle', ['s2', 's4', 's6'])]
 >>> design.stratum("organism part=kidney").not_run
-[NotRunContrast(label='condition (one level: A)', reason='not_in_stratum')]
+[NotRunContrast(label='condition=B vs condition=A', reason='not_in_stratum', id='c1')]
 >>> list(zip(design.columns["stratum"], design.columns["contrast_id"], design.columns["label"]))
 [('organism part=liver', 'c1', 'condition=B vs condition=A'), ('organism part=muscle', 'c1', 'condition=B vs condition=A')]
 
 ```
 
-Kidney has only condition A, so there is nothing to compare there, and `not_run` says so. **A
-contrast id is numbered within its stratum:** `c1` is liver's first comparison and muscle's first,
-so match strata by `label`. With `out=`, stratum *i* writes `design_i.tsv`, numbered in the order of
+Kidney has only condition A, so it cannot run `c1`, and `not_run` says so under that id. **A
+contrast id is numbered once over the whole analysis** (mzLib's `AnalysisDesign.ByStratum`), so `c1`
+is the same comparison in liver and in muscle, and results from each stratum's fit stack by id. A
+stratum that lacks one side of a comparison skips its id rather than renumbering. With `out=`, stratum *i* writes `design_i.tsv`, numbered in the order of
 `strata`, because a stratum key can hold characters a file name cannot.
 
 ## 5. From a peptide table to observations

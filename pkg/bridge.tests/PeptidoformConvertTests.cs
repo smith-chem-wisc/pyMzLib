@@ -154,6 +154,24 @@ public class PeptidoformConvertTests
     }
 
     [Test]
+    public void MalformedModifications_FailOnlyTheirOwnRow()
+    {
+        // mzLib #1457: these used to convert with a modification lost or moved, and two groups on one
+        // residue threw an ArgumentException in the serializer that failed the whole call. Now each is
+        // one failed row, UnknownFormat, and the lines around it still convert.
+        const string stdin = "PEPTIDE\nPEP[]TIDE\nPEPM[Common Variable:Oxidation on M][Common Variable:Oxidation on M]TIDE\n" +
+                             "PEPTIDE-[Common Fixed:Carbamidomethyl on C][Common Fixed:Carbamidomethyl on C]\nPEPTIDE\n";
+        JsonElement columns = Invoke(stdin, "peptidoform", "convert").GetProperty("columns");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Strings(columns.GetProperty("status")),
+                Is.EqualTo(new[] { "converted", "failed", "failed", "failed", "converted" }));
+            Assert.That(Strings(columns.GetProperty("failure_reason")).Skip(1).Take(3), Is.All.EqualTo("UnknownFormat"));
+        });
+    }
+
+    [Test]
     public void AmbiguousFullSequence_IsJoinedByMzLibWithAWarning()
     {
         // Documented in the caveats: mzLib's parser skips '|' rather than refusing the input.

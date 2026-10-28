@@ -265,9 +265,11 @@ internal static class PtmQtl
             };
             // Absent options take mzLib's own defaults, read off the method, so the bridge sets none.
             minFraction ??= CoVaryingDefault<double>("minQuantifiedFraction");
-            excludeCeiling = keepCeiling ? false : CoVaryingDefault<bool>("excludeCeiling");
+            // mzLib's excludeCeiling is nullable and resolves its own default inside CoVarying, so absent
+            // stays null on the wire too: the bridge does not restate the rule to name the value.
+            excludeCeiling = keepCeiling ? false : null;
             IReadOnlyList<PtmPair> found = FromMzLib(() => PtmPairEngine.CoVarying(occupancy, observations,
-                minFraction.Value, excludeCeiling.Value, remove, runLevelGroup));
+                minFraction.Value, excludeCeiling, remove, runLevelGroup));
             covaryingCount = found.Count;
             covaryingRunCount = occupancy.Select(o => o.Run).Distinct(StringComparer.Ordinal).Count();
             pairs.AddRange(found);

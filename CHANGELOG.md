@@ -7,6 +7,18 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Changed
+- **Built from mzLib 1.0.596** (tag commit `cc67b7a2`). Its changes to what existing calls return
+  are listed in [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md); the largest are below.
+- **`sdrf.design()` keeps the SDRF's replicate numbers**, gaps included, where it ranked them
+  within each condition (mzLib#1426). `notes` flags the gaps instead of listing a renumbering.
+- **`diff.design()` contrast ids are the same comparison in every stratum** (mzLib#1476), and
+  `NotRunContrast` gains `id`.
+- **`ptmqtl.pairs()` reports `exclude_ceiling=None` when you did not choose**: mzLib made the
+  option nullable and decides it itself (mzLib#1468). Without this, every co-varying call failed
+  at mzLib 1.0.596.
+- **`peptidoform.convert()` fails a row with malformed modification text** (an empty modification,
+  two on one residue, anything after the C-terminal one) instead of converting it with part lost
+  (mzLib#1457). A line with two modifications on one residue no longer fails the whole batch.
 - **A peptide with a permanently charged modification reports mzLib's neutral-convention mass.**
   `fragments()` now takes UniProt's modifications from mzLib's own corrected list
   (`Mods.UniprotModifications`), which applies PSI-MOD's formal charges. Trimethyllysine, for
@@ -21,6 +33,8 @@ envelope is not a breaking change unless Python callers can see it.
   removed in a future release. No peptide carries a charge on top of its mass any more.
 
 ### Fixed
+- **A TMT10 SDRF that names its last channel `TMT131`**, PRIDE's spelling, now reads in
+  `sdrf.isobaric_design()` (mzLib#1467).
 - **The bridge's own charge table was always empty.** It read PSI-MOD's XML with a text-OBO
   parser that found no terms, and inferred each charge from the gap between UniProt's formula
   and its recorded mass. It also needed a file that mzLib#1415 removes, so

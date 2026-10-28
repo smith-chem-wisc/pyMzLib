@@ -152,7 +152,7 @@ internal static partial class Differential
                 rank = design.Rank,
                 aliased_terms = design.AliasedTerms.ToList(),
                 warnings = design.Warnings.ToList(),
-                not_run = design.NotRun.Select(n => new { label = n.Label, reason = n.Reason }).ToList(),
+                not_run = design.NotRun.Select(n => new { id = n.Id, label = n.Label, reason = n.Reason }).ToList(),
                 covariate_centres = model.Covariates.ToDictionary(
                     c => c.Name, c => design.CovariateCentre(c.Name), StringComparer.Ordinal),
                 matrix = Rows(design.Matrix),
@@ -348,9 +348,9 @@ internal static partial class Differential
         {
             "Each stratum's matrix is mzLib's AnalysisDesign: an intercept; each factor treatment-coded against its reference level, its other levels in ordinal order; batch against its first level; each covariate as (value - centre) / scale; then any interactions. It equals R's stats::model.matrix for the same formula and level order.",
             "Only mzLib's default contrasts are listed (AnalysisDesign.DefaultContrasts): each level against its factor's reference, every pair of levels when a factor has no reference, and each covariate's slope. With an interaction in the model, a factor's contrast is its effect at the reference level of the other factor.",
-            "Contrast ids (c1, c2, ...) are numbered within each stratum, so one id can name different comparisons in two strata. Match contrasts across strata by label.",
+            "Contrast ids (c1, c2, ...) are numbered once over every sample of the analysis (AnalysisDesign.ByStratum), so an id names the same comparison in every stratum. A stratum without samples on both sides of a contrast skips its id and lists it in not_run.",
             "A design file holds only the fitted columns (fitted_column_names): mzLib leaves out a column that is redundant with earlier ones, because LinearModel.Fit refuses a design without full column rank. A contrast that is not estimable has no fitted weights and is not in the contrasts file.",
-            "Strata are never columns: each stratum gets its own design and nothing is shared between them. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept.",
+            "Strata are never columns: each stratum gets its own design, centres and fit; only the default contrasts' ids are shared. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept.",
         };
         int notEstimable = estimability[AnalysisDesign.NotEstimableConfounded] + estimability[AnalysisDesign.NotEstimableRankDeficient];
         if (notEstimable > 0)
