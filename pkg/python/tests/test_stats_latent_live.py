@@ -45,9 +45,16 @@ def tsv(name: str) -> list[dict[str, str]]:
         return list(csv.DictReader(fh, delimiter="\t"))
 
 
-def close(a: object, b: object, relative: float) -> bool:
+#: The two variance columns. A variance near its boundary (sigma² ~1e-4 beside a tau² of 0.05, say)
+#: sits where the likelihood is flat, so its last digits move far more than the other columns'
+#: between platforms (5e-6 relative on Linux for one scatter feature). They are compared on the scale
+#: of the feature's larger variance, as mzLib's own reference test compares tau² on max(tau², sigma²).
+VARIANCES = ("residual_variance", "group_variance")
+
+
+def close(a: object, b: object, relative: float, scale: float | None = None) -> bool:
     if isinstance(b, float) and isinstance(a, (int, float)) and not isinstance(a, bool):
-        return abs(a - b) <= relative * max(abs(b), 1e-300)
+        return abs(a - b) <= relative * max(abs(b) if scale is None else scale, 1e-300)
     return a == b
 
 
@@ -84,9 +91,12 @@ def test_the_latent_mixed_recordings_are_what_the_bridge_returns_today(fixture, 
     recorded = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     live = call()
     assert list(live.columns) == list(recorded["columns"])
-    for name, values in recorded["columns"].items():
+    columns = recorded["columns"]
+    scales = [max(abs(r or 0.0), abs(g or 0.0))
+              for r, g in zip(columns["residual_variance"], columns["group_variance"])]
+    for name, values in columns.items():
         bad = [(i, a, b) for i, (a, b) in enumerate(zip(live.columns[name], values))
-               if not close(a, b, CROSS_PLATFORM_OPTIMISED)]
+               if not close(a, b, CROSS_PLATFORM_OPTIMISED, scales[i] if name in VARIANCES else None)]
         assert len(live.columns[name]) == len(values) and not bad, (name, bad[:3])
     assert live.caveats == recorded["caveats"]
     # Its keys are the bridge's reading of mzLib's code (mzLib#1487); a change must not slip past.
