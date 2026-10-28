@@ -1,0 +1,38 @@
+source       Ensembl release 116, https://ftp.ensembl.org/pub/release-116/, downloaded 2026-09-22 and
+             2026-10-06 into the logs project (E:\CodeReview\logs\data\compara):
+               emf/ensembl-compara/homologies/Compara.116.protein_default.aa.fasta.gz  908,157,830 bytes,
+                 md5 39f5742f5d9d597f2396ec7c462a6c53 (the same as Ensembl's MD5SUM for the folder)
+               compara/vertebrates.GeneTree_content.default.e116.txt.gz  79,035,816 bytes,
+                 sum 59118 77184 (Ensembl's compara/CHECKSUMS has no line for it)
+               gtf/homo_sapiens/Homo_sapiens.GRCh38.116.gtf.gz          sum 49151 137815 (= CHECKSUMS)
+               gtf/mus_musculus/Mus_musculus.GRCm39.116.gtf.gz          sum 42607 105329 (= CHECKSUMS)
+               gtf/rattus_norvegicus/Rattus_norvegicus.GRCr8.116.gtf.gz sum 48460 22638  (= CHECKSUMS)
+what         a cut of those files, every line verbatim: the genes TP53, GAPDH (human), Trp53, Gapdh (mouse)
+             and Tp53 (rat); their gene-tree rows; and the two Compara alignments (gene trees
+             ENSGT00950000183153 and ENSGT00940000153298) that hold human TP53's and GAPDH's canonical
+             proteins, with the rows of the five canonical proteins and one zebrafish row each
+why cut      the alignment is 908 MB; mzLib's own test for #1465 (Test/FileReadingTests/
+             TestComparaGeneTreeAlignment.cs at cc67b7a29) writes a made-up alignment at run time and
+             ships none
+script       make_inputs.py (this folder): python make_inputs.py <folder of the release-116 files> <folder>
+             (what is kept, and why each column number is still the release's own, is in its docstring)
+checked      the queries of genes_map_residues_tp53.json, run by the bridge on the FULL release-116
+             files (all three GTFs, the whole gene-tree file and the whole alignment), gave the same
+             nine rows, column numbers included; that run kept 64,114 proteins from 54,308 alignments
+             and took 55 s
+determinism  gzip with mtime 0, no file name in the header, level 9; two runs gave identical sha256s
+sha256       7621a2d56faf6633a7c6b4f4dfd65686cf8cd54474934d79adadda6434222c07  Compara.116.protein_default.aa.fasta.gz
+             7a43f8a3b950bb77609d7953ccc6fbc72397d4baa9202535183aed07b6a35e76  vertebrates.GeneTree_content.default.e116.txt.gz
+             312b4df2e63a456b8690e932de0ba4bf3d8ab1a7bcbc5915c57b180298b6073f  Homo_sapiens.GRCh38.116.gtf
+             0e6814eec089faeb1565642187e5181d95866e2270d1effe511b98785f263e78  Mus_musculus.GRCm39.116.gtf
+             215dc3e09aa7a48b0d647c88ebe27a0510f1cd8abad1c48bd3fd7ae3f5574d80  Rattus_norvegicus.GRCr8.116.gtf
+byte-exact   .gitattributes marks this folder -text: the sha256s are part of what the fixtures record
+also         P04637.fasta and P02340.fasta: UniProt's human and mouse p53 (P53_HUMAN, P53_MOUSE, both
+             SV=4), https://rest.uniprot.org/uniprotkb/<accession>.fasta on 2026-10-28, unedited
+             (sha256 59aace7211b64e5918ef6547fc48d6419a134fa91f158415d598d3416882f063 and
+             2815fe67305f08a475a9043f6187a6904482f382a4e8b2740ab4905d9a600671). Read for
+             proteins_read_p53.json and aligned for proteins_align_tp53_chain.json; each sequence is
+             identical to its Ensembl canonical protein in the alignment
+traps held   human S46 faces a gap in mouse; ENSP00000352610 is a TP53 isoform Compara did not align
+             (not canonical); ENSMUSP00000005371 is a Trp53 isoform, likewise; TP53 and Gapdh are in
+             different trees; the zebrafish rows are checked for width but kept by no gene set

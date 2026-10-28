@@ -1,0 +1,7 @@
+#!genome-build GRCh38.p14
+#!genome-version GRCh38
+#!genome-date 2013-12
+#!genome-build-accession GCA_000001405.29
+#!genebuild-last-updated 2025-11
+12	ensembl_havana	gene	6534012	6538930	.	+	.	gene_id "ENSG00000111640"; gene_version "17"; gene_name "GAPDH"; gene_source "ensembl_havana"; gene_biotype "protein_coding";
+17	ensembl_havana	gene	7661779	7687546	.	-	.	gene_id "ENSG00000141510"; gene_version "21"; gene_name "TP53"; gene_source "ensembl_havana"; gene_biotype "protein_coding";

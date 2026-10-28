@@ -180,6 +180,14 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
             "why": "gtfs= and gene_sets=, dicts from production name to path, render the lines",
         },
     },
+    "genes map-residues": {
+        # As for genes orthology: the species lines are rendered from two dicts, gtfs= and
+        # gene_sets=, and are optional here (none keeps every gene, mzLib's default).
+        "param.species": {
+            "python": "gtfs",
+            "why": "gtfs= and gene_sets=, dicts from production name to path, render the lines",
+        },
+    },
     "proteins align": {
         # The spec's binding is align_many(pairs, ...); align(source, target, ...) is its one-pair
         # form and returns one Alignment.
@@ -196,6 +204,12 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     },
     "stats meta": {
         "param.stdin": {"python": "studies", "why": "one stdin line per (feature, estimate, standard_error)"},
+    },
+    "library calibrate-rt": {
+        "param.stdin": {
+            "python": "anchors",
+            "why": "one stdin line per anchor, then a '--' line and one per entry of queries",
+        },
     },
     "stats combine-p": {
         "param.stdin": {"python": "tests", "why": "one stdin line per (feature, p_value[, weight[, effect]])"},

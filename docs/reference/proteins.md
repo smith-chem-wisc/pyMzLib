@@ -52,6 +52,20 @@ more to write 13 files (9.0 MB), and the vertebrate gene-tree file holds 4.2 mil
 
 --8<-- "docs/reference/_generated/genes.orthology.md"
 
+## `map_residues`
+
+**`genes map-residues` is a wire verb of the `genes` module, projected as
+`pymzlib.proteins.map_residues`.** Its two input lists travel on stdin: the species lines first
+(none at all is allowed), then a line holding only `--`, then one query per line. Python renders the
+species lines from `gtfs=` and `gene_sets=`, as for `build_orthology`, and the queries from
+`queries=`, a list of `(source_protein_id, position, target_protein_id)` tuples. The wire's
+`proteins` flag is Python's `proteins=True`. The outcome names are mzLib's `ComparaColumnOutcome`
+names, unchanged. **Performance:** reading the alignment is the cost: for human, mouse and rat at
+release 116, mzLib #1465 reports about 33 s to load, and each query after that is a lookup, so send
+every query in one call. No mzLib call here takes a thread count.
+
+--8<-- "docs/reference/_generated/genes.map-residues.md"
+
 ## `classify_peptides`
 
 --8<-- "docs/reference/_generated/proteins.classify-peptides.md"

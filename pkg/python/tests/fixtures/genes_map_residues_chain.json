@@ -1,0 +1,92 @@
+{
+ "alignment": {
+  "source_file_name": "Compara.116.protein_default.aa.fasta.gz",
+  "sha256": "7621a2d56faf6633a7c6b4f4dfd65686cf8cd54474934d79adadda6434222c07",
+  "release": "116",
+  "collection": "protein_default",
+  "alignment_count": 2,
+  "protein_count": 5,
+  "restricted_to_gene_tree_content": "7a43f8a3b950bb77609d7953ccc6fbc72397d4baa9202535183aed07b6a35e76"
+ },
+ "gene_trees": {
+  "source_file_name": "vertebrates.GeneTree_content.default.e116.txt.gz",
+  "sha256": "7a43f8a3b950bb77609d7953ccc6fbc72397d4baa9202535183aed07b6a35e76",
+  "release": "116",
+  "collection": "vertebrates",
+  "member_count": 5,
+  "restricted_to_gene_sets": [
+   "0e6814eec089faeb1565642187e5181d95866e2270d1effe511b98785f263e78",
+   "215dc3e09aa7a48b0d647c88ebe27a0510f1cd8abad1c48bd3fd7ae3f5574d80",
+   "312b4df2e63a456b8690e932de0ba4bf3d8ab1a7bcbc5915c57b180298b6073f"
+  ]
+ },
+ "gene_sets": {
+  "homo_sapiens": {
+   "source_file_name": "Homo_sapiens.GRCh38.116.gtf",
+   "sha256": "312b4df2e63a456b8690e932de0ba4bf3d8ab1a7bcbc5915c57b180298b6073f",
+   "release": "116",
+   "genome_build": "GRCh38.p14",
+   "genebuild_last_updated": "2025-11",
+   "gene_count": 2
+  },
+  "mus_musculus": {
+   "source_file_name": "Mus_musculus.GRCm39.116.gtf",
+   "sha256": "0e6814eec089faeb1565642187e5181d95866e2270d1effe511b98785f263e78",
+   "release": "116",
+   "genome_build": "GRCm39",
+   "genebuild_last_updated": "2025-11",
+   "gene_count": 2
+  },
+  "rattus_norvegicus": {
+   "source_file_name": "Rattus_norvegicus.GRCr8.116.gtf",
+   "sha256": "215dc3e09aa7a48b0d647c88ebe27a0510f1cd8abad1c48bd3fd7ae3f5574d80",
+   "release": "116",
+   "genome_build": "GRCr8",
+   "genebuild_last_updated": "2024-03",
+   "gene_count": 1
+  }
+ },
+ "row_count": 1,
+ "outcome_counts": {
+  "Aligned": 1,
+  "GapInTarget": 0,
+  "DifferentAlignments": 0,
+  "SourceNotInAlignment": 0,
+  "TargetNotInAlignment": 0
+ },
+ "column_names": [
+  "source_protein_id",
+  "position",
+  "target_protein_id",
+  "outcome",
+  "column",
+  "target_position",
+  "target_residue"
+ ],
+ "columns": {
+  "source_protein_id": [
+   "ENSP00000269305"
+  ],
+  "position": [
+   15
+  ],
+  "target_protein_id": [
+   "ENSMUSP00000104298"
+  ],
+  "outcome": [
+   "Aligned"
+  ],
+  "column": [
+   476
+  ],
+  "target_position": [
+   18
+  ],
+  "target_residue": [
+   "S"
+  ]
+ },
+ "proteins_included": false,
+ "proteins": null,
+ "caveats": []
+}

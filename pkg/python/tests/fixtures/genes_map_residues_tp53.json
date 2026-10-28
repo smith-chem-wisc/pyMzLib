@@ -1,0 +1,188 @@
+{
+ "alignment": {
+  "source_file_name": "Compara.116.protein_default.aa.fasta.gz",
+  "sha256": "7621a2d56faf6633a7c6b4f4dfd65686cf8cd54474934d79adadda6434222c07",
+  "release": "116",
+  "collection": "protein_default",
+  "alignment_count": 2,
+  "protein_count": 5,
+  "restricted_to_gene_tree_content": "7a43f8a3b950bb77609d7953ccc6fbc72397d4baa9202535183aed07b6a35e76"
+ },
+ "gene_trees": {
+  "source_file_name": "vertebrates.GeneTree_content.default.e116.txt.gz",
+  "sha256": "7a43f8a3b950bb77609d7953ccc6fbc72397d4baa9202535183aed07b6a35e76",
+  "release": "116",
+  "collection": "vertebrates",
+  "member_count": 5,
+  "restricted_to_gene_sets": [
+   "0e6814eec089faeb1565642187e5181d95866e2270d1effe511b98785f263e78",
+   "215dc3e09aa7a48b0d647c88ebe27a0510f1cd8abad1c48bd3fd7ae3f5574d80",
+   "312b4df2e63a456b8690e932de0ba4bf3d8ab1a7bcbc5915c57b180298b6073f"
+  ]
+ },
+ "gene_sets": {
+  "homo_sapiens": {
+   "source_file_name": "Homo_sapiens.GRCh38.116.gtf",
+   "sha256": "312b4df2e63a456b8690e932de0ba4bf3d8ab1a7bcbc5915c57b180298b6073f",
+   "release": "116",
+   "genome_build": "GRCh38.p14",
+   "genebuild_last_updated": "2025-11",
+   "gene_count": 2
+  },
+  "mus_musculus": {
+   "source_file_name": "Mus_musculus.GRCm39.116.gtf",
+   "sha256": "0e6814eec089faeb1565642187e5181d95866e2270d1effe511b98785f263e78",
+   "release": "116",
+   "genome_build": "GRCm39",
+   "genebuild_last_updated": "2025-11",
+   "gene_count": 2
+  },
+  "rattus_norvegicus": {
+   "source_file_name": "Rattus_norvegicus.GRCr8.116.gtf",
+   "sha256": "215dc3e09aa7a48b0d647c88ebe27a0510f1cd8abad1c48bd3fd7ae3f5574d80",
+   "release": "116",
+   "genome_build": "GRCr8",
+   "genebuild_last_updated": "2024-03",
+   "gene_count": 1
+  }
+ },
+ "row_count": 9,
+ "outcome_counts": {
+  "Aligned": 5,
+  "GapInTarget": 1,
+  "DifferentAlignments": 1,
+  "SourceNotInAlignment": 1,
+  "TargetNotInAlignment": 1
+ },
+ "column_names": [
+  "source_protein_id",
+  "position",
+  "target_protein_id",
+  "outcome",
+  "column",
+  "target_position",
+  "target_residue"
+ ],
+ "columns": {
+  "source_protein_id": [
+   "ENSP00000269305",
+   "ENSP00000269305",
+   "ENSP00000269305",
+   "ENSP00000269305",
+   "ENSMUSP00000104298",
+   "ENSP00000269305",
+   "ENSP00000269305",
+   "ENSP00000352610",
+   "ENSP00000269305"
+  ],
+  "position": [
+   15,
+   20,
+   46,
+   392,
+   18,
+   15,
+   15,
+   15,
+   15
+  ],
+  "target_protein_id": [
+   "ENSMUSP00000104298",
+   "ENSMUSP00000104298",
+   "ENSMUSP00000104298",
+   "ENSMUSP00000104298",
+   "ENSP00000269305",
+   "ENSRNOP00000074031",
+   "ENSMUSP00000113213",
+   "ENSMUSP00000104298",
+   "ENSMUSP00000005371"
+  ],
+  "outcome": [
+   "Aligned",
+   "Aligned",
+   "GapInTarget",
+   "Aligned",
+   "Aligned",
+   "Aligned",
+   "DifferentAlignments",
+   "SourceNotInAlignment",
+   "TargetNotInAlignment"
+  ],
+  "column": [
+   476,
+   547,
+   863,
+   3036,
+   476,
+   476,
+   null,
+   null,
+   null
+  ],
+  "target_position": [
+   18,
+   23,
+   null,
+   389,
+   15,
+   15,
+   null,
+   null,
+   null
+  ],
+  "target_residue": [
+   "S",
+   "S",
+   null,
+   "S",
+   "S",
+   "S",
+   null,
+   null,
+   null
+  ]
+ },
+ "proteins_included": true,
+ "proteins": {
+  "row_count": 5,
+  "column_names": [
+   "protein_id",
+   "alignment_index",
+   "tree_id",
+   "sequence"
+  ],
+  "columns": {
+   "protein_id": [
+    "ENSMUSP00000104298",
+    "ENSMUSP00000113213",
+    "ENSP00000229239",
+    "ENSP00000269305",
+    "ENSRNOP00000074031"
+   ],
+   "alignment_index": [
+    0,
+    1,
+    1,
+    0,
+    0
+   ],
+   "tree_id": [
+    "ENSGT00950000183153",
+    "ENSGT00940000153298",
+    "ENSGT00940000153298",
+    "ENSGT00950000183153",
+    "ENSGT00950000183153"
+   ],
+   "sequence": [
+    "MTAMEESQSDISLELPLSQETFSGLWKLLPPEDILPSPHCMDDLLLPQDVEEFFEGPSEALRVSGAPAAQDPVTETPGPVAPAPATPWPLSSFVPSQKTYQGNYGFHLGFLQSGTAKSVMCTYSPPLNKLFCQLAKTCPVQLWVSATPPAGSRVRAMAIYKKSQHMTEVVRRCPHHERCSDGDGLAPPQHLIRVEGNLYPEYLEDRQTFRHSVVVPYEPPEAGSEYTTIHYKYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRDSFEVRVCACPGRDRRTEEENFRKKEVLCPELPPGSAKRALPTCTSASPPQKKKPLDGEYFTLKIRGRKRFEMFRELNEALELKDAHATEESGDSRAHSSYLKTKKGQSTSRHKKTMVKKVGPDSD",
+    "MVKVGVNGFGRIGRLVTRAAICSGKVEIVAINDPFIDLNYMVYMFQYDSTHGKFNGTVKAENGKLVINGKPITIFQERDPTNIKWGEAGAEYVVESTGVFTTMEKAGAHLKGGAKRVIISAPSADAPMFVMGVNHEKYDNSLKIVSNASCTTNCLAPLAKVIHDNFGIVEGLMTTVHAITATQKTVDGPSGKLWRDGRGAAQNIIPASTGAAKAVGKVIPELNGKLTGMAFRVPTPNVSVVDLTCRLEKPAKYDDIKKVVKQASEGPLKGILGYTEDQVVSCDFNSNSHSSTFDAGAGIALNDNFVKLISWYDNEYGYSNRVVDLMAYMASKE",
+    "MGKVKVGVNGFGRIGRLVTRAAFNSGKVDIVAINDPFIDLNYMVYMFQYDSTHGKFHGTVKAENGKLVINGNPITIFQERDPSKIKWGDAGAEYVVESTGVFTTMEKAGAHLQGGAKRVIISAPSADAPMFVMGVNHEKYDNSLKIISNASCTTNCLAPLAKVIHDNFGIVEGLMTTVHAITATQKTVDGPSGKLWRDGRGALQNIIPASTGAAKAVGKVIPELNGKLTGMAFRVPTANVSVVDLTCRLEKPAKYDDIKKVVKQASEGPLKGILGYTEHQVVSSDFNSDTHSSTFDAGAGIALNDHFVKLISWYDNEFGYSNRVVDLMAHMASKE",
+    "MEEPQSDPSVEPPLSQETFSDLWKLLPENNVLSPLPSQAMDDLMLSPDDIEQWFTEDPGPDEAPRMPEAAPPVAPAPAAPTPAAPAPAPSWPLSSSVPSQKTYQGSYGFRLGFLHSGTAKSVTCTYSPALNKMFCQLAKTCPVQLWVDSTPPPGTRVRAMAIYKQSQHMTEVVRRCPHHERCSDSDGLAPPQHLIRVEGNLRVEYLDDRNTFRHSVVVPYEPPEVGSDCTTIHYNYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRNSFEVRVCACPGRDRRTEEENLRKKGEPHHELPPGSTKRALPNNTSSSPQPKKKPLDGEYFTLQIRGRERFEMFRELNEALELKDAQAGKEPGGSRAHSSHLKSKKGQSTSRHKKLMFKTEGPDSD",
+    "MEDSQSDMSIELPLSQETFSCLWKLLPPDDILPTTATGSPNSMEDLFLPQDVAELLEGPEEALQVSAPAAQEPGTEAPAPVAPASATPWPLSSSVPSQKTYQGNYGFHLGFLQSGTAKSVMCTYSISLNKLFCQLAKTCPVQLWVTSTPPPGTRVRAMAIYKKSQHMTEVVRRCPHHERCSDGDGLAPPQHLIRVEGNPYAEYLDDRQTFRHSVVVPYEPPEVGSDYTTIHYKYMCNSSCMGGMNRRPILTIITLEDSSGNLLGRDSFEVRVCACPGRDRRTEEENFRKKEEHCPELPPGSAKRALPTSTSSSPQQKKKPLDGEYFTLKIRGRERFEMFRELNEALELKDARAAEESGDSRAHSSYPKTKKGQSTSRHKKPMIKKVGPDSD"
+   ]
+  }
+ },
+ "caveats": [
+  "2 queries name a protein the alignment did not keep. Compara aligns one protein per gene, its canonical one (the gene-tree row flagged Y), and mzLib keeps only the canonical proteins of the genes it kept: another isoform's id, or a gene outside the gene sets, is not there. --proteins lists the proteins kept."
+ ]
+}

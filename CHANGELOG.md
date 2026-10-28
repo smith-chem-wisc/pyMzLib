@@ -24,6 +24,23 @@ envelope is not a breaking change unless Python callers can see it.
   odds (mzLib#1464). `TraitEffects.scale` echoes the scale; mzLib's default stays natural-log odds.
 - **`isobaric.kits()` gives each channel's SDRF label**, `sdrf_label` (`TMT131` for TMT10's 131N),
   by mzLib's `SdrfIsobaricLabels` (mzLib#1467).
+- **`proteins.map_residues()`: map a residue across species through Ensembl Compara's gene-tree
+  alignment** (mzLib 1.0.596, #1465, `ComparaGeneTreeAlignment`). For each
+  `(source_protein_id, position, target_protein_id)` query, the residue of the target in the same
+  alignment column, or one of mzLib's outcomes saying why there is none: `GapInTarget`,
+  `DifferentAlignments`, `SourceNotInAlignment`, `TargetNotInAlignment`. It reads the release's
+  alignment file, its gene-tree file and your species' GTFs, all local. `proteins=True` returns
+  the Ensembl sequences, to chain with `align()` from and back to UniProt positions. A position
+  past the end of its source protein fails the whole call with mzLib's message. Wire verb
+  `genes map-residues`.
+- **`library.calibrate_rt()`** fits a run's map from retention time in minutes onto a spectral
+  library's iRT scale, from anchors you choose, with mzLib's robust `IrtCalibration` (LOWESS by
+  default, or a straight line), and converts the times you send with them in either direction:
+  where a library precursor should elute in this run, or an observed minute on the library's
+  scale. Each run is a group, fitted on its own anchors; `on_error="skip"` reports a run mzLib
+  refuses instead of failing the call. Every option is mzLib's `IrtCalibrationOptions` member and
+  is sent only when given (mzLib#1387). The fitted curve itself cannot be returned: mzLib keeps its
+  points private, so queries travel in the same call as their anchors.
 
 ### Changed
 - **Built from mzLib 1.0.596** (tag commit `cc67b7a2`). Its changes to what existing calls return

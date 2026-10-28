@@ -58,7 +58,14 @@ REPLAY_EXTRA = {
     "sdrf assess": ["sdrf_assess_PXD000070.json", "sdrf_assess_skeleton.json"],
     # The proteins guide: three databases and a contaminant, filtered to four accessions; and the
     # DYNC1I2 isoforms and both albumins with their sequences, which the alignment section aligns.
-    "proteins read": ["proteins_read_accessions.json", "proteins_read_sequences.json"],
+    "proteins read": [
+        "proteins_read_accessions.json", "proteins_read_sequences.json",
+        # The residue-mapping section: UniProt's human and mouse p53, aligned to Ensembl's.
+        "proteins_read_p53.json",
+    ],
+    # The proteins guide's cross-species chain: UniProt P04637 to Ensembl's canonical TP53 protein,
+    # and Ensembl's canonical Trp53 protein to UniProt P02340, around genes map-residues.
+    "proteins align": ["proteins_align_tp53_chain.json"],
     # The diff guide: stats fit on the design file diff design wrote for the MALAT1 dilution series,
     # without and with its contrasts file; and that series' design with no reference level (every
     # pair of loads a contrast), which stats fit's contrasts example reads (that fit is a stats.fit
@@ -143,7 +150,7 @@ def _doctests_use_the_replay_bridge(_replay_bridge, doctest_namespace, tmp_path,
 
 #: Folders of small input files an example reads itself (not through the bridge), copied into the
 #: example's working directory so it can open them by bare name, as a reader would.
-EXAMPLE_INPUTS = [FIXTURES / "stats", FIXTURES / "diff"]
+EXAMPLE_INPUTS = [FIXTURES / "stats", FIXTURES / "diff", FIXTURES / "calibration"]
 
 
 def copy_example_inputs(directory: Path) -> None:
