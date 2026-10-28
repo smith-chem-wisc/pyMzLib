@@ -195,11 +195,44 @@ public partial class StatisticsTests
         AssertFixture("lnmm_counted_fit.tsv", File.ReadAllText(Reference("lnmm_counted_fit.tsv")));
         AssertFixture("lnmm_PROVENANCE.txt", File.ReadAllText(Reference("PROVENANCE_lnmm.txt")));
         var (responses, counts, design, groups) = SimulatedTables(1, 2, 3);
-        AssertFixture("lnmm_simulated_responses.tsv", responses);
-        AssertFixture("lnmm_simulated_counts.tsv", counts);
-        AssertFixture("lnmm_simulated_design.tsv", design);
-        AssertFixture("lnmm_simulated_groups.tsv", groups);
-        AssertFixture("link_cells.tsv", LinkCellsTable());
+        AssertSimulatedFixture("lnmm_simulated_responses.tsv", responses);
+        AssertSimulatedFixture("lnmm_simulated_counts.tsv", counts);
+        AssertSimulatedFixture("lnmm_simulated_design.tsv", design);
+        AssertSimulatedFixture("lnmm_simulated_groups.tsv", groups);
+        AssertSimulatedFixture("link_cells.tsv", LinkCellsTable());
+    }
+
+    /// <summary>
+    /// <see cref="AssertFixture"/> for a table rendered from a simulation: every field equal, except that a
+    /// non-integer number may differ by 1e-12 relative. MathNet's normal draws go through the platform's
+    /// Math.Log and Math.Sin, whose last digits differ between Windows and Linux, so the committed file
+    /// (rendered on Windows) cannot be byte for byte what Linux renders. Counts and trial numbers are exact.
+    /// </summary>
+    private static void AssertSimulatedFixture(string name, string expected)
+    {
+        if (Regenerate)
+        {
+            AssertFixture(name, expected);
+            return;
+        }
+        string path = Path.Combine(StatsFixtures, name);
+        Assert.That(File.Exists(path), Is.True, $"{path} is missing; regenerate with PYMZLIB_REGENERATE_STATS_FIXTURES=1");
+        string[] committed = File.ReadAllText(path).Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+        string[] rendered = expected.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+        Assert.That(committed, Has.Length.EqualTo(rendered.Length), $"{name}: line count");
+        for (int line = 0; line < rendered.Length; line++)
+        {
+            string[] a = committed[line].Split('\t'), b = rendered[line].Split('\t');
+            Assert.That(a, Has.Length.EqualTo(b.Length), $"{name} line {line + 1}: field count");
+            for (int i = 0; i < b.Length; i++)
+            {
+                if (a[i] == b[i]) continue;
+                bool numbers = double.TryParse(a[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double x)
+                    & double.TryParse(b[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double y);
+                Assert.That(numbers && b[i].Contains('.') && Math.Abs(x - y) <= 1e-12 * Math.Max(Math.Abs(y), 1e-300), Is.True,
+                    $"{name} line {line + 1} field {i + 1}: committed '{a[i]}', rendered '{b[i]}'");
+            }
+        }
     }
 
     // ---- agreement with R, through the wire -------------------------------------------------------
