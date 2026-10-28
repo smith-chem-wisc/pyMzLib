@@ -10,9 +10,10 @@ explains the mechanism. For the Python signatures and result classes, see the
 **Python spells stdin as a list argument.** Each verb reads its list input on stdin, and pyMzLib
 writes it for you: `stats fit`'s `stdin` is `coefficients=`, `stats adjust`'s is `p_values=` (with
 `None` for an untested entry), `stats meta`'s is `studies=`, `stats combine-p`'s is `tests=`
-(with `None` for a blank field), and `stats fit-logistic`'s and `stats fit-mixed`'s are
-`coefficients=`, as `stats fit`'s. The `stdin` rows below describe the wire. `stats correlate` and
-`stats entrapment-fdp` read no stdin: their tables are files, as `stats fit`'s are.
+(with `None` for a blank field), and `stats fit-logistic`'s, `stats fit-mixed`'s and
+`stats fit-latent-mixed`'s are `coefficients=`, as `stats fit`'s. The `stdin` rows below describe
+the wire. `stats correlate`, `stats entrapment-fdp` and `stats fit-link` read no stdin: their
+tables are files, as `stats fit`'s are.
 
 **Performance:** each call starts one bridge process, about 120 ms before mzLib does any work.
 `stats fit` then fits every feature in one pass: a 10,000-feature by 24-sample table takes about
@@ -27,7 +28,11 @@ tests about 0.8 s, most of it writing and reading the text; neither takes thread
 calls take no degree of parallelism. `stats fit-logistic` on a 10,000 by 24 table of 0s and 1s
 takes about 1.7 s on one thread and 0.5 s with `threads=-1`; `stats fit-mixed` on a 10,000 by 24
 table in six groups about 3.9 s and 2.5 s, since each feature is a one-dimensional likelihood
-search. `stats entrapment-fdp` on 100,000 targets and 100,000 entrapments at mzLib's default
+search. `stats fit-latent-mixed` integrates every counted sample numerically, so it is much
+slower: on mzLib's reference input, with every sample counted, about 0.8 s per feature on one
+thread when sigma² is estimated and 1.6 s when it is given, divided across cores by `threads=-1`; a
+feature with nothing counted costs about as much as in `fit_mixed`. `stats fit-link` on 4,000 cells
+takes under a second. `stats entrapment-fdp` on 100,000 targets and 100,000 entrapments at mzLib's default
 thresholds takes about 0.5 s; it takes no threads, because mzLib's call takes no degree of
 parallelism. **Every number is mzLib's**; the bridge parses the tables and shapes the result, and
 pyMzLib does no arithmetic.
@@ -85,6 +90,29 @@ what mzLib used either way. `MixedModelFit.status_counts` is keyed by
 `pymzlib.stats.MIXED_STATUSES`, and `MixedModelFit.rows()` gives one coefficient's block.
 
 --8<-- "docs/reference/_generated/stats.fit-mixed.md"
+
+## `fit-latent-mixed`
+
+`fit_latent_mixed()` always sends `--link`: it has no default, in Python or on the wire, because
+mzLib has none. `link="identity"` sends `identity`; a tuple sends only the numbers it holds, so a
+depth slope or overdispersion left out is mzLib's default; a `DetectionLink`, or `fit_link()`'s
+result, sends all four. `--responses`, `--counts`, `--depth`, `--residual-variance` and
+`--estimator` are sent only when set, and `LatentMixedModelFit.estimator` and `.link` report what
+mzLib used either way. `LatentMixedModelFit.status_counts` is keyed by
+`pymzlib.stats.LATENT_MIXED_STATUSES`, and `LatentMixedModelFit.rows()` gives one coefficient's
+block. It is a verb of its own, not an option of `fit-mixed`, because mzLib fits it with a
+different entry point, optimiser and set of statuses: you choose the model by choosing the call.
+
+--8<-- "docs/reference/_generated/stats.fit-latent-mixed.md"
+
+## `fit-link`
+
+`fit_link()` sends `--with-depth`, `--with-overdispersion` and `--detection-only` (`true` or
+`false`) only when they are set, so leaving them out is mzLib's default; `LinkFit` reports the
+values used either way. `LinkFit.link` is a `DetectionLink`, or `None` when mzLib's search did not
+converge.
+
+--8<-- "docs/reference/_generated/stats.fit-link.md"
 
 ## `entrapment-fdp`
 

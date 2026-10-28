@@ -1,23 +1,25 @@
 """Differential abundance with no R: limma's moderated t-test, Benjamini-Hochberg, random-effects
-meta-analysis, p-value combination, Spearman correlation, logistic and mixed models, and entrapment
-FDP estimates, computed by mzLib.
+meta-analysis, p-value combination, Spearman correlation, logistic and mixed models (also on a
+latent scale, with counted samples), and entrapment FDP estimates, computed by mzLib.
 
-Eight functions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1368,
-#1385, #1446, #1452):
+Ten functions, each answered by mzLib's ``StatisticalModels`` (mzLib #1341, #1357, #1367, #1368,
+#1385, #1446, #1452, #1469):
 
-==========================================================  ======================  =============================================
-You want to know                                            Call                    mzLib computes it with
-==========================================================  ======================  =============================================
-Which features change with a coefficient, and how surely?   :func:`fit`             ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
-Which features differ by a contrast, within what interval?  :func:`fit`             ``EmpiricalBayes.ModerateContrasts``
-Which of these p-values survive a false discovery rate?     :func:`adjust`          ``MultipleTesting.BenjaminiHochberg``
-What is one feature's effect, pooled across studies?        :func:`meta`            ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
-What do several studies' p-values say together?             :func:`combine_p`       ``PValueCombination.Fisher`` / ``.Stouffer``
-Which features rise or fall with a per-sample trait?        :func:`correlate`       ``SpearmanCorrelation.Correlate`` / ``.PartialCorrelate``
-Does a 0/1 outcome (detected or not) follow a coefficient?  :func:`fit_logistic`    ``LogisticRegression.Fit``
-Which features change, when samples come in groups?         :func:`fit_mixed`       ``MixedModel.Fit`` (random intercept per group)
-Does a search really control its FDR (entrapment)?          :func:`entrapment_fdp`  ``EntrapmentFdp.Sweep``
-==========================================================  ======================  =============================================
+==========================================================  ========================  =========================================================
+You want to know                                            Call                      mzLib computes it with
+==========================================================  ========================  =========================================================
+Which features change with a coefficient, and how surely?   :func:`fit`               ``LinearModel.Fit`` + ``EmpiricalBayes.Moderate``
+Which features differ by a contrast, within what interval?  :func:`fit`               ``EmpiricalBayes.ModerateContrasts``
+Which of these p-values survive a false discovery rate?     :func:`adjust`            ``MultipleTesting.BenjaminiHochberg``
+What is one feature's effect, pooled across studies?        :func:`meta`              ``RandomEffectsMeta.Pool`` (DerSimonian-Laird)
+What do several studies' p-values say together?             :func:`combine_p`         ``PValueCombination.Fisher`` / ``.Stouffer``
+Which features rise or fall with a per-sample trait?        :func:`correlate`         ``SpearmanCorrelation.Correlate`` / ``.PartialCorrelate``
+Does a 0/1 outcome (detected or not) follow a coefficient?  :func:`fit_logistic`      ``LogisticRegression.Fit``
+Which features change, when samples come in groups?         :func:`fit_mixed`         ``MixedModel.Fit`` (random intercept per group)
+The same, when some samples are counted (k of n trials)?    :func:`fit_latent_mixed`  ``LogitNormalMixedModel.Fit``
+How does a count's chance of success follow the latent?     :func:`fit_link`          ``LogitNormalMixedModel.FitLink``
+Does a search really control its FDR (entrapment)?          :func:`entrapment_fdp`    ``EntrapmentFdp.Sweep``
+==========================================================  ========================  =========================================================
 
 **It is limma, checked.** :func:`fit` is limma's ``lmFit`` followed by ``eBayes(legacy = TRUE)``
 (Smyth 2004), and mzLib holds it to limma 3.68.5 to 1e-8 relative on limma's own reference output.
@@ -62,8 +64,9 @@ fit, never imputed. **A 0 is an observation**, as in mzLib, so blank out any 0 t
 measured".
 
 Wire verbs: ``stats fit``, ``stats adjust``, ``stats meta``, ``stats combine-p``,
-``stats correlate``, ``stats fit-logistic``, ``stats fit-mixed`` and ``stats entrapment-fdp``; their
-language-neutral specs live in the bridge repository under ``design/verbs/``.
+``stats correlate``, ``stats fit-logistic``, ``stats fit-mixed``, ``stats fit-latent-mixed``,
+``stats fit-link`` and ``stats entrapment-fdp``; their language-neutral specs live in the bridge
+repository under ``design/verbs/``.
 """
 
 from __future__ import annotations
@@ -81,6 +84,7 @@ from .readers import _Table
 __all__ = [
     "COMBINATION_METHODS",
     "FIT_STATUSES",
+    "LATENT_MIXED_STATUSES",
     "LOGISTIC_STATUSES",
     "MIXED_ESTIMATORS",
     "MIXED_STATUSES",
@@ -89,7 +93,10 @@ __all__ = [
     "Adjusted",
     "CombinedPValues",
     "Correlations",
+    "DetectionLink",
     "EntrapmentFdpEstimates",
+    "LatentMixedModelFit",
+    "LinkFit",
     "LogisticModelFit",
     "MetaAnalysis",
     "MixedModelFit",
@@ -101,6 +108,8 @@ __all__ = [
     "correlate",
     "entrapment_fdp",
     "fit",
+    "fit_latent_mixed",
+    "fit_link",
     "fit_logistic",
     "fit_mixed",
     "meta",
@@ -158,6 +167,21 @@ MIXED_STATUSES = (
 #: The variance estimators :func:`fit_mixed` takes as ``estimator=``: mzLib's ``VarianceEstimator``
 #: ``Reml`` and ``MaximumLikelihood``. Leave ``estimator`` out for mzLib's default.
 MIXED_ESTIMATORS = ("reml", "ml")
+
+#: The first pyMzLib whose bridge has ``stats fit-latent-mixed`` and ``stats fit-link`` (mzLib 1.0.596).
+_LATENT_SINCE = "0.7.0"
+
+#: Every value of :func:`fit_latent_mixed`'s ``status`` column: the outcomes mzLib's
+#: ``LogitNormalMixedModel.Fit`` can give a feature, read from its code (mzLib does not list them per
+#: model yet). It never reports ``variance_ratio_at_limit``. Only ``"fitted"`` rows carry statistics.
+LATENT_MIXED_STATUSES = (
+    "fitted",
+    "too_few_observations",
+    "rank_deficient",
+    "separated",
+    "not_converged",
+    "too_few_groups",
+)
 
 _PathLike = Union[str, "os.PathLike[str]"]
 
@@ -899,6 +923,211 @@ class MixedModelFit(_PerCoefficient):
             threads=int(data.get("threads", 1)),
             missing_count=int(data.get("missing_count", 0)),
             zero_count=int(data.get("zero_count", 0)),
+            status_counts=dict(data.get("status_counts") or {}),
+            row_count=int(data.get("row_count", 0)),
+            column_names=names,
+            columns=columns,
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class DetectionLink:
+    """How a latent value sets the chance that one trial of a counted cell succeeds: mzLib's
+    ``DetectionLink``.
+
+    logit g = ``intercept`` + ``slope`` x latent + ``depth_slope`` x depth, and the trials of one cell
+    are correlated by ``overdispersion`` (a beta-binomial; 0 is the binomial). :func:`fit_link`
+    returns one; :func:`fit_latent_mixed` takes one as ``link=``, and echoes the one it used.
+
+    Attributes:
+        intercept: a, the per-trial log-odds at latent 0 and depth 0 (natural log-odds).
+        slope: b, how fast the per-trial log-odds follow the latent (natural log-odds per latent
+            unit); 1 for the identity link, below 1 when a success grows more slowly than the latent.
+        depth_slope: c, the depth term's coefficient (natural log-odds per depth unit); 0 when the
+            link has none.
+        overdispersion: rho, the correlation of the trials within one cell (fraction, intra-cell
+            correlation, 0 to below 1); 0 is the binomial.
+    """
+
+    intercept: float
+    slope: float
+    depth_slope: float
+    overdispersion: float
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> DetectionLink:
+        return cls(
+            intercept=float(data.get("intercept", 0.0)),
+            slope=float(data.get("slope", 0.0)),
+            depth_slope=float(data.get("depth_slope", 0.0)),
+            overdispersion=float(data.get("overdispersion", 0.0)),
+        )
+
+
+@dataclass(frozen=True)
+class LinkFit:
+    """What :func:`fit_link` returns: the detection link mzLib fitted, and how.
+
+    Attributes:
+        cells_file: Absolute path of the cells table.
+        cell_count: Rows read (cells).
+        depth_given: Whether the cells file has a ``depth`` column.
+        with_depth: Whether the depth slope was fitted: what you passed, else mzLib's default.
+        with_overdispersion: Whether rho was fitted: what you passed, else mzLib's default.
+        detection_only: Whether the fit was on detection (any success or none) rather than on the
+            full counts: what you passed, else mzLib's default.
+        link: The fitted :class:`DetectionLink`, ready for :func:`fit_latent_mixed`'s ``link=``;
+            ``None`` when mzLib's search did not converge.
+        caveats: What the fit is and is not.
+    """
+
+    cells_file: str
+    cell_count: int
+    depth_given: bool
+    with_depth: bool
+    with_overdispersion: bool
+    detection_only: bool
+    link: DetectionLink | None
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> LinkFit:
+        link = data.get("link")
+        return cls(
+            cells_file=str(data.get("cells_file", "")),
+            cell_count=int(data.get("cell_count", 0)),
+            depth_given=bool(data.get("depth_given", False)),
+            with_depth=bool(data.get("with_depth", False)),
+            with_overdispersion=bool(data.get("with_overdispersion", False)),
+            detection_only=bool(data.get("detection_only", False)),
+            link=None if link is None else DetectionLink._from_wire(link),
+            caveats=list(data.get("caveats") or []),
+        )
+
+
+@dataclass(frozen=True)
+class LatentMixedModelFit(_PerCoefficient):
+    """What :func:`fit_latent_mixed` returns: one row per (reported coefficient, feature).
+
+    ``columns`` holds one block of ``feature_count`` rows per coefficient you named, in that order,
+    each block in the feature order of the responses file (of the counts file, without one):
+
+    ===========================  ====================  =================================================
+    column                       unit                  meaning; ``None`` means
+    ===========================  ====================  =================================================
+    ``feature``                  -                     the id in the table's first column
+    ``coefficient``              -                     the coefficient this row reports
+    ``status``                   -                     one of :data:`LATENT_MIXED_STATUSES`
+    ``estimate``                 latent units per      the fixed effect within groups, on the latent
+                                 coefficient unit      scale: **natural log-odds** for a logit latent.
+                                                       ``None`` = not fitted
+    ``standard_error``           latent units per      from the inverse Hessian at the estimated
+                                 coefficient unit      variances
+    ``df``                       degrees of freedom    nlme's containment df over the samples with a
+                                                       response of either kind. ``None`` = not fitted,
+                                                       or no positive df
+    ``t``                        standard errors       Wald statistic, estimate / standard_error
+    ``p_value``                  fraction (0 to 1)     two-sided t test on ``df``; **not adjusted
+                                                       across features**
+    ``residual_variance``        squared latent units  sigma², run to run within a group: estimated,
+                                                       or the one you gave
+    ``residual_variance_given``  -                     ``True`` when it is the one you gave
+    ``group_variance``           squared latent units  tau², between the groups' baselines; 0 is the
+                                                       boundary
+    ``log_likelihood``           log-likelihood        Laplace-approximated restricted under
+                                                       ``"reml"``, full under ``"ml"``
+    ``measured``                 samples               samples with a finite response
+    ``counted``                  samples               samples with a count
+    ``groups``                   groups                distinct groups among both
+    ===========================  ====================  =================================================
+
+    Attributes:
+        responses_file: Absolute path of the responses table, or ``None``: nothing was measured.
+        counts_file: Absolute path of the counts table, or ``None``: nothing was counted.
+        design_file: Absolute path of the design table.
+        groups_file: Absolute path of the groups table.
+        depth_file: Absolute path of the depth table, or ``None``: none was given.
+        residual_variance_file: Absolute path of the residual-variance table, or ``None``: every
+            sigma² was estimated.
+        grouping: The groups file's label column header, e.g. ``"animal"``.
+        group_names: The distinct labels, in order of first appearance over the samples.
+        group_count: Distinct labels over all samples (groups).
+        feature_count: Feature rows read (features).
+        sample_count: Sample columns read (samples).
+        sample_names: In the responses header's order (the counts header's, without responses).
+        coefficient_names: Every design column, in order: the model always fits all of them.
+        tested_coefficients: The coefficients you asked to report, in order.
+        estimator: ``"reml"`` or ``"ml"``, one of :data:`MIXED_ESTIMATORS`: the estimator mzLib
+            used, its default when you passed none.
+        link: The :class:`DetectionLink` every count was read through, as mzLib reports it.
+        threads: The thread count used (threads); the answer is identical at any count.
+        measured_cells: Feature x sample cells with a finite response (cells).
+        counted_cells: Feature x sample cells with a count (cells).
+        missing_count: Cells with neither (cells), left out of their feature's fit.
+        status_counts: Features per status (features), keyed by :data:`LATENT_MIXED_STATUSES`.
+        row_count: Rows in the table (rows): ``feature_count`` x the coefficients reported.
+        column_names: The table's columns, in order.
+        columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
+        caveats: What the model is and is not, the link it used, plus counts for this input:
+            unfitted features, rows with no df, features at the boundary, residual variances given.
+    """
+
+    responses_file: str | None
+    counts_file: str | None
+    design_file: str
+    groups_file: str
+    depth_file: str | None
+    residual_variance_file: str | None
+    grouping: str
+    group_names: list[str]
+    group_count: int
+    feature_count: int
+    sample_count: int
+    sample_names: list[str]
+    coefficient_names: list[str]
+    tested_coefficients: list[str]
+    estimator: str
+    link: DetectionLink
+    threads: int
+    measured_cells: int
+    counted_cells: int
+    missing_count: int
+    status_counts: dict[str, int]
+    row_count: int
+    column_names: list[str] = field(default_factory=list)
+    columns: dict[str, list[Any]] = field(default_factory=dict)
+    caveats: list[str] = field(default_factory=list)
+
+    @classmethod
+    def _from_wire(cls, data: Mapping[str, Any]) -> LatentMixedModelFit:
+        names, columns = _columns(data)
+
+        def optional(key: str) -> str | None:
+            value = data.get(key)
+            return None if value is None else str(value)
+
+        return cls(
+            responses_file=optional("responses_file"),
+            counts_file=optional("counts_file"),
+            design_file=str(data.get("design_file", "")),
+            groups_file=str(data.get("groups_file", "")),
+            depth_file=optional("depth_file"),
+            residual_variance_file=optional("residual_variance_file"),
+            grouping=str(data.get("grouping", "")),
+            group_names=list(data.get("group_names") or []),
+            group_count=int(data.get("group_count", 0)),
+            feature_count=int(data.get("feature_count", 0)),
+            sample_count=int(data.get("sample_count", 0)),
+            sample_names=list(data.get("sample_names") or []),
+            coefficient_names=list(data.get("coefficient_names") or []),
+            tested_coefficients=list(data.get("tested_coefficients") or []),
+            estimator=str(data.get("estimator", "")),
+            link=DetectionLink._from_wire(data.get("link") or {}),
+            threads=int(data.get("threads", 1)),
+            measured_cells=int(data.get("measured_cells", 0)),
+            counted_cells=int(data.get("counted_cells", 0)),
+            missing_count=int(data.get("missing_count", 0)),
             status_counts=dict(data.get("status_counts") or {}),
             row_count=int(data.get("row_count", 0)),
             column_names=names,
@@ -1730,6 +1959,221 @@ def fit_mixed(
     _bridge.require_verb("stats fit-mixed", since=_MODELS_SINCE)
     data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
     return MixedModelFit._from_wire(data)
+
+
+def _link_argument(link: object) -> str:
+    """``--link``: ``identity``, or the link's numbers comma-separated (only those you gave)."""
+    if isinstance(link, LinkFit):
+        if link.link is None:
+            raise _bridge.UsageError("link is a fit_link() result whose search did not converge (link=None).")
+        link = link.link
+    if isinstance(link, str):
+        if link.strip().lower() == "identity":
+            return "identity"
+        raise _bridge.UsageError(
+            f"link takes 'identity', a DetectionLink, or (intercept, slope[, depth_slope[, overdispersion]]); "
+            f"got {link!r}."
+        )
+    if isinstance(link, DetectionLink):
+        values: list[float] = [link.intercept, link.slope, link.depth_slope, link.overdispersion]
+    elif isinstance(link, Sequence) and 2 <= len(link) <= 4:
+        values = [_number(v, f"link[{i}]") for i, v in enumerate(link)]
+    else:
+        raise _bridge.UsageError(
+            "link takes 'identity', a DetectionLink (or fit_link()'s result), or 2 to 4 numbers "
+            f"(intercept, slope[, depth_slope[, overdispersion]]); got {link!r}."
+        )
+    return ",".join(repr(float(v)) for v in values)
+
+
+def _bool_option(value: object, what: str) -> list[str]:
+    """``--<what> true|false`` when ``value`` is a bool; nothing when it is None (mzLib's default)."""
+    if value is None:
+        return []
+    if not isinstance(value, bool):
+        raise _bridge.UsageError(f"{what.replace('-', '_')} must be True, False or None; got {value!r}.")
+    return [f"--{what}", "true" if value else "false"]
+
+
+def fit_latent_mixed(
+    design: _PathLike,
+    groups: _PathLike,
+    coefficients: Sequence[str],
+    *,
+    link: str | DetectionLink | LinkFit | Sequence[float],
+    responses: _PathLike | None = None,
+    counts: _PathLike | None = None,
+    depth: _PathLike | None = None,
+    residual_variance: _PathLike | None = None,
+    estimator: str | None = None,
+    threads: int = 1,
+    timeout: float | None = 600,
+) -> LatentMixedModelFit:
+    """Fit one random-intercept mixed model per feature on a latent scale, from samples that are
+    measured on it, counted through it, or both.
+
+    mzLib's ``LogitNormalMixedModel.Fit`` is the mixed model of :func:`fit_mixed` - fixed effects
+    from your design, one baseline per group drawn from N(0, tau²), run-to-run scatter sigma² - on a
+    **latent** value, such as the log-odds of a site's occupancy. A sample can be **measured** (its
+    latent value is in ``responses``) or **counted**: k of its n trials succeeded (``counts``), each
+    with a chance g set by the latent through the ``link``, logit g = intercept + slope x latent +
+    depth_slope x depth. It is ``lme4::glmer`` (a binomial GLMM, with an observation-level random
+    effect for sigma²) and ``lmer`` in one model, which mzLib checks against both and against
+    ``glmmTMB``.
+
+    Use it when some of your cells carry a number and others only a count: a PTM site whose
+    occupancy was quantified in some runs, while in others you only know that 3 of 8 covering
+    peptidoforms carried the modification. :func:`fit_mixed` has to drop the counted runs;
+    ``fit_latent_mixed`` uses them. **Which cells are counted, and the link, are your choices**:
+    pyMzLib builds neither. :func:`fit_link` fits a link from cells.
+
+    Args:
+        design: :func:`fit`'s design: one row per sample, the sample name then one numeric column
+            per fixed-effect coefficient. Do not add a column per group.
+        groups: :func:`fit_mixed`'s groups table: one row per sample, the sample name then ONE
+            column with its group label (an animal, a donor, a dataset).
+        coefficients: Design column names to report, each as one block of rows. Every design
+            column is fitted whatever you name.
+        link: mzLib's ``DetectionLink`` (natural log-odds): ``"identity"`` (``DetectionLink.Identity``,
+            intercept 0 and slope 1: a count samples the same probability a measurement reads), a
+            :class:`DetectionLink` or :func:`fit_link`'s result, or 2 to 4 numbers
+            ``(intercept, slope[, depth_slope[, overdispersion]])``; a value you leave out is
+            mzLib's default. Required: mzLib has no default link.
+        responses: The measured samples, in latent units (logit occupancy, for example, not a
+            fraction): :func:`fit_mixed`'s responses table. Blank, ``NA`` or ``NaN`` is not measured.
+            Give ``responses``, ``counts`` or both.
+        counts: The counted samples: a table laid out as ``responses``, each cell
+            ``successes/trials`` in trials (``3/8``), or blank where the sample was not counted.
+            With ``responses`` too, the two must list the same features and samples, and no cell
+            may be in both.
+        depth: A TSV of one row per sample: the sample name, then its depth in your depth units
+            (log2 target PSMs, say), for the link's depth term. Needed when ``depth_slope`` is not 0.
+        residual_variance: A TSV of one row per feature: the feature id, then sigma² to use for it
+            (squared latent units) instead of estimating it. Blank, or a feature not listed, is
+            estimated.
+        estimator: ``"reml"`` or ``"ml"``, one of :data:`MIXED_ESTIMATORS`. Leave it out (``None``)
+            for mzLib's default; :attr:`LatentMixedModelFit.estimator` says which was used.
+        threads: Features fitted at once (threads), or ``-1`` for every core. The answer is
+            identical at any value.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`LatentMixedModelFit`; :meth:`LatentMixedModelFit.rows` gives one coefficient's rows.
+
+    Raises:
+        UsageError: neither ``responses`` nor ``counts``; a file is missing or malformed (a count
+            that is not ``k/n``); the tables' features or samples do not match; a coefficient is not
+            in the design or is named twice; ``link`` or ``estimator`` is not one this takes; or,
+            from mzLib, a cell both measured and counted, a count with more successes than trials,
+            a link it refuses (slope 0, overdispersion outside [0, 1), a depth term without
+            ``depth``), a design not of full rank, or an empty group label.
+
+    Examples:
+        mzLib's own reference input: 16 simulated features, 23 samples in 8 animals, every sample
+        counted, read through the link (-0.4, 0.6, 0.3) with a depth term, and lme4's ``glmer``
+        output for it (25-point adaptive quadrature, maximum likelihood), which pyMzLib ships:
+
+        >>> fit = pymzlib.stats.fit_latent_mixed(
+        ...     "lnmm_reference_design.tsv", "lnmm_reference_groups.tsv", ["Intercept", "trait", "x"],
+        ...     link=(-0.4, 0.6, 0.3), counts="lnmm_link_counts.tsv", depth="lnmm_link_depth.tsv",
+        ...     residual_variance="lnmm_link_residual_variance.tsv", estimator="ml")
+        >>> fit.status_counts["fitted"], fit.measured_cells, fit.counted_cells
+        (16, 0, 338)
+        >>> import csv
+        >>> with open("lnmm_counted_fit.tsv", newline="") as fh:
+        ...     glmer = [r for r in csv.DictReader(fh, delimiter="\\t")
+        ...              if r["link"] == "link" and r["method"] == "ML"]
+        >>> max(abs(ours["estimate"] - float(r["b1"])) / float(r["se1"])
+        ...     for ours, r in zip(fit.rows("trait"), glmer)) < 1e-5
+        True
+
+        Every trait estimate is within 1e-5 standard errors of glmer's.
+    """
+    stdin = _coefficient_lines(coefficients, "fit_latent_mixed")
+    if responses is None and counts is None:
+        raise _bridge.UsageError(
+            "fit_latent_mixed() needs responses= (measured samples), counts= (counted samples), or both."
+        )
+    args = ["stats", "fit-latent-mixed", "--design", _path(design, "design"),
+            "--groups", _path(groups, "groups"), "--link", _link_argument(link), *_threads(threads)]
+    for name, value in (("responses", responses), ("counts", counts), ("depth", depth),
+                        ("residual-variance", residual_variance)):
+        if value is not None:
+            args += [f"--{name}", _path(value, name.replace("-", "_"))]
+    if estimator is not None:
+        if not isinstance(estimator, str) or estimator not in MIXED_ESTIMATORS:
+            raise _bridge.UsageError(
+                f"estimator must be one of {', '.join(MIXED_ESTIMATORS)} (mzLib's VarianceEstimator "
+                f"Reml or MaximumLikelihood), or None for mzLib's default; got {estimator!r}."
+            )
+        args += ["--estimator", estimator]
+    _bridge.require_verb("stats fit-latent-mixed", since=_LATENT_SINCE)
+    data = _bridge.invoke(*args, stdin=stdin, timeout=timeout)
+    return LatentMixedModelFit._from_wire(data)
+
+
+def fit_link(
+    cells: _PathLike,
+    *,
+    with_depth: bool | None = None,
+    with_overdispersion: bool | None = None,
+    detection_only: bool | None = None,
+    timeout: float | None = 600,
+) -> LinkFit:
+    """Fit the detection link: how a cell's latent value sets the chance that a trial succeeds.
+
+    mzLib's ``LogitNormalMixedModel.FitLink`` finds the :class:`DetectionLink` - logit g =
+    intercept + slope x latent + depth_slope x depth - that makes your cells' counts most likely,
+    each cell's latent value taken as a normal with the mean and SD you give, by maximum likelihood.
+    By default it fits on **detection**: whether any trial succeeded, which is what makes a covered
+    zero. Pass the result to :func:`fit_latent_mixed` as ``link=``.
+
+    A slope below 1 says the chance of a success rises more slowly than the latent: on PTM data,
+    for example, whether a modified form is seen depends on how much of it there is, not only on its
+    share. **The cells, and their latent means and SDs, are your choice**: pyMzLib does not build
+    them. mzLib's own example is a covered cell's feature mean and SD over its measured cells.
+
+    Args:
+        cells: A TSV whose header names ``latent_mean``, ``latent_sd``, ``successes`` and ``trials``,
+            and optionally ``depth``, in any order and no other column: one row per covered cell.
+            The latent mean and SD are in latent units, successes of trials is the cell's count, and
+            depth is in your depth units. Without a depth column every depth is mzLib's default.
+        with_depth: Fit the depth slope (mzLib's ``withDepth``). Leave it out (``None``) for mzLib's
+            default, which :attr:`LinkFit.with_depth` reports.
+        with_overdispersion: Fit rho, the beta-binomial correlation of trials in a cell (mzLib's
+            ``withOverdispersion``). ``None`` is mzLib's default.
+        detection_only: ``True`` fits on whether any trial succeeded, ``False`` on the full counts
+            (mzLib's ``detectionOnly``). ``None`` is mzLib's default.
+        timeout: Seconds to allow. ``None`` waits indefinitely.
+
+    Returns:
+        A :class:`LinkFit`; its ``link`` is ``None`` when mzLib's search did not converge.
+
+    Raises:
+        UsageError: the cells file is missing, empty, or has a column missing or unknown, or a value
+            that is not a number; an option that is not a bool; or, from mzLib, a cell with an SD
+            below 0, no trials, or more successes than trials.
+
+    Examples:
+        mzLib's own test cells: 4,000 cells simulated through the link (-0.5, 0.5, 0.3), which
+        pyMzLib ships:
+
+        >>> fit = pymzlib.stats.fit_link("link_cells.tsv", with_depth=True)
+        >>> fit.cell_count, fit.detection_only
+        (4000, True)
+        >>> link = fit.link
+        >>> round(link.intercept, 2), round(link.slope, 2), round(link.depth_slope, 2)
+        (-0.51, 0.51, 0.33)
+
+        The link that made the cells is recovered from detection alone.
+    """
+    args = ["stats", "fit-link", "--cells", _path(cells, "cells"),
+            *_bool_option(with_depth, "with-depth"),
+            *_bool_option(with_overdispersion, "with-overdispersion"),
+            *_bool_option(detection_only, "detection-only")]
+    _bridge.require_verb("stats fit-link", since=_LATENT_SINCE)
+    data = _bridge.invoke(*args, timeout=timeout)
+    return LinkFit._from_wire(data)
 
 
 def entrapment_fdp(

@@ -65,6 +65,9 @@ REPLAY_EXTRA = {
     # spec example).
     "stats fit": ["stats_fit_malat_diff_design.json", "stats_fit_malat_diff_design_contrasts.json"],
     "diff design": ["diff_design_malat_pairs.json"],
+    # The stats guide: fit_mixed on the measured half of mzLib's measured-and-counted simulation,
+    # which fit_latent_mixed's example fits whole.
+    "stats fit-mixed": ["stats_fit_mixed_lnmm_simulated.json"],
     # The spectral-library guide: one precursor's fragment ions, and an index-only read.
     # --fragments: check_verbs.py cannot hold a present_when column to a spec example yet.
     "library read": ["library_read_fragments.json", "library_read_index_only.json"],

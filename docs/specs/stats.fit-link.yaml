@@ -1,0 +1,114 @@
+# Written 2026-10-28 with the verb, from pyMzLib pkg/bridge/Statistics.LatentMixed.cs (FitLink,
+# FitLinkDefault, ReadLinkCells, OptionalBool, LinkCaveats) and Statistics.EntrapmentFdp.cs
+# (ReadCandidateTable) on branch feat/stats-latent-mixed-596 (off main 8bded50), mzLib pin cc67b7a2
+# (tag 1.0.596; LogitNormalMixedModel.FitLink is from #1469, first in 1.0.596).
+# The example fixture is recorded from the live bridge on that branch, on mzLib's own FitLink test
+# cells: LogitNormalMixedModelTests.LinkCells(truth (-0.5, 0.5, 0.3), 4000 cells, seed 5) at
+# cc67b7a2, the cells FitLinkRecoversASimulatedLink fits, rendered to link_cells.tsv by
+# StatisticsTests.LinkCellsFixture_IsMzLibsFitLinkTestSimulation. Agreement with mzLib's direct
+# call, and the recovery of the simulated link, are held by StatisticsTests.FitLink_*.
+verb: stats fit-link
+module: stats
+summary: >-
+  Fit the detection link of a latent-scale mixed model (how a cell's latent value, such as the
+  log-odds of a site's occupancy, sets the chance that a trial succeeds) by maximum likelihood over
+  cells with a latent mean and SD and a count.
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: LogitNormalMixedModel.FitLink, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: LinkCell, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: DetectionLink, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+cite:
+  - {doi: "10.1093/comjnl/7.4.308", for: "the simplex search mzLib maximizes the link's likelihood with (Nelder and Mead, Comput J 7:308, 1965)"}
+  - {doi: "10.1093/biomet/81.3.624", for: "adaptive Gauss-Hermite quadrature, which integrates each cell's probability over its latent normal (Liu and Pierce, Biometrika 81:624, 1994)"}
+  - {doi: "10.1111/j.2517-6161.1948.tb00014.x", for: "the beta-binomial distribution, the count model with overdispersion (Skellam, J R Stat Soc B 10:257, 1948)"}
+
+params:
+  - name: cells
+    type: path
+    required: true
+    unit: null
+    range: ">= 1 row"
+    default: null
+    doc: >-
+      A TSV with a header row naming the columns latent_mean, latent_sd, successes and trials, and
+      optionally depth, in any order and no other (so a misspelt optional column cannot fall back
+      to the default silently), then one row per covered cell (mzLib's LinkCell). latent_mean and
+      latent_sd are the normal the cell's latent value is taken to sit at, in latent units (e.g. the
+      mean and SD of its feature's measured cells, mzLib's example); successes of trials is its
+      count; depth is in the caller's depth unit. Without a depth column every cell is constructed
+      without one, so its depth is LinkCell's own default (0 at cc67b7a2). mzLib refuses a cell with
+      a latent mean, SD or depth that is not finite, an SD below 0, no trials, or more successes
+      than trials. Which cells, and their latent normals, are the caller's modelling choices.
+  - name: with-depth
+    type: bool
+    required: false
+    unit: null
+    range: "true | false"
+    default: null
+    doc: >-
+      mzLib's withDepth: fit the depth slope (else it is 0). Absent, the bridge passes FitLink's
+      declared default (false at cc67b7a2), read from mzLib, and echoes it.
+  - name: with-overdispersion
+    type: bool
+    required: false
+    unit: null
+    range: "true | false"
+    default: null
+    doc: >-
+      mzLib's withOverdispersion: fit the beta-binomial intra-cell correlation rho (else it is 0,
+      binomial). Absent, FitLink's declared default (false at cc67b7a2), echoed.
+  - name: detection-only
+    type: bool
+    required: false
+    unit: null
+    range: "true | false"
+    default: null
+    doc: >-
+      mzLib's detectionOnly. true: fit on whether any trial succeeded, P(k = 0) against P(k >= 1),
+      the event that makes a covered zero. false: fit on the full count, P(k of n). Absent,
+      FitLink's declared default (true at cc67b7a2), echoed. mzLib's documentation: on PTM data the
+      full counts follow occupancy more weakly than detection does, and a link fitted on them
+      predicts covered zeros worse.
+
+result:
+  envelope_fields:
+    - {wire: cells_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the cells table."}
+    - {wire: cell_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Rows read."}
+    - {wire: depth_given, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether the cells file has a depth column."}
+    - {wire: with_depth, type: bool, unit: null, nullable: false, null_means: null, doc: "withDepth as passed: the option given, else mzLib's declared default."}
+    - {wire: with_overdispersion, type: bool, unit: null, nullable: false, null_means: null, doc: "withOverdispersion as passed: the option given, else mzLib's declared default."}
+    - {wire: detection_only, type: bool, unit: null, nullable: false, null_means: null, doc: "detectionOnly as passed: the option given, else mzLib's declared default."}
+    - {wire: link, type: object, unit: null, nullable: true, null_means: "mzLib's search did not converge within its iteration limit (FitLink returned null)", doc: "The fitted DetectionLink, ready for stats fit-latent-mixed --link; fields under result.tables.link."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Three static caveats (one says which likelihood was fitted), plus one each when the depth slope or overdispersion was not fitted, when the depth slope was fitted without a depth column, and when the search did not converge."}
+  tables:
+    link:
+      - {wire: intercept, type: float, unit: "natural log-odds", nullable: false, null_means: null, doc: "a: the per-trial log-odds at latent 0 and depth 0."}
+      - {wire: slope, type: float, unit: "natural log-odds per latent unit", nullable: false, null_means: null, doc: "b: how fast the per-trial log-odds follow the latent. Below 1, the chance of a success rises more slowly than the latent."}
+      - {wire: depth_slope, type: float, unit: "natural log-odds per depth unit", nullable: false, null_means: null, doc: "c: the depth term's coefficient; exactly 0 when with_depth is false."}
+      - {wire: overdispersion, type: float, unit: "fraction (intra-cell correlation, 0 to < 1)", nullable: false, null_means: null, doc: "rho, the correlation of trials within a cell; exactly 0 when with_overdispersion is false."}
+
+errors:
+  - {kind: usage, when: "--cells missing, blank or not found; the table empty or header-only; a header with an empty, repeated, missing or unknown column (each named); a row whose field count differs from its header; a latent_mean, latent_sd or depth that is not a number (blank, NA or NaN pass to mzLib); successes or trials not a whole number; --with-depth, --with-overdispersion or --detection-only other than true or false, or without a value"}
+  - {kind: usage, when: "mzLib refuses the cells (its ArgumentException, reclassified): a latent mean, SD or depth that is not finite, an SD below 0, no trials, or successes outside 0 to trials"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "Maximum likelihood over the cells, each cell's probability integrated over its latent normal by 12-node adaptive Gauss-Hermite quadrature and maximized by Nelder-Mead. mzLib returns the point estimate only: no standard errors."
+  - "By default the fit is on detection (any success or none), not on how many trials succeeded: on PTM data, mzLib's documentation says, the full counts follow occupancy more weakly and predict covered zeros worse."
+  - "The link is in natural log-odds and is what stats fit-latent-mixed --link takes. Which cells enter, and their latent means and SDs, are the caller's modelling choices; the bridge builds neither."
+  - "With --with-depth true and no depth column, every cell's depth is 0 and the data say nothing about depth_slope."
+
+bindings:
+  py: {name: pymzlib.stats.fit_link}
+  rust: {name: "mzlib::stats::fit_link_with", options: FitLinkOptions, note: "not yet ported"}
+  r: {name: stats_fit_link, note: "not yet ported"}
+
+examples:
+  - fixture: stats_fit_link_simulated.json
+    py: "link = pymzlib.stats.fit_link('link_cells.tsv', with_depth=True)"
+    rust: "let link = mzlib::stats::fit_link_with(\"link_cells.tsv\", &FitLinkOptions { with_depth: Some(true), ..Default::default() })?;"
+    r: "link <- stats_fit_link('link_cells.tsv', with_depth = TRUE)"
+
+open_questions: []

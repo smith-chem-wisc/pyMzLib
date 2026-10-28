@@ -1,0 +1,242 @@
+# Written 2026-10-28 with the verb, from pyMzLib pkg/bridge/Statistics.LatentMixed.cs
+# (FitLatentMixed, LatentMixedFitStatuses, ParseLink, ReadCounts, AlignLatentInputs,
+# ReadSampleValues, ReadFeatureVariances, LatentRefusal, LatentMixedCaveats) and Statistics.cs
+# (ReadResponses, ReadDesign, CheckTestedCoefficients) plus Statistics.FitMixed.cs (ReadGroups,
+# EstimatorName) on branch feat/stats-latent-mixed-596 (off main 8bded50), mzLib pin cc67b7a2
+# (tag 1.0.596; LogitNormalMixedModel is from #1469, first in 1.0.596).
+# A verb of its own, not an option of stats fit-mixed: mzLib has two entry points (MixedModel.Fit,
+# LogitNormalMixedModel.Fit) with different optimisers, statuses and ML standard errors, so one verb
+# would have the bridge choose the model from which options were present. stats fit-mixed is
+# untouched, and its output does not move.
+# Example fixtures recorded from the live bridge on that branch, all on mzLib's own test data, rendered
+# as the verb's tables by StatisticsTests.LatentMixedFixtures_AreMzLibsLnmmReference:
+# - stats_fit_latent_mixed_scatter.json and _link_ml.json: mzLib's LogitNormalMixedModel reference input
+#   (Test/StatisticalModels/ReferenceData/lnmm_*.tsv, simulated by make_lnmm_fixtures.R, seed 20261011,
+#   R 4.6.1, lme4 2.0.6, glmmTMB 1.1.15.2; PROVENANCE_lnmm.txt), with feature ids f1.., the sample names
+#   V1..V23 of the counts' header, and successes/trials joined as k/n. _link_ml gives every feature
+#   ReferenceComparisonLogitNormalTests.TinyResidualVariance (2e-7), as mzLib's glmer comparison does.
+# - stats_fit_latent_mixed_simulated.json: LogitNormalMixedModelTests.Simulated(seed) for seeds 1, 2 and 3
+#   (one feature each), the measured-and-counted case MeasuredAndCountedSamplesRecoverTheTraitEffect fits.
+# Agreement with lmer, glmer and glmmTMB is held through the wire by
+# StatisticsTests.FitLatentMixed_*_ThroughTheWire, and with mzLib's direct call cell for cell by
+# StatisticsTests.FitLatentMixed_MeasuredAndCounted_IsMzLibsFit_CellForCell.
+# The status values are read from LogitNormalMixedModel.FitOne at cc67b7a2: mzLib does not yet say
+# which FeatureFitStatus values each model returns (mzLib#1487 asks it to).
+verb: stats fit-latent-mixed
+module: stats
+summary: >-
+  Fit one random-intercept mixed model per feature on a latent scale (such as the log-odds of a
+  site's occupancy), where each sample is either measured on that scale or counted through it (k of
+  n trials succeed), and test each named coefficient with a Wald t.
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: LogitNormalMixedModel.Fit, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: LogitNormalMixedModelFit, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: DetectionLink, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: BinomialCount, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: LogitNormalMixedModel.SeparationLimit, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
+  - {symbol: VarianceEstimator, path: mzLib/StatisticalModels/MixedModel.cs, pin: cc67b7a2}
+  - {symbol: FeatureFitStatus, path: mzLib/StatisticalModels/LinearModel.cs, pin: cc67b7a2}
+cite:
+  - {doi: "10.1080/01621459.1993.10594284", for: "generalized linear mixed models, the class of model this verb fits: a latent linear predictor with a random intercept, observed through a binomial link (Breslow and Clayton, J Am Stat Assoc 88:9, 1993)"}
+  - {doi: "10.1093/biomet/81.3.624", for: "adaptive Gauss-Hermite quadrature, centred at the integrand's mode and scaled by its curvature, which mzLib uses to integrate the counted samples (Liu and Pierce, Biometrika 81:624, 1994)"}
+  - {doi: "10.18637/jss.v067.i01", for: "lme4's lmer and glmer (nAGQ 25), the references mzLib's fits are held to (Bates, Maechler, Bolker and Walker, J Stat Softw 67:1, 2015)"}
+  - {doi: "10.32614/RJ-2017-066", for: "glmmTMB, whose Laplace-approximated REML mzLib's REML follows and whose fits with run scatter are a reference (Brooks et al., R Journal 9:378, 2017)"}
+  - {doi: "10.1093/biomet/58.3.545", for: "restricted maximum likelihood, the default estimator (Patterson and Thompson, Biometrika 58:545, 1971)"}
+  - {doi: "10.1111/j.2517-6161.1948.tb00014.x", for: "the beta-binomial distribution, which a link with overdispersion gives a count cell (Skellam, J R Stat Soc B 10:257, 1948)"}
+
+params:
+  - name: responses
+    type: path
+    required: false
+    unit: "latent units (e.g. natural log-odds of occupancy)"
+    range: null
+    default: null
+    doc: >-
+      The measured samples: stats fit-mixed's responses table, a TSV with a header row, the feature
+      id first (unique) and then one column per sample, named by its header. Values are on the
+      LATENT scale (logit occupancy, for example), not fractions or intensities. A blank cell, NA or
+      NaN (any case) is not measured. At least one of responses and counts is required. Absent, no
+      sample is measured: the bridge passes an all-missing matrix of the counts' shape.
+  - name: counts
+    type: path
+    required: false
+    unit: "trials (successes of trials)"
+    range: "each cell k/n, two whole numbers"
+    default: null
+    doc: >-
+      The counted samples (mzLib's BinomialCount): a TSV laid out as responses, each cell
+      successes/trials such as 3/8, or blank, NA or NaN for a sample not counted. When both tables
+      are given they must list exactly the same feature ids and sample columns, in any order (the
+      responses' order is kept), and a cell may be measured or counted, not both (mzLib's rule).
+      mzLib refuses a count with no trials, or more successes than trials. Absent, no sample is
+      counted, and the model is stats fit-mixed's.
+  - name: design
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stats fit's design table: one row per sample, the sample name (matching the fit's sample
+      columns exactly, rows matched by name) then one column per fixed-effect coefficient, every
+      cell a finite number. Include an intercept column if you want one; do not add a column per
+      group, which the random intercept replaces. mzLib refuses a design that is not of full column
+      rank over all samples.
+  - name: groups
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      stats fit-mixed's groups table: one row per sample, the sample name then EXACTLY ONE column,
+      the sample's group label (an animal, a donor, a dataset), whose header names the grouping.
+      The sample names must be exactly the fit's sample columns. Labels are trimmed and compared
+      exactly; mzLib refuses an empty one.
+  - name: link
+    type: string
+    required: true
+    unit: "natural log-odds"
+    range: "identity, or 2 to 4 comma-separated numbers: intercept,slope[,depth_slope[,overdispersion]]"
+    default: null
+    doc: >-
+      mzLib's DetectionLink: how the latent value sets the chance g that one trial of a counted
+      cell succeeds, logit g = intercept + slope x latent + depth_slope x depth, with trials in a
+      cell correlated by overdispersion (rho, a beta-binomial; 0 is the binomial). REQUIRED: mzLib's
+      link parameter has no default. identity is DetectionLink.Identity, (0, 1): a counted cell then
+      samples the same probability a measured one reads. Numbers are passed as the record's
+      positional arguments, so a depth_slope or overdispersion left out is the record's own default
+      (0 at cc67b7a2). stats fit-link fits one from cells. mzLib refuses a non-finite intercept or
+      depth slope, a slope that is 0 or not finite, and an overdispersion outside [0, 1).
+  - name: depth
+    type: path
+    required: false
+    unit: "depth units (the caller's, e.g. log2 target PSMs)"
+    range: null
+    default: null
+    doc: >-
+      A TSV with a header row and one row per sample: the sample name (exactly the fit's samples,
+      in any order), then one number, the sample's depth for the link's depth term. Needed when the
+      link's depth_slope is not 0 (mzLib refuses otherwise). Absent, the bridge passes none.
+  - name: residual-variance
+    type: path
+    required: false
+    unit: "squared latent units"
+    range: "each > 0 and finite, or blank to estimate"
+    default: null
+    doc: >-
+      A TSV with a header row and one row per feature: the feature id, then sigma^2 to use for it
+      instead of estimating it (e.g. borrowed when a feature has too few measured samples). A blank,
+      NA or NaN cell, or a feature not listed, is NaN, which mzLib reads as estimate it. An id that is
+      not one of the fit's features is refused. Absent, the bridge passes none and every sigma^2 is
+      estimated.
+  - name: stdin
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each a design column name, none repeated"
+    default: null
+    doc: >-
+      The coefficients to report, one design column name per line. The model always fits every
+      design column; the table holds one block of rows per coefficient named here, in this order.
+  - name: estimator
+    type: string
+    required: false
+    unit: null
+    range: "reml | ml"
+    default: null
+    doc: >-
+      reml is VarianceEstimator.Reml (the fixed effects integrated out by a Laplace approximation,
+      as glmmTMB's REML; exact when nothing is counted), ml is VarianceEstimator.MaximumLikelihood.
+      Absent, the bridge sends none and LogitNormalMixedModel.Fit's default applies (Reml at
+      cc67b7a2); the envelope's estimator says which was used.
+  - {name: threads, type: int, required: false, unit: threads, range: ">= 1, or -1 for every core", default: 1, doc: "Features fitted at once. The bridge default is 1 (BULK.md); mzLib's own default is -1. Results are identical at any value (mzLib)."}
+
+result:
+  envelope_fields:
+    - {wire: responses_file, type: string, unit: null, nullable: true, null_means: "no --responses: nothing was measured", doc: "Absolute path of the responses table."}
+    - {wire: counts_file, type: string, unit: null, nullable: true, null_means: "no --counts: nothing was counted", doc: "Absolute path of the counts table."}
+    - {wire: design_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the design table."}
+    - {wire: groups_file, type: string, unit: null, nullable: false, null_means: null, doc: "Absolute path of the groups table."}
+    - {wire: depth_file, type: string, unit: null, nullable: true, null_means: "no --depth was given", doc: "Absolute path of the depth table."}
+    - {wire: residual_variance_file, type: string, unit: null, nullable: true, null_means: "no --residual-variance: every sigma^2 was estimated", doc: "Absolute path of the residual-variance table."}
+    - {wire: grouping, type: string, unit: null, nullable: false, null_means: null, doc: "The groups file's label column header."}
+    - {wire: group_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The distinct labels, in order of first appearance over the samples (the order mzLib numbers them in)."}
+    - {wire: group_count, type: int, unit: groups, nullable: false, null_means: null, doc: "Distinct labels over all samples. A feature's own count is its groups column."}
+    - {wire: feature_count, type: int, unit: features, nullable: false, null_means: null, doc: "Feature rows read."}
+    - {wire: sample_count, type: int, unit: samples, nullable: false, null_means: null, doc: "Sample columns read."}
+    - {wire: sample_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "In the responses header's order (the counts header's, with counts alone): the order the design, group and depth rows were put in."}
+    - {wire: coefficient_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Every design column, in order."}
+    - {wire: tested_coefficients, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The stdin coefficients, in order; the table holds one block of feature_count rows per entry."}
+    - {wire: estimator, type: string, unit: null, nullable: false, null_means: null, doc: "reml or ml: the estimator mzLib reports it fitted with (LogitNormalMixedModelFit.Estimator), the default when --estimator was absent."}
+    - {wire: link, type: object, unit: null, nullable: false, null_means: null, doc: "The link every count cell was read through, as mzLib reports it (LogitNormalMixedModelFit.Link); fields under result.tables.link."}
+    - {wire: threads, type: int, unit: threads, nullable: false, null_means: null, doc: "The thread count used."}
+    - {wire: measured_cells, type: int, unit: cells, nullable: false, null_means: null, doc: "Feature x sample cells with a finite response."}
+    - {wire: counted_cells, type: int, unit: cells, nullable: false, null_means: null, doc: "Feature x sample cells with a count."}
+    - {wire: missing_count, type: int, unit: cells, nullable: false, null_means: null, doc: "Cells with neither a response nor a count, left out of their feature's fit."}
+    - {wire: status_counts, type: "map<string,int>", unit: features, nullable: false, null_means: null, doc: "Features per status, always these six keys: fitted, too_few_observations, rank_deficient, separated, not_converged, too_few_groups. They are the outcomes LogitNormalMixedModel.Fit's body can return at cc67b7a2; a stop-gap until mzLib says per model (mzLib#1487)."}
+    - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "feature_count x the number of tested coefficients."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per (tested coefficient, feature): coefficient blocks in stdin order, features in file order."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Seven static caveats (one names the link used, one the estimator), plus one each, with counts, when any feature was not fitted, when a fitted row has no df, when a fitted feature's group_variance is 0, when any residual variance was given, and when nothing was counted."}
+  tables:
+    link:
+      - {wire: intercept, type: float, unit: "natural log-odds", nullable: false, null_means: null, doc: "a: the per-trial log-odds at latent 0 and depth 0."}
+      - {wire: slope, type: float, unit: "natural log-odds per latent unit", nullable: false, null_means: null, doc: "b: how fast the per-trial log-odds follow the latent; 1 for the identity link, below 1 when the chance of a success rises more slowly than the latent."}
+      - {wire: depth_slope, type: float, unit: "natural log-odds per depth unit", nullable: false, null_means: null, doc: "c: the depth term's coefficient; 0 when the link has none."}
+      - {wire: overdispersion, type: float, unit: "fraction (intra-cell correlation, 0 to < 1)", nullable: false, null_means: null, doc: "rho, the correlation of trials within one cell (beta-binomial); 0 is the binomial."}
+  columns:
+    - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the first column."}
+    - {wire: coefficient, type: string, unit: null, nullable: false, null_means: null, doc: "The coefficient this row reports."}
+    - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "fitted | too_few_observations (no more samples with a response of either kind than coefficients) | rank_deficient (the design over those samples is not of full rank) | separated (no estimate exists: a coefficient beyond +-SeparationLimit, 30 at cc67b7a2, on the latent scale, a Hessian that is not positive definite, or nothing measured and every group's counts one-sided, all 0 or all full) | not_converged (the variance search failed, or the likelihood could not be evaluated at its optimum) | too_few_groups (fewer than two groups, or none with two samples). Only fitted rows carry statistics."}
+    - {wire: estimate, type: float, unit: "latent units per coefficient unit (natural log-odds for a logit latent)", nullable: true, null_means: "status is not fitted", doc: "The fixed-effect coefficient at the estimated variances: the effect within groups, on the latent scale."}
+    - {wire: standard_error, type: float, unit: "latent units per coefficient unit", nullable: true, null_means: "not fitted", doc: "sqrt of the diagonal of H^-1, H = -d2 l / d beta2 at the estimate (l the log-likelihood with the random effects integrated out). With nothing counted, (X' V^-1 X)^-1 as stats fit-mixed reports under reml."}
+    - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted, or the containment df is not positive (a group-level coefficient with too few groups)", doc: "Denominator df of the t test, by nlme's containment rule over the samples with a response of either kind, a whole number."}
+    - {wire: t, type: float, unit: "standard errors", nullable: true, null_means: "not fitted", doc: "Wald statistic, estimate / standard_error. Reported even when df is null."}
+    - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted, or df is null", doc: "Two-sided p-value of the t test on df. Not adjusted across features."}
+    - {wire: residual_variance, type: float, unit: "squared latent units", nullable: true, null_means: "not fitted", doc: "sigma^2, the run-to-run variance of the latent within a group: estimated, or the value given (residual_variance_given). The same in every coefficient block."}
+    - {wire: residual_variance_given, type: bool, unit: null, nullable: false, null_means: null, doc: "True when residual_variance is the value the --residual-variance file gave, not an estimate. Reported whatever the status."}
+    - {wire: group_variance, type: float, unit: "squared latent units", nullable: true, null_means: "not fitted", doc: "tau^2, the between-group variance of the random intercept. 0 is the boundary estimate. The same in every coefficient block."}
+    - {wire: log_likelihood, type: float, unit: "log-likelihood (natural log)", nullable: true, null_means: "not fitted", doc: "The maximized log-likelihood: under reml the Laplace-approximated restricted likelihood (exactly the restricted likelihood when nothing is counted), under ml the full one. The same in every coefficient block."}
+    - {wire: measured, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a finite response for this feature."}
+    - {wire: counted, type: int, unit: samples, nullable: false, null_means: null, doc: "Samples with a count for this feature."}
+    - {wire: groups, type: int, unit: groups, nullable: false, null_means: null, doc: "Distinct groups among this feature's samples with a response of either kind."}
+
+errors:
+  - {kind: usage, when: "neither --responses nor --counts; design, groups or link missing; a file given without a value or not found; a table empty, header-only or with too few columns; a row whose field count differs from its header; an empty or repeated feature id, sample or coefficient name; a response cell that is not a number (other than blank, NA, NaN); a count cell that is not two whole numbers k/n; a design cell that is not a finite number"}
+  - {kind: usage, when: "the counts' features or samples are not exactly the responses' (each difference named); the design's, the groups' or the depth file's samples are not exactly the fit's; the groups or depth file with other than two columns; a depth that is not a number; a residual-variance id that is not a feature, or a value that is not a number; no coefficient on stdin, one named twice, or one not in the design; --link not identity or 2 to 4 numbers; --estimator other than reml or ml; --threads 0 or below -1"}
+  - {kind: usage, when: "mzLib refuses the input (its ArgumentException, reclassified): a cell both measured and counted, or a count with no trials or more successes than trials, named by 0-based position and then by feature and sample name; a link with a slope of 0, a non-finite value or overdispersion outside [0, 1); a link with a depth term and no --depth; a depth that is not finite; a given residual variance that is not positive and finite; a design not of full column rank; an empty group label"}
+  - {kind: correctness, when: "never expected"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A random intercept per group on a latent scale: a measured sample reads the latent; a counted sample has k of n trials succeed with logit g = intercept + slope x latent + depth_slope x depth, binomially or beta-binomially. No random slopes, nested or crossed groupings."
+  - "Responses and estimates are on the latent scale (natural log-odds for a logit latent), not fractions or intensities. Which cells are counted, and the link, are the caller's modelling choices; the bridge builds neither (stats fit-link fits a link)."
+  - "Counted samples are integrated by adaptive Gauss-Hermite quadrature (40 nodes over the group intercept, 12 over each count's residual), measured ones exactly. mzLib agrees with lme4's glmer (nAGQ 25, ML) to about 1e-6, with lmer to about 1e-5 when nothing is counted, and with glmmTMB to its Laplace error (about 1% in tau^2 and standard errors, 5% in sigma^2) when sigma^2 is estimated from counts alone (ReferenceComparisonLogitNormalTests)."
+  - "Fixed effects are tested by Wald t on nlme's containment df, over samples with a response of either kind. standard_error is at the estimated variances and does not include their uncertainty, so it is not glmmTMB's vcov()."
+  - "Under reml the fixed effects are integrated out by a Laplace approximation (glmmTMB's REML = TRUE); it is exact when nothing is counted. Under REML glmmTMB reports beta as the joint mode of (beta, u), so compare its estimates with this verb's ml ones only."
+  - "With nothing counted the model is stats fit-mixed's, fitted by a different optimiser: under reml the numbers agree with fit-mixed's to about 1e-5; under ml estimates and variances agree, but standard errors are at the ML variances, where fit-mixed's scale by RSS / (observed - coefficients) as nlme's summary does."
+  - "separated is a status, never a p-value: the counts are (quasi-)completely separated by the design and the estimate runs to infinity."
+  - "p_value is not adjusted across features. Send one coefficient's p_value column to stats adjust for Benjamini-Hochberg."
+
+bindings:
+  py: {name: pymzlib.stats.fit_latent_mixed}
+  rust: {name: "mzlib::stats::fit_latent_mixed_with", options: FitLatentMixedOptions, note: "not yet ported"}
+  r: {name: stats_fit_latent_mixed, note: "not yet ported"}
+
+examples:
+  - fixture: stats_fit_latent_mixed_scatter.json
+    py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', ['Intercept', 'trait', 'x'], link='identity', counts='lnmm_scatter_counts.tsv')"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], \"identity\", &FitLatentMixedOptions { counts: Some(\"lnmm_scatter_counts.tsv\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', c('Intercept', 'trait', 'x'), link = 'identity', counts = 'lnmm_scatter_counts.tsv')"
+  - fixture: stats_fit_latent_mixed_link_ml.json
+    py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', ['Intercept', 'trait', 'x'], link=(-0.4, 0.6, 0.3), counts='lnmm_link_counts.tsv', depth='lnmm_link_depth.tsv', residual_variance='lnmm_link_residual_variance.tsv', estimator='ml')"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], \"-0.4,0.6,0.3\", &FitLatentMixedOptions { counts: Some(\"lnmm_link_counts.tsv\".into()), depth: Some(\"lnmm_link_depth.tsv\".into()), residual_variance: Some(\"lnmm_link_residual_variance.tsv\".into()), estimator: Some(\"ml\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', c('Intercept', 'trait', 'x'), link = c(-0.4, 0.6, 0.3), counts = 'lnmm_link_counts.tsv', depth = 'lnmm_link_depth.tsv', residual_variance = 'lnmm_link_residual_variance.tsv', estimator = 'ml')"
+  - fixture: stats_fit_latent_mixed_simulated.json
+    py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_simulated_design.tsv', 'lnmm_simulated_groups.tsv', ['Intercept', 'trait'], link=(0.4, 0.6), responses='lnmm_simulated_responses.tsv', counts='lnmm_simulated_counts.tsv')"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_simulated_design.tsv\", \"lnmm_simulated_groups.tsv\", &[\"Intercept\", \"trait\"], \"0.4,0.6\", &FitLatentMixedOptions { responses: Some(\"lnmm_simulated_responses.tsv\".into()), counts: Some(\"lnmm_simulated_counts.tsv\".into()), ..Default::default() })?;"
+    r: "fit <- stats_fit_latent_mixed('lnmm_simulated_design.tsv', 'lnmm_simulated_groups.tsv', c('Intercept', 'trait'), link = c(0.4, 0.6), responses = 'lnmm_simulated_responses.tsv', counts = 'lnmm_simulated_counts.tsv')"
+
+open_questions: []

@@ -2,7 +2,7 @@
  "bridge": "1.0.0.0",
  "protocol": 1,
  "runtime": "10.0.10",
- "mzlib": "1.0.0+d10017ce499600a338bc7ba447db7cfb6ffce790",
+ "mzlib": "1.0.0+cc67b7a29a760149efd5c0473ac6d3ad542c0a21",
  "verbs": [
   "version",
   "pride files",
@@ -51,6 +51,8 @@
   "stats correlate",
   "stats fit-logistic",
   "stats fit-mixed",
+  "stats fit-latent-mixed",
+  "stats fit-link",
   "stats entrapment-fdp",
   "diff design",
   "diff observations",

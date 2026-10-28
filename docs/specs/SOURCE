@@ -1,8 +1,8 @@
 # Written by scripts/sync_specs.py. Do not edit; re-run the script.
 repository: trishorts/bridge (private)
 path: design/verbs
-commit: 64f67f9692bc9a5357db7e356a05f210ef98ec51
-uncommitted_changes: no
+commit: b2de01ca2fe5c7d914d9b9922f23f4564c44f6ae
+uncommitted_changes: yes
 synced: 2026-10-28
-specs: 53
-not_vendored: modifications.resolve.yaml
+specs: 55
+not_vendored: genes.map-residues.yaml, library.calibrate-rt.yaml, modifications.resolve.yaml

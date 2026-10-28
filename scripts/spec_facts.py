@@ -206,6 +206,9 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     "stats fit-mixed": {
         "param.stdin": {"python": "coefficients", "why": "one stdin line per coefficient to report"},
     },
+    "stats fit-latent-mixed": {
+        "param.stdin": {"python": "coefficients", "why": "one stdin line per coefficient to report"},
+    },
     # The model's terms are keyword lists in Python, mzLib's FactorSpec and CovariateSpec, and
     # pyMzLib writes one stdin line per term; the runs likewise, one line per ObservationRun.
     "diff design": {

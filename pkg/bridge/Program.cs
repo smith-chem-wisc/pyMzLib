@@ -308,6 +308,8 @@ public static partial class Program
             "stats correlate" => Statistics.Correlate(arguments),
             "stats fit-logistic" => Statistics.FitLogistic(arguments),
             "stats fit-mixed" => Statistics.FitMixed(arguments),
+            "stats fit-latent-mixed" => Statistics.FitLatentMixed(arguments),
+            "stats fit-link" => Statistics.FitLink(arguments),
             "stats entrapment-fdp" => Statistics.Entrapment(arguments),
             "diff design" => Differential.Design(arguments),
             "diff observations" => Differential.Observations(arguments),
