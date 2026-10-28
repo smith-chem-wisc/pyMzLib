@@ -1,0 +1,20 @@
+{
+ "cells_file": "F:\\ClaudeTestBuilds\\pymzlib-latent\\pkg\\python\\tests\\fixtures\\stats\\link_cells.tsv",
+ "cell_count": 4000,
+ "depth_given": true,
+ "with_depth": true,
+ "with_overdispersion": false,
+ "detection_only": true,
+ "link": {
+  "intercept": -0.5107972106235301,
+  "slope": 0.5064717345946929,
+  "depth_slope": 0.33129825713796535,
+  "overdispersion": 0
+ },
+ "caveats": [
+  "Maximum likelihood over the cells: each cell's probability integrated over its latent normal (latent_mean, latent_sd) by 12-node adaptive Gauss-Hermite quadrature, summed over cells, maximized by Nelder-Mead. mzLib returns the point estimate only: no standard errors.",
+  "detection_only: fitted on whether any trial succeeded (successes 0 against 1 or more), not on how many. mzLib's documentation: on PTM data, a link fitted on the full counts predicts covered-zeros worse.",
+  "The link is in natural log-odds: logit g = intercept + slope x latent + depth_slope x depth. Pass it to stats fit-latent-mixed --link. Which cells, and each cell's latent mean and SD (e.g. the mean and SD of its feature's measured cells), are the caller's modelling choices, not the bridge's.",
+  "overdispersion was not fitted, so it is 0: the trials of a cell are binomial."
+ ]
+}

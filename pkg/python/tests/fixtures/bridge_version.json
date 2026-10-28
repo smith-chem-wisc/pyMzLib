@@ -53,6 +53,8 @@
   "stats correlate",
   "stats fit-logistic",
   "stats fit-mixed",
+  "stats fit-latent-mixed",
+  "stats fit-link",
   "stats entrapment-fdp",
   "diff design",
   "diff observations",

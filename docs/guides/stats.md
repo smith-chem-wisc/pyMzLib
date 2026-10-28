@@ -24,14 +24,18 @@ files pyMzLib ships in `pkg/python/tests/fixtures/stats/`.
 | Which features rise or fall with a per-sample trait (age, dose, load)? | [`stats.correlate`][pymzlib.stats.correlate] | `SpearmanCorrelation.Correlate` / `.PartialCorrelate` | Spearman 1904, as R's `cor.test`; partial as ppcor `pcor.test` |
 | Does a feature's detection (or any 0/1 outcome) follow a coefficient? | [`stats.fit_logistic`][pymzlib.stats.fit_logistic] | `LogisticRegression.Fit` | logistic regression by IRLS, as R's `glm(family = binomial)` |
 | Which features change, when the samples come in groups (days, donors, studies)? | [`stats.fit_mixed`][pymzlib.stats.fit_mixed] | `MixedModel.Fit` | random-intercept mixed model, as `nlme::lme` with one random intercept per group |
+| The same on a latent scale (logit occupancy), when some runs are only counted (k of n)? | [`stats.fit_latent_mixed`][pymzlib.stats.fit_latent_mixed] | `LogitNormalMixedModel.Fit` | binomial mixed model through a link, as `lme4::glmer` and `lmer` |
+| How does a count's chance of success follow the latent value? | [`stats.fit_link`][pymzlib.stats.fit_link] | `LogitNormalMixedModel.FitLink` | maximum likelihood over cells, by Nelder-Mead |
 | Does my search really control its FDR? | [`stats.entrapment_fdp`][pymzlib.stats.entrapment_fdp] | `EntrapmentFdp.Sweep` | entrapment FDP estimates, Wen et al. 2025, as FDRBench |
 
 `fit` already adjusts its own p-values, so you need `adjust` only for p-values from somewhere else,
 and `meta` only when you have one estimate per study and want them combined. `combine_p` is for
 when you have only p-values (and the direction of each effect), and `correlate` for a trait measured
 on a scale rather than in groups. `fit_logistic` models a yes/no outcome, such as whether a protein
-was detected; `fit_mixed` is `fit` for samples that share a baseline within groups; and
-`entrapment_fdp` checks a search's identifications rather than its quantities.
+was detected; `fit_mixed` is `fit` for samples that share a baseline within groups;
+`fit_latent_mixed` is `fit_mixed` on a latent scale when some samples are only counted, with
+`fit_link` to fit how the counts follow that scale; and `entrapment_fdp` checks a search's
+identifications rather than its quantities.
 
 ## 1. Check it against limma
 
@@ -857,7 +861,178 @@ Before you trust a mixed model:
   feature is the usual case. Check `residual_variance` before you believe a tiny p-value.
 - **Not adjusted across features.** As everywhere on this page, send `p_value` to `adjust`.
 
-## 11. Does a search really control its FDR?
+## 11. When some samples are only counted
+
+| You want to know | Call | mzLib computes it with |
+|---|---|---|
+| Does a value follow a trait, when some runs measured it and others only counted successes (k of n)? | [`stats.fit_latent_mixed`][pymzlib.stats.fit_latent_mixed] | `LogitNormalMixedModel.Fit`, a `LogitNormalMixedModelFit` |
+| How does a count's chance of success follow the value (the link)? | [`stats.fit_link`][pymzlib.stats.fit_link] | `LogitNormalMixedModel.FitLink`, a `DetectionLink` |
+
+Some quantities are measured in some runs and only counted in others. A PTM site's occupancy is
+the usual case: where the modified and unmodified peptides were both quantified, you have a
+number; where they were not, you may know only that 3 of 8 covering peptidoforms carried the
+modification. `fit_mixed` has to drop the counted runs. `fit_latent_mixed` uses both kinds.
+
+It models a **latent** value per run, such as the log-odds of the site's occupancy, with
+`fit_mixed`'s structure: fixed effects from your design, a random intercept per group (an animal,
+a donor), and run-to-run scatter. A measured run reads the latent value. A counted run has k of
+its n trials succeed, each with a chance g set by the latent value through a **link**:
+logit g = intercept + slope x latent + depth_slope x depth. With the identity link (0, 1), a count
+samples the same probability a measurement reads. The model is a binomial generalized linear
+mixed model (Breslow and Clayton 1993), the kind R users fit with `lme4::glmer` (Bates et al.
+2015).
+
+**You choose which cells are counted, and the link.** pyMzLib builds neither. mzLib's PTM-QTL code
+does not yet do it either, so the counts table is yours to write.
+
+mzLib's own test of this model simulates 16 animals of 4 runs each, with a trait that is 0 or 1
+per animal and a true trait effect of 1.0 on the latent scale. Every other run is measured; the
+rest are counted, 5 trials each, through the link (0.4, 0.6). pyMzLib ships three of those
+simulations, one per feature. The counts table has the responses table's layout, each cell
+`successes/trials`:
+
+```pycon
+>>> with open("lnmm_simulated_counts.tsv") as fh:
+...     header, *rows = [line.rstrip("\n").split("\t") for line in fh]
+>>> header[:5], rows[0][:5]
+(['feature', 's1', 's2', 's3', 's4'], ['seed1', '', '3/5', '', '2/5'])
+>>> latent = pymzlib.stats.fit_latent_mixed(
+...     "lnmm_simulated_design.tsv", "lnmm_simulated_groups.tsv", ["Intercept", "trait"],
+...     link=(0.4, 0.6), responses="lnmm_simulated_responses.tsv",
+...     counts="lnmm_simulated_counts.tsv")
+>>> latent.measured_cells, latent.counted_cells, latent.estimator
+(96, 96, 'reml')
+>>> latent.link
+DetectionLink(intercept=0.4, slope=0.6, depth_slope=0.0, overdispersion=0.0)
+
+```
+
+`link` echoes what mzLib used. The depth slope and overdispersion were not given, so they are
+mzLib's defaults. Now fit the measured runs alone with `fit_mixed`, and compare:
+
+```pycon
+>>> measured = pymzlib.stats.fit_mixed("lnmm_simulated_responses.tsv", "lnmm_simulated_design.tsv",
+...                                    "lnmm_simulated_groups.tsv", ["Intercept", "trait"])
+>>> for ours, theirs in zip(latent.rows("trait"), measured.rows("trait")):
+...     print(f"{ours['feature']}  fit_latent_mixed {ours['estimate']:+.2f} +- {ours['standard_error']:.2f}"
+...           f" ({ours['measured']} + {ours['counted']} runs)   fit_mixed {theirs['estimate']:+.2f}"
+...           f" +- {theirs['standard_error']:.2f} ({theirs['observed']} runs)")
+seed1  fit_latent_mixed +1.61 +- 0.33 (32 + 32 runs)   fit_mixed +1.63 +- 0.33 (32 runs)
+seed2  fit_latent_mixed +0.73 +- 0.26 (32 + 32 runs)   fit_mixed +0.77 +- 0.27 (32 runs)
+seed3  fit_latent_mixed +1.26 +- 0.28 (32 + 32 runs)   fit_mixed +1.36 +- 0.28 (32 runs)
+>>> [r["df"] for r in latent.rows("Intercept")], [r["df"] for r in measured.rows("Intercept")]
+([48, 48, 48], [16, 16, 16])
+
+```
+
+Every trait estimate is within 2 standard errors of the true 1.0 (mzLib's own test asks for 3):
+
+```pycon
+>>> all(abs(r["estimate"] - 1.0) < 2 * r["standard_error"] for r in latent.rows("trait"))
+True
+
+```
+
+**The counted runs barely shrink the trait's standard error, and that is
+correct.** The trait is constant within each animal, so it is tested between animals, on 16
+animals minus 2 coefficients, 14 df in both fits. More runs per animal sharpen each animal's
+baseline, but the number of animals limits how sure you can be about the trait. Effects that vary
+within animals gain more: the intercept is tested on 48 df with the counts, against 16 without.
+
+What each row says, beyond `fit_mixed`'s columns:
+
+- `estimate` and `standard_error` are on the **latent** scale: natural log-odds here, so
+  `exp(estimate)` is an odds ratio of occupancy.
+- `measured` and `counted` are the runs of each kind the feature contributed. `df` counts both.
+- `residual_variance_given` is `True` when sigma² came from your `residual_variance=` table rather
+  than the fit. Give it for a feature with too few measured runs to estimate its scatter.
+- `status` can be `separated`: the counts are split by the design (every run of one group all 0,
+  of another all full), so the estimate runs to infinity. You get the status, never a p-value.
+
+**Check it against lme4 and glmmTMB.** mzLib's reference input is 16 simulated features over 23
+runs in 8 animals, every run counted, through the link (-0.4, 0.6, 0.3) with a depth term, and
+R's `glmer` fit of each with 25-point adaptive quadrature. Those fits have no run-to-run scatter,
+so each feature is given mzLib's tiny sigma² of 2e-7, as mzLib's own comparison does:
+
+```pycon
+>>> counted = pymzlib.stats.fit_latent_mixed(
+...     "lnmm_reference_design.tsv", "lnmm_reference_groups.tsv", ["Intercept", "trait", "x"],
+...     link=(-0.4, 0.6, 0.3), counts="lnmm_link_counts.tsv", depth="lnmm_link_depth.tsv",
+...     residual_variance="lnmm_link_residual_variance.tsv", estimator="ml")
+>>> with open("lnmm_counted_fit.tsv", newline="") as fh:
+...     glmer = [r for r in csv.DictReader(fh, delimiter="\t")
+...              if r["link"] == "link" and r["method"] == "ML"]
+>>> for coefficient, j in [("Intercept", 0), ("trait", 1), ("x", 2)]:
+...     worst = max(abs(ours["estimate"] - float(r[f"b{j}"])) / float(r[f"se{j}"])
+...                 for ours, r in zip(counted.rows(coefficient), glmer) if r["status"] == "fitted")
+...     print(coefficient, worst < 1e-5)
+Intercept True
+trait True
+x True
+
+```
+
+Every estimate is within 1e-5 of glmer's standard error from glmer's own. With run-to-run scatter
+estimated from counts alone, the reference is `glmmTMB` (Brooks et al. 2017), which integrates by
+a Laplace approximation where mzLib uses quadrature, so they agree to about 1%:
+
+```pycon
+>>> scatter = pymzlib.stats.fit_latent_mixed(
+...     "lnmm_reference_design.tsv", "lnmm_reference_groups.tsv", ["Intercept", "trait", "x"],
+...     link="identity", counts="lnmm_scatter_counts.tsv")
+>>> with open("lnmm_scatter_fit.tsv", newline="") as fh:
+...     tmb = [r for r in csv.DictReader(fh, delimiter="\t") if r["method"] == "REML"]
+>>> max(abs(ours["group_variance"] - float(r["tau2"])) / float(r["tau2"])
+...     for ours, r in zip(scatter.rows("trait"), tmb)) < 0.03
+True
+>>> max(abs(ours["standard_error"] - float(r["se1"])) / float(r["se1"])
+...     for ours, r in zip(scatter.rows("trait"), tmb)) < 0.03
+True
+
+```
+
+### Fitting the link
+
+The identity link says a count samples the very probability a measurement reads. Often it does
+not: whether a modified form is seen at all depends on how much of it there is, not only on its
+share. `fit_link` fits the link from **cells**: each with a count and the normal its latent value
+is taken to sit at (a mean and an SD, such as its feature's mean and SD over the measured runs,
+mzLib's own suggestion). By default it fits on **detection**: whether any trial succeeded, the
+event that makes a covered zero.
+
+mzLib's own test of `FitLink` simulates 4,000 cells through the link (-0.5, 0.5, 0.3) with a depth
+term, and pyMzLib ships them:
+
+```pycon
+>>> link = pymzlib.stats.fit_link("link_cells.tsv", with_depth=True)
+>>> link.cell_count, link.with_depth, link.with_overdispersion, link.detection_only
+(4000, True, False, True)
+>>> round(link.link.intercept, 2), round(link.link.slope, 2), round(link.link.depth_slope, 2)
+(-0.51, 0.51, 0.33)
+
+```
+
+The link is recovered from detection alone. `with_overdispersion` and `detection_only` were left
+out, so they are mzLib's defaults, which the result reports. `fit_link`'s result goes straight
+into `fit_latent_mixed(..., link=...)`.
+
+Before you trust a latent-scale mixed model:
+
+- **The inputs are on the latent scale.** Send logit occupancy, not a fraction or an intensity.
+- **The link is a modelling choice.** The identity link assumes a count samples the latent value
+  itself; a fitted one depends on the cells you chose.
+- **Standard errors are at the estimated variances.** They do not include those variances' own
+  uncertainty, so they are not `glmmTMB`'s `vcov()`.
+- **Under `"reml"`, the fixed effects are integrated out by a Laplace approximation,** as
+  `glmmTMB`'s `REML = TRUE` does. With nothing counted it is exactly `fit_mixed`'s REML, and the
+  two agree to about 1e-5. Under `"ml"`, estimates and variances agree with `fit_mixed`'s, but its
+  standard errors are scaled differently.
+- **The integrals are adaptive Gauss-Hermite quadrature** (Liu and Pierce 1994): 40 nodes over
+  each animal's baseline, 12 over each count's run scatter, as `glmer`'s `nAGQ`. The source is
+  `mzLib/StatisticalModels/LogitNormalMixedModel.cs` (mzLib#1469).
+- **Not adjusted across features.** Send `p_value` to `adjust`.
+
+## 12. Does a search really control its FDR?
 
 A search engine reports q-values, and a 1% threshold should mean that about 1% of the discoveries
 are false. **Entrapment** checks that claim. Peptides that cannot be in the sample, from another
@@ -957,6 +1132,8 @@ Before you trust an entrapment estimate:
 - **`fit_logistic` has no Firth correction and no likelihood-ratio test**, so a separated feature
   gets no estimate. **`fit_mixed` has one random intercept** and nlme's containment df: no random
   slopes, no Satterthwaite or Kenward-Roger. Neither adjusts across features.
+- **`fit_latent_mixed` does not build the counts or choose the link.** Which cells are counted,
+  and the link, are yours; `fit_link` returns a point estimate with no standard errors.
 - **`entrapment_fdp` estimates; it does not build the entrapment database** or decide which
   generator exclusions apply. It has no "sample" estimator and no k-fold paired estimator.
 - **pyMzLib does no arithmetic.** Every number on this page came from mzLib's

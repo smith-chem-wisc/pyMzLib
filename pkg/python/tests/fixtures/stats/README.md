@@ -30,10 +30,20 @@ PYMZLIB_REGENERATE_STATS_FIXTURES=1 dotnet test pkg/bridge.tests --filter "Fully
 | `malat_dilution_day.tsv` | One row per run of the dilution series: `day`, the acquisition date its name begins with (`2026_09_18`, ...). The groups `stats.fit_mixed` reads. | same |
 | `entrapment_reference_targets.tsv`, `entrapment_reference_entrapments.tsv` | mzLib's hand-built entrapment search (`Test/StatisticalModels/EntrapmentFdpTests.cs`: seven targets, four entrapments), read out of the test source, with each entrapment's partner written as its target's score and q-value. Constructed numbers, not a real search. | `EntrapmentFixtures_AreMzLibsReferenceSearch` |
 | `entrapment_reference_r1.tsv` | The entrapment project's reference script (`fdp_analysis.py` at 92f3108) output for that search at r = 1, as mzLib's test carries it, to five decimals. | same |
+| `lnmm_reference_design.tsv`, `lnmm_reference_groups.tsv` | mzLib's `lnmm_design.tsv` (Intercept, a 0/1 `trait` constant within each animal, a covariate `x`) and `lnmm_groups.tsv` (eight animals of 2 to 4 runs), with the sample names `V1`..`V23` of the counts' header added. Cells verbatim. | `LatentMixedFixtures_AreMzLibsLnmmReference` |
+| `lnmm_scatter_counts.tsv` | mzLib's `lnmm_scatter_successes.tsv` and `lnmm_scatter_trials.tsv` (20 simulated features, every sample counted with 20 to 40 trials, with run scatter), joined as `successes/trials` per cell, blank where both are NaN; feature ids `f1`.. added. | same |
+| `lnmm_scatter_fit.tsv` | glmmTMB 1.1.15.2's REML and ML fits of that input (an observation-level random intercept for the run scatter), verbatim. | same |
+| `lnmm_link_counts.tsv`, `lnmm_link_depth.tsv` | mzLib's `lnmm_counted_link_*.tsv` (16 simulated features, every sample counted, through the link -0.4, 0.6, 0.3) joined as `successes/trials`, and `lnmm_counted_depth.tsv` with the sample names added. | same |
+| `lnmm_link_residual_variance.tsv` | sigma² = 2e-7 for each of those features: mzLib's `TinyResidualVariance`, which its glmer comparison gives because glmer fits no run scatter. | same |
+| `lnmm_counted_fit.tsv` | lme4 2.0.6's `glmer` fits of the counted inputs (25-point adaptive quadrature; ML, and REML by a Laplace step), verbatim. | same |
+| `lnmm_PROVENANCE.txt` | mzLib's `PROVENANCE_lnmm.txt`, verbatim: the R, lme4, glmmTMB and TMB versions and the seed behind every `lnmm_` reference file. | same |
+| `lnmm_simulated_responses.tsv`, `lnmm_simulated_counts.tsv`, `lnmm_simulated_design.tsv`, `lnmm_simulated_groups.tsv` | mzLib's measured-and-counted simulation (`LogitNormalMixedModelTests.Simulated`, seeds 1, 2 and 3, one feature each): 16 animals of 4 runs, a true trait effect of 1.0 on the latent scale, every other run measured and the rest counted, 5 trials each, through the link (0.4, 0.6). Values written round-trip. Held to 1e-12 relative, not byte for byte: the normal draws' last digits differ between platforms' math libraries. | same |
+| `link_cells.tsv` | mzLib's `FitLink` test cells (`LogitNormalMixedModelTests.LinkCells`, the link -0.5, 0.5, 0.3, 4,000 cells, seed 5), values written round-trip. Held to 1e-12 relative, not byte for byte: the normal draws' last digits differ between platforms' math libraries. | same |
 
 The recorded bridge payloads that answer these calls in the examples are one folder up:
 `stats_fit_malat.json`, `stats_fit_malat_marginal.json` (`estimator="marginal_likelihood"`),
 `stats_fit_malat_contrasts.json` (every pair of loads, from `diff design`), `stats_fit_limma.json`,
 `stats_adjust.json`, `stats_meta_metafor.json`,
 `stats_combine_p_*.json`, `stats_correlate_*.json`, `stats_fit_logistic_*.json`,
-`stats_fit_mixed_*.json` and `stats_entrapment_fdp_*.json`.
+`stats_fit_mixed_*.json`, `stats_fit_latent_mixed_*.json`, `stats_fit_link_simulated.json` and
+`stats_entrapment_fdp_*.json`.

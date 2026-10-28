@@ -7,6 +7,17 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **`stats.fit_latent_mixed()`: a random-intercept mixed model on a latent scale, from samples that
+  are measured on it, counted through it (k of n trials), or both** (mzLib#1469). A PTM site's
+  occupancy is the usual case: quantified in some runs, and in others known only as how many
+  covering peptidoforms carried the modification. `fit_mixed()` has to drop the counted runs; this
+  uses them, read through a detection link you choose (`link="identity"`, a tuple, or
+  `fit_link()`'s result). Rows add `measured`, `counted` and `residual_variance_given`, and
+  `separated` is a status, never a p-value. mzLib holds it to lme4's `glmer` and `lmer` and to
+  `glmmTMB`. A call of its own, so `fit_mixed()`'s answer does not change.
+- **`stats.fit_link()`: fit that detection link** from cells with a latent mean and SD and a count,
+  on detection (any success or none) by default, optionally with a depth term and overdispersion
+  (mzLib#1469).
 - **`ptmqtl.pairs(include_bounds=True)`** lets a run where a site was seen in only one form into
   co-varying pairs as a tied bound, never an invented value: a covered-zero or floor ranks below
   every fraction, a ceiling above (mzLib#1468). A site often below detection can then be tested at

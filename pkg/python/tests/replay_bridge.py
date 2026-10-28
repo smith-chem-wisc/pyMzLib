@@ -25,6 +25,8 @@ recorded for different arguments:
   be given by the call exactly when the recording used one;
 * an option in ``NESTED_ECHOES`` (echoed inside an object, as stats fit's ``prior.estimator``) must
   equal that echo when the call sends it;
+* ``--link`` (stats fit-latent-mixed) must give the numbers of the recording's ``link`` echo, and
+  ``--with-depth true`` (a ``true``/``false`` option) must equal its boolean echo;
 * a recording with a key in ``GIVEN_ECHOES`` (``thresholds_given``) fits only a call that sends
   its option exactly when that key is true, and a numeric echo matches a call's option by value
   (``--ratio 1.0`` fits a recorded ``ratio`` of 1);
@@ -97,6 +99,9 @@ RECORDED_WITH = {
     "library_read_fragments.json": {"fragments": True},
     "library_read_index_only.json": {"index-only-threshold": "0"},
     "stats_fit_mixed_lmm_ml.json": {"estimator": "ml"},
+    "stats_fit_latent_mixed_link_ml.json": {"estimator": "ml"},
+    # stats fit-link echoes the value it passed, which is mzLib's default when the option was absent.
+    "stats_fit_link_simulated.json": {"with-depth": "true"},
     "stats_fit_malat_marginal.json": {"estimator": "marginal_likelihood"},
     "diff_observations_spike_in_normalized.json": {"min-peptides": "50", "normalize": True},
     # ptmqtl: a flag or an option left out takes mzLib's default, which the echo cannot tell apart.
@@ -116,9 +121,11 @@ RECORDED_WITH = {
 
 #: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
 #: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples,
-#: --run-level-groups and --run-covariate, stats fit --contrasts). A recording made with one answers
-#: only a call that gives one, and the reverse, or a plain correlation could print a partial one.
-OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "run-covariate", "contrasts")
+#: --run-level-groups and --run-covariate, stats fit --contrasts, stats fit-latent-mixed --responses,
+#: --counts, --depth and --residual-variance). A recording made with one answers only a call that
+#: gives one, and the reverse, or a plain correlation could print a partial one.
+OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "run-covariate", "contrasts",
+                  "responses", "counts", "depth", "residual-variance")
 
 
 #: Options a verb echoes inside an object rather than at the top level (stats fit --estimator as
@@ -149,8 +156,29 @@ def same_number(recorded: object, value: str) -> bool:
         return False
 
 
+def link_mismatch(echo: dict, sent: str) -> str:
+    """stats fit-latent-mixed --link against the recording's link echo: ``identity`` is (0, 1), and
+    each number given must equal the echo's at its place (intercept, slope, depth_slope, rho)."""
+    names = ("intercept", "slope", "depth_slope", "overdispersion")
+    if sent.strip().lower() == "identity":
+        given = [0.0, 1.0]
+    else:
+        try:
+            given = [float(x) for x in sent.split(",")]
+        except ValueError:
+            return f"--link {sent!r} is not numbers"
+    for name, value in zip(names, given):
+        if float(echo.get(name, float("nan"))) != value:
+            return f"recorded with link {echo}, not --link {sent}"
+    return ""
+
+
 def mismatch(data: dict, options: dict) -> str:
     """Why this recording cannot be the answer to these options, or "" if it can."""
+    if isinstance(data.get("link"), dict) and isinstance(options.get("link"), str):
+        why = link_mismatch(data["link"], options["link"])
+        if why:
+            return why
     for name, (outer, inner) in NESTED_ECHOES.items():
         echo = data.get(outer)
         if name in options and isinstance(echo, dict) and inner in echo:
@@ -189,6 +217,10 @@ def mismatch(data: dict, options: dict) -> str:
         if key == "path" or key.endswith("_file"):
             if base(str(recorded)) != base(value):
                 return f"recorded from {base(str(recorded))!r}, not {base(value)!r}"
+        elif isinstance(recorded, bool):
+            # A true|false option (stats fit-link --with-depth) against its boolean echo.
+            if str(recorded).lower() != value.strip().lower():
+                return f"recorded with {key}={recorded!r}, not {value!r}"
         elif str(recorded) != value and not same_number(recorded, value):
             return f"recorded with {key}={recorded!r}, not {value!r}"
     # BULK.md: a --paths-stdin call has its own envelope (files[], read_count, ...). Neither shape
@@ -271,6 +303,7 @@ def mismatch(data: dict, options: dict) -> str:
 #: call that sent the same input. Read only for these: other verbs may inherit a terminal's stdin.
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit", "stats fit-logistic", "stats fit-mixed",
+              "stats fit-latent-mixed",
               "diff design", "diff observations", "sdrf restrict", "genes orthology",
               "genes map-residues", "library calibrate-rt"}
 
@@ -310,7 +343,7 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     gaps removed (mzLib refuses a '-' in an input sequence, so removing them is exact).
     stats combine-p: the same features in the same first-appearance order, the same number of
     tests, and weights and effects given or not as the recording's ``weighted`` and ``signed`` say.
-    stats fit, fit-logistic and fit-mixed: the same coefficients, in the same order, as the
+    stats fit, fit-logistic, fit-mixed and fit-latent-mixed: the same coefficients, in the same order, as the
     recording's ``tested_coefficients`` (none, for a stats fit of contrasts alone).
     sdrf restrict: the same searched files, in the same order, as the recording's
     ``searched_files``, and as many acquired names as its ``acquired_name_count``.
@@ -324,7 +357,7 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     """
     if verb == "library calibrate-rt":
         return calibration_mismatch(data, stdin)
-    if verb in ("stats fit", "stats fit-logistic", "stats fit-mixed"):
+    if verb in ("stats fit", "stats fit-logistic", "stats fit-mixed", "stats fit-latent-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
         recorded = list(data.get("tested_coefficients") or [])
         if sent != recorded:
