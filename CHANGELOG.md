@@ -6,6 +6,35 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
+Built from mzLib 1.0.596 (tag commit `cc67b7a2`), up from 1.0.595. This release adds calls for what
+1.0.596 brought:
+- `proteins.map_residues()`: a residue carried across species through Ensembl Compara's gene-tree
+  alignments;
+- `library.calibrate_rt()`: a run's retention times mapped onto a spectral library's iRT scale;
+- `stats.fit_latent_mixed()` and `stats.fit_link()`: a mixed model on a latent scale that also uses
+  the samples that were only counted, such as a PTM site's occupancy;
+- in `ptmqtl.pairs()`, bounds, a run covariate and the reason a pair was not tested;
+- peptidoform counts in `ptmqtl.occupancy()`, log2 odds in `ptmqtl.trait_effects()`, and each
+  isobaric channel's SDRF label.
+
+Still to come:
+- the peptide-level nested mixed model, which waits on mzLib#1519;
+- UniProt proteome downloads, which wait on mzLib#1490;
+- checking checksums inside `pride.download()`;
+- running a whole differential analysis in one call.
+
+Several existing calls give a different answer, most because mzLib changed them:
+- `sdrf.design()`'s replicate numbers;
+- `diff.design()`'s contrast ids when there are strata;
+- `ptmqtl.occupancy()`'s `not_detected` cells;
+- `peptidoform.convert()` on malformed modification text;
+- ProForma and Unimod output for some terminal modifications;
+- the mass of a peptide with a permanently charged modification (pyMzLib's own change).
+
+[Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md) lists each one.
+
 ### Added
 - **`stats.fit_latent_mixed()`: a random-intercept mixed model on a latent scale, from samples that
   are measured on it, counted through it (k of n trials), or both** (mzLib#1469). A PTM site's
@@ -827,7 +856,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.6.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.7.0...main
+[0.7.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.7.0
 [0.6.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.6.0
 [0.5.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.5.0
 [0.4.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.4.0
