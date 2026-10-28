@@ -597,7 +597,8 @@ public class PtmQtlTests
         AssertPairsAre(plain, PtmPairEngine.CoVarying(occupancy, observations));
         Assert.That(D(Column(plain, "statistic")[PairRow(plain)]), Is.GreaterThan(0.7), "the batch alone correlates the two sites");
         Assert.That(plain.GetProperty("min_quantified_fraction").GetDouble(), Is.EqualTo(PtmPairEngine.DefaultMinQuantifiedFraction));
-        Assert.That(plain.GetProperty("exclude_ceiling").GetBoolean(), Is.True);
+        Assert.That(plain.GetProperty("exclude_ceiling").ValueKind, Is.EqualTo(JsonValueKind.Null),
+            "absent, mzLib resolves its nullable excludeCeiling itself");
         Assert.That(plain.GetProperty("remove_run_level").GetBoolean(), Is.False);
         Assert.That(plain.GetProperty("run_level_group").ValueKind, Is.EqualTo(JsonValueKind.Null));
         Assert.That(plain.GetProperty("covarying_run_count").GetInt32(), Is.EqualTo(12));
@@ -727,7 +728,8 @@ public class PtmQtlTests
     {
         Assert.That(PtmQtl.CoVaryingDefault<double>("minQuantifiedFraction"), Is.EqualTo(PtmPairEngine.DefaultMinQuantifiedFraction));
         Assert.That(PtmQtl.CoVaryingDefault<double>("minQuantifiedFraction"), Is.EqualTo(0.7), "the value the spec states at the pin");
-        Assert.That(PtmQtl.CoVaryingDefault<bool>("excludeCeiling"), Is.True);
+        Assert.That(typeof(PtmPairEngine).GetMethod(nameof(PtmPairEngine.CoVarying))!.GetParameters()
+            .Single(p => p.Name == "excludeCeiling").DefaultValue, Is.Null, "mzLib resolves it inside CoVarying, so the bridge sends null");
         Assert.That(PtmQtl.CoVaryingDefault<bool>("removeRunLevel"), Is.False);
     }
 

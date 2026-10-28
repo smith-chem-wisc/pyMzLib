@@ -21,7 +21,8 @@ summary: >-
   reads.
 since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
 wraps:
-  - {symbol: AnalysisDesign.ByStratum, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
+  - {symbol: AnalysisDesign.ByStratum, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: cc67b7a2}
+  - {symbol: NotRunContrast, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: cc67b7a2}
   - {symbol: AnalysisDesign.Create, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
   - {symbol: AnalysisDesign.DefaultContrasts, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
   - {symbol: AnalysisDesign.Estimability, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: d10017ce}
@@ -91,7 +92,7 @@ result:
     - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Five static caveats, plus one when any contrast is not estimable (with counts) and one when any stratum cannot run a contrast the model asks for."}
   columns:
     - {wire: stratum, type: string, unit: null, nullable: false, null_means: null, doc: "The stratum key (AnalysisDesign.StratumKey): the stratum columns sorted by name, each name=value, joined by ';', with %, ; and = in a value escaped as %25, %3B and %3D; all when there is no stratum column."}
-    - {wire: contrast_id, type: string, unit: null, nullable: false, null_means: null, doc: "c1, c2, ... in mzLib's default order, numbered within the stratum. The name a contrasts file gives the contrast."}
+    - {wire: contrast_id, type: string, unit: null, nullable: false, null_means: null, doc: "c1, c2, ... in mzLib's default order, numbered once over every sample of the analysis (AnalysisDesign.ByStratum, since mzLib #1476), so an id is the same comparison in every stratum. The name a contrasts file gives the contrast."}
     - {wire: label, type: string, unit: null, nullable: false, null_means: null, doc: "Readable: factor=level vs factor=reference for a level, the covariate's column name for a slope (age (per decade))."}
     - {wire: numerator, type: string, unit: null, nullable: true, null_means: "a slope", doc: "The numerator level as factor=level."}
     - {wire: denominator, type: string, unit: null, nullable: true, null_means: "a slope", doc: "The reference (or earlier) level as factor=level."}
@@ -111,7 +112,7 @@ result:
       - {wire: rank, type: int, unit: columns, nullable: false, null_means: null, doc: "The numerical rank, by LinearModel's own full-rank test: the number of fitted columns."}
       - {wire: aliased_terms, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Terms (factor names, batch, covariate names, intercept) that share a direction with another term and so cannot be separated from it; empty at full rank."}
       - {wire: warnings, type: "string[]", unit: null, nullable: false, null_means: null, doc: "What mzLib left out of the model or changed from the specification here, in plain words: a factor with one level, a reference level with no sample, one batch, no reference declared."}
-      - {wire: not_run, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Contrasts the model asks for that this stratum cannot run, each with label and reason (not_in_stratum)."}
+      - {wire: not_run, type: "object[]", unit: null, nullable: false, null_means: null, doc: "Contrasts the model asks for that this stratum cannot run (mzLib's NotRunContrast), each with id (the default contrast's id, the same in every stratum; null when no default contrast stands for the entry, such as a factor with one level over the whole analysis), label and reason (not_in_stratum)."}
       - {wire: covariate_centres, type: "map<string,float>", unit: "the covariate's stored unit", nullable: false, null_means: null, doc: "The centre subtracted from each covariate here: the one given, else the stratum's mean."}
       - {wire: matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.Matrix, one row per sample_ids entry and one value per column_names entry. Equals R's stats::model.matrix for the same formula and level order."}
       - {wire: fitted_matrix, type: "float[][]", unit: "coding (0/1 indicators; covariate columns in scaled units)", nullable: false, null_means: null, doc: "AnalysisDesign.FittedMatrix: matrix with only the fitted columns. It has full column rank, so LinearModel.Fit takes it; it is the design file's body."}
@@ -128,9 +129,9 @@ errors:
 caveats:
   - "Each stratum's matrix is mzLib's AnalysisDesign: an intercept; each factor treatment-coded against its reference level, its other levels in ordinal order; batch against its first level; each covariate as (value - centre) / scale; then any interactions. It equals R's stats::model.matrix for the same formula and level order."
   - "Only mzLib's default contrasts are listed (AnalysisDesign.DefaultContrasts): each level against its factor's reference, every pair of levels when a factor has no reference, and each covariate's slope. With an interaction in the model, a factor's contrast is its effect at the reference level of the other factor."
-  - "Contrast ids (c1, c2, ...) are numbered within each stratum, so one id can name different comparisons in two strata. Match contrasts across strata by label."
+  - "Contrast ids (c1, c2, ...) are numbered once over every sample of the analysis (AnalysisDesign.ByStratum), so an id names the same comparison in every stratum. A stratum without samples on both sides of a contrast skips its id and lists it in not_run."
   - "A design file holds only the fitted columns (fitted_column_names): mzLib leaves out a column that is redundant with earlier ones, because LinearModel.Fit refuses a design without full column rank. A contrast that is not estimable has no fitted weights and is not in the contrasts file."
-  - "Strata are never columns: each stratum gets its own design and nothing is shared between them. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept."
+  - "Strata are never columns: each stratum gets its own design, centres and fit; only the default contrasts' ids are shared. The individual a sample came from is never a fixed column either; it is for a mixed model's random intercept."
 
 bindings:
   py: {name: pymzlib.diff.design}

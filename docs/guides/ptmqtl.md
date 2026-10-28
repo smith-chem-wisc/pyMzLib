@@ -240,7 +240,7 @@ with Benjamini-Hochberg within each family:
 ```pycon
 >>> plain = pymzlib.ptmqtl.pairs("batch.tsv", type="covarying")
 >>> plain.covarying_run_count, plain.min_quantified_fraction, plain.exclude_ceiling
-(12, 0.7, True)
+(12, 0.7, None)
 >>> def show(result, a="PAIR_S", b="PAIR_T"):
 ...     r = next(r for r in result.records if r["site_a"].startswith(a) and r["site_b"].startswith(b))
 ...     print(f'rho {r["statistic"]:.2f}  p {r["p_value"]:.3f}  q {r["q"]:.3f}  {r["fdr_family"]}  n {r["n"]}')
@@ -249,8 +249,9 @@ rho 0.76  p 0.004  q 0.004  A:inter  n 12
 
 ```
 
-`0.7` and `True` are mzLib's defaults, reported because you did not set them: a site enters pairs
-only if it is quantified in at least 70% of the runs, and ceilings are left out.
+`0.7` is mzLib's default, reported because you did not set it: a site enters pairs only if it is
+quantified in at least 70% of the runs. `exclude_ceiling` is `None` because you did not choose, so
+mzLib decided inside `PtmPairEngine.CoVarying`; by default it leaves ceilings out.
 
 **The trap: a batch correlates everything.** These twelve runs come in two batches, and every site
 reads 0.2 higher in the second. That alone gives `PAIR_S` and `PAIR_T` a rho of 0.76. Within a

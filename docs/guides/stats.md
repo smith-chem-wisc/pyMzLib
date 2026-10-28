@@ -319,8 +319,9 @@ is refused.
 
 The traps:
 
-- **Contrast ids are numbered within each stratum**, so `c1` can mean different comparisons in two
-  strata. Read the labels from `diff.design`, as above.
+- **A contrast id is the same comparison in every stratum**: `diff.design` numbers them once over
+  the whole analysis, and a stratum that cannot run one skips its id. Read the labels from
+  `diff.design`, as above.
 - **With missing values the standard error is exact per feature**, computed on the samples that
   feature was observed in. limma's `contrasts.fit` approximates it there, so on data with missing
   values these numbers differ from limma's by design. With complete data they agree; the bridge's

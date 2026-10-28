@@ -328,10 +328,13 @@ public class DifferentialTests
         Assert.That(strata.Select(s => s.GetProperty("stratum").GetString()),
             Is.EqualTo(new[] { "organism part=kidney", "organism part=liver", "organism part=muscle" }), "ordinal by key");
         Assert.That(Strings(root, "stratum"), Is.EqualTo(new[] { "organism part=liver", "organism part=muscle" }));
-        Assert.That(Strings(root, "contrast_id"), Is.EqualTo(new[] { "c1", "c1" }), "ids are numbered within each stratum");
+        Assert.That(Strings(root, "contrast_id"), Is.EqualTo(new[] { "c1", "c1" }), "one id, numbered once over the analysis");
 
         JsonElement kidney = strata[0];
-        Assert.That(kidney.GetProperty("not_run")[0].GetProperty("reason").GetString(), Is.EqualTo(AnalysisDesign.NotInStratum));
+        JsonElement skipped = kidney.GetProperty("not_run")[0];
+        Assert.That(skipped.GetProperty("reason").GetString(), Is.EqualTo(AnalysisDesign.NotInStratum));
+        Assert.That(skipped.GetProperty("id").GetString(), Is.EqualTo("c1"), "kidney skips the analysis-wide c1 (mzLib #1476)");
+        Assert.That(skipped.GetProperty("label").GetString(), Is.EqualTo("condition=B vs condition=A"));
         Assert.That(kidney.GetProperty("contrasts_file").ValueKind, Is.EqualTo(JsonValueKind.Null));
         Assert.That(Path.GetFileName(kidney.GetProperty("design_file").GetString()), Is.EqualTo("design_1.tsv"));
         Assert.That(Path.GetFileName(strata[2].GetProperty("contrasts_file").GetString()), Is.EqualTo("contrasts_3.tsv"));

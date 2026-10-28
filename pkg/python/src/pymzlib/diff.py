@@ -277,12 +277,15 @@ class NotRunContrast:
     """A contrast the model asks for that one stratum cannot run: mzLib's ``NotRunContrast``.
 
     Attributes:
-        label: Which contrast, e.g. ``"condition (one level: A)"``.
+        label: Which contrast, e.g. ``"condition=B vs condition=A"``.
         reason: Why: ``"not_in_stratum"`` (one side has no sample there).
+        id: The default contrast's id, the same in every stratum; ``None`` when no default
+            contrast stands for the entry (a factor with one level over the whole analysis).
     """
 
     label: str
     reason: str
+    id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -357,7 +360,7 @@ class DesignStratum:
             rank=int(data.get("rank", 0)),
             aliased_terms=list(data.get("aliased_terms") or []),
             warnings=list(data.get("warnings") or []),
-            not_run=[NotRunContrast(str(n.get("label", "")), str(n.get("reason", "")))
+            not_run=[NotRunContrast(str(n.get("label", "")), str(n.get("reason", "")), n.get("id"))
                      for n in data.get("not_run") or []],
             covariate_centres=dict(data.get("covariate_centres") or {}),
             matrix=[list(row) for row in data.get("matrix") or []],

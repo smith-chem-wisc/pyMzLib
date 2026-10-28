@@ -9,9 +9,68 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
-## Unreleased (still built from mzLib 1.0.595)
+## Unreleased (built from mzLib 1.0.596)
+
+This release moves mzLib from 1.0.595 to 1.0.596.
+
+### Calls that used to fail now succeed
+
+- **A TMT10 SDRF that names its last channel `TMT131`** ([mzLib#1467](https://github.com/smith-chem-wisc/mzLib/pull/1467)). PRIDE spells TMT10's last
+  channel `TMT131`, and `sdrf.isobaric_design()` refused it as "not a channel of TMT10". It now
+  reads as channel `131N`. `TMT131` is still refused for TMT11, where `131N` and `131C` are both
+  channels.
+- **`sdrf.design()` on an SDRF with a missing replicate or a numbering gap** ([mzLib#1426](https://github.com/smith-chem-wisc/mzLib/pull/1426)). A
+  biological replicate of `not available`, or no replicate column at all, was refused; mzLib now
+  adds a number after the highest one the condition uses, and says so in `notes`. A gap in the
+  fraction or technical replicate numbers is noted instead of refused.
+- **A `peptidoform.convert()` batch with two modifications on one residue** ([mzLib#1457](https://github.com/smith-chem-wisc/mzLib/pull/1457)). One such
+  line, for example `PEPM[A][B]TIDE`, failed the whole call with a `BridgeError`
+  (`ArgumentException`). Now only that line fails (see below), and the rest of the batch converts.
+
+### Calls that used to succeed are now refused
+
+- **Malformed modification text in `peptidoform.convert()`** ([mzLib#1457](https://github.com/smith-chem-wisc/mzLib/pull/1457)), with `source="mzLib"`
+  (the default) or `"MassShift"`. An empty modification (`PEP[]TIDE`), a modification that does not
+  follow an unmodified residue (two leading groups, or two on one residue) and anything after the
+  C-terminal modification were converted with a modification lost or moved. Each is now a `failed`
+  row with `failure_reason` `UnknownFormat`. An ambiguous MetaMorpheus sequence (`|`-joined
+  candidates) still converts with a warning, unless a candidate ends in a C-terminal modification
+  or the next one's N-terminal modification lands on an already modified residue.
+
+### Same failure, different error
+
+- **A `.parquet` another process holds, or that you may not read** ([mzLib#1478](https://github.com/smith-chem-wisc/mzLib/pull/1478)). Every reader
+  raised `UsageError` (`Parquet file type not supported`). It now raises `BridgeError` naming the
+  I/O failure (`IOException` or `UnauthorizedAccessException`), which says what is actually wrong.
+  A file that is not Parquet at all is still the `UsageError`.
 
 ### Same file, different value
+
+- **`sdrf.design()` keeps the SDRF's biological replicate numbers** ([mzLib#1426](https://github.com/smith-chem-wisc/mzLib/pull/1426)). It used to rank
+  them within each condition, so an SDRF that numbers a condition's samples 22, 23, 24 gave 0, 1, 2.
+  It now gives 21, 22, 23 (0-based), gaps included, because replicate 4 of one condition can be the
+  same subject as replicate 4 of another, and a gap can be a lost sample. `notes` flags each
+  condition whose numbers are not 1..N, where it used to list the renumbering. A design written with
+  `out=` now carries those numbers too; MetaMorpheus refuses one with gaps until a release carries
+  [MetaMorpheus#2928](https://github.com/smith-chem-wisc/MetaMorpheus/pull/2928).
+- **`diff.design()` numbers contrast ids once over the whole analysis** ([mzLib#1476](https://github.com/smith-chem-wisc/mzLib/pull/1476)). With strata,
+  `c1` used to be each stratum's own first comparison; it is now one comparison in every stratum,
+  and a stratum that cannot run it skips the id. A stratum's `not_run` lists the skipped contrast
+  under its own label (`condition=B vs condition=A`, where it said `condition (one level: A)`)
+  with the new `NotRunContrast.id`. Designs without strata are unchanged.
+- **`ptmqtl.occupancy()` reports more `not_detected` cells** ([mzLib#1468](https://github.com/smith-chem-wisc/mzLib/pull/1468)). mzLib now defines
+  `not_detected` as a covered-zero: peptidoforms covering the site were identified in the run and
+  none carried the modification. The covering forms no longer have to be quantified, so a site
+  covered only by unquantified forms gets a row it did not get before. `fraction` stays `None`.
+- **`ptmqtl.pairs(..., type="covarying")` reports `exclude_ceiling=None`** when you do not pass
+  `keep_ceiling=True`, where it reported `True`. mzLib made the option nullable and now decides it
+  inside `PtmPairEngine.CoVarying` ([mzLib#1468](https://github.com/smith-chem-wisc/mzLib/pull/1468)); pyMzLib does not restate mzLib's rule to name the
+  value. The pairs themselves are unchanged: ceilings are still left out by default.
+- **ProForma and Unimod output for a terminal modification that shares its name** ([mzLib#1442](https://github.com/smith-chem-wisc/mzLib/pull/1442)).
+  Entries such as `Methyl on X` and `Less Common:Methylation on X` exist once for a side chain and
+  once for a terminus. The terminal one now resolves, so `peptidoform.convert(..., target="ProForma")`
+  and `target="Unimod"`, and `read_records()`'s `pro_forma` column, write its `UNIMOD:` accession
+  where they wrote its typed name or left it unresolved.
 
 - **`peptidoform.fragments()` gives a peptide with a permanently charged modification a mass one
   proton lower per charge.** pyMzLib now takes UniProt's modifications from mzLib's corrected list,

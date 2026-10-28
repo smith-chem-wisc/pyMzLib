@@ -1,5 +1,5 @@
 {
- "path": "PXD049018.sdrf.tsv",
+ "path": "F:\\ClaudeTestBuilds\\pymzlib-596\\pkg\\python\\tests\\fixtures\\PXD049018.sdrf.tsv",
  "is_valid": false,
  "file_key_column": "comment[data file]",
  "condition_columns": [
@@ -54,7 +54,8 @@
   "LABEL-FREE ONLY. mzLib's SdrfLabelFreeDesign builds MetaMorpheus's label-free ExperimentalDesign.tsv; an isobaric (TMT, iTRAQ) SDRF needs a channel design this verb does not produce.",
   "is_valid = false is an answer, not a failure: refusals lists EVERY reason at once and the table is empty. mzLib refuses rather than repairs because MetaMorpheus skips quantification with only a warning when its design file is invalid.",
   "biological_replicate, technical_replicate and fraction are 0-based, as mzLib's SpectraFileInfo and the quant verbs take them. ExperimentalDesign.tsv (written by --out) is 1-based; mzLib converts when it writes.",
-  "notes records every relabelling: biological replicates ranked within each condition (with the mapping), and rows dropped because the search does not read their file. Read it; it is the only record of a renumbering.",
+  "Replicate and fraction numbers are the SDRF's, gaps included; mzLib never ranks or closes them up, because replicate 4 of one condition can be the same subject as replicate 4 of another, and a gap can be a lost sample. Only where the SDRF gives no biological replicate (no column, or 'not available') does mzLib add one.",
+  "notes records what mzLib added, dropped or wants checked: biological replicates it added (with the numbers), rows dropped because the search does not read their file, conditions whose numbers are not 1..N, and sample names whose one number disagrees with their replicate. Read it; it is the only record of an added number.",
   "With no condition columns declared, mzLib uses the document's only factor value column and refuses a document that has several. A factor holding 'not available' or 'not applicable' is refused, because it would pair samples nobody said were alike.",
   "MetaMorpheus finds the design only as a file named ExperimentalDesign.tsv beside the spectra. --out writes any .tsv path; naming and placing it is the caller's job."
  ]

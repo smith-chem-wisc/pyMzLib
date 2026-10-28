@@ -582,26 +582,34 @@ Without `condition_columns`, mzLib uses the document's only factor column. PXD06
 leaving them undeclared is itself a refusal: joining every factor could split a condition on a
 nuisance factor, so mzLib makes you choose.
 
-### Replicate numbers are ranked within each condition
+### Replicate numbers are the SDRF's own
 
 A drafted SDRF often copies the study-wide run index out of the file names: WT_DMSO1-3,
-CA_DMSO4-6, ... CA_FA22-24. MetaMorpheus wants replicates numbered within each condition, so mzLib
-ranks them back to 1..3, and records every renumbering in `notes`, the only place it is kept:
+CA_DMSO4-6, ... CA_FA22-24. mzLib keeps those numbers exactly as written, gaps included. It never
+ranks them or closes them up, because replicate 4 of one condition can be the same subject as
+replicate 4 of another, and a gap can be a lost sample. Instead, `notes` flags every condition
+whose numbers are not 1..N, so you can decide:
 
 ```pycon
->>> ranked = pymzlib.sdrf.design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
->>> ranked.is_valid, len(ranked.notes)
+>>> kept = pymzlib.sdrf.design("PXD067622_studywide.sdrf.tsv", condition_columns=both)
+>>> kept.is_valid, len(kept.notes)
 (True, 7)
->>> print(ranked.notes[1])  # doctest: +NORMALIZE_WHITESPACE
-Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered
-22 -> 1, 23 -> 2, 24 -> 3.
->>> ranked.columns == d.columns
-True
+>>> print(kept.notes[1])  # doctest: +NORMALIZE_WHITESPACE
+Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates 22, 23, 24, kept as
+the SDRF numbers them. Every row of the SDRF is searched, so the gaps are how the SDRF numbers its
+samples, not lost samples.
+>>> max(kept.columns["biological_replicate"])  # 0-based on the wire: the SDRF's 24
+23
 
 ```
 
-The ranked design is identical to the hand-numbered one. (`PXD067622_studywide.sdrf.tsv` is
-PXD067622 with each biological replicate replaced by the number in its file name.)
+(`PXD067622_studywide.sdrf.tsv` is PXD067622 with each biological replicate replaced by the number
+in its file name.) mzLib adds a number only where the SDRF gives none (no column, or
+`not available`), after the highest number the condition already uses, and says so in `notes`.
+MetaMorpheus refuses a design file whose replicate numbers have gaps until a release carries
+[smith-chem-wisc/MetaMorpheus#2928](https://github.com/smith-chem-wisc/MetaMorpheus/pull/2928),
+which quantifies it with a warning instead; check your MetaMorpheus before handing it a file
+written with `out=`.
 
 **Label-free only.** An isobaric SDRF needs a channel design; `design()` does not build one. Read it
 with [`isobaric_design()`](#read-an-isobaric-tmt-design), below.

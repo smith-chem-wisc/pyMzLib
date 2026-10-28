@@ -165,7 +165,8 @@ def test_design_strata_recording_says_what_cannot_run():
     design = diff.Design._from_wire(recorded("diff_design_strata.json"))
     assert [s.stratum for s in design.strata] == ["organism part=kidney", "organism part=liver", "organism part=muscle"]
     kidney = design.stratum("organism part=kidney")
-    assert kidney.not_run == [diff.NotRunContrast("condition (one level: A)", "not_in_stratum")]
+    # mzLib #1476: kidney skips the analysis-wide c1, listed under its own label and id.
+    assert kidney.not_run == [diff.NotRunContrast("condition=B vs condition=A", "not_in_stratum", "c1")]
     assert kidney.column_names == ["intercept"]
     assert design.columns["contrast_id"] == ["c1", "c1"]
     assert design.stratum_columns == ["organism part"]

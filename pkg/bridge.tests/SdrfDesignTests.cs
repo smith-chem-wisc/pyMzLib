@@ -88,7 +88,7 @@ public class SdrfDesignTests
     }
 
     [Test]
-    public void Design_ReportsTheReplicateRenumberingInNotes()
+    public void Design_KeepsTheSdrfsReplicateNumbersAndNotesTheGaps()
     {
         JsonElement studyWide = Invoke("sdrf", "design", "--path", Fixture("PXD067622_studywide.sdrf.tsv"),
             "--condition-columns", BothFactors);
@@ -98,10 +98,12 @@ public class SdrfDesignTests
         string[] notes = Strings(studyWide.GetProperty("notes"));
         Assert.That(studyWide.GetProperty("is_valid").GetBoolean(), Is.True);
         Assert.That(notes, Has.Length.EqualTo(7), "every condition but WT_DMSO, which is already 1..3");
-        Assert.That(notes, Does.Contain(
-            "Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered 22 -> 1, 23 -> 2, 24 -> 3."));
-        Assert.That(studyWide.GetProperty("columns").GetRawText(), Is.EqualTo(reference.GetProperty("columns").GetRawText()),
-            "ranked within each condition, the design is the hand-numbered one");
+        Assert.That(notes, Has.Some.StartsWith(
+            "Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates 22, 23, 24, kept as the SDRF numbers them."));
+        Assert.That(Ints(studyWide.GetProperty("columns").GetProperty("biological_replicate")).Max(), Is.EqualTo(23),
+            "mzLib 1.0.596 (#1426) keeps the SDRF's numbers, 0-based on the wire, instead of ranking them");
+        Assert.That(studyWide.GetProperty("columns").GetRawText(), Is.Not.EqualTo(reference.GetProperty("columns").GetRawText()),
+            "so the study-wide numbering is no longer the hand-numbered design");
     }
 
     [Test]
@@ -231,9 +233,10 @@ public class SdrfDesignTests
         string[] caveats = Strings(Invoke("sdrf", "design", "--path", Fixture("PXD067622.sdrf.tsv"),
             "--condition-columns", BothFactors).GetProperty("caveats"));
 
-        Assert.That(caveats, Has.Length.EqualTo(6));
+        Assert.That(caveats, Has.Length.EqualTo(7));
         Assert.That(caveats[0], Does.StartWith("LABEL-FREE ONLY"));
         Assert.That(caveats, Has.Some.Contain("0-based"));
+        Assert.That(caveats, Has.Some.StartWith("Replicate and fraction numbers are the SDRF's"));
     }
 
     // ---- helpers ------------------------------------------------------------------------------
