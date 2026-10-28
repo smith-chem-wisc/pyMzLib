@@ -6,6 +6,17 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Added
+- **`proteins.map_residues()`: map a residue across species through Ensembl Compara's gene-tree
+  alignment** (mzLib 1.0.596, #1465, `ComparaGeneTreeAlignment`). For each
+  `(source_protein_id, position, target_protein_id)` query, the residue of the target in the same
+  alignment column, or one of mzLib's outcomes saying why there is none: `GapInTarget`,
+  `DifferentAlignments`, `SourceNotInAlignment`, `TargetNotInAlignment`. It reads the release's
+  alignment file, its gene-tree file and your species' GTFs, all local. `proteins=True` returns
+  the Ensembl sequences, to chain with `align()` from and back to UniProt positions. A position
+  past the end of its source protein fails the whole call with mzLib's message. Wire verb
+  `genes map-residues`.
+
 ### Changed
 - **Built from mzLib 1.0.596** (tag commit `cc67b7a2`). Its changes to what existing calls return
   are listed in [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md); the largest are below.
