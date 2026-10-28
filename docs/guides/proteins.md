@@ -10,6 +10,7 @@ somewhere else. **The protein database you searched already knows all four**, an
 | What organism, taxon, gene and mass is this accession? What are its GO terms? | [`read()`](#look-up-organism-and-taxon-for-a-list-of-accessions) | `ProteinDbLoader`, `Protein.GoTerms` ([#1336][1336]), `Protein.EnsemblGeneReferences` |
 | Which Ensembl gene is this protein, in a way I can reproduce next year? | [`resolve_genes()`](#resolve-proteins-to-ensembl-genes-reproducibly) | `EnsemblGeneResolver` ([#1338][1338]) |
 | Which mouse genes are orthologous to this human gene, and if none, why not? | [`build_orthology()`](#orthologs-across-species-an-ensembl-compara-snapshot) | `OrthologySnapshot`, `OrthologySnapshotWriter` ([#1381][1381]) |
+| Which mouse residue is human p53's Ser15, by Ensembl Compara's gene-tree alignment? | [`map_residues()`](#map-a-residue-across-species-comparas-gene-tree-alignment) | `ComparaGeneTreeAlignment` ([#1465][1465]) |
 | Does this peptide identify one protein, one gene, or neither? | [`classify_peptides()`](#decide-whether-a-peptide-is-unique-with-i-l) | `PeptideUniquenessClassifier` ([#1348][1348]) |
 | Which GO terms does each protein group carry, with every member kept and the ontology's ancestors filled in? | [`annotate_go()`](#annotate-protein-groups-with-go-keeping-every-member) | `GoGroupAnnotator` ([#1353][1353]), `ToGoAnnotationGroups` ([#1366][1366]) |
 | Where do I get a go.obo, and how do I keep the release pinned? | [`update_go()`](#first-get-a-goobo-once-and-keep-it) | `Loaders.UpdateGeneOntology` ([#1353][1353]) |
@@ -33,7 +34,9 @@ small databases committed in pyMzLib's test suite (`pkg/python/tests/fixtures/pr
 UniProt XML entries (GAPDH, PSCA), human albumin and three DYNC1I2 isoforms as FASTA, mouse AIFM1
 as FASTA, and bovine albumin as a contaminant. The Gene Ontology section adds a real MetaMorpheus
 protein-group table and the UniProt entries it names. The orthology section uses mzLib's own
-three-species test world (`pkg/python/tests/fixtures/orthology/`). Blocks titled **Not run** say why.
+three-species test world (`pkg/python/tests/fixtures/orthology/`). The residue-mapping section uses a
+real cut of Ensembl release 116 and UniProt's p53 entries (`pkg/python/tests/fixtures/map_residues/`).
+Blocks titled **Not run** say why.
 
 ## Before you start: XML or FASTA?
 
@@ -1055,6 +1058,171 @@ compared across releases. The full column lists, with types, are in the
   reports about 20 s to build and 40 s more to write 13 files (9.0 MB). Pass `timeout=None` (the
   default) and use `restrict_gene_trees=True` when memory is short.
 
+## Map a residue across species: Compara's gene-tree alignment
+
+**The problem.** You have a site in a human protein, human p53's phosphoserine 15, and a mouse
+experiment. Which mouse residue is it? Counting along the two sequences fails as soon as one has an
+insertion. Aligning just the two proteins works, but it is your alignment, made with your
+parameters. Ensembl Compara has already aligned every protein of each gene tree, across all its
+species, to build the tree. A residue's column in that alignment is the published answer.
+
+| You want to know | Call | mzLib |
+|---|---|---|
+| Which residue of the mouse protein sits in the same alignment column as residue 15 of the human protein? | `map_residues()` | `ComparaGeneTreeAlignment.MapResidue` ([#1465][1465]) |
+| Which proteins did the alignment hold, and what are their Ensembl sequences? | `map_residues(..., proteins=True)` | `ComparaGeneTreeAlignment.Proteins` ([#1465][1465]) |
+| Where does my UniProt residue sit in the Ensembl protein, and back? | `align()`, `align_many()` | `PairwiseAligner` ([#1428][1428]) |
+
+`map_residues()` reads Compara's peptide alignments (`ComparaGeneTreeAlignment.Load`), keeping only
+the canonical proteins of your species' genes, and answers each query with mzLib's `MapResidue`.
+This example is a real cut of Ensembl release 116 (`pkg/python/tests/fixtures/map_residues/`): the
+TP53 and GAPDH gene trees' alignments, with the human, mouse and rat rows exactly as Ensembl
+publishes them. The same queries on the full files give the same rows.
+
+```pycon
+>>> gtfs = {"homo_sapiens": "Homo_sapiens.GRCh38.116.gtf",
+...         "mus_musculus": "Mus_musculus.GRCm39.116.gtf",
+...         "rattus_norvegicus": "Rattus_norvegicus.GRCr8.116.gtf"}
+>>> tp53, trp53, rat_tp53 = "ENSP00000269305", "ENSMUSP00000104298", "ENSRNOP00000074031"
+>>> queries = [
+...     (tp53, 15, trp53), (tp53, 20, trp53), (tp53, 46, trp53), (tp53, 392, trp53),
+...     (trp53, 18, tp53),                     # and back
+...     (tp53, 15, rat_tp53),
+...     (tp53, 15, "ENSMUSP00000113213"),      # mouse GAPDH: another gene tree
+...     ("ENSP00000352610", 15, trp53),        # a TP53 isoform Compara did not align
+...     (tp53, 15, "ENSMUSP00000005371"),      # a Trp53 isoform, likewise
+... ]
+>>> mapped = pymzlib.proteins.map_residues(
+...     queries, alignment="Compara.116.protein_default.aa.fasta.gz",
+...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz",
+...     gtfs=gtfs, proteins=True)
+>>> for r in mapped.records:
+...     print(r["source_protein_id"], r["position"], r["target_protein_id"], r["outcome"],
+...           r["column"], r["target_position"], r["target_residue"])
+ENSP00000269305 15 ENSMUSP00000104298 Aligned 476 18 S
+ENSP00000269305 20 ENSMUSP00000104298 Aligned 547 23 S
+ENSP00000269305 46 ENSMUSP00000104298 GapInTarget 863 None None
+ENSP00000269305 392 ENSMUSP00000104298 Aligned 3036 389 S
+ENSMUSP00000104298 18 ENSP00000269305 Aligned 476 15 S
+ENSP00000269305 15 ENSRNOP00000074031 Aligned 476 15 S
+ENSP00000269305 15 ENSMUSP00000113213 DifferentAlignments None None None
+ENSP00000352610 15 ENSMUSP00000104298 SourceNotInAlignment None None None
+ENSP00000269305 15 ENSMUSP00000005371 TargetNotInAlignment None None None
+
+```
+
+Reading it row by row:
+
+- **Human Ser15 is mouse Ser18**, Ser20 is Ser23, and Ser392 is Ser389. The mouse protein is three
+  residues shorter near its N-terminus, so the numbers shift, and the column says by how much.
+- **Human Ser46 faces a gap in mouse.** No mouse residue sits in column 863, and `map_residues()`
+  says `GapInTarget`. It never offers the nearest residue instead.
+- **Mapping back gives the residue you started from.** Mouse residue 18 is in the same column, 476.
+- **Rat is a separate query** against the same alignment: human Ser15 is rat Ser15.
+- **GAPDH is in another gene tree**, so the alignment says nothing about it: `DifferentAlignments`.
+- **Only each gene's canonical protein is aligned.** `ENSP00000352610` is a real TP53 protein, but
+  not the one Compara used, so it is `SourceNotInAlignment`. It is not mapped through the canonical
+  protein. The gene-tree file names each gene's canonical protein, in the row flagged `Y`.
+
+`mapped.outcome_counts` counts the queries per outcome, every outcome present:
+
+```pycon
+>>> mapped.outcome_counts
+{'Aligned': 5, 'GapInTarget': 1, 'DifferentAlignments': 1, 'SourceNotInAlignment': 1, 'TargetNotInAlignment': 1}
+>>> mapped.alignment.release, mapped.alignment.protein_count, mapped.gene_trees.member_count
+('116', 5, 5)
+
+```
+
+| outcome | what it means | `column` | `target_position`, `target_residue` |
+|---|---|---|---|
+| `Aligned` | the target has a residue in the source residue's column | set | set |
+| `GapInTarget` | the target has a gap in that column: no residue corresponds | set | `None` |
+| `DifferentAlignments` | the two proteins are in different gene trees | `None` | `None` |
+| `SourceNotInAlignment` | the source protein was not kept: not in the file, not canonical, or outside your gene sets | `None` | `None` |
+| `TargetNotInAlignment` | the target protein was not kept | `None` | `None` |
+
+The outcome names are mzLib's own (`ComparaColumnOutcome`), and `pymzlib.proteins.COLUMN_OUTCOMES`
+lists them in mzLib's order.
+
+### From a UniProt position to a UniProt position
+
+Compara's positions are positions in **Ensembl** proteins. A site from a search against UniProt
+needs two more steps around `map_residues()`, each an alignment:
+
+1. Align the UniProt sequence to the canonical Ensembl protein, and map the position across.
+2. Map the Ensembl position through the gene-tree column with `map_residues()`.
+3. Align the target's canonical Ensembl protein to its UniProt sequence, and map across again.
+
+Any of the three can meet a gap. `proteins=True` returned the Ensembl sequences, so no second file
+is needed for them. The UniProt sequences come from UniProt's FASTA for human p53 (P04637) and
+mouse p53 (P02340):
+
+```pycon
+>>> uniprot = pymzlib.proteins.read(["P04637.fasta", "P02340.fasta"], sequences=True)
+>>> p04637, p02340 = uniprot.columns["sequence"]
+>>> ensembl = mapped.proteins.sequences()
+>>> legs = pymzlib.proteins.align_many([
+...     (p04637, ensembl[tp53]),        # leg 1: UniProt human -> Ensembl human
+...     (ensembl[trp53], p02340),       # leg 3: Ensembl mouse -> UniProt mouse
+... ])
+>>> leg1, leg3 = legs.alignments
+>>> leg1.identical, leg1.source_length, leg3.identical, leg3.target_length
+(393, 393, 390, 390)
+>>> ensembl_position = leg1.map_source_to_target(15)
+>>> site = pymzlib.proteins.map_residues(
+...     [(tp53, ensembl_position, trp53)], alignment="Compara.116.protein_default.aa.fasta.gz",
+...     gene_trees="vertebrates.GeneTree_content.default.e116.txt.gz", gtfs=gtfs)
+>>> mouse_position = site.columns["target_position"][0]
+>>> leg3.map_source_to_target(mouse_position), p02340[leg3.map_source_to_target(mouse_position) - 1]
+(18, 'S')
+
+```
+
+For p53 the UniProt and Ensembl canonical sequences are identical in both species, so legs 1 and 3
+map every residue to itself. That is common for canonical sequences, but check it every time
+(`identical` equal to both lengths) rather than assume it. For an isoform, or an entry whose
+sequence UniProt and Ensembl annotate differently, those legs shift positions or meet gaps, as the
+[alignment section](#map-a-residue-from-one-sequence-onto-another) shows.
+
+**Check the residue at every step.** A column pairs positions the alignment puts together, which is
+homology, not identity. Here it is serine on both sides. Where the target residue is a different
+amino acid, the site does not carry over: a phosphosite on S is not a site on A.
+
+### What to download, once per release
+
+Nothing is downloaded for you. For release 116, from `https://ftp.ensembl.org/pub/release-116/`:
+
+| Input | Path under the release | Argument |
+|---|---|---|
+| The peptide alignments of every gene tree | `emf/ensembl-compara/homologies/Compara.116.protein_default.aa.fasta.gz` | `alignment=` |
+| The gene trees, one file for all species | `compara/vertebrates.GeneTree_content.default.e116.txt.gz` | `gene_trees=` |
+| Each species' primary-assembly GTF | `gtf/homo_sapiens/Homo_sapiens.GRCh38.116.gtf.gz` | `gtfs={species: path}` |
+
+- **Use the alignment and the gene trees of one release.** mzLib does not compare them, and a gene's
+  canonical protein and tree can change between releases. Keep Ensembl's file names: the result
+  reports the release each name carries, and a caveat says when they differ or one is missing.
+- **Give your species' gene sets.** They are used only to choose what is kept. Without them, mzLib's
+  default keeps every gene in the gene-tree file, millions for the vertebrates, and every canonical
+  protein in the alignment, and a caveat says so. The answers for your species' proteins are the
+  same either way. A compact gene table (`gene_sets=`) works as it does for `build_orthology()`.
+- **Batch your queries.** Reading the alignment is the cost: for human, mouse and rat at release
+  116, the whole call took about a minute. Each query after that is a lookup, so send them all in
+  one call.
+
+### The traps
+
+- **A position past the end of the source protein fails the whole call.** mzLib's `MapResidue`
+  throws for it rather than returning an outcome, so pyMzLib raises a `UsageError` with mzLib's
+  message (*"ENSP00000269305 has 393 residues."*) and returns no row, not even for the queries that
+  were fine. pyMzLib does not check lengths itself. Keep each position within its protein: with
+  `proteins=True`, a sequence's length is the last valid position.
+- **Use Ensembl ids and Ensembl positions.** A UniProt accession is `SourceNotInAlignment`, never an
+  error. Cross over with `align()` first, as above.
+- **Sharing a gene tree is not orthology.** A tree holds a gene family, paralogs included, so an
+  `Aligned` answer between two proteins of one tree does not make them orthologs. Ask
+  `build_orthology()` which genes are orthologs, then map their residues here.
+- **`DifferentAlignments` is not "unrelated".** It says only that this alignment cannot answer.
+
 ## Many databases, threads and failures
 
 All three functions take one database or a list, and `contaminants=` as a separate list. They are
@@ -1096,6 +1264,13 @@ For `build_orthology()`:
 | `UsageError` | no species, no dumps, or a species in both `gtfs` and `gene_sets`; a missing GTF, gene table, dump or gene-tree file; `out` naming a file or a directory that is not empty; `pair_status` not two different species of the snapshot (all before any input is read). From mzLib: a species without a dump, two dumps of one species, a dump of a species not given, or a dump or gene-tree file named for another release |
 | `BridgeError` | a file mzLib's reader refuses (type `InvalidDataException`, naming the file and line): a dump whose columns are not Compara's, an unknown `homology_type`, a gene-tree row without four cells. Or data that breaks the snapshot's rules: a homology naming a gene its gene set lacks, one gene in two species' gene sets |
 
+For `map_residues()`:
+
+| Raised | When |
+|---|---|
+| `UsageError` | no queries, or a query that is not `(str, int, str)`; a missing alignment, gene-tree file or GTF; a species in both `gtfs` and `gene_sets` (all before any input is read). From mzLib: a position outside its source protein (`0`, negative, or past its last residue). That stops the whole call, and no row is returned |
+| `BridgeError` | a file mzLib's reader refuses (type `InvalidDataException`, naming the file and line): alignment rows of different widths, a character that is not a residue, a kept protein twice, an alignment holding two gene trees, or a gene-tree row without four cells |
+
 For `align()`, `align_many()` and `parse_accessions()`, every error is a `UsageError`:
 
 | Function | When |
@@ -1111,7 +1286,7 @@ resources the answers come from:
 --8<-- "docs/reference/_generated/cite.proteins.md"
 
 The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust and mzLibR:
-`proteins read`, `genes resolve`, `genes orthology`, `proteins classify-peptides`,
+`proteins read`, `genes resolve`, `genes orthology`, `genes map-residues`, `proteins classify-peptides`,
 `proteins annotate-go`, `proteins update-go`, `proteins align` and `proteins parse-accession`. See the
 [wire-verb reference](../reference/proteins.md) for every parameter and field with its unit, and the
 [API reference](../reference.md#pymzlibproteins) for the Python classes.
@@ -1124,3 +1299,4 @@ The same verbs are specified once, language-neutrally, for pyMzLib, mzLibRust an
 [1381]: https://github.com/smith-chem-wisc/mzLib/pull/1381
 [1382]: https://github.com/smith-chem-wisc/mzLib/pull/1382
 [1428]: https://github.com/smith-chem-wisc/mzLib/pull/1428
+[1465]: https://github.com/smith-chem-wisc/mzLib/pull/1465

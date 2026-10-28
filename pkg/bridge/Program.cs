@@ -301,6 +301,7 @@ public static partial class Program
             "proteins parse-accession" => Proteins.ParseAccession(arguments),
             "genes resolve" => Proteins.ResolveGenes(arguments),
             "genes orthology" => await Proteins.OrthologyAsync(arguments).ConfigureAwait(false),
+            "genes map-residues" => Proteins.MapResidues(arguments),
             "stats fit" => Statistics.Fit(arguments),
             "stats adjust" => Statistics.Adjust(arguments),
             "stats meta" => Statistics.Meta(arguments),
