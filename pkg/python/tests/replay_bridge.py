@@ -105,6 +105,9 @@ RECORDED_WITH = {
     # sdrf isobaric-design echoes the plex source, but a call that declares none must get the
     # refusal recorded without one, not the design read with the pattern.
     "sdrf_isobaric_design_PXD008841.json": {"plex-file-name-pattern": r"TMT_?pool(?<plex>\d+)"},
+    # library calibrate-rt echoes the options it applied, which are mzLib's defaults when absent.
+    "library_calibrate_rt_pbmc_skip.json": {"on-error": "skip"},
+    "library_calibrate_rt_pbmc_linear.json": {"kind": "linear", "minimum-anchors": "10"},
 }
 
 
@@ -266,7 +269,7 @@ def mismatch(data: dict, options: dict) -> str:
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit", "stats fit-logistic", "stats fit-mixed",
               "diff design", "diff observations", "sdrf restrict", "genes orthology",
-              "genes map-residues"}
+              "genes map-residues", "library calibrate-rt"}
 
 
 def _number(text: str):
@@ -312,7 +315,12 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     recording's ``species``, and as many dump paths after it as the recording has ``dumps``.
     genes map-residues: the same species as the recording's ``gene_sets``, and the same queries
     after ``--``, in the same order, as the recording's source, position and target columns.
+    library calibrate-rt: the same lines, in the same order, as the recording's rows: each line's
+    group, role (anchor before ``--``; to_irt or to_minutes after it, by which time is given) and
+    the times it gives, compared as numbers.
     """
+    if verb == "library calibrate-rt":
+        return calibration_mismatch(data, stdin)
     if verb in ("stats fit", "stats fit-logistic", "stats fit-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
         recorded = list(data.get("tested_coefficients") or [])
@@ -413,6 +421,34 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     recorded = {base(str(f.get("full_path", ""))) for f in data.get("spectra_files") or []}
     if sent != recorded:
         return f"recorded for runs {sorted(recorded)}, not {sorted(sent)}"
+    return ""
+
+
+def calibration_mismatch(data: dict, stdin: str) -> str:
+    """library calibrate-rt: the call's anchors and queries must be the recording's rows."""
+    sent = []
+    queries = False
+    for line in stdin.splitlines():
+        if not line.strip():
+            continue
+        if line.strip() == "--":
+            queries = True
+            continue
+        group, rt, irt = (line.split("\t") + ["", ""])[:3]
+        rt_value, irt_value = _number(rt), _number(irt)
+        role = "anchor" if not queries else ("to_irt" if rt_value is not None else "to_minutes")
+        sent.append((group.strip(), role, rt_value if role != "to_minutes" else None,
+                     irt_value if role != "to_irt" else None))
+    columns = data.get("columns") or {}
+    recorded = [
+        (g, r, t if r != "to_minutes" else None, i if r != "to_irt" else None)
+        for g, r, t, i in zip(columns.get("group") or [], columns.get("role") or [],
+                              columns.get("rt_minutes") or [], columns.get("irt") or [])
+    ]
+    if sent != recorded:
+        first = next((k for k, (a, b) in enumerate(zip(sent, recorded)) if a != b),
+                     min(len(sent), len(recorded)))
+        return f"recorded for {len(recorded)} other lines (first difference at line {first + 1})"
     return ""
 
 

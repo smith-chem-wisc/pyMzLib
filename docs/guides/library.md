@@ -15,6 +15,7 @@ reads it.
 | See a precursor's fragment ions | [`read(fragments=True)`](#fragment-ions) | `MslFragmentIon` |
 | Read a library too large for memory | [`read(index_only_threshold=...)`](#large-libraries-index-only) | `MslLibrary.LoadIndexOnly` |
 | Read several libraries into one table | [`read_many()`](#many-libraries-at-once) | the same reader, in one bridge process |
+| Map a run's minutes onto the library's iRT, and back | [`calibrate_rt()`](#calibrate-a-run-onto-library-irt) | `IrtCalibration.Fit`, `IrtCalibrationModel` |
 
 Every `>>>` example on this page runs in CI against output recorded from the real bridge. Two small
 libraries are used. `myPrositLib.msl` is mzLib's own test library `myPrositLib.msp` (five
@@ -120,8 +121,9 @@ KEDLTPEP 33 iRT
 
 ```
 
-**Never plot or compare `retention_time` without `retention_time_unit`.** pyMzLib converts nothing:
-iRT becomes minutes only through a calibration against a run, which is not in the library. Keep
+**Never plot or compare `retention_time` without `retention_time_unit`.** `read()` converts nothing:
+iRT becomes minutes only through a calibration against a run, which is not in the library.
+[`calibrate_rt()`](#calibrate-a-run-onto-library-irt) fits one from a run's identifications. Keep
 the rows of one unit before you use the numbers:
 
 ```pycon
@@ -266,6 +268,179 @@ per library:
 1 because a library loaded whole is held in memory while its rows are written. `on_error="skip"`
 records an unreadable library in its report's `error` and reads the rest.
 
+## Calibrate a run onto library iRT
+
+A library's iRT is a run-independent scale (Escher et al. 2012): it says that one peptide elutes
+after another, not at which minute. Each run has its own column, gradient and dead volume, so the
+same iRT falls at a different minute in every run. A **calibration** is the map between the two for
+one run, fitted from **anchors**: precursors you identified confidently in that run, each with the
+minute it was seen and its library iRT. With it you can ask where any library precursor should
+elute in that run, or put the run's own times on the library's scale.
+
+| You want to | Call | mzLib does it with |
+|---|---|---|
+| Fit one run's map from anchors | [`calibrate_rt(anchors)`](#one-run-from-a-dia-nn-report) | `IrtCalibration.Fit` |
+| Predict the minute a library precursor elutes at | `calibrate_rt(anchors, [(run, None, irt)])` | `IrtCalibrationModel.ToRtMinutes` |
+| Put an observed minute on the library's iRT scale | `calibrate_rt(anchors, [(run, minutes, None)])` | `IrtCalibrationModel.ToIrt` |
+| Know whether a time lies outside the anchors | the `is_extrapolated` column | `IrtCalibrationModel.IsExtrapolated` |
+| See how well the run follows the library | [`residual_sd`, and `irt - fitted_irt` per anchor](#how-good-is-the-fit) | `IrtCalibrationModel.ResidualSd`, `ToIrt` |
+| Calibrate several runs in one call | [one group per run](#several-runs-and-when-mzlib-refuses-one) | one `IrtCalibration.Fit` per group |
+| Choose a straight line, or tune the curve | `kind=`, `bandwidth=`, `knots=`, `robustness_iterations=`, `minimum_anchors=` | `IrtCalibrationOptions` |
+
+**You choose the anchors.** mzLib asks for the observed apex time of confidently identified
+precursors and is robust to some wrong ones, but it applies no q-value cutoff, and neither does
+pyMzLib. **Send the queries in the same call as their anchors**: mzLib keeps the fitted curve's
+points private, so a calibration cannot be returned and used later. Refitting the same anchors
+gives the same map, because mzLib sorts them before it fits.
+
+### One run, from a DIA-NN report
+
+DIA-NN reports both numbers for every precursor it identifies: `RT`, the minute it was seen, and
+`iRT`, its value in the spectral library. The file used here is one HeLa run from a DIA-NN 2
+report in mzLib's own test data, read by [`readers.read_records()`](readers.md) and cut to six
+columns (its provenance is in `pkg/python/tests/fixtures/calibration/`). The precursors at a
+q-value of 0.01 or below are the anchors; the rest are what we ask about.
+
+```pycon
+>>> import csv, statistics
+>>> with open("diann2_hela_rt.tsv", newline="") as fh:
+...     hela = list(csv.DictReader(fh, delimiter="\t"))
+>>> confident = [r for r in hela if float(r["q_value"]) <= 0.01]
+>>> others = [r for r in hela if float(r["q_value"]) > 0.01]
+>>> len(confident), len(others)
+(418, 114)
+>>> anchors = [(r["run"], float(r["retention_time"]), float(r["indexed_retention_time"]))
+...            for r in confident]
+>>> queries = ([(r["run"], None, float(r["indexed_retention_time"])) for r in others]
+...            + [(r["run"], float(r["retention_time"]), None) for r in others])
+>>> calibration = pymzlib.library.calibrate_rt(anchors, queries)
+>>> run = calibration.groups[0]
+>>> run.kind, run.anchor_count, run.query_count
+('lowess', 418, 228)
+>>> round(run.first_anchor_minutes, 1), round(run.last_anchor_minutes, 1)
+(16.0, 40.9)
+
+```
+
+Each anchor is a tuple `(group, minutes, iRT)`. A query gives one time and `None` for the other,
+and the `None` is what the calibration fills in. With no options, mzLib fits its default, a robust
+LOWESS curve (Cleveland 1979), so a gradient that is not a straight line is followed.
+
+The rows come back in the order you sent them: the anchors, then each query. A `to_minutes` row
+predicts where a library precursor should elute in this run. For the lower-confidence precursors,
+compare the prediction with where DIA-NN saw them:
+
+```pycon
+>>> rows = calibration.records
+>>> predicted = [r["rt_minutes"] for r in rows if r["role"] == "to_minutes"]
+>>> seen = [float(r["retention_time"]) for r in others]
+>>> round(statistics.median(abs(p - s) for p, s in zip(predicted, seen)), 2)
+0.53
+>>> diann = [float(r["predicted_retention_time"]) for r in others]
+>>> round(statistics.median(abs(p - s) for p, s in zip(diann, seen)), 2)
+0.38
+
+```
+
+Half of the predictions are within about half a minute of the observed time. DIA-NN's own
+prediction for the same precursors, from its own calibration of this run, is a little closer. A
+search uses this map to decide where in the run to look for each library precursor, so the
+prediction error sets how wide that retention-time window must be.
+
+A `to_irt` row is the other direction: the run's observed minute on the library's scale. That is
+how runs with different gradients are compared, on one axis.
+
+```pycon
+>>> on_library_scale = [r["irt"] for r in rows if r["role"] == "to_irt"]
+>>> library = [float(r["indexed_retention_time"]) for r in others]
+>>> round(statistics.median(abs(a - b) for a, b in zip(on_library_scale, library)), 1)
+3.4
+
+```
+
+### How good is the fit
+
+`residual_sd` is mzLib's robust spread of the anchors around the curve, in **iRT units**, with the
+anchors that do not fit set aside. On the anchor rows, `fitted_irt` is the curve's iRT at the
+anchor's minute, so `irt - fitted_irt` is each anchor's own residual. To read the spread in
+minutes, divide by how many iRT units the run covers per minute:
+
+```pycon
+>>> anchor_rows = [r for r in rows if r["role"] == "anchor"]
+>>> fitted = [r["fitted_irt"] for r in anchor_rows]
+>>> per_minute = (max(fitted) - min(fitted)) / (run.last_anchor_minutes - run.first_anchor_minutes)
+>>> round(run.residual_sd, 1), round(per_minute, 1), round(run.residual_sd / per_minute, 2)
+(5.0, 8.2, 0.61)
+>>> sum(1 for r in anchor_rows if abs(r["irt"] - r["fitted_irt"]) > 3 * run.residual_sd)
+9
+
+```
+
+About 0.6 minutes of spread in a run where the anchors span 25 minutes. Nine anchors sit more
+than three robust SDs from the curve: those are the wrong identifications the robust fit set
+aside, and they did not pull the curve toward them.
+
+Beyond the first and last anchor the map is a straight line continued from the curve's ends, not
+a fit. `is_extrapolated` marks those rows, and a caveat counts them:
+
+```pycon
+>>> sum(1 for r in rows if r["role"] != "anchor" and r["is_extrapolated"])
+5
+>>> calibration.caveats[-1]
+"5 queries fall outside the anchors' span, where the map is extrapolated (is_extrapolated)."
+
+```
+
+### Several runs, and when mzLib refuses one
+
+Give every anchor and query its run as the group: each group is fitted on its own anchors, and its
+queries use that fit. These are three 24-minute PBMC runs from a DIA-NN 1 report in mzLib's test
+data. One precursor, `AAAAAAAAGAFAGR` at charge 2, is held out of the anchors so that each run can
+predict where it should elute:
+
+```pycon
+>>> with open("diann_pbmc_rt.tsv", newline="") as fh:
+...     pbmc = list(csv.DictReader(fh, delimiter="\t"))
+>>> held_out = "AAAAAAAAGAFAGR2"
+>>> anchors = [(r["run"], float(r["retention_time"]), float(r["indexed_retention_time"]))
+...            for r in pbmc if r["precursor_id"] != held_out]
+>>> observed = {r["run"]: float(r["retention_time"]) for r in pbmc if r["precursor_id"] == held_out}
+>>> queries = [(run, None, 11.886096) for run in observed]
+>>> refused = pymzlib.library.calibrate_rt(anchors, queries, on_error="skip")
+>>> for group in refused.groups:
+...     print(group.group[:8], group.anchor_count, group.error.message)
+20240316 13 Calibration needs at least 20 anchors; got 13.
+20240317 11 Calibration needs at least 20 anchors; got 11.
+20240315 10 Calibration needs at least 20 anchors; got 10.
+
+```
+
+mzLib refuses to fit a run from fewer than 20 anchors by default rather than return a curve that
+a handful of points would decide. Without `on_error="skip"` the first refusal raises a `UsageError`
+naming the run. These runs have ten to thirteen anchors each. That is too few for a LOWESS curve,
+which fits each point from a share of the anchors, but enough for a straight line: say so, and
+lower mzLib's floor.
+
+```pycon
+>>> lines = pymzlib.library.calibrate_rt(anchors, queries, kind="linear", minimum_anchors=10)
+>>> for group in lines.groups:
+...     print(group.group[:8], group.kind, round(group.residual_sd, 1))
+20240316 linear 4.1
+20240317 linear 3.6
+20240315 linear 0.7
+>>> for row in lines.records:
+...     if row["role"] == "to_minutes":
+...         print(row["group"][:8], f"{row['rt_minutes']:.2f}", f"{observed[row['group']]:.2f}")
+20240316 9.22 9.21
+20240317 9.45 9.23
+20240315 9.17 8.94
+
+```
+
+Each run's line predicts the held-out precursor within a quarter of a minute of where it was seen.
+With few anchors, prefer a line: a LOWESS curve through ten points can pass through nearly all of
+them, and a `residual_sd` near 0 then means an overfit, not a perfect run.
+
 ## Traps
 
 - **Stored order, not m/z order.** Rows follow `precursor_index`. Sort on `precursor_mz` yourself.
@@ -289,6 +464,13 @@ records an unreadable library in its report's `error` and reads the rest.
 - **Write a library.** mzLib writes them (`MslLibrary.Save`); no wire verb projects that yet.
 - **Query by m/z or retention-time window.** mzLib's `QueryMzWindow` and `QueryWindow` are what a
   search engine calls. To find a precursor here, read the table and filter it.
+- **Choose calibration anchors.** `calibrate_rt()` fits the anchors you send. A q-value cutoff,
+  one anchor per precursor, apex or MS2-scan time: each is your choice, and mzLib makes none.
+- **Keep a calibration for later.** mzLib keeps the fitted curve's points private
+  (`IrtCalibrationModel`), so nothing can carry it out of the call. Send the queries with their
+  anchors, or send the same anchors again: the fit is deterministic.
+- **Write calibrated times into a library.** mzLib's `MslLibrary.WithCalibratedRetentionTimes`
+  takes a slope and intercept and is not connected to `IrtCalibration`, and no wire verb projects it.
 
 ## Cite
 
@@ -300,7 +482,12 @@ Further sources:
 
 - mzLib [#1383][1383] added the entrapment flag and made `rt_is_calibrated` work, [#1421][1421]
   added `GetEntry` without fragments, and [#1420][1420] made libraries over 2 GB open.
+- mzLib [#1387][1387] added `IrtCalibration`, the fit `calibrate_rt()` runs
+  (`Chromatography/RetentionTimeCalibration/IrtCalibration.cs`). iRT is from Escher et al. 2012
+  ([10.1002/pmic.201100463](https://doi.org/10.1002/pmic.201100463)); the robust LOWESS curve is
+  Cleveland's ([10.1080/01621459.1979.10481038](https://doi.org/10.1080/01621459.1979.10481038)).
 
 [1383]: https://github.com/smith-chem-wisc/mzLib/pull/1383
+[1387]: https://github.com/smith-chem-wisc/mzLib/pull/1387
 [1420]: https://github.com/smith-chem-wisc/mzLib/pull/1420
 [1421]: https://github.com/smith-chem-wisc/mzLib/pull/1421

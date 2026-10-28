@@ -150,7 +150,7 @@ def _doctests_use_the_replay_bridge(_replay_bridge, doctest_namespace, tmp_path,
 
 #: Folders of small input files an example reads itself (not through the bridge), copied into the
 #: example's working directory so it can open them by bare name, as a reader would.
-EXAMPLE_INPUTS = [FIXTURES / "stats", FIXTURES / "diff"]
+EXAMPLE_INPUTS = [FIXTURES / "stats", FIXTURES / "diff", FIXTURES / "calibration"]
 
 
 def copy_example_inputs(directory: Path) -> None:

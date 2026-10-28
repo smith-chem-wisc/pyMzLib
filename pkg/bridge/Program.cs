@@ -293,6 +293,7 @@ public static partial class Program
             "sdrf restrict" => Sdrf.Restrict(arguments),
             "isobaric kits" => Isobaric.Kits(arguments),
             "library read" => Reading.ReadLibrary(arguments),
+            "library calibrate-rt" => Library.CalibrateRt(arguments),
             "proteins read" => Proteins.Read(arguments),
             "proteins classify-peptides" => Proteins.ClassifyPeptides(arguments),
             "proteins annotate-go" => Proteins.AnnotateGo(arguments),

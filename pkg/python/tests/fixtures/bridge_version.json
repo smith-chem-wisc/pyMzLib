@@ -36,6 +36,7 @@
   "sdrf restrict",
   "isobaric kits",
   "library read",
+  "library calibrate-rt",
   "proteins read",
   "proteins classify-peptides",
   "proteins annotate-go",
