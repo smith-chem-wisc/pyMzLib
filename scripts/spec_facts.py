@@ -197,6 +197,12 @@ PYTHON_DEVIATIONS: dict[str, dict[str, dict[str, str | None]]] = {
     "stats meta": {
         "param.stdin": {"python": "studies", "why": "one stdin line per (feature, estimate, standard_error)"},
     },
+    "library calibrate-rt": {
+        "param.stdin": {
+            "python": "anchors",
+            "why": "one stdin line per anchor, then a '--' line and one per entry of queries",
+        },
+    },
     "stats combine-p": {
         "param.stdin": {"python": "tests", "why": "one stdin line per (feature, p_value[, weight[, effect]])"},
     },

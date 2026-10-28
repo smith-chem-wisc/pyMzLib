@@ -175,6 +175,16 @@ feature where limma's `contrasts.fit` approximates them, so those differ by desi
 the same values: `fit()` models what you give it, so log-transform first, and blank any 0 that
 means "not measured" (`zero_count` counts them).
 
+## `calibrate_rt()` says "Calibration needs at least 20 anchors"
+
+That is mzLib refusing to fit a run from too few points: 20 is the default of
+`IrtCalibrationOptions.MinimumAnchors`. Send more anchors if you have them, for example a looser
+q-value cutoff. If the run really has only a few confident identifications, fit a straight line and
+lower the floor, `calibrate_rt(..., kind="linear", minimum_anchors=10)`: a LOWESS curve through a
+few points follows each one. To fit the runs that have enough and report the others, pass
+`on_error="skip"` and read each group's `error`. The
+[spectral-library guide](guides/library.md#several-runs-and-when-mzlib-refuses-one) shows both.
+
 ---
 
 ## Troubleshooting

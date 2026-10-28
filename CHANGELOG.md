@@ -6,6 +6,16 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Added
+- **`library.calibrate_rt()`** fits a run's map from retention time in minutes onto a spectral
+  library's iRT scale, from anchors you choose, with mzLib's robust `IrtCalibration` (LOWESS by
+  default, or a straight line), and converts the times you send with them in either direction:
+  where a library precursor should elute in this run, or an observed minute on the library's
+  scale. Each run is a group, fitted on its own anchors; `on_error="skip"` reports a run mzLib
+  refuses instead of failing the call. Every option is mzLib's `IrtCalibrationOptions` member and
+  is sent only when given (mzLib#1387). The fitted curve itself cannot be returned: mzLib keeps its
+  points private, so queries travel in the same call as their anchors.
+
 ### Changed
 - **Built from mzLib 1.0.596** (tag commit `cc67b7a2`). Its changes to what existing calls return
   are listed in [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md); the largest are below.
