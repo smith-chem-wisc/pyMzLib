@@ -30,3 +30,4 @@
 ###############################################################################
 pkg/python/tests/fixtures/proteins/** -text
 pkg/python/tests/fixtures/orthology/** -text
+pkg/python/tests/fixtures/map_residues/** -text

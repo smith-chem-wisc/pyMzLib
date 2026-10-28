@@ -1,0 +1,6 @@
+#!genome-build GRCr8
+#!genome-version GRCr8
+#!genome-date 2024-01
+#!genome-build-accession GCA_036323735.1
+#!genebuild-last-updated 2024-03
+10	ensembl	gene	54798851	54810299	.	+	.	gene_id "ENSRNOG00000010756"; gene_version "9"; gene_name "Tp53"; gene_source "ensembl"; gene_biotype "protein_coding";
