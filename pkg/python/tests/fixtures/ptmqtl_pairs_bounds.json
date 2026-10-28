@@ -1,0 +1,115 @@
+{
+ "observations_file": "F:\\ClaudeTestBuilds\\pymzlib-opts\\pkg\\python\\tests\\fixtures\\ptmqtl\\bounds.tsv",
+ "samples_file": null,
+ "type": "covarying",
+ "observation_count": 35,
+ "run_count": 10,
+ "sample_count": null,
+ "run_names": [
+  "r0",
+  "r1",
+  "r2",
+  "r3",
+  "r4",
+  "r5",
+  "r6",
+  "r7",
+  "r8",
+  "r9"
+ ],
+ "covarying_run_count": 10,
+ "min_quantified_fraction": 0.7,
+ "exclude_ceiling": null,
+ "include_bounds": true,
+ "min_untied_share": 0.5,
+ "run_covariate_file": null,
+ "run_covariate_name": null,
+ "run_covariate_runs_missing": null,
+ "remove_run_level": false,
+ "run_level_group": null,
+ "run_level_groups_file": null,
+ "min_runs_for_run_level": null,
+ "min_sites_for_run_level": null,
+ "modifications": null,
+ "categories": null,
+ "ignored_columns": [],
+ "physical_count": null,
+ "covarying_count": 1,
+ "row_count": 1,
+ "column_names": [
+  "result_type",
+  "site_a",
+  "site_b",
+  "same_protein",
+  "overlapping",
+  "statistic",
+  "p_value",
+  "q",
+  "fdr_family",
+  "n",
+  "statistic_n",
+  "spearman_method",
+  "run_level_removed",
+  "test_status",
+  "bounds_included",
+  "run_covariate_removed"
+ ],
+ "columns": {
+  "result_type": [
+   "covarying"
+  ],
+  "site_a": [
+   "BOUND_S:S13:Common Biological:Phosphorylation on S"
+  ],
+  "site_b": [
+   "BOUND_T:S43:Common Biological:Phosphorylation on S"
+  ],
+  "same_protein": [
+   false
+  ],
+  "overlapping": [
+   false
+  ],
+  "statistic": [
+   0.004201680672268907
+  ],
+  "p_value": [
+   0.991440532347694
+  ],
+  "q": [
+   0.991440532347694
+  ],
+  "fdr_family": [
+   "A:inter"
+  ],
+  "n": [
+   9
+  ],
+  "statistic_n": [
+   9
+  ],
+  "spearman_method": [
+   "asymptotic"
+  ],
+  "run_level_removed": [
+   false
+  ],
+  "test_status": [
+   "tested"
+  ],
+  "bounds_included": [
+   true
+  ],
+  "run_covariate_removed": [
+   false
+  ]
+ },
+ "caveats": [
+  "covarying (mzLib's PtmPairEngine.CoVarying, type A): Spearman's rho of two sites' occupancies across runs. With --include-bounds, a run where a site was seen in only one form enters as a bound, never as an invented value: not_detected (a covered-zero) and floor cells tie below every fraction of that site, and a ceiling, or a count_only cell whose covering peptidoforms all carry the modification, ties above every fraction. A count_only cell where both forms were identified has no rank and is left out. Bounds count toward min_quantified_fraction.",
+  "A site enters co-varying pairs only if it has a value or a bound in at least min_quantified_fraction of covarying_run_count, the runs (or samples) where any site was identified or covered.",
+  "With --include-bounds, a pair is tested only if at least one of its sites has at least min_untied_share (0.5) of the shared runs outside its largest tie of bounds; otherwise test_status is both_sites_mostly_bounds and it has no statistic, p_value or q. mzLib's reason: when both sites are mostly one bound, Spearman's t test calls 2 to 5 times too many pairs at p < 0.001 with no relation at all (mzLib's simulation, PtmPairEngine.MinUntiedShare).",
+  "q is Benjamini-Hochberg within fdr_family (the type, then intra or inter protein). An overlapping pair, two sites one peptide covers, is reported but left out of the family (q null): shared peptides correlate it by construction. q is not a target-decoy q-value.",
+  "p_value is Spearman's two-sided p, exact for 9 or fewer runs without ties, otherwise asymptotic (t on n - 2 degrees of freedom), as stats correlate reports it.",
+  "The observations follow ptmqtl occupancy's rules: MS/MS identifications only, one row per (run, peptidoform, protein), and the same exclusions (Common Variable, Common Fixed, peptide-terminal and C-terminal modifications)."
+ ]
+}

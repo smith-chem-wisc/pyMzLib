@@ -8,17 +8,23 @@
 # TraitFitUsesOnlyQuantifiedNonCeilingCells, TraitFitReportsCovariateEffects), held by
 # PtmQtlTests.Fixtures_AreMzLibsHandComputedCases; trait_occupancy.tsv is held to what ptmqtl
 # occupancy --out writes by PtmQtlTests.TraitOccupancyFixture_IsWhatOccupancyOutWrites.
+# Updated 2026-10-28 for mzLib #1464 at cc67b7a2 (tag 1.0.596), on pyMzLib branch
+# feat/ptmqtl-isobaric-options-596: --scale (SiteTraitOptions.Scale, OccupancyScale), set only when
+# given, and the scale echo; and the occupancy table's optional peptidoform counts (#1468), read
+# back into SiteRunOccupancy. The log2 example is mzLib's TraitFitOnLog2OddsIsTheNaturalLogFitDividedByLn2.
 verb: ptmqtl trait-effects
 module: ptmqtl
 summary: >-
-  Per site, the effect of a per-run trait on logit occupancy, from a random-intercept mixed model
-  per site, so that repeated runs of one biological replicate are not counted as independent.
+  Per site, the effect of a per-run trait on the log odds of occupancy (natural log or log2), from a
+  random-intercept mixed model per site, so that repeated runs of one biological replicate are not
+  counted as independent.
 since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
 wraps:
-  - {symbol: SiteTraitEffects.Fit, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
-  - {symbol: SiteTraitOptions, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
-  - {symbol: SiteTraitEffect, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: d10017ce}
-  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: SiteTraitEffects.Fit, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
+  - {symbol: SiteTraitOptions, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
+  - {symbol: SiteTraitEffect, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
+  - {symbol: OccupancyScale, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
+  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: cc67b7a2}
   - {symbol: MixedModel.Fit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
 cite:
   - {doi: "10.2307/2529876", for: "the random-intercept linear mixed model fitted per site (Laird and Ware, Biometrics 38:963, 1982)"}
@@ -37,7 +43,9 @@ params:
       state (quantified, floor, count_only or not_detected), modified_intensity and
       covering_intensity (instrument units, finite), unmodified_quantified (true or false), and
       optionally fraction (fraction, 0 to 1; blank for none), which mzLib then uses instead of
-      modified_intensity / covering_intensity, as it does for a fraction a producer wrote exactly.
+      modified_intensity / covering_intensity, as it does for a fraction a producer wrote exactly,
+      and optionally covering_peptidoforms and modified_peptidoforms (integers; blank for not
+      supplied), read into mzLib's cell; the fit does not use them.
       site_key and category are derived by mzLib and not read; any other column is listed in
       ignored_columns. A (site, run) given twice is refused, since mzLib's fit would use the first.
   - name: runs
@@ -89,6 +97,19 @@ params:
     doc: >-
       Use a run where the site was seen only modified (a fraction of 1 with unmodified_quantified
       false) as a response, clamped below 1. mzLib leaves such a ceiling out unless asked.
+  - name: scale
+    type: string
+    required: false
+    unit: null
+    range: "natural_log_odds | log2_odds"
+    default: "absent: mzLib's SiteTraitOptions.Scale, natural_log_odds at the pin"
+    doc: >-
+      The unit the effects and variances are reported in (mzLib's OccupancyScale, #1464).
+      natural_log_odds: ln(f / (1 - f)), the logit, so exp(effect) is the odds ratio per unit.
+      log2_odds: log2(f / (1 - f)), so an effect of +1 doubles the odds per unit; mzLib divides the
+      natural-log fit's effects and standard errors by ln 2 and its variances by (ln 2)^2, and leaves
+      df, p and q unchanged: a change of unit, not a refit. Absent, the bridge sets nothing and
+      mzLib's default applies.
 
 result:
   envelope_fields:
@@ -104,12 +125,13 @@ result:
     - {wire: min_replicates, type: int, unit: replicates, nullable: false, null_means: null, doc: "The replicate threshold used: as given, or mzLib's default."}
     - {wire: logit_epsilon, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "The clamp used: as given, or mzLib's default."}
     - {wire: exclude_ceiling, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether ceiling cells were left out: false with --keep-ceiling, else mzLib's default."}
+    - {wire: scale, type: string, unit: null, nullable: false, null_means: null, doc: "The scale used, natural_log_odds or log2_odds: as given, or mzLib's default. It is the unit of effect, standard_error, covariate_effects and the two variances."}
     - {wire: status_counts, type: "map<string,int>", unit: sites, nullable: false, null_means: null, doc: "Sites per status, keyed by every status value."}
     - {wire: ignored_columns, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Columns of the occupancy file that were not read (other than site_key and category); empty when none."}
     - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Sites in the table."}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
     - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per site with at least one usable response (a quantified cell, not a ceiling unless --keep-ceiling, in a run with a trait), in ordinal site_key order."}
-    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Six static caveats; plus one listing occupancy runs not used, one counting sites not fitted by status, and one naming columns not read, when they apply."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Seven static caveats, one of them naming the scale and its units; plus one listing occupancy runs not used, one counting sites not fitted by status, and one naming columns not read, when they apply."}
   columns:
     - {wire: site_key, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's ModificationSite.Key, as ptmqtl occupancy writes it."}
     - {wire: protein_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The site's protein."}
@@ -117,21 +139,21 @@ result:
     - {wire: residue, type: string, unit: null, nullable: false, null_means: null, doc: "The one-letter residue."}
     - {wire: modification, type: string, unit: null, nullable: false, null_means: null, doc: "Category:IdWithMotif."}
     - {wire: status, type: string, unit: null, nullable: false, null_means: null, doc: "fitted | below_support (fewer runs or replicates than min_runs or min_replicates) | too_few_observations | rank_deficient | too_few_groups | variance_ratio_at_limit | not_converged (mzLib's MixedModel could not fit it, as stats fit names those outcomes). Only fitted rows carry statistics."}
-    - {wire: effect, type: float, unit: "logit occupancy per trait unit", nullable: true, null_means: "not fitted (see status)", doc: "The change in logit(occupancy) per unit of the trait, other covariates held fixed. exp(effect) is the odds ratio of the modified form per trait unit."}
-    - {wire: standard_error, type: float, unit: "logit occupancy per trait unit", nullable: true, null_means: "not fitted", doc: "Standard error of effect."}
+    - {wire: effect, type: float, unit: "log odds of occupancy per trait unit (natural log or log2, as scale says)", nullable: true, null_means: "not fitted (see status)", doc: "The change in the log odds of occupancy per unit of the trait, other covariates held fixed. natural_log_odds: exp(effect) is the odds ratio of the modified form per trait unit. log2_odds: 2^effect is, so +1 doubles the odds."}
+    - {wire: standard_error, type: float, unit: "log odds of occupancy per trait unit (as scale)", nullable: true, null_means: "not fitted", doc: "Standard error of effect, on the same scale."}
     - {wire: df, type: float, unit: "degrees of freedom", nullable: true, null_means: "not fitted", doc: "Denominator degrees of freedom of the t test, by nlme's containment rule: for a trait constant within each replicate, replicates - 1 - the between-replicate coefficients."}
     - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted", doc: "Two-sided p-value of the trait coefficient."}
     - {wire: q, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not fitted, so not in the family", doc: "Benjamini-Hochberg over the sites with a p-value in this call. Not a target-decoy q-value."}
     - {wire: runs, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs contributing a response."}
     - {wire: replicates, type: int, unit: replicates, nullable: false, null_means: null, doc: "Distinct biological replicates among those runs."}
     - {wire: median_fraction, type: float, unit: "fraction (0 to 1)", nullable: false, null_means: null, doc: "Median occupancy over the contributing runs, before the clamp."}
-    - {wire: covariate_effects, type: "float[]", unit: "logit occupancy per covariate unit", nullable: false, null_means: null, doc: "One coefficient per covariate, in covariate_names order; each element null when the site was not fitted. Empty without covariates."}
-    - {wire: replicate_variance, type: float, unit: "squared logit occupancy", nullable: true, null_means: "not fitted", doc: "Between-replicate variance of logit occupancy (the random intercept)."}
-    - {wire: residual_variance, type: float, unit: "squared logit occupancy", nullable: true, null_means: "not fitted", doc: "Within-replicate (run-to-run) variance of logit occupancy."}
+    - {wire: covariate_effects, type: "float[]", unit: "log odds of occupancy per covariate unit (as scale)", nullable: false, null_means: null, doc: "One coefficient per covariate, in covariate_names order; each element null when the site was not fitted. Empty without covariates."}
+    - {wire: replicate_variance, type: float, unit: "squared log odds of occupancy (as scale)", nullable: true, null_means: "not fitted", doc: "Between-replicate variance of the log odds of occupancy (the random intercept)."}
+    - {wire: residual_variance, type: float, unit: "squared log odds of occupancy (as scale)", nullable: true, null_means: "not fitted", doc: "Within-replicate (run-to-run) variance of the log odds of occupancy."}
 
 errors:
-  - {kind: usage, when: "occupancy or runs missing, blank or not found; min-runs or min-replicates not an integer or below 0; logit-epsilon not a number, or not above 0 and below 0.5; an option given without a value; keep-ceiling written with a value"}
-  - {kind: usage, when: "the occupancy file empty, header-only, missing a column, with a repeated column name, a row of the wrong width, a position that is not an integer, a residue that is not one letter, a state that is not one of the four, an intensity that is not finite, a fraction that is not a number, unmodified_quantified not true or false, an empty accession, modification or run, or a (site, run) twice"}
+  - {kind: usage, when: "occupancy or runs missing, blank or not found; min-runs or min-replicates not an integer or below 0; logit-epsilon not a number, or not above 0 and below 0.5; scale not natural_log_odds or log2_odds; an option given without a value; keep-ceiling written with a value"}
+  - {kind: usage, when: "the occupancy file empty, header-only, missing a column, with a repeated column name, a row of the wrong width, a position that is not an integer, a residue that is not one letter, a state that is not one of the four, an intensity that is not finite, a fraction that is not a number, a peptidoform count that is not blank or an integer, unmodified_quantified not true or false, an empty accession, modification or run, or a (site, run) twice"}
   - {kind: usage, when: "the runs file with fewer than three columns, a repeated header after the replicate, a row of the wrong width, an empty or repeated run, or a trait or covariate that is not a number"}
   - {kind: usage, when: "mzLib refuses the input, in its own words: a run with a trait and no replicate; a run with a trait whose covariates are not all finite; a design (intercept, trait, covariates over the runs with a trait) not of full column rank, such as a constant trait"}
   - {kind: correctness, when: "never expected"}
@@ -142,6 +164,7 @@ caveats:
   - "Only quantified cells are responses; floor, count_only and not_detected cells are left out, never entered as 0. This is the intensity part of the question: it says nothing about whether detecting the modification changes with the trait."
   - "Ceiling cells are left out unless keep-ceiling."
   - "Fractions are clamped to [logit_epsilon, 1 - logit_epsilon] before the logit. effect is per unit of the trait as given: rescale the trait to change the unit."
+  - "effect, standard_error, covariate_effects and the two variances are on the scale echoed: natural_log_odds (exp(effect) is the odds ratio per unit) or log2_odds (an effect of +1 doubles the odds). log2_odds is the natural-log fit divided by ln 2 (variances by (ln 2)^2); df, p_value and q do not change."
   - "A site with fewer than min_runs runs or min_replicates replicates is below_support, with null statistics; a site with no usable response does not appear."
   - "q adjusts over this call's fitted sites only: not across datasets, and not a target-decoy q-value."
 
@@ -159,5 +182,9 @@ examples:
     py: "result = pymzlib.ptmqtl.trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', min_replicates=6)"
     rust: "let result = mzlib::ptmqtl::trait_effects_with(\"trait_occupancy.tsv\", \"trait_runs.tsv\", &TraitEffectsOptions { min_replicates: Some(6), ..Default::default() })?;"
     r: "result <- ptmqtl_trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', min_replicates = 6)"
+  - fixture: ptmqtl_trait_effects_log2.json
+    py: "result = pymzlib.ptmqtl.trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', scale='log2_odds')"
+    rust: "let result = mzlib::ptmqtl::trait_effects_with(\"trait_occupancy.tsv\", \"trait_runs.tsv\", &TraitEffectsOptions { scale: Some(OccupancyScale::Log2Odds), ..Default::default() })?;"
+    r: "result <- ptmqtl_trait_effects('trait_occupancy.tsv', 'trait_runs.tsv', scale = 'log2_odds')"
 
 open_questions: []

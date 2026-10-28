@@ -101,7 +101,10 @@ RECORDED_WITH = {
     "diff_observations_spike_in_normalized.json": {"min-peptides": "50", "normalize": True},
     # ptmqtl: a flag or an option left out takes mzLib's default, which the echo cannot tell apart.
     "ptmqtl_pairs_batch_run_level.json": {"remove-run-level": True},
+    "ptmqtl_pairs_bounds.json": {"include-bounds": True},
+    "ptmqtl_pairs_depth_covariate_run_level.json": {"remove-run-level": True},
     "ptmqtl_trait_effects_strict.json": {"min-replicates": "6"},
+    "ptmqtl_trait_effects_log2.json": {"scale": "log2_odds"},
     # sdrf isobaric-design echoes the plex source, but a call that declares none must get the
     # refusal recorded without one, not the design read with the pattern.
     "sdrf_isobaric_design_PXD008841.json": {"plex-file-name-pattern": r"TMT_?pool(?<plex>\d+)"},
@@ -112,10 +115,10 @@ RECORDED_WITH = {
 
 
 #: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
-#: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples and
-#: --run-level-groups, stats fit --contrasts). A recording made with one answers only a call that
-#: gives one, and the reverse, or a plain correlation could print a partial one.
-OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "contrasts")
+#: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples,
+#: --run-level-groups and --run-covariate, stats fit --contrasts). A recording made with one answers
+#: only a call that gives one, and the reverse, or a plain correlation could print a partial one.
+OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "run-covariate", "contrasts")
 
 
 #: Options a verb echoes inside an object rather than at the top level (stats fit --estimator as

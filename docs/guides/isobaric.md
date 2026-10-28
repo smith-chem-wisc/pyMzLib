@@ -12,6 +12,7 @@ MetaMorpheus quantifies TMT searches with:
 | Every kit mzLib knows, with every channel | [`kits()`](#every-kit) | `IsobaricMassTag`, `IsobaricMassTagType` ([#1375][1375]) |
 | One kit, by its name or a MetaMorpheus modification name | [`kits("TMT18")`](#one-kit-tmtpro-18-plex) | `IsobaricMassTag.TryGetTagType` |
 | A channel's reporter-ion m/z and matching window | [`.channels`](#what-the-numbers-are) | `ReporterIonMzs`, `ReporterIonMzRanges` |
+| The label an SDRF writes for a channel | [`.sdrf_labels`](#the-label-an-sdrf-writes) | `SdrfIsobaricLabels.GetSdrfLabel` ([#1467][1467]) |
 
 Every example on this page is executed in CI against output recorded from the real bridge.
 
@@ -91,6 +92,36 @@ the kits that exist, rather than quietly resolved to whichever kit's name it hap
 - **`index` is 0-based** and ascends with m/z; `label` at that index names the channel whose
   reporter ion it is.
 
+## The label an SDRF writes
+
+An SDRF names each channel in its `comment[label]` column, in PRIDE's terms rather than
+MetaMorpheus's: `TMT127N`, not `127N`. One channel breaks the pattern. TMT10's last channel is
+`131N` to mzLib, and `TMT131` to PRIDE (PRIDE:0000529), while TMT11 and TMTpro keep `TMT131N`. Get
+it wrong and the SDRF names a channel the kit does not have. `sdrf_label` is mzLib's answer, so you
+never re-derive the rule:
+
+```pycon
+>>> tmt10 = catalogue.kit_named("TMT10")
+>>> for channel in tmt10.channels[-2:]:
+...     print(channel.label, channel.sdrf_label)
+130C TMT130C
+131N TMT131
+>>> catalogue.kit_named("TMT11").sdrf_labels[-2:]
+['TMT131N', 'TMT131C']
+>>> catalogue.kit_named("iTRAQ4").sdrf_labels
+['ITRAQ114', 'ITRAQ115', 'ITRAQ116', 'ITRAQ117']
+>>> catalogue.kit_named("diLeu12").sdrf_labels[:2]
+['DiLeu115a', 'DiLeu115b']
+
+```
+
+- **The labels are PRIDE's, as sdrf-pipelines reads them.** DiLeu has no PRIDE term, so its label
+  is `DiLeu` and the channel, the form mzLib reads.
+- **They read back.** [`sdrf.isobaric_design()`](sdrf.md#read-an-isobaric-tmt-design) reads each
+  of these labels to its channel, by the same mzLib rule. It also reads `TMT131N` for TMT10, as
+  some deposits write it.
+- Write `sdrf_label` when you build an SDRF; keep `label` for MetaMorpheus's `TmtDesign.txt`.
+
 ## What this does not do
 
 - **Read reporter intensities out of your spectra.** mzLib can
@@ -104,7 +135,7 @@ the kits that exist, rather than quietly resolved to whichever kit's name it hap
 ## Cite
 
 If this guide's results go into a paper, cite mzLib (see [Citing](../index.md#citing)) and the
-source of the channel set and its matching tolerance:
+source of the channel set and its matching tolerance, and the SDRF format the labels are for:
 
 --8<-- "docs/reference/_generated/cite.isobaric.md"
 
@@ -112,5 +143,9 @@ Further sources:
 
 - mzLib [#1375][1375] moved `IsobaricMassTag` into `Omics.Modifications`, named every channel, and
   derived each m/z from `TMT.txt`.
+- mzLib [#1467][1467] made one rule for a channel's SDRF label, both ways
+  (`SdrfIsobaricLabels.GetSdrfLabel` and `TryGetChannel`, `Readers/Sdrf/SdrfIsobaricLabels.cs:40`
+  and `:59`), after the `tmt10plex` table of sdrf-pipelines.
 
 [1375]: https://github.com/smith-chem-wisc/mzLib/pull/1375
+[1467]: https://github.com/smith-chem-wisc/mzLib/pull/1467

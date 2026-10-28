@@ -66,6 +66,7 @@ def test_occupancy_parses_the_cases_recording(bridge):
     assert occ.column_names == [
         "site_key", "protein_accession", "position", "residue", "modification", "category", "run",
         "state", "modified_intensity", "covering_intensity", "fraction", "unmodified_quantified",
+        "covering_peptidoforms", "modified_peptidoforms",
     ]
     assert set(occ.state_counts) == set(ptmqtl.OCCUPANCY_STATES)
     assert occ.row_count == len(occ.records) == sum(occ.state_counts.values())
@@ -83,6 +84,23 @@ def test_occupancy_parses_the_cases_recording(bridge):
     assert proteins.isdisjoint({"EXCLUDED", "PEPTIDE_NTERM", "NTERM_AFTER_K"})
     assert by_key[("NTERM_AFTER_MET:S2:UniProt:N-acetylserine on S", "r1")]["position"] == 2
     assert any(c.startswith("position is 1-based") for c in occ.caveats)
+
+
+def test_occupancy_carries_mzlibs_peptidoform_counts(bridge):
+    # mzLib #1468: identifications, not intensity. The k of n of each cell.
+    bridge["payload"] = recorded("ptmqtl_occupancy_cases.json")
+    occ = ptmqtl.occupancy("cases.tsv")
+    states = {r["run"]: (r["state"], r["covering_peptidoforms"], r["modified_peptidoforms"])
+              for r in occ.records if r["protein_accession"] == "STATES"}
+    assert states == {
+        "countOnly": ("count_only", 1, 1),
+        "floor": ("floor", 2, 1),
+        "notDetected": ("not_detected", 1, 0),
+        "quant": ("quantified", 2, 1),
+    }
+    ratio = next(r for r in occ.records if r["protein_accession"] == "RATIO")
+    assert (ratio["covering_peptidoforms"], ratio["modified_peptidoforms"]) == (3, 1)
+    assert any(c.startswith("covering_peptidoforms and modified_peptidoforms") for c in occ.caveats)
 
 
 def test_occupancy_with_samples_reports_the_samples(bridge):
@@ -139,6 +157,14 @@ def test_pairs_sends_only_what_was_given(bridge):
     ]
     ptmqtl.pairs("batch.tsv", type="covarying", remove_run_level=True, run_level_groups="groups.tsv")
     assert bridge["calls"][2]["args"][-2:] == ["--run-level-groups", "groups.tsv"]
+    ptmqtl.pairs("depth.tsv", type="covarying", include_bounds=True, run_covariate=Path("psms.tsv"))
+    assert bridge["calls"][3]["args"] == [
+        "ptmqtl", "pairs", "--observations", "depth.tsv", "--type", "covarying",
+        "--include-bounds", "--run-covariate", "psms.tsv",
+    ]
+    # Left out, neither is sent: mzLib's defaults (no bounds, no covariate) apply.
+    assert "--include-bounds" not in bridge["calls"][0]["args"]
+    assert "--run-covariate" not in bridge["calls"][0]["args"]
 
 
 def test_pairs_parses_the_physical_recording(bridge):
@@ -155,6 +181,11 @@ def test_pairs_parses_the_physical_recording(bridge):
     assert (pair["n"], pair["statistic_n"]) == (2, 1)
     assert pair["p_value"] is None and pair["q"] is None and pair["spearman_method"] is None
     assert pair["fdr_family"] == "P:intra"
+    # The co-varying test fields: no test for physical pairs.
+    assert pair["test_status"] is None
+    assert pair["bounds_included"] is False and pair["run_covariate_removed"] is False
+    assert found.include_bounds is None and found.min_untied_share is None
+    assert found.run_covariate_file is None and found.run_covariate_runs_missing is None
 
 
 def test_pairs_parses_mzlibs_defaults_and_the_run_level(bridge):
@@ -173,7 +204,50 @@ def test_pairs_parses_mzlibs_defaults_and_the_run_level(bridge):
     assert all(r["run_level_removed"] for r in given.records)
     not_estimable = [r for r in given.records if r["spearman_method"] == "not_estimable"]
     assert not_estimable and all(r["statistic"] is None and r["q"] is None for r in not_estimable)
+    assert {r["test_status"] for r in not_estimable} == {"not_estimable"}
     assert any(c.startswith("With --remove-run-level") for c in given.caveats)
+    assert any(c.startswith(f"{len(not_estimable)} co-varying pairs were not tested") for c in given.caveats)
+
+
+def test_pairs_with_bounds_tests_what_the_guard_kept_out(bridge):
+    # mzLib's BoundsEnterTypeAAsTiedRanks: six values in ten runs is below the 70% guard.
+    bridge["payload"] = recorded("ptmqtl_pairs_bounds_plain.json")
+    plain = ptmqtl.pairs("bounds.tsv", type="covarying")
+    assert plain.row_count == 0 and plain.include_bounds is False and plain.min_untied_share is None
+
+    bridge["payload"] = recorded("ptmqtl_pairs_bounds.json")
+    bounded = ptmqtl.pairs("bounds.tsv", type="covarying", include_bounds=True)
+    assert bounded.include_bounds is True and bounded.min_untied_share == 0.5
+    assert bounded.exclude_ceiling is None
+    (pair,) = bounded.records
+    assert pair["n"] == 9 and pair["test_status"] == "tested" and pair["bounds_included"] is True
+    assert pair["statistic"] is not None and pair["run_covariate_removed"] is False
+    assert any(c.startswith("With --include-bounds, a pair is tested only if") for c in bounded.caveats)
+
+
+def test_pairs_given_a_run_covariate(bridge):
+    # mzLib's ARunCovariateIsPartialledOut: two sites that rise with each run's depth and a batch.
+    def pair(result):
+        return next(r for r in result.records
+                    if r["site_a"].startswith("DEPTH_S") and r["site_b"].startswith("DEPTH_T"))
+
+    bridge["payload"] = recorded("ptmqtl_pairs_depth.json")
+    plain = ptmqtl.pairs("depth.tsv", type="covarying")
+    assert plain.run_covariate_file is None and plain.run_covariate_name is None
+    assert pair(plain)["run_covariate_removed"] is False
+
+    bridge["payload"] = recorded("ptmqtl_pairs_depth_covariate.json")
+    given = ptmqtl.pairs("depth.tsv", type="covarying", run_covariate="depth_psms.tsv")
+    assert given.run_covariate_file.endswith("depth_psms.tsv")
+    assert given.run_covariate_name == "target_psms" and given.run_covariate_runs_missing == []
+    assert given.min_runs_for_run_level == 10 and given.min_sites_for_run_level is None
+    assert pair(given)["run_covariate_removed"] is True and pair(given)["run_level_removed"] is False
+    assert pair(given)["statistic"] != pair(plain)["statistic"]
+
+    bridge["payload"] = recorded("ptmqtl_pairs_depth_covariate_run_level.json")
+    both = ptmqtl.pairs("depth.tsv", type="covarying", run_covariate="depth_psms.tsv", remove_run_level=True)
+    assert pair(both)["run_covariate_removed"] is True and pair(both)["run_level_removed"] is True
+    assert abs(pair(both)["statistic"]) < 0.1
 
 
 @pytest.mark.parametrize(
@@ -185,6 +259,8 @@ def test_pairs_parses_mzlibs_defaults_and_the_run_level(bridge):
         ({"type": "covarying", "min_quantified_fraction": True}, "must be a number"),
         ({"type": "covarying", "keep_ceiling": "yes"}, "keep_ceiling must be True or False"),
         ({"type": "covarying", "remove_run_level": 1}, "remove_run_level must be True or False"),
+        ({"type": "covarying", "include_bounds": "yes"}, "include_bounds must be True or False"),
+        ({"type": "covarying", "run_covariate": 3}, "run_covariate must be a path"),
         ({"type": "covarying", "remove_run_level": True, "run_level_group": "chemistry"}, "run_level_group must be one of"),
         ({"type": "covarying", "categories": ["a"], "modifications": ["b"]}, "not both"),
     ],
@@ -207,11 +283,14 @@ def test_trait_effects_sends_only_what_was_given(bridge):
     bridge["payload"] = recorded("ptmqtl_trait_effects.json")
     ptmqtl.trait_effects("occ.tsv", "runs.tsv")
     assert bridge["calls"][0]["args"] == ["ptmqtl", "trait-effects", "--occupancy", "occ.tsv", "--runs", "runs.tsv"]
-    ptmqtl.trait_effects("occ.tsv", "runs.tsv", min_runs=8, min_replicates=5, logit_epsilon=1e-6, keep_ceiling=True)
+    ptmqtl.trait_effects("occ.tsv", "runs.tsv", min_runs=8, min_replicates=5, logit_epsilon=1e-6, keep_ceiling=True,
+                         scale="log2_odds")
     assert bridge["calls"][1]["args"] == [
         "ptmqtl", "trait-effects", "--occupancy", "occ.tsv", "--runs", "runs.tsv",
         "--min-runs", "8", "--min-replicates", "5", "--logit-epsilon", "1e-06", "--keep-ceiling",
+        "--scale", "log2_odds",
     ]
+    assert "--scale" not in bridge["calls"][0]["args"]
 
 
 def test_trait_effects_parses_the_recording(bridge):
@@ -219,6 +298,7 @@ def test_trait_effects_parses_the_recording(bridge):
     fit = ptmqtl.trait_effects("trait_occupancy.tsv", "trait_runs.tsv")
     assert isinstance(fit, ptmqtl.TraitEffects)
     assert (fit.min_runs, fit.min_replicates, fit.logit_epsilon, fit.exclude_ceiling) == (6, 4, 5e-05, True)
+    assert fit.scale == "natural_log_odds" and fit.scale in ptmqtl.OCCUPANCY_SCALES
     assert list(fit.status_counts) == list(ptmqtl.TRAIT_STATUSES)
     assert fit.trait_name == "dose" and fit.covariate_names == ["injection"]
     assert fit.trait_run_count == fit.run_count == 12 and fit.occupancy_runs_not_used == []
@@ -240,6 +320,24 @@ def test_trait_effects_below_support_has_null_statistics(bridge):
     assert censored["median_fraction"] is not None and censored["replicates"] == 5
 
 
+def test_trait_effects_on_log2_odds_is_the_natural_fit_over_ln2(bridge):
+    # mzLib's TraitFitOnLog2OddsIsTheNaturalLogFitDividedByLn2: a change of unit, not a refit.
+    import math
+
+    bridge["payload"] = recorded("ptmqtl_trait_effects.json")
+    natural = {r["site_key"]: r for r in ptmqtl.trait_effects("o.tsv", "r.tsv").records}
+    bridge["payload"] = recorded("ptmqtl_trait_effects_log2.json")
+    log2 = ptmqtl.trait_effects("o.tsv", "r.tsv", scale="log2_odds")
+    assert log2.scale == "log2_odds"
+    assert any(c.startswith("scale is log2_odds") for c in log2.caveats)
+    for r in log2.records:
+        n = natural[r["site_key"]]
+        assert r["effect"] == pytest.approx(n["effect"] / math.log(2), rel=1e-12)
+        assert r["standard_error"] == pytest.approx(n["standard_error"] / math.log(2), rel=1e-12)
+        assert r["replicate_variance"] == pytest.approx(n["replicate_variance"] / math.log(2) ** 2, rel=1e-12)
+        assert (r["df"], r["p_value"], r["q"]) == (n["df"], n["p_value"], n["q"])
+
+
 @pytest.mark.parametrize(
     "kwargs, message",
     [
@@ -247,6 +345,8 @@ def test_trait_effects_below_support_has_null_statistics(bridge):
         ({"min_replicates": True}, "min_replicates must be an int"),
         ({"logit_epsilon": "small"}, "logit_epsilon must be a number"),
         ({"keep_ceiling": None}, "keep_ceiling must be True or False"),
+        ({"scale": "log10_odds"}, "scale must be one of natural_log_odds, log2_odds"),
+        ({"scale": 2}, "scale must be one of"),
     ],
 )
 def test_trait_effects_refuses_bad_arguments_before_any_process(bridge, kwargs, message):

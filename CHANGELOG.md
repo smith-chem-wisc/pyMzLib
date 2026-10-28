@@ -7,6 +7,23 @@ envelope is not a breaking change unless Python callers can see it.
 ## [Unreleased]
 
 ### Added
+- **`ptmqtl.pairs(include_bounds=True)`** lets a run where a site was seen in only one form into
+  co-varying pairs as a tied bound, never an invented value: a covered-zero or floor ranks below
+  every fraction, a ceiling above (mzLib#1468). A site often below detection can then be tested at
+  all. A pair whose two sites are both mostly one bound is not tested.
+- **`ptmqtl.pairs(run_covariate=...)`** correlates two sites given each run's depth (or any per-run
+  value), a partial Spearman correlation (mzLib#1468).
+- **`ptmqtl.pairs()` says why a pair was not tested.** New columns `test_status`
+  (`tested`, `not_estimable`, `too_few_shared_runs`, `both_sites_mostly_bounds`),
+  `bounds_included` and `run_covariate_removed`. Untested pairs used to show only
+  `spearman_method="not_estimable"`.
+- **`ptmqtl.occupancy()` counts peptidoforms per cell**: `covering_peptidoforms` and
+  `modified_peptidoforms`, the k of n of a cell with no fraction (mzLib#1468). `out=` writes them
+  too, and `trait_effects()` reads them back.
+- **`ptmqtl.trait_effects(scale="log2_odds")`** reports effects in log2 odds, where +1 doubles the
+  odds (mzLib#1464). `TraitEffects.scale` echoes the scale; mzLib's default stays natural-log odds.
+- **`isobaric.kits()` gives each channel's SDRF label**, `sdrf_label` (`TMT131` for TMT10's 131N),
+  by mzLib's `SdrfIsobaricLabels` (mzLib#1467).
 - **`proteins.map_residues()`: map a residue across species through Ensembl Compara's gene-tree
   alignment** (mzLib 1.0.596, #1465, `ComparaGeneTreeAlignment`). For each
   `(source_protein_id, position, target_protein_id)` query, the residue of the target in the same

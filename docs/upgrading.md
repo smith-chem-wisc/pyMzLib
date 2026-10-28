@@ -66,6 +66,13 @@ This release moves mzLib from 1.0.595 to 1.0.596.
   `keep_ceiling=True`, where it reported `True`. mzLib made the option nullable and now decides it
   inside `PtmPairEngine.CoVarying` ([mzLib#1468](https://github.com/smith-chem-wisc/mzLib/pull/1468)); pyMzLib does not restate mzLib's rule to name the
   value. The pairs themselves are unchanged: ceilings are still left out by default.
+- **`ptmqtl.occupancy(out=...)` writes two more columns**, `covering_peptidoforms` and
+  `modified_peptidoforms`, after `unmodified_quantified` ([mzLib#1468](https://github.com/smith-chem-wisc/mzLib/pull/1468)). Read the file by header name, not
+  by position. `trait_effects()` reads both the old and the new layout.
+- **`ptmqtl.pairs()` names why a co-varying pair was not tested** in the new `test_status` column.
+  Its caveat now counts untested pairs by reason ("N co-varying pairs were not tested (...)"),
+  where it said "N co-varying pairs are not_estimable". `spearman_method` is still
+  `"not_estimable"` for every untested pair.
 - **ProForma and Unimod output for a terminal modification that shares its name** ([mzLib#1442](https://github.com/smith-chem-wisc/mzLib/pull/1442)).
   Entries such as `Methyl on X` and `Less Common:Methylation on X` exist once for a side chain and
   once for a terminus. The terminal one now resolves, so `peptidoform.convert(..., target="ProForma")`
