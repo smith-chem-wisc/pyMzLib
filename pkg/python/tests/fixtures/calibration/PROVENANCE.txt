@@ -1,0 +1,27 @@
+Real retention-time anchors for library calibrate-rt (pymzlib.library.calibrate_rt)
+
+Both files are cut from DIA-NN reports that ship with mzLib's own tests, at the mzLib pin in
+code/mzlib.pin:
+
+  diann2_hela_rt.tsv  <- mzLib/Test/FileReadingTests/ExternalFileTypes/DiaNn2_report.parquet
+                         (DIA-NN 2.x; one HeLa run, Fig2HeLa-0-5h_MHRM_R01_T0)
+  diann_pbmc_rt.tsv   <- mzLib/Test/FileReadingTests/ExternalFileTypes/DiaNn_LongFormat_report.tsv
+                         (DIA-NN 1.x long format; three 24-minute PBMC runs)
+
+How they were made (2026-10-28, pyMzLib branch feat/library-calibrate-rt-596):
+
+  1. Each report was read by the bridge's own reader verb, so the values are what mzLib reads:
+       mzlib-bridge readers read-records --path <report> --out <full.tsv>
+     mzLib's DIA-NN readers return target precursors only: the parquet's 27 decoy rows are not
+     records, so diann2_hela_rt.tsv has 532 rows where the parquet has 559.
+  2. Six columns were kept, unchanged and in the reader's row order:
+       run                       DIA-NN Run
+       precursor_id              DIA-NN Precursor.Id (sequence and charge)
+       q_value                   DIA-NN Q.Value
+       retention_time            DIA-NN RT: the observed retention time, in minutes
+       indexed_retention_time    DIA-NN iRT: the precursor's iRT as recorded in the spectral library
+       predicted_retention_time  DIA-NN Predicted.RT: DIA-NN's own prediction of RT from that iRT,
+                                 in minutes (its own run calibration), kept for comparison
+
+The guide and the docstring choose the anchors themselves (q_value <= 0.01 for the HeLa run; every
+PBMC precursor but one held out). Those are example choices, not mzLib's or the bridge's.

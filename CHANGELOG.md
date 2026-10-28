@@ -18,6 +18,40 @@ envelope is not a breaking change unless Python callers can see it.
 - **`stats.fit_link()`: fit that detection link** from cells with a latent mean and SD and a count,
   on detection (any success or none) by default, optionally with a depth term and overdispersion
   (mzLib#1469).
+- **`ptmqtl.pairs(include_bounds=True)`** lets a run where a site was seen in only one form into
+  co-varying pairs as a tied bound, never an invented value: a covered-zero or floor ranks below
+  every fraction, a ceiling above (mzLib#1468). A site often below detection can then be tested at
+  all. A pair whose two sites are both mostly one bound is not tested.
+- **`ptmqtl.pairs(run_covariate=...)`** correlates two sites given each run's depth (or any per-run
+  value), a partial Spearman correlation (mzLib#1468).
+- **`ptmqtl.pairs()` says why a pair was not tested.** New columns `test_status`
+  (`tested`, `not_estimable`, `too_few_shared_runs`, `both_sites_mostly_bounds`),
+  `bounds_included` and `run_covariate_removed`. Untested pairs used to show only
+  `spearman_method="not_estimable"`.
+- **`ptmqtl.occupancy()` counts peptidoforms per cell**: `covering_peptidoforms` and
+  `modified_peptidoforms`, the k of n of a cell with no fraction (mzLib#1468). `out=` writes them
+  too, and `trait_effects()` reads them back.
+- **`ptmqtl.trait_effects(scale="log2_odds")`** reports effects in log2 odds, where +1 doubles the
+  odds (mzLib#1464). `TraitEffects.scale` echoes the scale; mzLib's default stays natural-log odds.
+- **`isobaric.kits()` gives each channel's SDRF label**, `sdrf_label` (`TMT131` for TMT10's 131N),
+  by mzLib's `SdrfIsobaricLabels` (mzLib#1467).
+- **`proteins.map_residues()`: map a residue across species through Ensembl Compara's gene-tree
+  alignment** (mzLib 1.0.596, #1465, `ComparaGeneTreeAlignment`). For each
+  `(source_protein_id, position, target_protein_id)` query, the residue of the target in the same
+  alignment column, or one of mzLib's outcomes saying why there is none: `GapInTarget`,
+  `DifferentAlignments`, `SourceNotInAlignment`, `TargetNotInAlignment`. It reads the release's
+  alignment file, its gene-tree file and your species' GTFs, all local. `proteins=True` returns
+  the Ensembl sequences, to chain with `align()` from and back to UniProt positions. A position
+  past the end of its source protein fails the whole call with mzLib's message. Wire verb
+  `genes map-residues`.
+- **`library.calibrate_rt()`** fits a run's map from retention time in minutes onto a spectral
+  library's iRT scale, from anchors you choose, with mzLib's robust `IrtCalibration` (LOWESS by
+  default, or a straight line), and converts the times you send with them in either direction:
+  where a library precursor should elute in this run, or an observed minute on the library's
+  scale. Each run is a group, fitted on its own anchors; `on_error="skip"` reports a run mzLib
+  refuses instead of failing the call. Every option is mzLib's `IrtCalibrationOptions` member and
+  is sent only when given (mzLib#1387). The fitted curve itself cannot be returned: mzLib keeps its
+  points private, so queries travel in the same call as their anchors.
 
 ### Changed
 - **Built from mzLib 1.0.596** (tag commit `cc67b7a2`). Its changes to what existing calls return

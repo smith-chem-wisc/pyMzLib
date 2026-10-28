@@ -106,19 +106,25 @@ RECORDED_WITH = {
     "diff_observations_spike_in_normalized.json": {"min-peptides": "50", "normalize": True},
     # ptmqtl: a flag or an option left out takes mzLib's default, which the echo cannot tell apart.
     "ptmqtl_pairs_batch_run_level.json": {"remove-run-level": True},
+    "ptmqtl_pairs_bounds.json": {"include-bounds": True},
+    "ptmqtl_pairs_depth_covariate_run_level.json": {"remove-run-level": True},
     "ptmqtl_trait_effects_strict.json": {"min-replicates": "6"},
+    "ptmqtl_trait_effects_log2.json": {"scale": "log2_odds"},
     # sdrf isobaric-design echoes the plex source, but a call that declares none must get the
     # refusal recorded without one, not the design read with the pattern.
     "sdrf_isobaric_design_PXD008841.json": {"plex-file-name-pattern": r"TMT_?pool(?<plex>\d+)"},
+    # library calibrate-rt echoes the options it applied, which are mzLib's defaults when absent.
+    "library_calibrate_rt_pbmc_skip.json": {"on-error": "skip"},
+    "library_calibrate_rt_pbmc_linear.json": {"kind": "linear", "minimum-anchors": "10"},
 }
 
 
 #: Optional input files a verb echoes as ``<name>_file``, null when the option was not given (stats
-#: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples and
-#: --run-level-groups, stats fit --contrasts, stats fit-latent-mixed --responses, --counts, --depth
-#: and --residual-variance). A recording made with one answers only a call that gives one, and the
-#: reverse, or a plain correlation could print a partial one.
-OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "contrasts",
+#: correlate --given, diff observations --protein-groups and --samples, ptmqtl --samples,
+#: --run-level-groups and --run-covariate, stats fit --contrasts, stats fit-latent-mixed --responses,
+#: --counts, --depth and --residual-variance). A recording made with one answers only a call that
+#: gives one, and the reverse, or a plain correlation could print a partial one.
+OPTIONAL_FILES = ("given", "protein-groups", "samples", "run-level-groups", "run-covariate", "contrasts",
                   "responses", "counts", "depth", "residual-variance")
 
 
@@ -261,9 +267,17 @@ def mismatch(data: dict, options: dict) -> str:
             if options["pair-status"] != direction:
                 return f"recorded for --pair-status {direction}"
     trees = data.get("gene_trees")
-    if isinstance(trees, dict) and "restricted_to_gene_sets" in trees:
+    if isinstance(trees, dict) and "restricted_to_gene_sets" in trees and "alignment" not in data:
         if ("restrict-gene-trees" in options) != (trees["restricted_to_gene_sets"] is not None):
             return "a recording with the other --restrict-gene-trees choice"
+    # genes map-residues: --proteins fills proteins, and only then; and the alignment file is the
+    # recording's (by file name), as --path is.
+    if "proteins_included" in data and ("proteins" in options) != bool(data["proteins_included"]):
+        return "a recording with the other --proteins choice"
+    alignment = data.get("alignment")
+    if isinstance(alignment, dict) and isinstance(options.get("alignment"), str):
+        if base(options["alignment"]) != alignment.get("source_file_name"):
+            return f"recorded from {alignment.get('source_file_name')!r}, not {base(options['alignment'])!r}"
     # A filter the recording applied that the call did not ask for.
     if data.get("ms_order") is not None and "ms-order" not in options:
         return f"recorded with ms_order={data['ms_order']!r}, but the call has no ms-order"
@@ -290,7 +304,8 @@ def mismatch(data: dict, options: dict) -> str:
 STDIN_ECHO = {"quant flashlfq", "peptidoform convert", "proteins parse-accession", "proteins align",
               "stats combine-p", "stats fit", "stats fit-logistic", "stats fit-mixed",
               "stats fit-latent-mixed",
-              "diff design", "diff observations", "sdrf restrict", "genes orthology"}
+              "diff design", "diff observations", "sdrf restrict", "genes orthology",
+              "genes map-residues", "library calibrate-rt"}
 
 
 def _number(text: str):
@@ -334,7 +349,14 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     ``searched_files``, and as many acquired names as its ``acquired_name_count``.
     genes orthology: the same species (the first field of each line before ``--``) as the
     recording's ``species``, and as many dump paths after it as the recording has ``dumps``.
+    genes map-residues: the same species as the recording's ``gene_sets``, and the same queries
+    after ``--``, in the same order, as the recording's source, position and target columns.
+    library calibrate-rt: the same lines, in the same order, as the recording's rows: each line's
+    group, role (anchor before ``--``; to_irt or to_minutes after it, by which time is given) and
+    the times it gives, compared as numbers.
     """
+    if verb == "library calibrate-rt":
+        return calibration_mismatch(data, stdin)
     if verb in ("stats fit", "stats fit-logistic", "stats fit-mixed", "stats fit-latent-mixed"):
         sent = [line.strip() for line in stdin.splitlines() if line.strip()]
         recorded = list(data.get("tested_coefficients") or [])
@@ -382,6 +404,22 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
         if dumps != len(data.get("dumps") or {}):
             return f"recorded with {len(data.get('dumps') or {})} dumps, not {dumps}"
         return ""
+    if verb == "genes map-residues":
+        lines = [line.strip() for line in stdin.splitlines() if line.strip()]
+        cut = lines.index("--") if "--" in lines else len(lines)
+        species = sorted(line.split("	")[0].strip() for line in lines[:cut])
+        if species != sorted(data.get("gene_sets") or {}):
+            return f"recorded for species {sorted(data.get('gene_sets') or {})}, not {species}"
+        sent = [tuple(f.strip() for f in line.split("	")) for line in lines[cut + 1 :]]
+        columns = data.get("columns") or {}
+        recorded = [
+            (s, str(p), t)
+            for s, p, t in zip(columns.get("source_protein_id") or [], columns.get("position") or [],
+                               columns.get("target_protein_id") or [])
+        ]
+        if sent != recorded:
+            return f"recorded for queries {recorded[:2]}..., not {sent[:2]}..."
+        return ""
     if verb == "stats combine-p":
         lines = [line.split("\t") for line in stdin.splitlines() if line.strip()]
         features = list(dict.fromkeys(fields[0].strip() for fields in lines))
@@ -419,6 +457,34 @@ def stdin_mismatch(data: dict, stdin: str, verb: str = "quant flashlfq") -> str:
     recorded = {base(str(f.get("full_path", ""))) for f in data.get("spectra_files") or []}
     if sent != recorded:
         return f"recorded for runs {sorted(recorded)}, not {sorted(sent)}"
+    return ""
+
+
+def calibration_mismatch(data: dict, stdin: str) -> str:
+    """library calibrate-rt: the call's anchors and queries must be the recording's rows."""
+    sent = []
+    queries = False
+    for line in stdin.splitlines():
+        if not line.strip():
+            continue
+        if line.strip() == "--":
+            queries = True
+            continue
+        group, rt, irt = (line.split("\t") + ["", ""])[:3]
+        rt_value, irt_value = _number(rt), _number(irt)
+        role = "anchor" if not queries else ("to_irt" if rt_value is not None else "to_minutes")
+        sent.append((group.strip(), role, rt_value if role != "to_minutes" else None,
+                     irt_value if role != "to_irt" else None))
+    columns = data.get("columns") or {}
+    recorded = [
+        (g, r, t if r != "to_minutes" else None, i if r != "to_irt" else None)
+        for g, r, t, i in zip(columns.get("group") or [], columns.get("role") or [],
+                              columns.get("rt_minutes") or [], columns.get("irt") or [])
+    ]
+    if sent != recorded:
+        first = next((k for k, (a, b) in enumerate(zip(sent, recorded)) if a != b),
+                     min(len(sent), len(recorded)))
+        return f"recorded for {len(recorded)} other lines (first difference at line {first + 1})"
     return ""
 
 

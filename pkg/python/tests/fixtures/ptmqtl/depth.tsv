@@ -1,0 +1,145 @@
+run	full_sequence	protein_accession	start_residue	end_residue	intensity	previous_residue
+r00	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	119000	
+r00	PEPSK	DEPTH_S	10	14	881000	
+r00	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	178000	
+r00	GGASK	DEPTH_T	40	44	822000	
+r00	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r00	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r00	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r00	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r00	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r00	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r00	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r00	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r01	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	152000	
+r01	PEPSK	DEPTH_S	10	14	848000	
+r01	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	144000	
+r01	GGASK	DEPTH_T	40	44	856000	
+r01	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r01	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r01	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r01	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r01	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r01	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r01	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r01	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r02	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	128000	
+r02	PEPSK	DEPTH_S	10	14	872000	
+r02	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	126000	
+r02	GGASK	DEPTH_T	40	44	874000	
+r02	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r02	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r02	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r02	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r02	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r02	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r02	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r02	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r03	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	175000	
+r03	PEPSK	DEPTH_S	10	14	825000	
+r03	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	170000	
+r03	GGASK	DEPTH_T	40	44	830000	
+r03	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r03	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r03	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r03	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r03	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r03	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r03	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r03	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r04	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	141000	
+r04	PEPSK	DEPTH_S	10	14	859000	
+r04	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	152000	
+r04	GGASK	DEPTH_T	40	44	848000	
+r04	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r04	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r04	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r04	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r04	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r04	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r04	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r04	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r05	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	157000	
+r05	PEPSK	DEPTH_S	10	14	843000	
+r05	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	164000	
+r05	GGASK	DEPTH_T	40	44	836000	
+r05	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	135000	
+r05	ALASK	DEPTH_LEVEL_1	4	8	865000	
+r05	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	135000	
+r05	VVASK	DEPTH_LEVEL_2	4	8	865000	
+r05	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	135000	
+r05	TTASK	DEPTH_LEVEL_3	4	8	865000	
+r05	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	135000	
+r05	MMASK	DEPTH_LEVEL_4	4	8	865000	
+r06	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	326000	
+r06	PEPSK	DEPTH_S	10	14	674000	
+r06	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	392000	
+r06	GGASK	DEPTH_T	40	44	608000	
+r06	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r06	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r06	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r06	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r06	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r06	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r06	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r06	MMASK	DEPTH_LEVEL_4	4	8	665000	
+r07	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	350000	
+r07	PEPSK	DEPTH_S	10	14	650000	
+r07	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	340000	
+r07	GGASK	DEPTH_T	40	44	660000	
+r07	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r07	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r07	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r07	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r07	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r07	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r07	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r07	MMASK	DEPTH_LEVEL_4	4	8	665000	
+r08	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	333000	
+r08	PEPSK	DEPTH_S	10	14	667000	
+r08	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	336000	
+r08	GGASK	DEPTH_T	40	44	664000	
+r08	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r08	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r08	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r08	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r08	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r08	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r08	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r08	MMASK	DEPTH_LEVEL_4	4	8	665000	
+r09	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	369500	
+r09	PEPSK	DEPTH_S	10	14	630500	
+r09	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	359000	
+r09	GGASK	DEPTH_T	40	44	641000	
+r09	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r09	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r09	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r09	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r09	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r09	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r09	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r09	MMASK	DEPTH_LEVEL_4	4	8	665000	
+r10	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	344000	
+r10	PEPSK	DEPTH_S	10	14	656000	
+r10	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	358000	
+r10	GGASK	DEPTH_T	40	44	642000	
+r10	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r10	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r10	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r10	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r10	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r10	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r10	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r10	MMASK	DEPTH_LEVEL_4	4	8	665000	
+r11	PEPS[Common Biological:Phosphorylation on S]K	DEPTH_S	10	14	358500	
+r11	PEPSK	DEPTH_S	10	14	641500	
+r11	GGAS[Common Biological:Phosphorylation on S]K	DEPTH_T	40	44	367000	
+r11	GGASK	DEPTH_T	40	44	633000	
+r11	ALAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_1	4	8	335000	
+r11	ALASK	DEPTH_LEVEL_1	4	8	665000	
+r11	VVAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_2	4	8	335000	
+r11	VVASK	DEPTH_LEVEL_2	4	8	665000	
+r11	TTAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_3	4	8	335000	
+r11	TTASK	DEPTH_LEVEL_3	4	8	665000	
+r11	MMAS[Common Biological:Phosphorylation on S]K	DEPTH_LEVEL_4	4	8	335000	
+r11	MMASK	DEPTH_LEVEL_4	4	8	665000	

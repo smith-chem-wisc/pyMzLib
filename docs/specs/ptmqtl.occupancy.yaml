@@ -7,6 +7,10 @@
 # PUSH-TO-MAINLAND item. The example inputs are mzLib's own hand-computed PtmQtl test cases
 # (mzLib/Test/Quantification/PtmQtlTests.cs), one protein per case, rendered and held by
 # PtmQtlTests.Fixtures_AreMzLibsHandComputedCases; every fixture was recorded from the live bridge.
+# Updated 2026-10-28 for mzLib #1468 at cc67b7a2 (tag 1.0.596), on pyMzLib branch
+# feat/ptmqtl-isobaric-options-596: the per-cell peptidoform counts covering_peptidoforms and
+# modified_peptidoforms (SiteRunOccupancy.CoveringPeptidoforms and .ModifiedPeptidoforms), written by
+# --out too, and read back by ptmqtl trait-effects.
 verb: ptmqtl occupancy
 module: ptmqtl
 summary: >-
@@ -16,7 +20,7 @@ since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
 wraps:
   - {symbol: SiteOccupancyCalculator.Calculate, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: cc67b7a2}
   - {symbol: PeptidoformObservation, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
-  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
+  - {symbol: SiteRunOccupancy, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: cc67b7a2}
   - {symbol: ModificationSite, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
   - {symbol: OccupancyState, path: mzLib/Quantification/PtmQtl/SiteOccupancy.cs, pin: d10017ce}
 cite: []
@@ -105,7 +109,7 @@ result:
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order; also the header --out writes."}
     - {wire: columns, type: table, unit: null, nullable: true, null_means: "the table was written to --out instead", doc: "One row per (site, run) where the site was identified or covered, in mzLib's order: by protein, then run, then position and modification."}
     - {wire: written, type: object, unit: null, nullable: true, null_means: "--out was not given", doc: "{path, format: tsv, row_count} of the file --out wrote."}
-    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Six static caveats; one more with --samples, one when columns were not read, and one counting the censored (floor or not_detected) cells when there are any."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Seven static caveats; one more with --samples, one when columns were not read, and one counting the censored (floor or not_detected) cells when there are any."}
   columns:
     - {wire: site_key, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's ModificationSite.Key, accession:residue position:modification, for example P1:S13:Common Biological:Phosphorylation on S. The key ptmqtl pairs and ptmqtl trait-effects name sites by."}
     - {wire: protein_accession, type: string, unit: null, nullable: false, null_means: null, doc: "The protein the site is on, as given."}
@@ -119,6 +123,8 @@ result:
     - {wire: covering_intensity, type: float, unit: "intensity (instrument units)", nullable: false, null_means: null, doc: "Summed intensity of every quantified peptidoform covering the position, modified or not; 0 for count_only."}
     - {wire: fraction, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "state is not quantified: the occupancy is censored (floor), a bound (not_detected) or unknown (count_only), never 0", doc: "modified_intensity / covering_intensity."}
     - {wire: unmodified_quantified, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether some quantified form covering the position does not carry this modification there (the unmodified form, or another modification at the same position). false with fraction 1 is a ceiling: the site was seen only modified."}
+    - {wire: covering_peptidoforms, type: int, unit: peptidoforms, nullable: true, null_means: "not supplied (Calculate always supplies it; a stored table may not)", doc: "Distinct peptidoforms covering the position identified in this run (or sample), quantified or not: mzLib's SiteRunOccupancy.CoveringPeptidoforms (#1468). It counts identifications, not intensity: the n of a cell's k of n."}
+    - {wire: modified_peptidoforms, type: int, unit: peptidoforms, nullable: true, null_means: "not supplied, as covering_peptidoforms", doc: "Of covering_peptidoforms, those carrying this modification at the position (SiteRunOccupancy.ModifiedPeptidoforms): the k. 0 for not_detected. A count_only cell with k = n was seen only modified; with k < n both forms were identified."}
 
 errors:
   - {kind: usage, when: "observations missing, blank or not found; samples given without a value or not found; out given without a value, not ending in .tsv, or the observations path; modifications and categories both given, either without a value or with a blank name"}
@@ -135,6 +141,7 @@ caveats:
   - "mzLib always excludes the categories Common Variable and Common Fixed, peptide-terminal modifications, and every C-terminal modification (the protein's length is not supplied). An N-terminal modification is a site only on a peptide starting at residue 1, or at 2 when previous_residue is M or blank. Whether it is protein- or peptide-terminal is read from mzLib's modification registry; a name the registry does not know is treated as protein N-terminal."
   - "A peptide shared by several proteins counts in full for each; MetaMorpheus gives it a proportional share per protein group, so its IntensityOccupancy_ can differ."
   - "With samples, fractions are summed before the ratio. Map only fractions of one sample together; technical replicates keep their own run."
+  - "covering_peptidoforms and modified_peptidoforms count identifications, not intensity: the k of n of a cell with no fraction. They tell a count_only cell seen only modified from one where both forms were identified, which is what ptmqtl pairs --include-bounds ranks as a high bound or leaves out."
 
 bindings:
   py: {name: pymzlib.ptmqtl.occupancy}

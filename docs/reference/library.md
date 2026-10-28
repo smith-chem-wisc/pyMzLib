@@ -28,3 +28,18 @@ fragments reads no fragment block at all; index-only with fragments reads each b
 whole library with fragments, use `out`.
 
 --8<-- "docs/reference/_generated/library.read.md"
+
+## `calibrate-rt`
+
+`calibrate_rt()` fits one run's retention-time calibration per group with mzLib's
+`IrtCalibration.Fit` and converts that group's queries with the model it returned. It reads no file
+and makes no network call: the anchors and queries travel on stdin, as two lists split by a `--`
+line, anchors first. Python builds both lists from your tuples or mappings. Each option is sent
+only when you give it, so mzLib's `IrtCalibrationOptions` defaults apply otherwise, and the
+envelope echoes the values used. mzLib's fitted curve cannot cross the wire, because its points are
+private, so a query must travel in the same call as its group's anchors.
+
+**Performance:** one bridge process per call, about 120 ms before mzLib does any work. Fitting is
+fast next to that, so put every run in one call, one group each, rather than one call per run.
+
+--8<-- "docs/reference/_generated/library.calibrate-rt.md"

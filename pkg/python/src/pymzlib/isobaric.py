@@ -53,6 +53,11 @@ class ReporterChannel:
             from mzLib's ``TMT.txt`` plus one proton. Not a calibrated or observed value.
         mz_min: ``reporter_ion_mz`` minus the matching tolerance, in m/z.
         mz_max: ``reporter_ion_mz`` plus the matching tolerance, in m/z.
+        sdrf_label: The SDRF ``comment[label]`` that names the channel, by mzLib's
+            ``SdrfIsobaricLabels.GetSdrfLabel``: ``"TMT127N"``, ``"ITRAQ114"``, ``"DiLeu115a"``, and
+            ``"TMT131"`` for TMT10's 131N (PRIDE's spelling). Write it when you build an SDRF;
+            :func:`pymzlib.sdrf.isobaric_design` reads it back to this channel. ``None`` only from a
+            bridge built before this column existed.
     """
 
     kit: str
@@ -61,6 +66,7 @@ class ReporterChannel:
     reporter_ion_mz: float
     mz_min: float
     mz_max: float
+    sdrf_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -88,13 +94,19 @@ class IsobaricKit:
         """The reporter-ion m/z values, ascending, in m/z."""
         return [c.reporter_ion_mz for c in self.channels]
 
+    @property
+    def sdrf_labels(self) -> list[str | None]:
+        """The SDRF ``comment[label]`` of each channel, in ascending reporter-ion m/z."""
+        return [c.sdrf_label for c in self.channels]
+
 
 @dataclass(frozen=True)
 class IsobaricKits(_Table):
     """The kits :func:`kits` returned, as a long table and as objects.
 
-    ``columns`` maps ``kit``, ``channel_index``, ``channel_label``, ``reporter_ion_mz``, ``mz_min``
-    and ``mz_max`` to one value per (kit, channel) - ready for ``pandas.DataFrame(result.columns)``.
+    ``columns`` maps ``kit``, ``channel_index``, ``channel_label``, ``reporter_ion_mz``, ``mz_min``,
+    ``mz_max`` and ``sdrf_label`` to one value per (kit, channel) - ready for
+    ``pandas.DataFrame(result.columns)``.
     :attr:`kits` groups the same rows by kit.
 
     Attributes:
@@ -107,7 +119,7 @@ class IsobaricKits(_Table):
         columns: Column name to one value per channel.
         kit_summaries: The wire's per-kit summaries, ``{"kit", "channel_count"}``, in mzLib's
             order. :attr:`kits` regroups the table under them as :class:`IsobaricKit` objects.
-        caveats: What the m/z are and are not - read these once.
+        caveats: What the m/z and the SDRF labels are and are not - read these once.
     """
 
     kit: str | None
@@ -130,6 +142,7 @@ class IsobaricKits(_Table):
                 reporter_ion_mz=row["reporter_ion_mz"],
                 mz_min=row["mz_min"],
                 mz_max=row["mz_max"],
+                sdrf_label=row.get("sdrf_label"),
             )
             for row in self.records
         ]
@@ -203,6 +216,11 @@ def kits(kit: str | None = None, *, timeout: float | None = 60) -> IsobaricKits:
         0.003
         >>> catalogue.kit_named("iTRAQ8").labels
         ['113', '114', '115', '116', '117', '118', '119', '121']
+
+        The label an SDRF writes for each channel. TMT10's last channel is ``TMT131`` there:
+
+        >>> catalogue.kit_named("TMT10").sdrf_labels[-2:]
+        ['TMT130C', 'TMT131']
 
         TMTpro 18-plex, whose top channel sits at 135.15:
 

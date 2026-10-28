@@ -638,6 +638,11 @@ The kit is named as [`isobaric.kits()`](isobaric.md) takes it, by the same mzLib
 `"tmt18"`, `"TMT6-plex"`, `"iTRAQ4"`, `"TMT11 on K"`. A name mzLib does not know is a `UsageError`
 listing the known kits.
 
+The `comment[label]` cells are read by mzLib's one channel/label rule (`SdrfIsobaricLabels`,
+[#1467][1467]): `TMT127N`, `ITRAQ114` and `DiLeu115a`, bare or accessioned, in any case. TMT10's
+last channel reads from `TMT131`, PRIDE's term, or from `TMT131N`. To write a label, take it from
+[`isobaric.kits()`'s `sdrf_label`](isobaric.md#the-label-an-sdrf-writes).
+
 The examples use mzLib's own isobaric design files, cut from
 [bigbio/sdrf-annotated-datasets](https://github.com/bigbio/sdrf-annotated-datasets): PXD008841
 (breast tumours, TMT10; two fractions each of two plexes of a nine-plex study) and PXD061609
@@ -936,9 +941,12 @@ Further sources:
 - mzLib [#1363][1363] added `SdrfLabelFreeDesign`, the SDRF-to-design reader `design()` projects;
   [#1380][1380] added `SdrfIsobaricDesign`, which `isobaric_design()` projects; [#1451][1451] made
   `SdrfSearchScope` public, which `restrict()` projects.
+- mzLib [#1467][1467] made one channel/label rule for reading and writing `comment[label]`
+  (`SdrfIsobaricLabels`, `Readers/Sdrf/SdrfIsobaricLabels.cs:40` and `:59`), so TMT10's `TMT131` reads.
 - The curated corpus mzLib's severities and verdict counts were calibrated on:
   [bigbio/sdrf-annotated-datasets](https://github.com/bigbio/sdrf-annotated-datasets).
 
 [1363]: https://github.com/smith-chem-wisc/mzLib/pull/1363
 [1380]: https://github.com/smith-chem-wisc/mzLib/pull/1380
 [1451]: https://github.com/smith-chem-wisc/mzLib/pull/1451
+[1467]: https://github.com/smith-chem-wisc/mzLib/pull/1467

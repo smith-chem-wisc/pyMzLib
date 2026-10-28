@@ -1,0 +1,191 @@
+# Written 2026-10-28 with the verb, from pyMzLib pkg/bridge/Proteins.MapResidues.cs (MapResidues,
+# MapResidueCaveats) on branch feat/genes-map-residues-596 (off main 8bded50), mzLib pin cc67b7a29
+# (tag 1.0.596, which carries mzLib #1465). Every mzLib symbol was re-read at cc67b7a29:
+# UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs (ComparaAlignedProtein :15,
+# ComparaColumnOutcome :18, ComparaColumnMapping :41, the class :62, MapResidue :126, Load :163) and
+# ComparaGeneTreeContent.cs (Load :88). The example fixtures were recorded from the live bridge on that
+# branch over a real cut of Ensembl release 116 (pkg/python/tests/fixtures/map_residues/, made by its
+# make_inputs.py, PROVENANCE.txt there): the TP53 and GAPDH gene trees' alignments, with the human,
+# mouse and rat canonical rows verbatim. The same queries on the full release-116 files gave the same
+# rows. mzLib's own test for #1465 writes a made-up alignment at run time and ships none. The proposal
+# this replaces is "genes map-residues" in design/scouting/2026-10-28/inv-sdrf-pride.md; it differs in
+# three ways. There is no --release: mzLib takes none here and compares no release, so the envelope
+# reports the release each file name carries instead. The species lines are optional: with none,
+# mzLib's default (ComparaGeneTreeContent.Load with restrictTo null) keeps every gene. And the outcome
+# is mzLib's enum name verbatim, since mzLib has no wire-name helper for it.
+verb: genes map-residues
+module: genes
+summary: >-
+  Map a residue of one protein to the residue of another protein in the same column of Ensembl
+  Compara's gene-tree alignment, or say why there is none, for a batch of queries.
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+wraps:
+  - {symbol: ComparaGeneTreeAlignment.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
+  - {symbol: ComparaGeneTreeAlignment.MapResidue, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
+  - {symbol: ComparaGeneTreeAlignment.Proteins, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
+  - {symbol: ComparaColumnOutcome, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
+  - {symbol: ComparaGeneTreeContent.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeContent.cs, pin: cc67b7a29}
+  - {symbol: EnsemblGeneSet.LoadGtf, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSet.cs, pin: cc67b7a29}
+  - {symbol: EnsemblGeneSetReader.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/EnsemblGeneSetReader.cs, pin: cc67b7a29}
+cite:
+  - {doi: "10.1101/gr.073585.107", for: "Ensembl Compara gene trees, each built on a multiple alignment of its member proteins, the alignment this verb reads columns from (Vilella et al. 2009, Genome Res 19:327)"}
+  - {doi: "10.1093/nar/gkaf1239", for: "Ensembl releases, their GTFs and the Compara gene-tree files (Ensembl 2026, NAR)"}
+
+params:
+  - name: alignment
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Compara's peptide alignments of its gene trees,
+      emf/ensembl-compara/homologies/Compara.RELEASE.protein_COLLECTION.aa.fasta.gz (plain or .gz):
+      one gapped multiple alignment per tree, as FASTA, separated by a // line. Read with
+      ComparaGeneTreeAlignment.Load, which keeps only the canonical proteins of the genes kept from
+      gene-trees, and checks every row's characters and width whether it is kept or not. 908 MB
+      compressed for protein_default in release 116.
+  - name: gene-trees
+    type: path
+    required: true
+    unit: null
+    range: null
+    default: null
+    doc: >-
+      Compara's gene-tree membership dump, COLLECTION.GeneTree_content.default.eRELEASE.txt.gz (plain
+      or .gz), read with ComparaGeneTreeContent.Load. It names each gene's tree and its canonical
+      protein (the row flagged Y), which is the only protein of the gene the alignment holds.
+  - name: species
+    type: "string[]"
+    required: false
+    unit: null
+    range: ">= 0 lines; each exactly three tab-separated fields"
+    default: null
+    doc: >-
+      Read from stdin (not an option), first: one line per species, the species' Ensembl production
+      name (homo_sapiens), a tab, gtf or gene-set, a tab, and the path, exactly as genes orthology
+      reads them. gtf is an Ensembl primary-assembly GTF, read with EnsemblGeneSet.LoadGtf; gene-set is
+      the compact table mzLib's EnsemblGeneSetWriter makes from one, read with
+      EnsemblGeneSetReader.Load. Their only use is ComparaGeneTreeContent.Load's restrictTo: only the
+      genes in them are kept, and so only their canonical proteins. None (the stdin starts with --):
+      mzLib's default, restrictTo null, keeps every gene in the gene-tree file and every canonical
+      protein in the alignment, millions for the vertebrate collection, and a caveat says so. A
+      species listed twice, a kind other than gtf or gene-set, or a missing file is a usage error.
+  - name: queries
+    type: "string[]"
+    required: true
+    unit: null
+    range: ">= 1 line; each exactly three tab-separated fields"
+    default: null
+    doc: >-
+      Read from stdin (not an option), after a line holding only --: one query per line, the source
+      protein's Ensembl stable id, a tab, a 1-based residue position in it, a tab, and the target
+      protein's id (ENSP00000269305, 15, ENSMUSP00000104298). One row per query, in input order,
+      duplicates included. The position is parsed as an integer and passed to MapResidue unchecked;
+      the bridge does not compare it with the protein's length.
+  - name: proteins
+    type: flag
+    required: false
+    unit: null
+    range: null
+    default: false
+    doc: >-
+      Also return the kept proteins (ComparaGeneTreeAlignment.Proteins: id, alignment, tree and
+      ungapped sequence), so a protein's Ensembl sequence can be aligned to a UniProt sequence with
+      proteins align without a second file. Absent: proteins is null.
+
+result:
+  envelope_fields:
+    - {wire: alignment, type: object, unit: null, nullable: false, null_means: null, doc: "The alignment file and what was kept from it (typed under result.tables.alignment)."}
+    - {wire: gene_trees, type: object, unit: null, nullable: false, null_means: null, doc: "The gene-tree file and what was kept from it, the same fields as genes orthology's gene_trees (typed under result.tables.gene_trees)."}
+    - {wire: gene_sets, type: "map<string,object>", unit: null, nullable: false, null_means: null, doc: "Species to its gene set, in ordinal order of species, each with genes resolve's gene_set fields (typed under result.tables.gene_sets). Empty when no species lines were given."}
+    - {wire: row_count, type: int, unit: queries, nullable: false, null_means: null, doc: "Rows: the queries, one each."}
+    - {wire: outcome_counts, type: "map<string,int>", unit: queries, nullable: false, null_means: null, doc: "Outcome to queries with it, every ComparaColumnOutcome in mzLib's declaration order, zeros included."}
+    - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The mapping table's columns in order."}
+    - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "Column name to one value per query, in input order."}
+    - {wire: proteins_included, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether --proteins was given."}
+    - {wire: proteins, type: object, unit: null, nullable: true, null_means: "--proteins was not given", doc: "{row_count, column_names, columns}: one row per kept protein, in ordinal order of protein id (typed under result.tables.proteins)."}
+    - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "This call's traps: gene trees read unrestricted (every gene kept), an alignment and gene-tree file named for different releases or for none, queries naming a protein the alignment did not keep."}
+  columns:
+    - {wire: source_protein_id, type: string, unit: null, nullable: false, null_means: null, doc: "The query's source protein id, as given."}
+    - {wire: position, type: int, unit: null, nullable: false, null_means: null, doc: "The query's 1-based residue position in the source protein, as given."}
+    - {wire: target_protein_id, type: string, unit: null, nullable: false, null_means: null, doc: "The query's target protein id, as given."}
+    - {wire: outcome, type: string, unit: null, nullable: false, null_means: null, doc: "mzLib's ComparaColumnOutcome name, verbatim: Aligned (the target has a residue in the source residue's column), GapInTarget (the target has a gap there: no residue corresponds, never the nearest one), DifferentAlignments (the two proteins are in different gene trees, so the alignment says nothing about them), SourceNotInAlignment or TargetNotInAlignment (that protein was not kept: not in the file, not a canonical protein, or outside the gene sets). Exactly one per query."}
+    - {wire: column, type: int, unit: null, nullable: true, null_means: "the two proteins do not share an alignment (DifferentAlignments, SourceNotInAlignment or TargetNotInAlignment)", doc: "The source residue's 1-based column in the gene tree's alignment. Set for Aligned and GapInTarget."}
+    - {wire: target_position, type: int, unit: null, nullable: true, null_means: "the outcome is not Aligned", doc: "The 1-based position of the target's residue in that column, in the target's ungapped sequence."}
+    - {wire: target_residue, type: string, unit: null, nullable: true, null_means: "the outcome is not Aligned", doc: "The target's residue there, one letter as the alignment writes it. It may differ from the source's residue: a column pairs homologous positions, not identical ones."}
+  tables:
+    alignment:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The file's name (ComparaGeneTreeAlignment.SourceFileName)."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the file's bytes as read, the compressed bytes for a .gz (SourceSha256)."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the file name does not start Compara.RELEASE.", doc: "The Ensembl release parsed from the file name (Release)."}
+      - {wire: collection, type: string, unit: null, nullable: true, null_means: "the file name does not match Compara.RELEASE.COLLECTION.aa.fasta", doc: "The collection parsed from the file name, e.g. protein_default (Collection)."}
+      - {wire: alignment_count, type: int, unit: alignments, nullable: false, null_means: null, doc: "Alignments (gene trees) in the file, kept proteins or not (AlignmentCount)."}
+      - {wire: protein_count, type: int, unit: proteins, nullable: false, null_means: null, doc: "Proteins kept (Count): the canonical proteins of the genes kept from gene-trees that the file holds."}
+      - {wire: restricted_to_gene_tree_content, type: string, unit: null, nullable: false, null_means: null, doc: "The sha256 of the gene-tree file whose canonical proteins were kept (RestrictedToGeneTreeContent); the same as gene_trees.sha256."}
+    gene_trees:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The file's name."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the file's bytes as read (compressed for a .gz)."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the file name carries no .eRELEASE.txt suffix", doc: "The release parsed from the file name."}
+      - {wire: collection, type: string, unit: null, nullable: true, null_means: "the file name does not start COLLECTION.GeneTree_content.", doc: "The Compara collection, e.g. vertebrates."}
+      - {wire: member_count, type: int, unit: genes, nullable: false, null_means: null, doc: "Genes kept from the file (ComparaGeneTreeContent.Count): those in the gene sets, or every gene when none was given."}
+      - {wire: restricted_to_gene_sets, type: "string[]", unit: null, nullable: true, null_means: "no species lines were given: every gene in the file was kept", doc: "The sha256s of the gene sets the members were restricted to, in ordinal order (RestrictedToGeneSets)."}
+    gene_sets:
+      - {wire: source_file_name, type: string, unit: null, nullable: false, null_means: null, doc: "The GTF's file name; for a gene-set table, still the GTF's."}
+      - {wire: sha256, type: string, unit: null, nullable: false, null_means: null, doc: "Lower-case hex sha256 of the GTF's bytes as read; the value genes resolve and genes orthology report for the same GTF."}
+      - {wire: release, type: string, unit: null, nullable: true, null_means: "the GTF's file name carries no release", doc: "The annotation release from the GTF's name."}
+      - {wire: genome_build, type: string, unit: null, nullable: true, null_means: "the GTF has no #!genome-build header", doc: "e.g. GRCh38.p14."}
+      - {wire: genebuild_last_updated, type: string, unit: null, nullable: true, null_means: "the GTF has no #!genebuild-last-updated header", doc: "The header's value."}
+      - {wire: gene_count, type: int, unit: genes, nullable: false, null_means: null, doc: "Genes in the set, every biotype."}
+    proteins:
+      - {wire: protein_id, type: string, unit: null, nullable: false, null_means: null, doc: "The Ensembl protein stable id, as the alignment's header gives it (ComparaAlignedProtein.ProteinId)."}
+      - {wire: alignment_index, type: int, unit: null, nullable: false, null_means: null, doc: "Which alignment holds it, 0-based in file order (AlignmentIndex). Two proteins share a column only when they share this."}
+      - {wire: tree_id, type: string, unit: null, nullable: false, null_means: null, doc: "Its gene's Compara gene tree, e.g. ENSGT00950000183153, from gene-trees (TreeId)."}
+      - {wire: sequence, type: string, unit: null, nullable: false, null_means: null, doc: "The protein's residues with the alignment's gaps removed (Sequence): the sequence positions count in."}
+
+errors:
+  - {kind: usage, when: "--alignment or --gene-trees missing or given without a value; a value after --proteins"}
+  - {kind: usage, when: "no line holding only -- on stdin, or no queries after it; a species line that is not species, tab, gtf or gene-set, tab, path; a species listed twice; a query that is not three tab-separated fields, or whose position is not an integer"}
+  - {kind: usage, when: "a GTF, gene-set table, gene-trees file or alignment that does not exist (checked before any input is read)"}
+  - {kind: usage, when: "mzLib's MapResidue refused a query's position as outside the source protein (ArgumentOutOfRangeException): 0, negative, or past its last residue. The message names the query and quotes mzLib, which gives the protein's length. The whole call fails on the first such query, in input order, and no row is returned. A source protein that is not kept is an outcome, SourceNotInAlignment, checked before the position."}
+  - {kind: correctness, when: "a file mzLib's reader refuses (InvalidDataException, naming file and line): in the alignment, a sequence line before any header, an empty header, a character that is not a letter, * or -, rows of different widths, an empty alignment, a kept protein twice, or an alignment whose kept proteins belong to two gene trees; in the gene-tree file, a row without four cells, a flag other than Y or N, or a kept gene in two trees or without exactly one canonical protein; a GTF gene row without gene_id"}
+  - {kind: service_unavailable, when: never}
+
+caveats:
+  - "A column pairs positions that Compara's alignment puts together, which is homology, not identity: the target residue may be a different amino acid, so check target_residue before carrying a modification across (a phosphosite on S is not a site on A)."
+  - "Only each gene's canonical protein is in the alignment (the gene-tree row flagged Y). A query naming another isoform's Ensembl id is SourceNotInAlignment or TargetNotInAlignment, never mapped through the canonical one. To start from a UniProt position, align the UniProt sequence to the canonical Ensembl protein with proteins align first, then map, then align the target's canonical protein to its UniProt sequence: three steps, each of which can meet a gap."
+  - "A gap is GapInTarget, never the nearest residue: no residue of the target sits in that column."
+  - "DifferentAlignments means the two proteins are in different gene trees, so this alignment says nothing about them. It does not say the genes are not homologous, nor that they are orthologs when they share one: a tree holds paralogs as well, so read orthology from genes orthology."
+  - "mzLib's MapResidue throws for a position outside the source protein instead of returning an outcome, so one such query fails the whole call, and the bridge does not check lengths for it. Keep positions inside each source protein; --proteins gives each kept protein's sequence."
+  - "mzLib does not compare the alignment's release with the gene-tree file's. Use the two files of one release: a gene's canonical protein and its tree can change between releases. The envelope reports the release each file name carries, and a caveat says when they differ or one is absent."
+  - "Every input is read whole, and the alignment keeps only the canonical proteins of the genes kept, so give the species' gene sets: with none, every gene in the gene-tree file is kept (millions for the vertebrate collection), and so every canonical protein of the alignment."
+
+performance: >-
+  ComparaGeneTreeAlignment.Load reads the whole alignment file once, checking every row, and is the
+  cost; mapping a query afterwards is a binary search. For human, mouse and rat at release 116
+  (64,114 proteins kept from 54,308 alignments), mzLib #1465 reports about 33 s to load, and this
+  bridge measured 55 s for the whole call on 2026-10-28, reading the three GTFs, the gene-tree file
+  and the alignment. Give all of a batch's queries to one call. Neither load takes a degree of
+  parallelism, so there is no --threads.
+
+bindings:
+  py: {name: pymzlib.proteins.map_residues, note: "The species lines are rendered from gtfs= and gene_sets=, as build_orthology renders them; queries= is a list of (source, position, target) tuples."}
+  rust: {name: "mzlib::proteins::map_residues_with", options: MapResiduesOptions, note: "planned; not yet ported"}
+  r: {name: proteins_map_residues, note: "planned; not yet ported"}
+
+examples:
+  - fixture: genes_map_residues_tp53.json
+    py: "mapped = pymzlib.proteins.map_residues(queries, alignment='Compara.116.protein_default.aa.fasta.gz', gene_trees='vertebrates.GeneTree_content.default.e116.txt.gz', gtfs=gtfs, proteins=True)"
+    rust: "let mapped = mzlib::proteins::map_residues_with(&queries, &MapResiduesOptions { alignment, gene_trees, gtfs, proteins: true, ..Default::default() })?;"
+    r: "mapped <- proteins_map_residues(queries, alignment = 'Compara.116.protein_default.aa.fasta.gz', gene_trees = trees, gtfs = gtfs, proteins = TRUE)"
+  - fixture: genes_map_residues_chain.json
+    py: "site = pymzlib.proteins.map_residues([('ENSP00000269305', 15, 'ENSMUSP00000104298')], alignment=alignment, gene_trees=trees, gtfs=gtfs)"
+    rust: "let site = mzlib::proteins::map_residues_with(&[(human, 15, mouse)], &MapResiduesOptions { alignment, gene_trees, gtfs, ..Default::default() })?;"
+    r: "site <- proteins_map_residues(list(list('ENSP00000269305', 15L, 'ENSMUSP00000104298')), alignment = alignment, gene_trees = trees, gtfs = gtfs)"
+
+open_questions:
+  - "The outcome is mzLib's ComparaColumnOutcome name verbatim (Aligned, GapInTarget, ...), as classify-peptides projects PeptideSharing. genes orthology's statuses are snake_case because mzLib names them (OrthologySnapshot.StatusName). PUSH-TO-MAINLAND: a ComparaGeneTreeAlignment.OutcomeName helper in the same style; when it lands the wire names change to its spelling, a breaking change to call out."
+  - "MapResidue throws ArgumentOutOfRangeException for a position outside the source, which fails a whole batch. PUSH-TO-MAINLAND: a non-throwing outcome (PositionOutsideSource) so one bad query is one row. Until then the bridge projects the throw and does not check lengths itself."
+  - "mzLib compares no release between the alignment and the gene-tree content (OrthologySnapshot.Build does, for the dumps). PUSH-TO-MAINLAND: ComparaGeneTreeAlignment.Load could refuse a gene-tree content named for another release, as Build refuses one; the bridge only reports it as a caveat."
+  - "result.tables (alignment, gene_trees, gene_sets, proteins) is not validated by tools/check_verbs.py, which checks only envelope_fields, columns and bulk. Bridge tests pin each nested object's keys (GenesMapResiduesTests)."
+  - "Not yet ported to mzLibRust or mzLibR; the binding names above are proposals."

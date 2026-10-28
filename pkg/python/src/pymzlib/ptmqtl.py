@@ -1,6 +1,6 @@
 """PTM site occupancy and PTM-QTL statistics, computed by mzLib's ``Quantification.PtmQtl``.
 
-Three questions, each answered by mzLib (mzLib #1369, #1430, #1446):
+Three questions, each answered by mzLib (mzLib #1369, #1430, #1446, #1464, #1468):
 
 ==============================================================  ======================  ===============================================
 You want to know                                                Call                    mzLib computes it with
@@ -14,8 +14,9 @@ Does a site's occupancy change with a per-run trait?           :func:`trait_effe
 quantified peptidoforms that carry the modification there, over the summed intensity of every
 quantified peptidoform that covers the position - the estimator MetaMorpheus writes as
 ``IntensityOccupancy_``. mzLib holds every cell's **state** apart: a ``"floor"`` (the modified form
-was identified but not quantified) is low but not zero, and ``"not_detected"`` is unknown. Neither
-has a ``fraction``, so neither can be averaged in as 0 by accident::
+was identified but not quantified) is low but not zero, and ``"not_detected"`` (covered, and no
+modified form identified) is a bound below what the run could detect. Neither has a ``fraction``,
+so neither can be averaged in as 0 by accident::
 
     >>> occ = pymzlib.ptmqtl.occupancy("cases.tsv")
     >>> [(r["run"], r["state"], r["fraction"]) for r in occ.records
@@ -47,7 +48,9 @@ from . import _bridge
 from .readers import WrittenTable, _Table
 
 __all__ = [
+    "OCCUPANCY_SCALES",
     "OCCUPANCY_STATES",
+    "PAIR_TEST_STATUSES",
     "PAIR_TYPES",
     "RUN_LEVEL_GROUPS",
     "TRAIT_STATUSES",
@@ -68,6 +71,14 @@ OCCUPANCY_STATES = ("quantified", "floor", "count_only", "not_detected")
 
 #: What :func:`pairs` takes as ``type=``. There is no default; you choose.
 PAIR_TYPES = ("physical", "covarying", "both")
+
+#: Every value of the :func:`pairs` ``test_status`` column (mzLib's ``PairTestStatus``), for
+#: co-varying pairs; physical pairs have ``None``. Only ``"tested"`` pairs carry a statistic.
+PAIR_TEST_STATUSES = ("tested", "not_estimable", "too_few_shared_runs", "both_sites_mostly_bounds")
+
+#: What :func:`trait_effects` takes as ``scale=`` (mzLib's ``OccupancyScale``): the log odds of
+#: occupancy in natural log (mzLib's default) or in log2, where an effect of +1 doubles the odds.
+OCCUPANCY_SCALES = ("natural_log_odds", "log2_odds")
 
 #: The named rules :func:`pairs` takes as ``run_level_group=``. For any other grouping, map each
 #: modification to a group in a file and pass it as ``run_level_groups=``.
@@ -136,6 +147,11 @@ class SiteOccupancy(_Table):
                                                              ``state`` is ``"quantified"`` - censored, never 0
     ``unmodified_quantified``  -                             ``False`` with fraction 1 is a **ceiling**: the site
                                                              was seen only modified
+    ``covering_peptidoforms``  peptidoforms                  distinct peptidoforms covering the position
+                                                             identified in the run (quantified or not): the
+                                                             n of k of n; ``None`` = not supplied
+    ``modified_peptidoforms``  peptidoforms                  of those, the ones carrying this modification here:
+                                                             the k; 0 for ``not_detected``
     =========================  ============================  ===================================================
 
     Attributes:
@@ -204,33 +220,37 @@ class SiteOccupancy(_Table):
 class PtmPairs(_Table):
     """What :func:`pairs` returns: one row per pair of sites, physical pairs first.
 
-    ======================  ===================================  ==============================================
-    column                  unit                                 meaning; ``None`` means
-    ======================  ===================================  ==============================================
-    ``result_type``         -                                    ``"physical"`` (both on one peptidoform, so one
-                                                                 molecule) or ``"covarying"`` (across runs)
-    ``site_a``, ``site_b``  -                                    the two sites' keys, ``site_a`` first by
-                                                                 ordinal order; a pair is written once
-    ``same_protein``        -                                    both on one protein accession
-    ``overlapping``         -                                    one peptide covers both; such a co-varying pair
-                                                                 is correlated by construction
-    ``statistic``           physical: fraction (0 to 1);         physical: median co-occupancy; covarying:
-                            covarying: unitless (-1 to 1)        Spearman's rho. ``None`` = physical never
-                                                                 quantified together, or not estimable
-    ``p_value``             fraction (0 to 1)                    two-sided Spearman; ``None`` = physical (no
-                                                                 test) or not estimable
-    ``q``                   fraction (0 to 1)                    Benjamini-Hochberg within ``fdr_family``;
-                                                                 ``None`` = not tested (physical, overlapping,
-                                                                 not estimable). Not a target-decoy q-value
-    ``fdr_family``          -                                    mzLib's family: ``P`` or ``A``, then ``intra``
-                                                                 or ``inter`` protein, e.g. ``"A:inter"``
-    ``n``                   runs                                 physical: runs identified together; covarying:
-                                                                 runs where both were quantified
-    ``statistic_n``         runs                                 runs ``statistic`` was computed on
-    ``spearman_method``     -                                    ``"exact"``, ``"asymptotic"`` or
-                                                                 ``"not_estimable"``; ``None`` for physical
-    ``run_level_removed``   -                                    whether rho is partial given the run level
-    ======================  ===================================  ==============================================
+    ==========================  ===================================  ==============================================
+    column                      unit                                 meaning; ``None`` means
+    ==========================  ===================================  ==============================================
+    ``result_type``             -                                    ``"physical"`` (both on one peptidoform, so one
+                                                                     molecule) or ``"covarying"`` (across runs)
+    ``site_a``, ``site_b``      -                                    the two sites' keys, ``site_a`` first by
+                                                                     ordinal order; a pair is written once
+    ``same_protein``            -                                    both on one protein accession
+    ``overlapping``             -                                    one peptide covers both; such a co-varying pair
+                                                                     is correlated by construction
+    ``statistic``               physical: fraction (0 to 1);         physical: median co-occupancy; covarying:
+                                covarying: unitless (-1 to 1)        Spearman's rho. ``None`` = physical never
+                                                                     quantified together, or not estimable
+    ``p_value``                 fraction (0 to 1)                    two-sided Spearman; ``None`` = physical (no
+                                                                     test) or not estimable
+    ``q``                       fraction (0 to 1)                    Benjamini-Hochberg within ``fdr_family``;
+                                                                     ``None`` = not tested (physical, overlapping,
+                                                                     not estimable). Not a target-decoy q-value
+    ``fdr_family``              -                                    mzLib's family: ``P`` or ``A``, then ``intra``
+                                                                     or ``inter`` protein, e.g. ``"A:inter"``
+    ``n``                       runs                                 physical: runs identified together; covarying:
+                                                                     runs where both were quantified
+    ``statistic_n``             runs                                 runs ``statistic`` was computed on
+    ``spearman_method``         -                                    ``"exact"``, ``"asymptotic"`` or
+                                                                     ``"not_estimable"``; ``None`` for physical
+    ``run_level_removed``       -                                    whether rho is partial given the run level
+    ``test_status``             -                                    one of :data:`PAIR_TEST_STATUSES`: tested, or
+                                                                     why not; ``None`` for physical
+    ``bounds_included``         -                                    whether one-form cells entered as tied bounds
+    ``run_covariate_removed``   -                                    whether rho is partial given the run covariate
+    ==========================  ===================================  ==============================================
 
     Attributes:
         observations_file: Absolute path of the observations table.
@@ -245,14 +265,24 @@ class PtmPairs(_Table):
         min_quantified_fraction: The guard used (fraction of the runs, 0 to 1): yours, or mzLib's
             default. ``None`` for ``type="physical"``.
         exclude_ceiling: ``False`` with ``keep_ceiling=True``. ``None`` when you did not choose,
-            so mzLib's own default applied (ceilings left out; ``PtmPairEngine.CoVarying``), and
-            for ``type="physical"``.
+            so mzLib's own default applied (ceilings left out, or with ``include_bounds`` a high
+            bound; ``PtmPairEngine.CoVarying``), and for ``type="physical"``.
+        include_bounds: Whether one-form cells entered as tied bounds; ``None`` for
+            ``type="physical"``.
+        min_untied_share: mzLib's ``MinUntiedShare`` (fraction of the shared runs, 0 to 1): with
+            bounds, a pair is tested only if one of its sites has at least this share of the shared
+            runs outside its largest tie. ``None`` without bounds.
+        run_covariate_file: Absolute path of the run covariate table, or ``None``.
+        run_covariate_name: The covariate's name, the table's second header, or ``None``.
+        run_covariate_runs_missing: Runs (or samples) with no covariate value, left out of every
+            pair; empty when every run has one, ``None`` without ``run_covariate=``.
         remove_run_level: Whether the run level was removed; ``None`` for ``type="physical"``.
         run_level_group: ``"none"`` (one group), ``"category"``, ``"modification"`` or ``"file"``;
             ``None`` when the run level was not removed.
         run_level_groups_file: Absolute path of the modification-to-group table, or ``None``.
-        min_runs_for_run_level: mzLib's ``MinRunsForRunLevel`` (runs): with the run level removed, a
-            pair sharing fewer runs with a level is not estimable. ``None`` when not removed.
+        min_runs_for_run_level: mzLib's ``MinRunsForRunLevel`` (runs): with the run level or a run
+            covariate removed, a pair sharing fewer runs is ``"too_few_shared_runs"``. ``None`` when
+            neither was removed.
         min_sites_for_run_level: mzLib's ``MinSitesForRunLevel`` (sites): a run whose group has fewer
             other sites there has no level. ``None`` when not removed.
         modifications: The modification names the sites were limited to, or ``None``.
@@ -277,6 +307,11 @@ class PtmPairs(_Table):
     covarying_run_count: int | None
     min_quantified_fraction: float | None
     exclude_ceiling: bool | None
+    include_bounds: bool | None
+    min_untied_share: float | None
+    run_covariate_file: str | None
+    run_covariate_name: str | None
+    run_covariate_runs_missing: list[str] | None
     remove_run_level: bool | None
     run_level_group: str | None
     run_level_groups_file: str | None
@@ -306,6 +341,11 @@ class PtmPairs(_Table):
             covarying_run_count=_optional_int(data.get("covarying_run_count")),
             min_quantified_fraction=data.get("min_quantified_fraction"),
             exclude_ceiling=data.get("exclude_ceiling"),
+            include_bounds=data.get("include_bounds"),
+            min_untied_share=data.get("min_untied_share"),
+            run_covariate_file=data.get("run_covariate_file"),
+            run_covariate_name=data.get("run_covariate_name"),
+            run_covariate_runs_missing=_optional_list(data.get("run_covariate_runs_missing")),
             remove_run_level=data.get("remove_run_level"),
             run_level_group=data.get("run_level_group"),
             run_level_groups_file=data.get("run_level_groups_file"),
@@ -336,10 +376,11 @@ class TraitEffects(_Table):
     ``residue``,
     ``modification``
     ``status``              -                                one of :data:`TRAIT_STATUSES`
-    ``effect``              logit occupancy per trait unit   change in logit(occupancy) per unit of the trait;
-                                                             ``exp(effect)`` is the odds ratio. ``None`` = not
-                                                             fitted
-    ``standard_error``      logit occupancy per trait unit   its standard error
+    ``effect``              log odds of occupancy per trait  change in the log odds of occupancy per unit of
+                            unit, natural log or log2 as     the trait; ``exp(effect)`` (natural) or
+                            ``scale`` says                   ``2 ** effect`` (log2) is the odds ratio.
+                                                             ``None`` = not fitted
+    ``standard_error``      as ``effect``                    its standard error
     ``df``                  degrees of freedom               containment rule: between-replicate for a trait
                                                              constant within each replicate
     ``p_value``             fraction (0 to 1)                two-sided, for the trait
@@ -347,10 +388,10 @@ class TraitEffects(_Table):
     ``runs``                runs                             runs contributing a response
     ``replicates``          replicates                       distinct replicates among them
     ``median_fraction``     fraction (0 to 1)                median occupancy over those runs
-    ``covariate_effects``   logit occupancy per covariate    one per covariate, in ``covariate_names`` order;
-                            unit                             each ``None`` when not fitted
-    ``replicate_variance``  squared logit occupancy          between-replicate variance (random intercept)
-    ``residual_variance``   squared logit occupancy          within-replicate, run-to-run variance
+    ``covariate_effects``   log odds per covariate unit      one per covariate, in ``covariate_names`` order;
+                            (as ``scale``)                   each ``None`` when not fitted
+    ``replicate_variance``  squared log odds (as ``scale``)  between-replicate variance (random intercept)
+    ``residual_variance``   squared log odds (as ``scale``)  within-replicate, run-to-run variance
     ======================  ===============================  ==================================================
 
     Attributes:
@@ -366,6 +407,8 @@ class TraitEffects(_Table):
         min_replicates: The replicate threshold used (replicates): yours, or mzLib's default.
         logit_epsilon: The clamp used before the logit (fraction, 0 to 1).
         exclude_ceiling: Whether ceiling cells were left out.
+        scale: The scale of every effect, standard error and variance: ``"natural_log_odds"``
+            (mzLib's default) or ``"log2_odds"``, one of :data:`OCCUPANCY_SCALES`.
         status_counts: Sites per status (sites), keyed by :data:`TRAIT_STATUSES`.
         ignored_columns: Columns of the occupancy file that were not read.
         row_count: Sites in the table (rows).
@@ -386,6 +429,7 @@ class TraitEffects(_Table):
     min_replicates: int
     logit_epsilon: float
     exclude_ceiling: bool
+    scale: str
     status_counts: dict[str, int]
     ignored_columns: list[str]
     row_count: int
@@ -409,6 +453,7 @@ class TraitEffects(_Table):
             min_replicates=int(data.get("min_replicates", 0)),
             logit_epsilon=float(data.get("logit_epsilon", 0.0)),
             exclude_ceiling=bool(data.get("exclude_ceiling", True)),
+            scale=str(data.get("scale", "")),
             status_counts=dict(data.get("status_counts") or {}),
             ignored_columns=list(data.get("ignored_columns") or []),
             row_count=int(data.get("row_count", 0)),
@@ -553,6 +598,8 @@ def pairs(
     categories: Sequence[str] | None = None,
     min_quantified_fraction: float | None = None,
     keep_ceiling: bool = False,
+    include_bounds: bool = False,
+    run_covariate: _PathLike | None = None,
     remove_run_level: bool = False,
     run_level_group: str | None = None,
     run_level_groups: _PathLike | None = None,
@@ -569,7 +616,8 @@ def pairs(
       together (or oppositely) across runs. ``statistic`` is Spearman's rho on the runs where both
       are quantified, with a Benjamini-Hochberg ``q`` per family. Floors, undetected cells and, by
       default, ceilings are left out: two unrelated sites both read 1 in low-load runs, which would
-      correlate them through detection alone.
+      correlate them through detection alone. ``include_bounds=True`` lets them in as tied bounds
+      instead, and ``run_covariate=`` correlates given each run's depth.
 
     Occupancy is computed inside by the same mzLib call :func:`occupancy` makes.
 
@@ -585,6 +633,15 @@ def pairs(
             ``None``: mzLib's default, which :attr:`PtmPairs.min_quantified_fraction` reports.
         keep_ceiling: Co-varying only. Keep runs where a site was seen only modified. ``False``
             sends nothing, so mzLib's default (leave them out) applies.
+        include_bounds: Co-varying only. Let a run where a site was seen in only one form enter as a
+            tied bound, never an invented value: ``"not_detected"`` and ``"floor"`` cells rank below
+            every fraction of the site, ceilings and count-only cells seen only modified above. A
+            pair whose two sites are both mostly one bound is not tested
+            (``"both_sites_mostly_bounds"``). ``False`` sends nothing: mzLib's default, no bounds.
+        run_covariate: Co-varying only. A TSV with a header row whose second field names the
+            covariate (e.g. ``target_psms``), then ``run``, value: each run's depth, in any unit.
+            Pairs become the partial Spearman correlation given it; it is ranked, so log2 gives
+            the same answer. Leave a run out for "unknown"; it is then left out of every pair.
         remove_run_level: Co-varying only. Correlate given each run's level - the median occupancy
             of the other tested sites of the pair's group - to remove a batch or loading shift.
             **Batch only**: where the level follows the design, it removes the effect you study.
@@ -603,7 +660,8 @@ def pairs(
         UsageError: ``type`` is not one of :data:`PAIR_TYPES`; a co-varying option was given with
             ``type="physical"``; a run-level grouping without ``remove_run_level``, or both
             groupings; ``min_quantified_fraction`` out of range; a file missing or malformed; or
-            mzLib refuses the observations, as :func:`occupancy` lists.
+            mzLib refuses the observations, as :func:`occupancy` lists, or a run covariate value
+            that is not finite.
 
     Examples:
         Two modifications on one molecule, mzLib's ``PhysicalPairsCarryCoOccupancy`` case:
@@ -630,6 +688,17 @@ def pairs(
         0.76 0.03
 
         Given each run's level, the pair is unrelated.
+
+        Two sites with a value in six of ten runs, and a bound in the rest (mzLib's
+        ``BoundsEnterTypeAAsTiedRanks``). Six is below mzLib's 70% guard, so no pair is tested
+        until the bounds enter:
+
+        >>> pymzlib.ptmqtl.pairs("bounds.tsv", type="covarying").row_count
+        0
+        >>> bounded = pymzlib.ptmqtl.pairs("bounds.tsv", type="covarying", include_bounds=True)
+        >>> r = bounded.records[0]
+        >>> r["n"], r["test_status"], r["bounds_included"]
+        (9, 'tested', True)
     """
     if not isinstance(type, str) or type not in PAIR_TYPES:
         raise _bridge.UsageError(f"type must be one of {', '.join(PAIR_TYPES)}; got {type!r}.")
@@ -645,6 +714,10 @@ def pairs(
         args += ["--min-quantified-fraction", repr(float(min_quantified_fraction))]
     if _flag(keep_ceiling, "keep_ceiling"):
         args.append("--keep-ceiling")
+    if _flag(include_bounds, "include_bounds"):
+        args.append("--include-bounds")
+    if run_covariate is not None:
+        args += ["--run-covariate", _path(run_covariate, "run_covariate")]
     if _flag(remove_run_level, "remove_run_level"):
         args.append("--remove-run-level")
     if run_level_group is not None:
@@ -675,9 +748,10 @@ def trait_effects(
     min_replicates: int | None = None,
     logit_epsilon: float | None = None,
     keep_ceiling: bool = False,
+    scale: str | None = None,
     timeout: float | None = 600,
 ) -> TraitEffects:
-    """Fit, per site, the effect of a per-run trait on logit occupancy, with mzLib's ``SiteTraitEffects``.
+    """Fit, per site, the effect of a per-run trait on the log odds of occupancy, with mzLib's ``SiteTraitEffects``.
 
     The model, per site, is logit(occupancy) = b0 + b_trait x trait + covariates + a random
     intercept per biological replicate + error, fitted by REML (mzLib's ``MixedModel``). The
@@ -703,6 +777,11 @@ def trait_effects(
             above 0 and below 0.5). ``None``: mzLib's default.
         keep_ceiling: Use runs where the site was seen only modified. ``False`` sends nothing, so
             mzLib's default (leave them out) applies.
+        scale: The unit of the effects and variances, one of :data:`OCCUPANCY_SCALES`.
+            ``"natural_log_odds"``: ``exp(effect)`` is the odds ratio per trait unit.
+            ``"log2_odds"``: an effect of +1 doubles the odds; mzLib divides the natural-log fit by
+            ln 2 (variances by (ln 2)^2), and df, p and q do not change. ``None``: mzLib's default,
+            which :attr:`TraitEffects.scale` reports.
         timeout: Seconds to allow. ``None`` waits indefinitely.
 
     Returns:
@@ -732,6 +811,14 @@ def trait_effects(
 
         The effect, 0.5 logit units per dose unit, comes back. ``CENSORED_SITE`` lost one
         replicate's two runs - a floor and a ceiling - so it rests on five replicates.
+
+        The same fit in log2 odds, where +1 doubles the odds of the modified form:
+
+        >>> log2 = pymzlib.ptmqtl.trait_effects("trait_occupancy.tsv", "trait_runs.tsv",
+        ...                                     scale="log2_odds")
+        >>> trait = next(r for r in log2.records if r["protein_accession"] == "TRAIT_SITE")
+        >>> log2.scale, f"{trait['effect']:.2f}", f"{trait['p_value']:.5f}"
+        ('log2_odds', '0.72', '0.00082')
     """
     args = ["ptmqtl", "trait-effects", "--occupancy", _path(occupancy, "occupancy"),
             "--runs", _path(runs, "runs")]
@@ -745,6 +832,10 @@ def trait_effects(
         args += ["--logit-epsilon", repr(float(logit_epsilon))]
     if _flag(keep_ceiling, "keep_ceiling"):
         args.append("--keep-ceiling")
+    if scale is not None:
+        if not isinstance(scale, str) or scale not in OCCUPANCY_SCALES:
+            raise _bridge.UsageError(f"scale must be one of {', '.join(OCCUPANCY_SCALES)}; got {scale!r}.")
+        args += ["--scale", scale]
     _bridge.require_verb("ptmqtl trait-effects", since=_SINCE)
     data = _bridge.invoke(*args, timeout=timeout)
     return TraitEffects._from_wire(data)

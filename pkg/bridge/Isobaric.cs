@@ -1,11 +1,13 @@
 using Omics.Modifications;
+using Readers;
 
 namespace MzLibBridge;
 
 /// <summary>
 /// <c>isobaric kits</c>: the isobaric labelling kits mzLib can name (TMT, TMTpro, iTRAQ, DiLeu), with
-/// every channel's label and the theoretical m/z of its reporter ion, from
-/// <see cref="IsobaricMassTag"/>.
+/// every channel's label, the theoretical m/z of its reporter ion, from
+/// <see cref="IsobaricMassTag"/>, and the SDRF label that names it, from
+/// <see cref="SdrfIsobaricLabels.GetSdrfLabel"/> (mzLib #1467).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,7 +26,7 @@ namespace MzLibBridge;
 internal static class Isobaric
 {
     private static readonly string[] KitColumns =
-        { "kit", "channel_index", "channel_label", "reporter_ion_mz", "mz_min", "mz_max" };
+        { "kit", "channel_index", "channel_label", "reporter_ion_mz", "mz_min", "mz_max", "sdrf_label" };
 
     /// <summary>
     /// <c>isobaric kits [--kit NAME]</c>: every kit, or the one <c>NAME</c> resolves to. <c>NAME</c>
@@ -53,7 +55,8 @@ internal static class Isobaric
 
             for (int i = 0; i < tag.ReporterIonMzs.Length; i++)
                 table.Add(type.ToString(), i, tag.ChannelLabels[i], tag.ReporterIonMzs[i],
-                    tag.ReporterIonMzRanges[i].Minimum, tag.ReporterIonMzRanges[i].Maximum);
+                    tag.ReporterIonMzRanges[i].Minimum, tag.ReporterIonMzRanges[i].Maximum,
+                    SdrfIsobaricLabels.GetSdrfLabel(type, tag.ChannelLabels[i]));
 
             kits.Add(new { kit = type.ToString(), channel_count = tag.ReporterIonMzs.Length });
         }
@@ -119,5 +122,10 @@ internal static class Isobaric
 
         "channel_index is 0-based and ascends with reporter_ion_mz; channel_label at that index names " +
         "the channel whose reporter ion it is.",
+
+        "sdrf_label is the SDRF comment[label] that names the channel (mzLib's SdrfIsobaricLabels.GetSdrfLabel): " +
+        "PRIDE's term as sdrf-pipelines reads it, TMT or ITRAQ and the channel, except TMT10's 131N, which " +
+        "PRIDE names TMT131 (PRIDE:0000529); TMT11 and TMTpro keep TMT131N. DiLeu has no PRIDE term, so its " +
+        "label is DiLeu and the channel. sdrf isobaric-design reads each of these labels back to its channel.",
     };
 }
