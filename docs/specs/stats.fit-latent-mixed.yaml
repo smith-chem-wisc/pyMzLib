@@ -28,7 +28,7 @@ summary: >-
   Fit one random-intercept mixed model per feature on a latent scale (such as the log-odds of a
   site's occupancy), where each sample is either measured on that scale or counted through it (k of
   n trials succeed), and test each named coefficient with a Wald t.
-since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: LogitNormalMixedModel.Fit, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
   - {symbol: LogitNormalMixedModelFit, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
@@ -222,21 +222,21 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit_latent_mixed}
-  rust: {name: "mzlib::stats::fit_latent_mixed_with", options: FitLatentMixedOptions, note: "not yet ported"}
-  r: {name: stats_fit_latent_mixed, note: "not yet ported"}
+  rust: {name: "mzlib::stats::fit_latent_mixed_with", options: FitLatentMixedOptions, note: "link takes impl Into<Link>: Link::Identity, an array of 2 to 4 numbers, or a DetectionLink from fit_link."}
+  r: {name: stats_fit_latent_mixed, note: "link takes 'identity', a numeric vector of 2 to 4 numbers, or a stats_fit_link() result or its $link."}
 
 examples:
   - fixture: stats_fit_latent_mixed_scatter.json
     py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', ['Intercept', 'trait', 'x'], link='identity', counts='lnmm_scatter_counts.tsv')"
-    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], \"identity\", &FitLatentMixedOptions { counts: Some(\"lnmm_scatter_counts.tsv\".into()), ..Default::default() })?;"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], Link::Identity, &FitLatentMixedOptions { counts: Some(\"lnmm_scatter_counts.tsv\".into()), ..Default::default() })?;"
     r: "fit <- stats_fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', c('Intercept', 'trait', 'x'), link = 'identity', counts = 'lnmm_scatter_counts.tsv')"
   - fixture: stats_fit_latent_mixed_link_ml.json
     py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', ['Intercept', 'trait', 'x'], link=(-0.4, 0.6, 0.3), counts='lnmm_link_counts.tsv', depth='lnmm_link_depth.tsv', residual_variance='lnmm_link_residual_variance.tsv', estimator='ml')"
-    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], \"-0.4,0.6,0.3\", &FitLatentMixedOptions { counts: Some(\"lnmm_link_counts.tsv\".into()), depth: Some(\"lnmm_link_depth.tsv\".into()), residual_variance: Some(\"lnmm_link_residual_variance.tsv\".into()), estimator: Some(\"ml\".into()), ..Default::default() })?;"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_reference_design.tsv\", \"lnmm_reference_groups.tsv\", &[\"Intercept\", \"trait\", \"x\"], [-0.4, 0.6, 0.3], &FitLatentMixedOptions { counts: Some(\"lnmm_link_counts.tsv\".into()), depth: Some(\"lnmm_link_depth.tsv\".into()), residual_variance: Some(\"lnmm_link_residual_variance.tsv\".into()), estimator: Some(\"ml\".into()), ..Default::default() })?;"
     r: "fit <- stats_fit_latent_mixed('lnmm_reference_design.tsv', 'lnmm_reference_groups.tsv', c('Intercept', 'trait', 'x'), link = c(-0.4, 0.6, 0.3), counts = 'lnmm_link_counts.tsv', depth = 'lnmm_link_depth.tsv', residual_variance = 'lnmm_link_residual_variance.tsv', estimator = 'ml')"
   - fixture: stats_fit_latent_mixed_simulated.json
     py: "fit = pymzlib.stats.fit_latent_mixed('lnmm_simulated_design.tsv', 'lnmm_simulated_groups.tsv', ['Intercept', 'trait'], link=(0.4, 0.6), responses='lnmm_simulated_responses.tsv', counts='lnmm_simulated_counts.tsv')"
-    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_simulated_design.tsv\", \"lnmm_simulated_groups.tsv\", &[\"Intercept\", \"trait\"], \"0.4,0.6\", &FitLatentMixedOptions { responses: Some(\"lnmm_simulated_responses.tsv\".into()), counts: Some(\"lnmm_simulated_counts.tsv\".into()), ..Default::default() })?;"
+    rust: "let fit = mzlib::stats::fit_latent_mixed_with(\"lnmm_simulated_design.tsv\", \"lnmm_simulated_groups.tsv\", &[\"Intercept\", \"trait\"], [0.4, 0.6], &FitLatentMixedOptions { responses: Some(\"lnmm_simulated_responses.tsv\".into()), counts: Some(\"lnmm_simulated_counts.tsv\".into()), ..Default::default() })?;"
     r: "fit <- stats_fit_latent_mixed('lnmm_simulated_design.tsv', 'lnmm_simulated_groups.tsv', c('Intercept', 'trait'), link = c(0.4, 0.6), responses = 'lnmm_simulated_responses.tsv', counts = 'lnmm_simulated_counts.tsv')"
 
 open_questions: []

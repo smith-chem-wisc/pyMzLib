@@ -19,7 +19,7 @@ summary: >-
   interactions, strata) into mzLib's design per stratum: the design matrix, its rank and aliased
   terms, the default contrasts with their estimability, and the design and contrast tables stats fit
   reads.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: AnalysisDesign.ByStratum, path: mzLib/Quantification/Differential/AnalysisDesign.cs, pin: cc67b7a2}
   - {symbol: NotRunContrast, path: mzLib/Quantification/Differential/DesignInputs.cs, pin: cc67b7a2}
@@ -135,8 +135,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.diff.design}
-  rust: {name: "mzlib::diff::design_with", options: DesignOptions, note: "not yet ported"}
-  r: {name: diff_design, note: "not yet ported"}
+  rust: {name: "mzlib::diff::design_with", options: DesignOptions}
+  r: {name: diff_design}
 
 examples:
   - fixture: diff_design_malat.json

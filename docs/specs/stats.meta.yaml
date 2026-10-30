@@ -9,7 +9,7 @@ module: stats
 summary: >-
   Pool one effect size per study into a random-effects estimate per feature (DerSimonian-Laird),
   with heterogeneity, direction agreement and the largest leave-one-out change.
-since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: RandomEffectsMeta.Pool, path: mzLib/StatisticalModels/RandomEffectsMeta.cs, pin: 0a808fec}
 cite:
@@ -65,8 +65,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.meta}
-  rust: {name: "mzlib::stats::meta_with", options: MetaOptions, note: "on main (mzLibRust #31), not yet released"}
-  r: {name: stats_meta, note: "on main (mzLibR #31), not yet released. Takes a data.frame with feature, estimate and standard_error columns."}
+  rust: {name: "mzlib::stats::meta_with", options: MetaOptions}
+  r: {name: stats_meta, note: "Takes a data.frame with feature, estimate and standard_error columns."}
 
 examples:
   - fixture: stats_meta_metafor.json

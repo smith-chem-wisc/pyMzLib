@@ -18,7 +18,7 @@ summary: >-
   Per site, the effect of a per-run trait on the log odds of occupancy (natural log or log2), from a
   random-intercept mixed model per site, so that repeated runs of one biological replicate are not
   counted as independent.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SiteTraitEffects.Fit, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
   - {symbol: SiteTraitOptions, path: mzLib/Quantification/PtmQtl/SiteTraitEffects.cs, pin: cc67b7a2}
@@ -170,8 +170,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.ptmqtl.trait_effects}
-  rust: {name: "mzlib::ptmqtl::trait_effects_with", options: TraitEffectsOptions, note: "not yet ported"}
-  r: {name: ptmqtl_trait_effects, note: "not yet ported"}
+  rust: {name: "mzlib::ptmqtl::trait_effects_with", options: TraitEffectsOptions, note: "scale is the OccupancyScale enum."}
+  r: {name: ptmqtl_trait_effects}
 
 examples:
   - fixture: ptmqtl_trait_effects.json

@@ -10,7 +10,7 @@ module: peptidoform
 summary: >-
   Convert full sequences from one notation to another with mzLib's sequence conversion service, one
   result per input: for example a MetaMorpheus full sequence to Unimod accessions.
-since: {protocol: 1, pymzlib: "0.4.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.4.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SequenceConversionService.Default, path: mzLib/Omics/SequenceConversion/SequenceConversionService.cs, pin: 0a808fec}
   - {symbol: SequenceConversionService.GetConverter, path: mzLib/Omics/SequenceConversion/SequenceConversionService.cs, pin: 0a808fec}

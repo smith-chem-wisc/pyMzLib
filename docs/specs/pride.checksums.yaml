@@ -13,7 +13,7 @@ module: pride
 summary: >-
   List the MD5 and exact size PRIDE recorded for each file deposited in a project: the record a
   downloaded file is checked against.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: PrideArchiveClient.GetFileChecksumsAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: d10017ce}
   - {symbol: PrideFileChecksum, path: mzLib/UsefulProteomicsDatabases/PrideFileChecksum.cs, pin: d10017ce}
@@ -61,8 +61,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.pride.file_checksums, note: "Returns a dict of PrideFileChecksum keyed by file_name, in the wire's order: mzLib's own shape, a map from name to row."}
-  rust: {name: "mzlib::pride::file_checksums_with", note: "Planned name: ported after a pyMzLib release carries the verb (G-new-verbs-1.0.595)."}
-  r: {name: pride_file_checksums, note: "Planned name: ported after a pyMzLib release carries the verb (G-new-verbs-1.0.595)."}
+  rust: {name: "mzlib::pride::file_checksums_with", note: "Takes a timeout, not an options struct. Returns a BTreeMap of PrideFileChecksum keyed by file name."}
+  r: {name: pride_file_checksums, note: "Returns a data.frame, one row per file, in file-name order."}
 
 examples:
   - fixture: pride_PXD000001_checksums.json

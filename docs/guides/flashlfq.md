@@ -154,8 +154,8 @@ peptide from a fabricated one.
 !!! note "Threads and reproducibility"
     Before mzLib#1155, match-between-runs with more than one thread could give different numbers
     for identical inputs, because FlashLFQ assembled its PEP training rows in thread-completion
-    order. That is fixed, but pyMzLib has not re-measured its own reproduction since, so
-    `max_threads=1`, as above, is the conservative choice when a result must reproduce exactly.
+    order. That is fixed. On this K562 pair, five runs at `max_threads=-1` and one at `1` gave
+    identical results with pyMzLib 0.7.0, so the thread count changes only the speed.
 
 ## Experimental design: conditions and replicates
 

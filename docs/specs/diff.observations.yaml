@@ -14,7 +14,7 @@ summary: >-
   Build mzLib's observation table from a stored FlashLFQ or MetaMorpheus peptide table: every
   peptide in every biological sample as log2 intensity or no value with the reason, with the
   shared-peptide normalization shifts, and optionally the peptide-by-sample table stats fit reads.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: FlashLfqObservations.FromPeptideTable, path: mzLib/FlashLFQ/Differential/FlashLfqObservations.cs, pin: d10017ce}
   - {symbol: FlashLfqObservations.ReadProteinGroups, path: mzLib/FlashLFQ/Differential/FlashLfqObservations.cs, pin: d10017ce}
@@ -128,8 +128,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.diff.observations}
-  rust: {name: "mzlib::diff::observations_with", options: ObservationsOptions, note: "not yet ported"}
-  r: {name: diff_observations, note: "not yet ported"}
+  rust: {name: "mzlib::diff::observations_with", options: ObservationsOptions, note: "The basis is the QuantBasis enum, a required argument."}
+  r: {name: diff_observations}
 
 examples:
   - fixture: diff_observations_mm_mbr_kept.json

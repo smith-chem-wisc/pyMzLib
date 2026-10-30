@@ -15,7 +15,7 @@ module: stats
 summary: >-
   Combine several independent p-values for each feature into one, by Fisher's or Stouffer's method,
   optionally weighted and optionally signed by each test's effect.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: PValueCombination.Fisher, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
   - {symbol: PValueCombination.Stouffer, path: mzLib/StatisticalModels/PValueCombination.cs, pin: d10017ce}
@@ -91,8 +91,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.combine_p}
-  rust: {name: "mzlib::stats::combine_p", note: "not yet ported"}
-  r: {name: stats_combine_p, note: "not yet ported"}
+  rust: {name: "mzlib::stats::combine_p", note: "The tests are a slice of PValueTest."}
+  r: {name: stats_combine_p, note: "Takes a data.frame with feature and p_value columns, and optionally weight."}
 
 examples:
   - fixture: stats_combine_p_fisher.json

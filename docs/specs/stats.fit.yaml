@@ -22,7 +22,7 @@ summary: >-
   Fit one linear model per feature of a feature-by-sample table and test each named coefficient, and
   each contrast of a contrasts file with its confidence interval, with limma's empirical-Bayes
   moderated t, Benjamini-Hochberg adjusted, in one call.
-since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.3.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: LinearModel.Fit, path: mzLib/StatisticalModels/LinearModel.cs, pin: 0a808fec}
   - {symbol: EmpiricalBayes.Moderate, path: mzLib/StatisticalModels/EmpiricalBayes.cs, pin: d10017ce}
@@ -208,8 +208,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit}
-  rust: {name: "mzlib::stats::fit_with", options: FitOptions, note: "on main (mzLibRust #31), not yet released; contrasts, confidence and estimator not yet ported"}
-  r: {name: stats_fit, note: "on main (mzLibR #31), not yet released; contrasts, confidence and estimator not yet ported"}
+  rust: {name: "mzlib::stats::fit_with", options: FitOptions}
+  r: {name: stats_fit}
 
 examples:
   - fixture: stats_fit_malat.json
@@ -222,7 +222,7 @@ examples:
     r: "fit <- stats_fit('limma_reference_responses.tsv', 'limma_reference_design.tsv', 'age_decades')"
   - fixture: stats_fit_malat_contrasts.json
     py: "fit = pymzlib.stats.fit('malat_dilution_log2_vs_fluc.tsv', 'malat_pairs/design_1.tsv', contrasts='malat_pairs/contrasts_1.tsv')"
-    rust: "let fit = mzlib::stats::fit_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_pairs/design_1.tsv\", &[], &FitOptions { contrasts: Some(\"malat_pairs/contrasts_1.tsv\".into()), ..Default::default() })?;"
+    rust: "let fit = mzlib::stats::fit_with(\"malat_dilution_log2_vs_fluc.tsv\", \"malat_pairs/design_1.tsv\", &[] as &[&str], &FitOptions { contrasts: Some(\"malat_pairs/contrasts_1.tsv\".into()), ..Default::default() })?;"
     r: "fit <- stats_fit('malat_dilution_log2_vs_fluc.tsv', 'malat_pairs/design_1.tsv', character(0), contrasts = 'malat_pairs/contrasts_1.tsv')"
   - fixture: stats_fit_malat_marginal.json
     py: "fit = pymzlib.stats.fit('malat_dilution_log2_vs_fluc.tsv', 'malat_dilution_design.tsv', ['malat_250ng', 'malat_125ng'], estimator='marginal_likelihood')"

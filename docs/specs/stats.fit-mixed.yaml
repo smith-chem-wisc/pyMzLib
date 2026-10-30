@@ -17,7 +17,7 @@ module: stats
 summary: >-
   Fit one linear mixed model per feature of a feature-by-sample table, with a random intercept per
   group of samples (dataset, donor, day), and test each named coefficient with a Wald t.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: MixedModel.Fit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
   - {symbol: MixedModelFit, path: mzLib/StatisticalModels/MixedModel.cs, pin: d10017ce}
@@ -142,8 +142,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit_mixed}
-  rust: {name: "mzlib::stats::fit_mixed_with", options: FitMixedOptions, note: "not yet ported"}
-  r: {name: stats_fit_mixed, note: "not yet ported"}
+  rust: {name: "mzlib::stats::fit_mixed_with", options: FitMixedOptions}
+  r: {name: stats_fit_mixed}
 
 examples:
   - fixture: stats_fit_mixed_lmm_reml.json

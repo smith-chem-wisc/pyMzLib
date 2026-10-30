@@ -17,7 +17,7 @@ module: stats
 summary: >-
   Fit one logistic regression per feature of a 0/1 feature-by-sample table, such as a detection
   table, and test each named coefficient with a Wald z.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: LogisticRegression.Fit, path: mzLib/StatisticalModels/LogisticRegression.cs, pin: d10017ce}
   - {symbol: LogisticModelFit, path: mzLib/StatisticalModels/LogisticRegression.cs, pin: d10017ce}
@@ -132,8 +132,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit_logistic}
-  rust: {name: "mzlib::stats::fit_logistic_with", options: FitLogisticOptions, note: "not yet ported"}
-  r: {name: stats_fit_logistic, note: "not yet ported"}
+  rust: {name: "mzlib::stats::fit_logistic_with", options: FitLogisticOptions}
+  r: {name: stats_fit_logistic}
 
 examples:
   - fixture: stats_fit_logistic_glm.json
