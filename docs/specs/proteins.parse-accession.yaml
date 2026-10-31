@@ -9,7 +9,7 @@ module: proteins
 summary: >-
   Read protein accessions back into their entry, isoform or version, and applied sequence variants,
   with mzLib's accession grammars, never repairing one that does not fit.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: VariantApplication.ParseAccession, path: mzLib/Omics/BioPolymer/VariantApplication.cs, pin: d10017ce}
   - {symbol: ProteoformAccession, path: mzLib/Omics/BioPolymer/ProteoformAccession.cs, pin: d10017ce}
@@ -65,8 +65,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.proteins.parse_accessions, note: "Plural because it takes a list; the verb is singular because each stdin line is one accession, as sdrf parse-age."}
-  rust: {name: "mzlib::proteins::parse_accessions", note: "planned; not yet ported"}
-  r: {name: proteins_parse_accessions, note: "planned; not yet ported"}
+  rust: {name: "mzlib::proteins::parse_accessions"}
+  r: {name: proteins_parse_accessions}
 
 examples:
   - fixture: proteins_parse_accession.json

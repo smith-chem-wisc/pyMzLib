@@ -15,7 +15,7 @@ summary: >-
   Build an Ensembl Compara orthology snapshot for a set of species from their gene sets, the gene
   trees and every species' homology dump, and optionally write it as Parquet and say, gene by gene,
   how far Compara's inference got in another species.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: OrthologySnapshot.Build, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshot.cs, pin: d10017ce}
   - {symbol: OrthologySnapshot.PairStatus, path: mzLib/UsefulProteomicsDatabases/Ensembl/OrthologySnapshot.cs, pin: d10017ce}
@@ -252,8 +252,8 @@ performance: >-
 
 bindings:
   py: {name: pymzlib.proteins.build_orthology, note: "The species lines are rendered from gtfs= and gene_sets=, two dicts from production name to path; dumps= is the list."}
-  rust: {name: "mzlib::proteins::build_orthology_with", options: OrthologyOptions, note: "planned; not yet ported"}
-  r: {name: proteins_build_orthology, note: "planned; not yet ported"}
+  rust: {name: "mzlib::proteins::build_orthology_with", options: OrthologyOptions, note: "status_counts is a BTreeMap, so it iterates in name order, not in mzLib's OrthologyStatus order."}
+  r: {name: proteins_build_orthology}
 
 examples:
   - fixture: genes_orthology_pair_status.json

@@ -13,7 +13,7 @@ verb: library read
 module: library
 summary: >-
   Read an mzLib spectral library (.msl) as one row per precursor, or with fragments one row per fragment ion, with mzLib's not-available sentinels as nulls.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: MslFileTypeHandler.Open, path: mzLib/Readers/SpectralLibrary/Mslfiletypehandler.cs, pin: d10017ce}
   - {symbol: MslFileTypeHandler.IsMslFile, path: mzLib/Readers/SpectralLibrary/Mslfiletypehandler.cs, pin: d10017ce}
@@ -149,8 +149,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.library.read, bulk: pymzlib.library.read_many}
-  rust: {name: "mzlib::library::read_with", bulk: "mzlib::library::read_many", options: LibraryReadOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
-  r: {name: library_read, bulk: library_read_many, note: "Planned name: ported after a pyMzLib release carries the verb. source_index is 1-based in R (the wire is 0-based)."}
+  rust: {name: "mzlib::library::read_with", bulk: "mzlib::library::read_many", options: LibraryReadOptions, note: "read_many takes LibraryBulkOptions."}
+  r: {name: library_read, bulk: library_read_many, note: "precursor_index and source_index are 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: library_read_prosit.json

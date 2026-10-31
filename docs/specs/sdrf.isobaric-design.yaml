@@ -12,7 +12,7 @@ module: sdrf
 summary: >-
   Read an isobaric (TMT, TMTpro, iTRAQ, DiLeu) experimental design out of an SDRF, one row per file
   and annotated channel, in MetaMorpheus's terms, or every reason it was refused.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfIsobaricDesign.Read, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
   - {symbol: SdrfIsobaricDesign.WriteTmtDesign, path: mzLib/Readers/Sdrf/SdrfIsobaricDesign.cs, pin: d10017ce}
@@ -177,8 +177,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.sdrf.isobaric_design}
-  rust: {name: "mzlib::sdrf::isobaric_design_with", options: IsobaricDesignOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
-  r: {name: sdrf_isobaric_design, note: "Planned name: ported after a pyMzLib release carries the verb. The fraction, replicate and plex_id numbers stay 1-based in R too: they are the SDRF's numbers, not row indexes."}
+  rust: {name: "mzlib::sdrf::isobaric_design_with", options: IsobaricDesignOptions, note: "plex_ids is a BTreeMap, so it iterates in name order; each plex keeps mzLib's PlexId."}
+  r: {name: sdrf_isobaric_design, note: "The fraction, replicate and plex_id numbers stay 1-based in R too: they are the SDRF's numbers, not row indexes."}
 
 examples:
   - fixture: sdrf_isobaric_design_PXD008841.json

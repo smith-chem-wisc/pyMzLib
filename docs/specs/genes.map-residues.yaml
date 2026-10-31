@@ -18,7 +18,7 @@ module: genes
 summary: >-
   Map a residue of one protein to the residue of another protein in the same column of Ensembl
   Compara's gene-tree alignment, or say why there is none, for a batch of queries.
-since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: ComparaGeneTreeAlignment.Load, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
   - {symbol: ComparaGeneTreeAlignment.MapResidue, path: mzLib/UsefulProteomicsDatabases/Ensembl/ComparaGeneTreeAlignment.cs, pin: cc67b7a29}
@@ -170,8 +170,8 @@ performance: >-
 
 bindings:
   py: {name: pymzlib.proteins.map_residues, note: "The species lines are rendered from gtfs= and gene_sets=, as build_orthology renders them; queries= is a list of (source, position, target) tuples."}
-  rust: {name: "mzlib::proteins::map_residues_with", options: MapResiduesOptions, note: "planned; not yet ported"}
-  r: {name: proteins_map_residues, note: "planned; not yet ported"}
+  rust: {name: "mzlib::proteins::map_residues_with", options: MapResiduesOptions, note: "The queries are (source protein, position, target protein) tuples."}
+  r: {name: proteins_map_residues, note: "The queries are a data.frame (source_protein_id, position, target_protein_id) or a list of list(...). alignment_index in the proteins table is 1-based in R (the wire is 0-based)."}
 
 examples:
   - fixture: genes_map_residues_tp53.json

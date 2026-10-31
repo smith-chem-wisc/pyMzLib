@@ -19,7 +19,7 @@ summary: >-
   PTM-PTM pairs within one dataset: two modifications identified together on one peptidoform
   (physical), and two sites whose occupancies rise and fall together across runs (co-varying), with
   Benjamini-Hochberg q-values.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: PtmPairEngine.Physical, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: d10017ce}
   - {symbol: PtmPairEngine.CoVarying, path: mzLib/Quantification/PtmQtl/PtmPairs.cs, pin: cc67b7a2}
@@ -213,7 +213,7 @@ result:
     - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "physical (no test in this mzLib), or not tested (test_status)", doc: "Two-sided Spearman p-value against rho = 0, computed as spearman_method says."}
     - {wire: q, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not in the family: physical, overlapping, or not tested (test_status)", doc: "Benjamini-Hochberg adjusted p within fdr_family, over that family's non-overlapping tested pairs. Not a target-decoy q-value."}
     - {wire: fdr_family, type: string, unit: null, nullable: false, null_means: null, doc: "The family the adjustment runs over, mzLib's PtmPair.FdrFamily verbatim: P or A (physical or co-varying), then intra (same protein) or inter, for example A:inter."}
-    - {wire: n, type: int, unit: runs, nullable: false, null_means: null, doc: "physical: runs where a doubly modified peptidoform was identified. covarying: runs where both sites have a value (with include-bounds, a value or a bound) and every covariate removed is known there (the run level, the run covariate)."}
+    - {wire: "n", type: int, unit: runs, nullable: false, null_means: null, doc: "physical: runs where a doubly modified peptidoform was identified. covarying: runs where both sites have a value (with include-bounds, a value or a bound) and every covariate removed is known there (the run level, the run covariate)."}
     - {wire: statistic_n, type: int, unit: runs, nullable: false, null_means: null, doc: "Runs statistic was computed on. physical: runs where the doubly modified form and the forms covering both positions were quantified, at most n. covarying: equal to n."}
     - {wire: spearman_method, type: string, unit: null, nullable: true, null_means: "physical: no correlation", doc: "exact (the full permutation distribution, for 9 or fewer runs without ties, plain only) | asymptotic (t on n - 2 degrees of freedom, or n - 2 - k given k covariates: the run level, one or two for a pair across groups, less any level the other carries entirely, and the run covariate) | not_estimable (the pair was not tested, for the reason test_status gives)."}
     - {wire: run_level_removed, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether statistic and p_value are the partial correlation given the run level. Always false for physical."}
@@ -242,8 +242,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.ptmqtl.pairs}
-  rust: {name: "mzlib::ptmqtl::pairs_with", options: PairsOptions, note: "not yet ported"}
-  r: {name: ptmqtl_pairs, note: "not yet ported"}
+  rust: {name: "mzlib::ptmqtl::pairs_with", options: PairsOptions, note: "The pair type is the PairType enum."}
+  r: {name: ptmqtl_pairs}
 
 examples:
   - fixture: ptmqtl_pairs_physical.json

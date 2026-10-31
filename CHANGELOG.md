@@ -6,6 +6,13 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Documentation
+
+- `flashlfq.quantify()`'s `max_threads` no longer calls `1` the conservative choice. mzLib#1155 fixed
+  the multithreaded nondeterminism of mzLib#1111, and mzLib's K562 pair now re-measures identical:
+  five runs at `-1` and one at `1` gave the same results with pyMzLib 0.7.0. The FlashLFQ guide and
+  the vendored `quant.flashlfq` spec say the same.
+
 ## [0.7.0] - 2026-10-28
 
 Built from mzLib 1.0.596 (tag commit `cc67b7a2`), up from 1.0.595. This release adds calls for what

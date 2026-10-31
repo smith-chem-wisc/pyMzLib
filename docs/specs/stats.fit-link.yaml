@@ -13,7 +13,7 @@ summary: >-
   Fit the detection link of a latent-scale mixed model (how a cell's latent value, such as the
   log-odds of a site's occupancy, sets the chance that a trial succeeds) by maximum likelihood over
   cells with a latent mean and SD and a count.
-since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: LogitNormalMixedModel.FitLink, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
   - {symbol: LinkCell, path: mzLib/StatisticalModels/LogitNormalMixedModel.cs, pin: cc67b7a2}
@@ -102,8 +102,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.fit_link}
-  rust: {name: "mzlib::stats::fit_link_with", options: FitLinkOptions, note: "not yet ported"}
-  r: {name: stats_fit_link, note: "not yet ported"}
+  rust: {name: "mzlib::stats::fit_link_with", options: FitLinkOptions}
+  r: {name: stats_fit_link}
 
 examples:
   - fixture: stats_fit_link_simulated.json

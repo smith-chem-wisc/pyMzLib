@@ -23,6 +23,19 @@ result:
     - {wire: views, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The cross-format views it offers; often empty."}
     - {wire: error, type: "object", unit: null, nullable: true, null_means: "always, for a single path; in a paths-stdin entry, the path was identified", doc: "{kind, type, message} for a path that failed under on-error skip."}
   columns: []
+  # The --paths-stdin shape (design/BULK.md). Examples marked shape: bulk are checked against it.
+  bulk:
+    no_records: "identify reads no records, only what kind each file is, so a record_count would always be 0 (BULK.md section 2, amended 2026-10-30)."
+    params:
+      - {name: paths-stdin, type: "flag", required: false, unit: null, range: null, default: null, doc: "Identify MANY paths: newline-delimited paths on stdin (blank lines ignored; a repeated path is a usage error). Exclusive with path; offset, limit and out are refused with it."}
+      - {name: threads, type: "int", required: false, unit: "files", range: ">= 1, or -1 for one per core", default: 1, doc: "Paths identified at once. The answer is identical at any value (files are reported in input order)."}
+      - {name: on-error, type: "string", required: false, unit: null, range: "fail | skip", default: "fail", doc: "fail: the first path that cannot be identified stops the batch with its usage or correctness error, the message starting 'Input <i> (<path>)'. skip: the failure goes in that path's files[i].error and the rest are identified. skip with a single path is a usage error."}
+    envelope_fields:
+      - {wire: file_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths given."}
+      - {wire: read_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths identified."}
+      - {wire: failed_count, type: "int", unit: "files", nullable: false, null_means: null, doc: "Paths not identified; non-zero only under on-error skip."}
+      - {wire: on_error, type: "string", unit: null, nullable: false, null_means: null, doc: "fail or skip, as requested. --threads is deliberately not echoed: the envelope is identical at every thread count."}
+      - {wire: files, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per input, in input order: the single-path answer (path, file_type, extension, reader, views, error). A path not identified has error set and file_type, extension and reader null, views empty."}
 
 errors:
   - {kind: usage, when: "path missing, blank or not found; mzLib does not recognise the file type"}
@@ -35,7 +48,7 @@ errors:
 caveats:
   - "Cheap but not pure: mzLib reads a bare .tsv's first line, a .txt's and a .mztab's first five, a .parquet's column schema and a .d directory's listing to dispatch them. A .parquet mzLib can open and read without the DIA-NN report columns (Precursor.Id, Stripped.Sequence, Run), or bytes that are not Parquet at all, is a usage error, 'Parquet file type not supported' (mzLib #1384). One it cannot open is an I/O error instead (#1478)."
   - "No software field: mzLib's Software property is Unspecified for everything its factory builds; file_type already names the tool."
-  - "Many paths: --paths-stdin (newline-delimited paths on stdin) with --threads N (default 1, -1 = one per core; the answer is identical at any value) and --on-error fail|skip answers {file_count, read_count, failed_count, on_error, files}, files[i] being path i's answer in input order with error set when it could not be identified under skip (readers_many_identify.json). There is no table and no --out."
+  - "Many paths (result.bulk): there is no table and no --out, and no record_count, because nothing is read."
 
 bindings:
   py: {name: pymzlib.readers.identify, bulk: pymzlib.readers.identify_many}  # identify_many: pyMzLib 0.2.0
@@ -47,6 +60,10 @@ examples:
     py: "result = pymzlib.readers.identify('PXD078927_msgf_1_1_0.mzid')"
     rust: "let result = mzlib::readers::identify(\"PXD078927_msgf_1_1_0.mzid\")?;"
     r: "result <- readers_identify('PXD078927_msgf_1_1_0.mzid')"
+  - fixture: readers_many_identify.json
+    shape: bulk
+    py: "batch = pymzlib.readers.identify_many(['PXD078927_msgf_1_1_0.mzid', 'no-such-run.mzML'], on_error='skip')"
+    rust: "let batch = mzlib::readers::identify_many(&[\"PXD078927_msgf_1_1_0.mzid\", \"no-such-run.mzML\"], &BulkOptions { on_error: OnError::Skip, ..Default::default() })?;"
+    r: "batch <- readers_identify_many(c('PXD078927_msgf_1_1_0.mzid', 'no-such-run.mzML'), on_error = 'skip')"
 
-open_questions:
-  - "The --paths-stdin answer is not declared as result.bulk because check_verbs.py requires a record_count there (BULK.md section 2), and the bridge sends none: at pyMzLib v0.2.0 (pkg/bridge/Reading.cs Identify) it is {file_count, read_count, failed_count, on_error, files}, as are IdentifyBatch (Rust) and readers_identify_many (R). All three bindings ship identify_many. Declare result.bulk once the checker allows a table-less bulk verb, or add record_count (0) to the wire."
+open_questions: []

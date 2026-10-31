@@ -15,7 +15,7 @@ summary: >-
   Estimate the false discovery proportion among a search's discoveries from its entrapment hits, as
   a lower bound, a combined upper bound and a paired upper bound, at each of several q-value
   thresholds.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: EntrapmentFdp.Sweep, path: mzLib/StatisticalModels/EntrapmentFdp.cs, pin: d10017ce}
   - {symbol: EntrapmentFdp.DefaultQValueThresholds, path: mzLib/StatisticalModels/EntrapmentFdp.cs, pin: d10017ce}
@@ -118,8 +118,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.entrapment_fdp}
-  rust: {name: "mzlib::stats::entrapment_fdp_with", options: EntrapmentFdpOptions, note: "not yet ported"}
-  r: {name: stats_entrapment_fdp, note: "not yet ported"}
+  rust: {name: "mzlib::stats::entrapment_fdp_with", options: EntrapmentFdpOptions}
+  r: {name: stats_entrapment_fdp}
 
 examples:
   - fixture: stats_entrapment_fdp_reference.json

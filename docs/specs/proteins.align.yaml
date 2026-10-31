@@ -10,7 +10,7 @@ module: proteins
 summary: >-
   Align protein sequences pairwise with mzLib's global affine-gap aligner, and map every residue of
   each sequence to its counterpart in the other, or to none.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: PairwiseAligner, path: mzLib/Omics/SequenceAlignment/PairwiseAligner.cs, pin: d10017ce}
   - {symbol: PairwiseAligner.Align, path: mzLib/Omics/SequenceAlignment/PairwiseAligner.cs, pin: d10017ce}
@@ -137,8 +137,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.proteins.align_many, note: "pymzlib.proteins.align(source, target) is the one-pair form: the same call, returning one Alignment."}
-  rust: {name: "mzlib::proteins::align_with", options: AlignOptions, note: "planned; not yet ported"}
-  r: {name: proteins_align, note: "planned; not yet ported"}
+  rust: {name: "mzlib::proteins::align_with", options: AlignOptions}
+  r: {name: proteins_align}
 
 examples:
   - fixture: proteins_align_deletion.json

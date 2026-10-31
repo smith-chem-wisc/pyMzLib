@@ -460,9 +460,8 @@ def quantify(
             nondeterministically, so identical inputs gave different peptide and protein
             numbers (smith-chem-wisc/mzLib#1111). mzLib#1155 fixed the cause, the PEP
             training rows being assembled in thread-completion order, and this build includes
-            it. pyMzLib has not re-measured its own K562 reproduction on this build, so
-            ``max_threads=1`` remains the conservative choice when a result must reproduce
-            exactly.
+            it. The thread count no longer changes the answer: on mzLib's K562 pair, five runs
+            at ``-1`` and one at ``1`` gave identical results (re-measured with pyMzLib 0.7.0).
         output_directory: If given, FlashLFQ also writes ``QuantifiedPeaks.tsv``,
             ``QuantifiedPeptides.tsv`` and ``QuantifiedProteins.tsv`` there, and, with
             ``bayesian_protein_quant``, ``BayesianProteinQuant.tsv``. That file is the only place the

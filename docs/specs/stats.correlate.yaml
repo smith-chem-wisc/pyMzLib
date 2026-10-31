@@ -14,7 +14,7 @@ module: stats
 summary: >-
   Spearman's rank correlation of every feature of a feature-by-sample table with one per-sample
   trait, with a two-sided p-value, optionally partial given per-sample covariates.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SpearmanCorrelation.Correlate, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
   - {symbol: SpearmanCorrelation.PartialCorrelate, path: mzLib/StatisticalModels/SpearmanCorrelation.cs, pin: d10017ce}
@@ -86,7 +86,7 @@ result:
     - {wire: feature, type: string, unit: null, nullable: false, null_means: null, doc: "The feature id from the responses file's first column."}
     - {wire: rho, type: float, unit: "unitless correlation (-1 to 1)", nullable: true, null_means: "not_estimable (see method)", doc: "Spearman's rho: Pearson's correlation of the ranks, ties given their average rank. With --given, the partial rho: the correlation of the feature's and the trait's ranks after each is regressed on the covariates' ranks, all ranked over the complete samples."}
     - {wire: p_value, type: float, unit: "fraction (0 to 1)", nullable: true, null_means: "not_estimable", doc: "Two-sided p-value against rho = 0, computed as method says. 0 when rho is exactly -1 or 1 with the asymptotic test. Not adjusted across features."}
-    - {wire: n, type: int, unit: samples, nullable: false, null_means: null, doc: "Complete samples the correlation used: the response, the trait and (with --given) every covariate finite."}
+    - {wire: "n", type: int, unit: samples, nullable: false, null_means: null, doc: "Complete samples the correlation used: the response, the trait and (with --given) every covariate finite."}
     - {wire: has_ties, type: bool, unit: null, nullable: false, null_means: null, doc: "Whether any variable (the response, the trait or, with --given, a covariate) has tied values among the complete samples. Also false when there were too few complete samples to rank at all (n below 3, or below 4 with --given), where mzLib does not look."}
     - {wire: method, type: string, unit: null, nullable: false, null_means: null, doc: "exact (the full permutation distribution of S = sum d^2, for n <= 9 with no ties and no --given, as R's cor.test exact = TRUE) | asymptotic (t = rho sqrt(df / (1 - rho^2)) on df = n - 2, or n - 2 - k for k covariates kept, as cor.test exact = FALSE and ppcor::pcor.test) | not_estimable (fewer than 3 complete samples, or k + 3 with --given; a constant variable; or covariates that carry the response or the trait entirely)."}
 
@@ -106,8 +106,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.stats.correlate}
-  rust: {name: "mzlib::stats::correlate_with", options: CorrelateOptions, note: "not yet ported"}
-  r: {name: stats_correlate, note: "not yet ported"}
+  rust: {name: "mzlib::stats::correlate_with", options: CorrelateOptions, note: "The trait table argument is trait_table, because trait is a Rust keyword."}
+  r: {name: stats_correlate}
 
 examples:
   - fixture: stats_correlate_malat.json

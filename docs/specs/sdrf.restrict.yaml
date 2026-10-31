@@ -11,7 +11,7 @@ module: sdrf
 summary: >-
   Restrict an SDRF to the files one search read, joining each searched file to the row of its
   acquisition, and report what the join could not place.
-since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: null, mzlibr: null}
+since: {protocol: 1, pymzlib: "0.6.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
   - {symbol: SdrfSearchScope.Restrict, path: mzLib/Readers/Sdrf/SdrfSearchScope.cs, pin: d10017ce}
   - {symbol: SdrfSearchScoping, path: mzLib/Readers/Sdrf/SdrfSearchScope.cs, pin: d10017ce}
@@ -112,8 +112,8 @@ caveats:
 
 bindings:
   py: {name: pymzlib.sdrf.restrict}
-  rust: {name: "mzlib::sdrf::restrict_with", options: RestrictOptions, note: "Planned name: ported after a pyMzLib release carries the verb."}
-  r: {name: sdrf_restrict, note: "Planned name: ported after a pyMzLib release carries the verb. The searched files are a character vector, named by acquired file where known."}
+  rust: {name: "mzlib::sdrf::restrict_with", options: RestrictOptions, note: "The searched files are a slice of SearchedFile, each naming its acquired file where known."}
+  r: {name: sdrf_restrict, note: "The searched files are a character vector, named by acquired file where known."}
 
 examples:
   - fixture: sdrf_restrict_PXD008841.json
