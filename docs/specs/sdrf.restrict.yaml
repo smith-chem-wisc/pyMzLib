@@ -128,4 +128,4 @@ examples:
 open_questions:
   - "PUSH-TO-MAINLAND: SdrfDocument.WriteResults returns nothing and adds .sdrf.tsv to a name not ending in it, so the bridge reports the path by mzLib's own test (ResultFile.CanRead) instead of being told. Ask mzLib to return the path written, or to refuse rather than rename. sdrf pool --out has the same rename and still reports the path as given."
   - "No --paths-stdin form: stdin already carries the searched files, and one search restricts one SDRF."
-  - "SdrfSampleCopy (#1451, same PR) is not projected: it only feeds SdrfBuilder.Build, which is G-sdrf-verbs."
+  - "SdrfSampleCopy (#1451, same PR) is not projected: it only feeds SdrfBuilder.Build, which is G-sdrf-build (parked)."

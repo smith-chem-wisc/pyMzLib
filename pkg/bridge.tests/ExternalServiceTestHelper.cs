@@ -39,6 +39,11 @@ public static class ExternalServiceTestHelper
         {
             Skip(serviceName, e.Message);
         }
+        catch (Program.ServiceUnavailableException e)
+        {
+            // mzLib's own client judged it an outage, and the bridge carried that across.
+            Skip(serviceName, $"unavailable ({e.Message})");
+        }
         catch (HttpRequestException e)
         {
             Skip(serviceName, $"unavailable ({e.Message})");
