@@ -41,15 +41,12 @@ internal static partial class Peptidoform
     /// </remarks>
     /// <remarks>
     /// Returns the XML path and whether the caller is responsible for deleting it. The real
-    /// downloader creates a temp file and hands ownership over (delete it); a test fixture is
+    /// source (<see cref="DownloadUniProtXml"/>) creates a temp file and hands ownership over (delete it); a test fixture is
     /// owned by the test and must be left alone. Making ownership explicit is what stops the
     /// cleanup from deleting a file it did not create.
     /// </remarks>
     internal static Func<string, Task<(string Path, bool CallerDeletes)>> UniProtXmlSource { get; set; }
-        = async accession => (await DownloadUniProtXmlAsync(accession).ConfigureAwait(false), true);
-
-    /// <summary>Where a single UniProtKB entry's annotated XML comes from.</summary>
-    private const string UniProtEntryUrlFormat = "https://rest.uniprot.org/uniprotkb/{0}.xml";
+        = accession => Task.FromResult((DownloadUniProtXml(accession, RetrieveUniProtXmlEntry), true));
 
     /// <summary>
     /// UniProt's modification definitions, resolved once per process.
@@ -260,64 +257,72 @@ internal static partial class Peptidoform
         }
     }
 
+    /// <summary>mzLib's UniProt client, asked for one entry's XML in <paramref name="directory"/>.</summary>
+    private static (bool Found, string FilePath) RetrieveUniProtXmlEntry(string accession, string directory) =>
+        ProteinDbRetriever.TryRetrieveEntry(accession, directory, ProteinDbRetriever.ProteomeFormat.xml);
+
     /// <summary>
-    /// Turns a UniProt response status into the right kind of failure, or returns quietly.
+    /// Downloads one UniProtKB entry's XML to a temporary file through mzLib's
+    /// <see cref="ProteinDbRetriever"/>, and returns its path.
     /// </summary>
     /// <remarks>
-    /// The distinction is the same one the whole bridge rests on, applied to a second service.
-    /// UniProt answers a malformed accession with <b>400</b> and an unknown-but-well-formed one
-    /// with <b>404</b>: both are the caller's mistake and permanent, so they must surface as usage
-    /// errors. Telling someone to retry later for a typo would mean retrying forever, and would
-    /// make a genuine bad-accession regression skip in the live suites rather than fail.
     /// <para>
-    /// Everything else non-success is phrased as "failed with status NNN" so that
-    /// <see cref="Program.ClassifyError"/> can read the code and decide: 408/429/5xx are
-    /// availability, the rest are correctness.
+    /// What UniProt's answer means is mzLib's judgement, stated in <see cref="ProteinDbRetriever"/>'s
+    /// class remarks. This method only carries each outcome across in the bridge's terms:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>Found is false:</b> UniProt answered and has no such entry (a 400, a 404, or a 200 with
+    /// no entry in it). A usage error: the caller's to fix, and retrying will not help.</item>
+    /// <item><see cref="ArgumentException"/>: the accession holds a character mzLib refuses to send.
+    /// Also a usage error.</item>
+    /// <item><see cref="HttpRequestException"/>: in mzLib's words, nobody's mistake; try again later.
+    /// Wrapped in <see cref="Program.ServiceUnavailableException"/>, because mzLib leaves no status
+    /// for <see cref="Program.ClassifyError"/> to read.</item>
+    /// <item>Anything else, such as mzLib's <c>MzLibException</c> for a 401 or 403, crosses as itself:
+    /// a correctness failure.</item>
+    /// </list>
+    /// <para>
+    /// Until the pinned mzLib carries mzLib#1529, UniProt's other way of failing, a 200 with
+    /// "Error encountered when streaming data" where the entry should be, holds no entry either, so it
+    /// lands in the first case. From #1529 mzLib throws <see cref="HttpRequestException"/> for it, and
+    /// it crosses as an outage with no change here.
+    /// </para>
+    /// <para>
+    /// <paramref name="retrieve"/> is mzLib's call in production and a stub in tests, so every outcome
+    /// can be checked without the network.
     /// </para>
     /// </remarks>
-    internal static void ThrowIfUniProtRejected(
-        System.Net.HttpStatusCode status, string? reasonPhrase, string accession, string url)
+    internal static string DownloadUniProtXml(
+        string accession, Func<string, string, (bool Found, string FilePath)> retrieve)
     {
-        if (status is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.BadRequest)
-        {
-            throw new Program.UsageException(
-                $"UniProt has no entry '{accession}'. Accessions look like 'P02768' or 'A0A0B4J2D5'.");
-        }
-
-        if ((int)status is >= 200 and < 300)
-            return;
-
-        throw new HttpRequestException(
-            $"UniProt request failed with status {(int)status} {reasonPhrase} for '{url}'.");
-    }
-
-    /// <summary>Downloads one UniProtKB entry's XML to a temporary file and returns its path.</summary>
-    private static async Task<string> DownloadUniProtXmlAsync(string accession)
-    {
-        string url = string.Format(UniProtEntryUrlFormat, Uri.EscapeDataString(accession));
-        string temp = Path.Combine(Path.GetTempPath(), $"pymzlib-{Guid.NewGuid():N}.xml");
-
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(100) };
-        using HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
-
-        ThrowIfUniProtRejected(response.StatusCode, response.ReasonPhrase, accession, url);
-
+        // mzLib writes '<accession>.xml' into a directory it is given and refuses one that is missing.
+        // A fresh directory per call keeps two calls for one accession apart, and the file is moved out
+        // to a single temp file so the caller still owns exactly one path.
+        string directory = Path.Combine(Path.GetTempPath(), $"pymzlib-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
         try
         {
-            await using Stream body = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            await using var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None);
-            await body.CopyToAsync(file).ConfigureAwait(false);
-        }
-        catch
-        {
-            // A stream that fails mid-copy would otherwise orphan a partial temp file, since the
-            // caller only learns the path on a successful return and never gets a chance to clean it.
-            if (File.Exists(temp))
-                File.Delete(temp);
-            throw;
-        }
+            (bool found, string filePath) = retrieve(accession, directory);
+            if (!found)
+                throw new Program.UsageException(
+                    $"UniProt has no entry '{accession}'. Accessions look like 'P02768' or 'A0A0B4J2D5'.");
 
-        return temp;
+            string temp = Path.Combine(Path.GetTempPath(), $"pymzlib-{Guid.NewGuid():N}.xml");
+            File.Move(filePath, temp);
+            return temp;
+        }
+        catch (ArgumentException e)
+        {
+            throw new Program.UsageException(e.Message);
+        }
+        catch (HttpRequestException e)
+        {
+            throw new Program.ServiceUnavailableException(e);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     /// <summary>

@@ -83,6 +83,7 @@ public static partial class Program
             SourceFailure failure => ClassifyError(failure.InnerException!),
             TaskCanceledException or OperationCanceledException or TimeoutException => ServiceUnavailableType,
             SocketException => ServiceUnavailableType,
+            ServiceUnavailableException => ServiceUnavailableType,
             HttpRequestException http => ClassifyHttpFailure(http),
             IOException io when IsTransportFailure(io) => ServiceUnavailableType,
             _ => cause.GetType().Name,
@@ -963,6 +964,25 @@ public static partial class Program
 
     /// <summary>Signals malformed or missing command-line input (exit code 2), not a runtime failure.</summary>
     internal sealed class UsageException(string message) : Exception(message);
+
+    /// <summary>
+    /// A failure the service's own mzLib client has already judged an outage: try again later.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// mzLib's <c>ProteinDbRetriever</c> documents <see cref="HttpRequestException"/> as exactly that,
+    /// "nobody's mistake; try again later", but composes it by hand with no
+    /// <see cref="HttpRequestException.StatusCode"/> and no inner exception. That is the shape
+    /// <see cref="ClassifyHttpFailure"/> reserves for a condition that is our problem (mzLib's paging
+    /// guard), so on its own the outage would cross as a correctness failure.
+    /// </para>
+    /// <para>
+    /// The judgement stays mzLib's. Only a call site that knows the exception came from that client
+    /// wraps it in this type, which carries the judgement across unchanged; the message is mzLib's.
+    /// When mzLib#1490 sets the status, the general classifier can read it and this can go.
+    /// </para>
+    /// </remarks>
+    internal sealed class ServiceUnavailableException(Exception inner) : Exception(inner.Message, inner);
 
     /// <summary>
     /// One input of a multi-file read failed, and the read was told to stop (<c>--on-error fail</c>).

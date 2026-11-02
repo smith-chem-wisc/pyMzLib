@@ -474,56 +474,111 @@ public class PeptidoformTests
     // UniProt is a second external service and gets the same treatment as PRIDE: a permanent
     // caller error must never be dressed as an outage, and a genuine outage must never be dressed
     // as a caller error. Getting this backwards is what made the live suites skip real bugs.
+    // Which is which is mzLib's ProteinDbRetriever's judgement; these check that each of its
+    // outcomes crosses intact, with a stub in place of the network.
 
-    [TestCase(System.Net.HttpStatusCode.NotFound, Description = "well-formed but unknown accession")]
-    [TestCase(System.Net.HttpStatusCode.BadRequest, Description = "malformed accession")]
-    public void APermanentAccessionProblemIsAUsageErrorNotAnOutage(System.Net.HttpStatusCode status)
+    /// <summary>A stand-in for mzLib's TryRetrieveEntry that records the directory it was given.</summary>
+    private sealed class StubRetriever(Func<string, string, (bool, string)> answer)
     {
-        var ex = Assert.Throws<Program.UsageException>(() =>
-            Peptidoform.ThrowIfUniProtRejected(status, "whatever", "P99999999", "https://x/y"));
+        public string Directory { get; private set; } = string.Empty;
+
+        public (bool Found, string FilePath) Retrieve(string accession, string directory)
+        {
+            Directory = directory;
+            return answer(accession, directory);
+        }
+    }
+
+    [Test]
+    public void AnEntryUniProtHasIsHandedOverAsOneTempFileAndItsDirectoryRemoved()
+    {
+        var stub = new StubRetriever((accession, directory) =>
+        {
+            string path = Path.Combine(directory, accession + ".xml");
+            File.WriteAllText(path, MiniEntryXml);
+            return (true, path);
+        });
+
+        string path = Peptidoform.DownloadUniProtXml("P00001", stub.Retrieve);
+        try
+        {
+            Assert.That(File.ReadAllText(path), Is.EqualTo(MiniEntryXml));
+            Assert.That(System.IO.Directory.Exists(stub.Directory), Is.False, "mzLib's directory must not be left behind");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
+    public void AnEntryUniProtDoesNotHaveIsAUsageErrorNotAnOutage()
+    {
+        // mzLib's Found = false covers a 400 (malformed), a 404 (unknown) and a 200 with no entry
+        // (deleted): all permanent, all the caller's to fix.
+        var stub = new StubRetriever((_, _) => (false, null!));
+
+        var ex = Assert.Throws<Program.UsageException>(() => Peptidoform.DownloadUniProtXml("P99999999", stub.Retrieve));
 
         Assert.That(ex!.Message, Does.Contain("P99999999"));
+        Assert.That(System.IO.Directory.Exists(stub.Directory), Is.False);
     }
 
-    [TestCase(500)]
-    [TestCase(502)]
-    [TestCase(503)]
-    [TestCase(429)]
-    [TestCase(408)]
-    public void AUniProtOutageClassifiesAsServiceUnavailable(int status)
+    [Test]
+    public void AnAccessionMzLibRefusesToSendIsAUsageError()
     {
-        // Phrased so ClassifyError can read the code back out of the message — which is the
-        // contract that lets both test suites skip rather than fail when UniProt is down.
-        var thrown = Assert.Throws<HttpRequestException>(() => Peptidoform.ThrowIfUniProtRejected(
-            (System.Net.HttpStatusCode)status, "Service Unavailable", "P02768", "https://x/y"));
+        var stub = new StubRetriever((_, _) => throw new ArgumentException("holds a character outside letters, digits and '-'", "accession"));
 
-        Assert.That(Program.ClassifyError(thrown!), Is.EqualTo(Program.ServiceUnavailableType));
+        var ex = Assert.Throws<Program.UsageException>(() => Peptidoform.DownloadUniProtXml("P0/2768", stub.Retrieve));
+
+        Assert.That(ex!.Message, Does.Contain("outside letters"), "mzLib's own reason is what the caller sees");
+        Assert.That(System.IO.Directory.Exists(stub.Directory), Is.False);
     }
 
-    [TestCase(401)]
-    [TestCase(403)]
-    [TestCase(418)]
-    public void AUniProtClientErrorStaysOurProblem(int status)
+    // The first message is ThrowIfServiceUnavailable's at the pin; the second is mzLib#1529's for
+    // UniProt's 200 streaming-error body. Neither carries a StatusCode or an inner exception, which
+    // is why the general classifier alone would call them our problem.
+    [TestCase("UniProt is unavailable: HTTP 503 Service Unavailable for 'https://rest.uniprot.org/uniprotkb/P02768.xml'.")]
+    [TestCase("UniProt answered 'https://rest.uniprot.org/uniprotkb/P69905.xml' with 200 but sent an error message instead of the data (\"Error encountered when streaming data\"); try again later.")]
+    public void AnOutageMzLibReportsCrossesAsServiceUnavailable(string message)
     {
-        var thrown = Assert.Throws<HttpRequestException>(() => Peptidoform.ThrowIfUniProtRejected(
-            (System.Net.HttpStatusCode)status, "Nope", "P02768", "https://x/y"));
+        var stub = new StubRetriever((_, _) => throw new HttpRequestException(message));
 
-        Assert.That(Program.ClassifyError(thrown!), Is.EqualTo(nameof(HttpRequestException)));
+        var ex = Assert.Throws<Program.ServiceUnavailableException>(() => Peptidoform.DownloadUniProtXml("P02768", stub.Retrieve));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo(Program.ServiceUnavailableType));
+        Assert.That(ex!.Message, Is.EqualTo(message), "mzLib's message crosses unchanged");
+        Assert.That(System.IO.Directory.Exists(stub.Directory), Is.False);
     }
 
-    [TestCase(200)]
-    [TestCase(204)]
-    public void ASuccessfulResponsePassesThrough(int status)
+    [Test]
+    public void AHandBuiltHttpRequestExceptionFromElsewhereStaysOurProblem()
     {
-        Assert.DoesNotThrow(() => Peptidoform.ThrowIfUniProtRejected(
-            (System.Net.HttpStatusCode)status, "OK", "P02768", "https://x/y"));
+        // The call-site wrapper is what makes the outage an outage. The same bare exception arriving
+        // any other way (mzLib's paging guard, say) must still read as a correctness failure.
+        var bare = new HttpRequestException("UniProt is unavailable: HTTP 503 Service Unavailable for 'x'.");
+
+        Assert.That(Program.ClassifyError(bare), Is.EqualTo(nameof(HttpRequestException)));
+    }
+
+    [Test]
+    public void ARequestUniProtRejectsStaysOurProblem()
+    {
+        // mzLib reports a 401, 403 or other unexpected status as MzLibException: a rejected or
+        // misdirected request, not an outage.
+        var stub = new StubRetriever((_, _) => throw new MzLibUtil.MzLibException("UniProt rejected the request: HTTP 403 Forbidden."));
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() => Peptidoform.DownloadUniProtXml("P02768", stub.Retrieve));
+
+        Assert.That(Program.ClassifyError(ex!), Is.EqualTo(nameof(MzLibUtil.MzLibException)));
+        Assert.That(System.IO.Directory.Exists(stub.Directory), Is.False);
     }
 
     [Test]
     public void AnUnreachableUniProtIsAnOutageNotAFailure()
     {
-        // A refused connection or DNS failure never reaches ThrowIfUniProtRejected at all — it
-        // surfaces from HttpClient with no status and a wrapped cause, and must still be an outage.
+        // A refused connection or DNS failure surfaces from HttpClient with no status and a wrapped
+        // cause, and must be an outage even without the call-site wrapper.
         var refused = new HttpRequestException(
             "Connection refused (rest.uniprot.org:443)",
             new System.Net.Sockets.SocketException(10061));

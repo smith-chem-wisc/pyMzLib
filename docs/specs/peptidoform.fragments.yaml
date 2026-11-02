@@ -9,6 +9,9 @@
 # 2026-10-27 (G-bridge-psimod-charges): UniProt's modifications come from mzLib's own
 # Mods.UniprotModifications, already charge-corrected. FormalChargeOf is gone; fixed_charges and
 # formal_charge stay on the wire, always 0 and deprecated, until the next protocol bump.
+# 2026-11-02: the entry is downloaded by mzLib's ProteinDbRetriever.TryRetrieveEntry (pin cc67b7a2),
+# not by the bridge's own HttpClient; ThrowIfUniProtRejected is gone. What UniProt's answer means is
+# mzLib's judgement now. The errors below follow its class remarks.
 verb: peptidoform fragments
 module: peptidoform
 summary: >-
@@ -16,6 +19,7 @@ summary: >-
   with its fragment ions, plus a census of which annotations were applied.
 since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
+  - {symbol: "ProteinDbRetriever.TryRetrieveEntry(string, string, ProteomeFormat)", path: mzLib/UsefulProteomicsDatabases/ProteinDbRetriever.cs, pin: cc67b7a2}
   - {symbol: ProteinDbLoader.LoadProteinXML, path: mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs, pin: 23c2490e}
   - {symbol: Mods.UniprotModifications, path: mzLib/Omics/Modifications/Mods.cs, pin: d10017ce}
   - {symbol: Protein.Digest, path: mzLib/Proteomics/Protein/Protein.cs, pin: 23c2490e}
@@ -168,9 +172,9 @@ result:
     - {wire: fragments, type: "object[]", unit: null, nullable: false, null_means: null, doc: "{product_type, fragment_number, neutral_mass, neutral_loss, residue_position} per ion: product_type e.g. b, y, c, zDot; fragment_number the position in its series; neutral_mass the monoisotopic NEUTRAL mass in Da (not an m/z; no proton added); neutral_loss in Da (0 when none); residue_position 1-based within the peptide."}
 
 errors:
-  - {kind: usage, when: "accession missing or blank; UniProt answers 400 or 404 (no such entry); the entry holds no protein sequence; protease not in ProteaseDictionary; dissociation or terminus not an enum name; an integer option that is not an integer"}
-  - {kind: service_unavailable, when: "UniProt unreachable by the bridge's own classification: a timeout (HttpClient 100 s), a socket or TLS failure, a request that never got a response, an HTTP 408, 429 or 5xx, or a body cut off in transit"}
-  - {kind: correctness, when: "any other UniProt status (e.g. 403); mzLib failing to load its built-in modification lists, to parse the entry or to digest it"}
+  - {kind: usage, when: "accession missing or blank; UniProt has no such entry (mzLib's Found false: a 400, a 404, or a 200 with no entry in the body); an accession mzLib refuses to send (ArgumentException: a character other than a letter, a digit or '-'); the entry holds no protein sequence; protease not in ProteaseDictionary; dissociation or terminus not an enum name; an integer option that is not an integer"}
+  - {kind: service_unavailable, when: "UniProt unavailable as mzLib's ProteinDbRetriever judges it, which it reports, and only it, as HttpRequestException: unreachable, no response headers within 2 minutes, a body that stalls for 2 minutes, or an HTTP 408, 429 or 5xx. The bridge carries that judgement across where it calls ProteinDbRetriever, because mzLib sets no StatusCode for the general classifier to read (mzLib#1490). From the mzLib release that carries mzLib#1529, a 200 whose body is UniProt's streaming-error message is one too."}
+  - {kind: correctness, when: "any other UniProt status, e.g. 401 or 403 (mzLib's MzLibException); mzLib failing to load its built-in modification lists, to parse the entry or to digest it"}
 
 caveats:
   - "Since mzLib 1.0.595 (#1320), a protease with a preventing residue holds its rule at the ends of the sequence. trypsin|P used to cut a protein that begins RP or KP after its first residue (RPAAAAK became R and PAAAAK); it no longer does, and the other |P proteases (chymotrypsin|P, elastase|P, Lys-C|P, subtilisin|P) change the same way. mzLib's default trypsin has no preventing residue, so a default digest is unaffected, and so is any protein that begins with M."
@@ -181,6 +185,7 @@ caveats:
   - "Since 2026-10-27 a peptide carrying a permanently charged modification (the UniProt entries PSI-MOD marks charged, e.g. trimethyllysine, dimethylproline, phosphocholine-Ser) reports monoisotopic_mass, and its fragments neutral_mass, one proton lower per charge, with fixed_charges 0. Its peptide m/z is unchanged. N,N,N-trimethylglycine stays at UniProt's uncorrected mass, one hydrogen heavy, until the bridge's mzLib includes mzLib#1415, whose charge table is the first to list it."
   - "ETD's zDot ions are suppressed N-terminal to proline while the complementary c ions are not, leaving about 4% of the c series unobservable (mzLib#1110)."
   - "Needs the network: UniProt is queried on every call."
+  - "At the bridge's mzLib (1.0.596), one kind of UniProt outage reads as a usage error. UniProt can send 200 and then 'Error encountered when streaming data. Please try again' where the entry should be; on 2026-11-02 it did this for P69905 and P04637 on every try. That body holds no entry, so mzLib reports no such entry and the call fails as 'UniProt has no entry'. mzLib#1529 makes it service_unavailable. Until the bridge's mzLib carries it, retry a usage error for an accession you know is valid."
 
 bindings:
   py: {name: pymzlib.peptidoform.fragments}
