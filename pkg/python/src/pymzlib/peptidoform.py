@@ -628,8 +628,9 @@ def convert(
     becomes ``[UNIMOD:1]SEQK``. Nothing is converted in Python or in the bridge; every output and
     every status is mzLib's.
 
-    Both targets name UniProt-sourced modifications by their UNIMOD accession (the ProForma one
-    since mzLib #1403). They differ on a modification no list mzLib loads knows: ProForma writes it
+    Both targets name a UniProt-sourced modification by its UNIMOD accession when it is linked to
+    one, by UniProt or by mzLib's own cross-reference table (mzLib #1416, #1524); the ProForma one
+    since mzLib #1403. They differ on a modification no list mzLib loads knows: ProForma writes it
     back under its own name, status ``"converted"``, where Unimod fails the row or drops it,
     depending on ``mode``. See the caveats.
 

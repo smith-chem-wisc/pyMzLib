@@ -529,9 +529,9 @@ def file_checksums(accession: str, timeout: float | None = None) -> dict[str, Pr
     """Return the MD5 and exact size PRIDE recorded for each file deposited in a project.
 
     This is what a download is checked against: a file is the one PRIDE holds when its length is
-    ``size_bytes`` and its MD5 is ``md5``. :func:`download` and :func:`download_files` check
-    neither yet, so for files that matter, check them yourself. The PRIDE guide shows how, in a few
-    lines of ``hashlib``.
+    ``size_bytes`` and its MD5 is ``md5``. :func:`download` and :func:`download_files` check the
+    size of each file this list has a row for (mzLib 1.0.597, #1518), but not its MD5, so for files
+    that matter, check the MD5 yourself. The PRIDE guide shows how, in a few lines of ``hashlib``.
 
     **This is a third list, not a view of either of the others.** It covers the files the
     submitter deposited at the project's root:
@@ -613,8 +613,11 @@ def download(
     """Download a project's files, optionally filtered, and return where they landed.
 
     Files are streamed to a temporary name and moved into place only once complete, so an
-    interrupted download never leaves a truncated file behind. Their bytes are **not** checked
-    against PRIDE's record: compare a file that matters with :func:`file_checksums`.
+    interrupted download never leaves a truncated file behind. Each file with a row in
+    :func:`file_checksums` is checked as it arrives (mzLib 1.0.597, #1518): its size, and a scan
+    for the error text EBI's storage has served at a file's full size. A file that fails is
+    downloaded again; one that fails every attempt raises :class:`BridgeError` and is not kept.
+    The MD5 is **not** checked: compare a file that matters with :func:`file_checksums`.
 
     Args:
         accession: The project accession, e.g. ``"PXD000001"``.
@@ -623,7 +626,8 @@ def download(
         extensions: Keep only files with these extensions, e.g. ``[".raw", ".mzML"]``.
             ``None`` keeps all. Combined with ``category`` as AND.
         overwrite: When ``False``, a file already present at the destination is left alone
-            and not re-fetched — a cheap resume for a large project.
+            and not re-fetched — a cheap resume for a large project. A present file that has a
+            checksum row is kept only if its size matches; otherwise it is downloaded again.
         timeout: Seconds to allow. ``None`` (the default) waits as long as it takes, which
             is usually what you want for multi-gigabyte projects.
 
@@ -632,7 +636,8 @@ def download(
 
     Raises:
         UsageError: the accession or destination is blank.
-        BridgeError: a request failed, or a selected file has no HTTPS location.
+        BridgeError: a request failed, a selected file has no HTTPS location, a file failed
+            PRIDE's checks on every attempt, or PRIDE's checksum list could not be read.
     """
     canonical = _normalise_accession(accession)
     target = _normalise_destination(destination)
@@ -697,13 +702,14 @@ def download_files(
     built to express; "under 5 MB", "the three newest", or "everything except the MGF" cannot be
     said in that vocabulary at all. They can all be said in a list comprehension.
 
-    As with :func:`download`, the bytes are not checked against PRIDE's record; compare a file that
-    matters with :func:`file_checksums`.
+    As with :func:`download`, each file's size is checked against PRIDE's record and its MD5 is
+    not; compare a file that matters with :func:`file_checksums`.
 
     Args:
         files: The :class:`PrideFile` objects to fetch, from one project.
         destination: Directory to write into. Created if it does not exist.
-        overwrite: When ``False``, files already present are left alone and not re-fetched.
+        overwrite: When ``False``, files already present are left alone and not re-fetched,
+            unless PRIDE records a different size for one.
         timeout: Seconds to allow. ``None`` waits as long as it takes.
 
     Returns:

@@ -330,8 +330,9 @@ pymzlib.pride.download("PXD000001", "downloads", overwrite=False)
 ```
 
 With `overwrite=False`, a file already present at the destination is skipped without a request, so
-re-running after an interruption picks up where it stopped. The file it skips is not checked, so a
-damaged copy stays damaged. [Check it](#checking-a-download-against-prides-checksums) first.
+re-running after an interruption picks up where it stopped. A skipped file that PRIDE has a checksum
+row for is kept only if its size matches, so a truncated copy is downloaded again (mzLib#1518). Its
+MD5 is not checked, so [check it](#checking-a-download-against-prides-checksums) if it matters.
 
 ### Interruptions don't corrupt anything
 
@@ -344,17 +345,20 @@ A transfer that fails after mzLib's retries leaves `<name>.partial` and `<name>.
 in the folder on purpose: the next call for that file resumes from them instead of starting again
 (mzLib#1412). Leave them in place, or delete both to start over.
 
-### Check large files yourself
+### What a download checks
 
-mzLib can check a download against PRIDE's checksums, and since 1.0.595 it also catches an EBI
-error page served at the right size (mzLib#1427, #1449). That check is not yet on the path
-`download()` uses, so a file can be reported as downloaded when its bytes are wrong. For files
-that matter, check each one against `file_checksums()` before you search it, as the next section
-shows.
+`download()` and `download_files()` fetch PRIDE's checksum list once (mzLib#1518) and check each
+file that has a row as it arrives: its size, and a scan for the error page EBI's storage has
+served at a file's full size (mzLib#1427, #1449). A file that fails is downloaded
+again from its first byte, and one that fails every attempt raises `BridgeError` and is not kept.
+Files without a row, such as PRIDE's own `generated/` files, download unchecked.
+
+The MD5 is not checked. For files that matter, check each one against `file_checksums()` before
+you search it, as the next section shows.
 
 ## Checking a download against PRIDE's checksums
 
-**Is the file on your disk the file PRIDE holds?** `download()` cannot tell you yet. PRIDE records
+**Is the file on your disk the file PRIDE holds?** `download()` checks its size, not its MD5. PRIDE records
 an MD5 and the exact size of every file a submitter deposits, and `file_checksums()` returns that
 record:
 

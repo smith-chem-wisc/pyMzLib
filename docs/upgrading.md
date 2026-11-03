@@ -9,6 +9,93 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
+## Unreleased (built from mzLib 1.0.597)
+
+This release moves mzLib from 1.0.596 to 1.0.597. It also refreshes the modification lists mzLib
+ships: Unimod moves from a 2017 copy to the current one (1,471 records to 1,560), and UniProt's
+list to its 2026_03 release ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)).
+
+### Calls that used to fail now succeed
+
+- **`peptidoform.convert(..., target="Unimod")` on UniProt modifications that UniProt does not link
+  to Unimod** ([mzLib#1416](https://github.com/smith-chem-wisc/mzLib/pull/1416), [#1524](https://github.com/smith-chem-wisc/mzLib/pull/1524)). mzLib now links 106 of them itself.
+  `PEPK[UniProt:N6-succinyllysine on K]TIDE` failed and is now `PEPK[UNIMOD:64]TIDE`; crotonyl,
+  3'-nitrotyrosine, N-linked (GalNAc) asparagine and O-linked (GlcNAc) serine are among the others.
+  UniProt's new 3'-chlorotyrosine converts too (`UNIMOD:936`, #1415).
+- **Unimod's newer records and sites** ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)). 94 records are new, and 20 gain
+  sites (for example Phospho on E, TMT on Y), so `[Unimod:Phospho on E]` converts where it failed.
+
+### Calls that used to succeed are now refused
+
+- **A PRIDE download whose bytes are wrong** ([mzLib#1518](https://github.com/smith-chem-wisc/mzLib/pull/1518), [#1517](https://github.com/smith-chem-wisc/mzLib/pull/1517)).
+  `pride.download()` and `pride.download_files()` now check each file PRIDE has a checksum row for:
+  its size, and a scan for the error page EBI's storage has served at a file's full size. A file
+  that fails is downloaded again; one that fails every attempt raises `BridgeError`
+  (`MzLibException`) and is not kept, where it used to be returned as downloaded. A checksum list
+  that mzLib cannot read fails the call the same way, before anything is downloaded. The MD5 is
+  still not checked.
+- **Five Unimod records mzLib no longer ships, and one old name** ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)). Unimod
+  deleted 745, 878, 915, 975 and 1260: `peptidoform.convert()` now fails a row carrying one, and
+  `readers.read_matches()` and `read_results()` skip an mzIdentML match carrying one, with the
+  reason "does not resolve to a Unimod modification". Unimod renamed 1849 from
+  `2-hydroxyisobutyrylation` to `hydroxyisobutyryl`, so the old name no longer resolves and the new
+  one does.
+
+### Same failure, different error
+
+- **A UniProt outage in `peptidoform.fragments()`** ([mzLib#1529](https://github.com/smith-chem-wisc/mzLib/pull/1529)). UniProt can answer
+  200 and then send "Error encountered when streaming data. Please try again" where the entry
+  should be. That raised `UsageError`, as if the accession did not exist. It now raises
+  `ServiceUnavailableError`: try again later.
+- **`peptidoform.convert(..., source="ProForma")` on ProForma it cannot hold**
+  ([mzLib#1505](https://github.com/smith-chem-wisc/mzLib/pull/1505)). A stacked terminal modification, a residue after the C-terminal
+  modification, or a string with no residue fails as before, with the same `status` and
+  `failure_reason`; only the message text in `errors` changes.
+
+### Same file, different value
+
+- **Match-between-runs in `flashlfq.quantify()` transfers a few different peaks**
+  ([mzLib#1507](https://github.com/smith-chem-wisc/mzLib/pull/1507)). Each random retention-time decoy is now drawn from its own peptide, so
+  adding or removing an unrelated donor peptide no longer redraws it. In the FlashLFQ guide's two
+  K562 runs, 137 peaks are transferred where 140 were, and 12 peptide rows change detection type.
+- **mzIdentML modifications are read against the current Unimod** ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)).
+  `UNIMOD:21` on a glutamate read as `Phospho on C`, a confidently wrong residue
+  ([mzLib#1418](https://github.com/smith-chem-wisc/mzLib/issues/1418)): Unimod's old list had no
+  Phospho on E. It now reads `Phospho on E`. `UNIMOD:1849` reads under its new name.
+- **Masses written by `peptidoform.convert(..., target="MassShift")`** ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)).
+  Ten Unimod records have corrected masses (`UNIMOD:1042`: +97.089149 is now +113.084064). UniProt's
+  29 complex N-glycans had their monoisotopic and average masses swapped; they now write the
+  monoisotopic mass, about 0.7 Da lighter.
+- **`proteins.annotate_go()` for a sequence variant of an isoform** ([mzLib#1497](https://github.com/smith-chem-wisc/mzLib/pull/1497)). Where
+  the isoform is in the database without GO terms of its own, the variant read `no_go_terms`; it
+  now inherits the entry's terms, marked `inherited`.
+- **`flashlfq.quantify()` and `flashlfq.median_polish()` quantify a protein whose peptides are each
+  seen in only one, different run** ([mzLib#1486](https://github.com/smith-chem-wisc/mzLib/pull/1486)). Every run of such a protein was
+  `None`. Each run it was seen in now gets the value its own peptides would give a protein seen
+  only in that run, scaled to the group's number of peptides. Proteins with a peptide seen in two
+  runs, and proteins seen in one run, are unchanged.
+- **`stats.fit_latent_mixed()` tests a feature with counted samples by likelihood ratio**
+  ([mzLib#1522](https://github.com/smith-chem-wisc/mzLib/pull/1522)). Its coefficients' `p_value` was a Wald t test, whose standard error is
+  several times too small near a ridge, where the effect and the group variance grow together. It
+  is now a likelihood ratio read against F(1, `df`), so near a ridge those p-values are larger. `t` is still the
+  Wald statistic, so in such a feature `p_value` is no longer `t`'s. Features with nothing counted
+  are unchanged. A new status, `"unbounded"`, marks a feature whose data say whether a tested
+  coefficient is 0 but not how large it is: that coefficient's `estimate`, `standard_error` and `t`
+  are `None`, and its `p_value` stands. `status_counts` gains the key.
+- **`library.calibrate_rt()` sets aside anchors in a near-empty stretch of the run**
+  ([mzLib#1500](https://github.com/smith-chem-wisc/mzLib/pull/1500)). A few wrong identifications where little elutes bent the curve. mzLib
+  now cuts the anchors' time span into twenty equal stretches and sets aside the anchors in any
+  stretch holding fewer than 5% of the busiest stretch's, unless too few would remain. A group's `anchor_count` is the anchors it was fitted from,
+  and `first_anchor_minutes` and `last_anchor_minutes` the fitted span, so they can be smaller than
+  before, and the converted times shift. In the HeLa example of the library guide, the last three
+  anchors are set aside (415 of 418), and the converted times move by up to 0.03 minutes. The share
+  is not yet an option.
+- **`peptidoform.fragments()` corrects N,N,N-trimethylglycine** ([mzLib#1415](https://github.com/smith-chem-wisc/mzLib/pull/1415)). Its
+  peptides' `monoisotopic_mass`, and their fragments' `neutral_mass`, are one proton lower, as for
+  every other permanently charged modification since 0.7.0. mzLib's charge table now lists it.
+  N,N,N-trimethyllysine and the other corrected entries move by under 1e-6 Da, now that mzLib takes
+  their mass from the corrected formula.
+
 ## 0.7.0 (built from mzLib 1.0.596)
 
 This release moves mzLib from 1.0.595 to 1.0.596.

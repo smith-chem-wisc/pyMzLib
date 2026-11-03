@@ -93,25 +93,25 @@ aligned retention-time axis. The transferred peaks are counted per run:
 
 ```pycon
 >>> [(f.file_name[-1], f.peak_count, f.mbr_peak_count) for f in result.spectra_files]
-[('3', 340, 62), ('4', 307, 78)]
+[('3', 339, 61), ('4', 305, 76)]
 >>> result.mbr_peak_count            # total transferred peaks: the number to report
-140
+137
 
 ```
 
-So 140 peaks were quantified in a run where their peptide was never identified: values a run-by-run
+So 137 peaks were quantified in a run where their peptide was never identified: values a run-by-run
 analysis would have left missing.
 
 !!! warning "For MBR, read `result.peaks`, not the peptide table"
     The per-peptide roll-up (`result.peptides`) mirrors FlashLFQ's `QuantifiedPeptides.tsv`, and it
-    **does not carry most MBR transfers**. Of the 140 here, few appear as `"MBR"` at the peptide
+    **does not carry most MBR transfers**. Of the 137 here, few appear as `"MBR"` at the peptide
     level, and none of run 3's do: they read `"NotDetected"` with intensity `0.0`.
 
     ```pycon
     >>> sum(p.detection_type(run3) == "MBR" for p in result.peptides)
     0
     >>> sum(p.detection_type(run4) == "MBR" for p in result.peptides)
-    21
+    27
 
     ```
 
@@ -297,15 +297,18 @@ to mzML first, for example with ThermoRawFileParser or `msconvert`.
 
 ### A protein intensity can be `None`, but a peptide intensity never is
 
-FlashLFQ's median polish marks a protein `NaN` when its peptide matrix is **degenerate**: too few
-peptides per run to resolve, such as one peptide in each of two runs on an anti-diagonal, or several
-runs reporting the same intensity. mzLib's own tests document it, and it protects you from a
-fabricated-looking number. `NaN` is not valid JSON, so pyMzLib returns it as `None`, meaning *"could
-not be quantified"*. A handful of groups in this run are like that:
+FlashLFQ's median polish marks a protein `NaN` in a run where it was observed but cannot be placed
+against the other runs: two or more of its observed runs come out of the fit with no run effect at
+all, as when several runs report the same intensity. mzLib's own tests document it, and it protects
+you from a fabricated-looking number. `NaN` is not valid JSON, so pyMzLib returns it as `None`,
+meaning *"could not be quantified"*.
+
+It is rare. A protein whose peptides are each seen in only one, different run is not this case: it
+gets each run's own value (mzLib#1486). No group in this run is `None`:
 
 ```pycon
->>> sorted(g.protein_group for g in result.proteins if g.intensity(run3) is None)[:3]
-['Q13033', 'Q15149', 'Q15393']
+>>> sorted(g.protein_group for g in result.proteins if g.intensity(run3) is None)
+[]
 
 ```
 
