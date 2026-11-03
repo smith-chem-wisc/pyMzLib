@@ -525,6 +525,7 @@ internal static partial class Statistics
         FeatureFitStatus.NotConverged => "not_converged",
         FeatureFitStatus.TooFewGroups => "too_few_groups",
         FeatureFitStatus.VarianceRatioAtLimit => "variance_ratio_at_limit",
+        FeatureFitStatus.Unbounded => "unbounded",
         _ => throw new InvalidOperationException(
             $"FeatureFitStatus.{status} has no wire name. Name it in Statistics.StatusName."),
     };

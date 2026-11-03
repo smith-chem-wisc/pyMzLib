@@ -33,11 +33,12 @@ internal static partial class Statistics
     /// <summary>
     /// The outcomes <see cref="LogitNormalMixedModel.Fit"/> can give a feature, and so the keys of
     /// <c>status_counts</c>, in <see cref="FeatureFitStatus"/> order. Read from the method body at
-    /// mzLib cc67b7a29 (FitOne): too few samples with a response of either kind, a rank-deficient
+    /// mzLib 4a183123 (FitOne): too few samples with a response of either kind, a rank-deficient
     /// design over them, fewer than two groups or none seen twice, separation (a coefficient beyond
     /// <see cref="LogitNormalMixedModel.SeparationLimit"/>, a Hessian that is not positive definite,
-    /// or nothing measured and every group one-sided), a variance search that did not converge, or
-    /// fitted. It never returns <see cref="FeatureFitStatus.VarianceRatioAtLimit"/>. mzLib does not
+    /// or nothing measured and every group one-sided), a variance search that did not converge,
+    /// unbounded (mzLib#1522: a tested coefficient whose size the data do not bound), or fitted. It
+    /// never returns <see cref="FeatureFitStatus.VarianceRatioAtLimit"/>. mzLib does not
     /// yet list these per model (mzLib#1487); until it does, this list is the bridge's reading of the
     /// code, held by a test.
     /// </summary>
@@ -45,6 +46,7 @@ internal static partial class Statistics
     {
         FeatureFitStatus.Fitted, FeatureFitStatus.TooFewObservations, FeatureFitStatus.RankDeficient,
         FeatureFitStatus.Separated, FeatureFitStatus.NotConverged, FeatureFitStatus.TooFewGroups,
+        FeatureFitStatus.Unbounded,
     };
 
     /// <summary>The columns a <c>stats fit-link</c> cells file names; <c>depth</c> is optional.</summary>
@@ -111,11 +113,13 @@ internal static partial class Statistics
         try
         {
             // The estimator is passed only when the caller named one, so an absent one is mzLib's default.
+            // The coefficients the caller reports are the ones mzLib tests by likelihood ratio (and checks
+            // for an unbounded effect) in features with counted samples: two more ML fits each.
             fit = estimator is { } chosen
                 ? LogitNormalMixedModel.Fit(table.Values, counts, design.Values, groups.Labels, link, depth, sigma2,
-                    design.CoefficientNames, chosen, threads)
+                    design.CoefficientNames, chosen, threads, tested)
                 : LogitNormalMixedModel.Fit(table.Values, counts, design.Values, groups.Labels, link, depth, sigma2,
-                    design.CoefficientNames, maxThreads: threads);
+                    design.CoefficientNames, maxThreads: threads, testedCoefficients: tested);
         }
         catch (ArgumentException invalid) when (invalid is not ArgumentNullException)
         {
@@ -126,7 +130,7 @@ internal static partial class Statistics
         }
 
         var rows = new Sdrf.ColumnTable(LatentMixedColumns);
-        int untestable = 0;
+        int untestable = 0, noRatio = 0;
         foreach (string coefficient in tested)
         {
             int j = fit.IndexOf(coefficient);
@@ -135,6 +139,9 @@ internal static partial class Statistics
                 double df = fit.DegreesOfFreedom(f, j);
                 if (fit.Status[f] == FeatureFitStatus.Fitted && !double.IsFinite(df))
                     untestable++;
+                if (fit.Status[f] is FeatureFitStatus.Fitted or FeatureFitStatus.Unbounded && fit.Counted[f] > 0
+                    && double.IsFinite(df) && double.IsNaN(fit.PValue(f, j)))
+                    noRatio++;
                 rows.Add(
                     table.FeatureIds[f],
                     coefficient,
@@ -191,7 +198,7 @@ internal static partial class Statistics
             row_count = rows.RowCount,
             column_names = rows.Names,
             columns = rows.Columns(),
-            caveats = LatentMixedCaveats(fit, untestable, countedCells),
+            caveats = LatentMixedCaveats(fit, untestable, noRatio, countedCells),
         };
     }
 
@@ -531,7 +538,7 @@ internal static partial class Statistics
 
     private static string RoundTrip(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
-    private static List<string> LatentMixedCaveats(LogitNormalMixedModelFit fit, int untestable, int countedCells)
+    private static List<string> LatentMixedCaveats(LogitNormalMixedModelFit fit, int untestable, int noRatio, int countedCells)
     {
         bool reml = fit.Estimator == VarianceEstimator.Reml;
         DetectionLink l = fit.Link;
@@ -540,25 +547,32 @@ internal static partial class Statistics
             "Per feature, the latent is X beta + u_group + e, with u ~ N(0, group_variance) and e ~ N(0, residual_variance). A measured sample reads the latent. A counted sample has successes of trials succeed, each with chance g, where logit g = intercept + slope x latent + depth_slope x depth (the link), binomially, or beta-binomially with intra-cell correlation overdispersion. One random intercept per group: no random slopes, nested or crossed groupings.",
             $"Responses, estimates and the link are on the latent scale, in natural log-odds when the latent is a logit (e.g. a site's occupancy): send logit values, not fractions or intensities. This fit read its counts through intercept {RoundTrip(l.Intercept)}, slope {RoundTrip(l.Slope)}, depth_slope {RoundTrip(l.DepthSlope)}, overdispersion {RoundTrip(l.Overdispersion)}; the link and which cells are counted are the caller's choices, not the bridge's (stats fit-link fits a link).",
             "Counted samples are integrated by adaptive Gauss-Hermite quadrature, 40 nodes over the group intercept and 12 over each count's residual, as glmer's nAGQ; measured samples exactly. mzLib agrees with lme4's glmer (25-point quadrature, ML) to about 1e-6, with lmer when nothing is counted to about 1e-5, and with glmmTMB to its Laplace error.",
-            "Fixed effects are tested by Wald t on nlme's containment degrees of freedom, over the samples with a response of either kind. standard_error is sqrt of the diagonal of the inverse Hessian of the log-likelihood in beta at the estimated variances; it does not include the variances' own uncertainty.",
+            "Fixed effects are tested on nlme's containment degrees of freedom, over the samples with a response of either kind: by Wald t in a feature with nothing counted, and in a feature with counted samples by likelihood ratio, 2(l - l0) from maximum-likelihood fits whatever the estimator, read against F(1, df) (mzLib#1511). t is the Wald statistic either way, so there it is not what p_value tests. standard_error is sqrt of the diagonal of the inverse Hessian of the log-likelihood in beta at the estimated variances; it does not include the variances' own uncertainty.",
             reml
                 ? "reml: the fixed effects are integrated out by a Laplace approximation, as glmmTMB's REML = TRUE does; it is exactly the restricted likelihood when nothing is counted. log_likelihood is that criterion: compare it only between models with the same fixed effects."
                 : "ml: log_likelihood is the full log-likelihood, comparable between designs fitted to the same samples. With nothing counted the variances are stats fit-mixed --estimator ml's, but standard errors differ: these are at the ML variances, fit-mixed's scale by RSS / (observed - coefficients) as nlme's summary does.",
             $"separated means no estimate exists: a coefficient ran beyond +-{RoundTrip(LogitNormalMixedModel.SeparationLimit)} on the latent scale (mzLib's SeparationLimit), the Hessian is not positive definite, or nothing was measured and every group's counts are one-sided (all 0, or all full). It is a status, never a p-value.",
             "p_value is not adjusted across features. Send one coefficient's p_value column to stats adjust for Benjamini-Hochberg.",
         };
-        int notFitted = fit.Status.Count(s => s != FeatureFitStatus.Fitted);
+        int notFitted = fit.Status.Count(s => s is not (FeatureFitStatus.Fitted or FeatureFitStatus.Unbounded));
         if (notFitted > 0)
         {
-            string counts = string.Join(", ", LatentMixedFitStatuses.Where(s => s != FeatureFitStatus.Fitted)
+            string counts = string.Join(", ", LatentMixedFitStatuses.Where(s => s is not (FeatureFitStatus.Fitted or FeatureFitStatus.Unbounded))
                 .Select(s => (Status: s, Count: fit.Status.Count(x => x == s)))
                 .Where(c => c.Count > 0)
                 .Select(c => $"{c.Count} {StatusName(c.Status)}"));
             caveats.Add($"{notFitted} of {fit.FeatureCount} features were not fitted ({counts}); their statistics are null.");
         }
+        int unbounded = fit.Status.Count(s => s == FeatureFitStatus.Unbounded);
+        if (unbounded > 0)
+            caveats.Add(
+                $"{unbounded} of {fit.FeatureCount} features are unbounded: for a tested coefficient the data bound the sign of the effect but not its size (its 95% likelihood interval reaches +-{RoundTrip(LogitNormalMixedModel.UnboundedEffect)} logits across its column's observed range, mzLib's UnboundedEffect, or a variance ran to the top of its search). That coefficient's estimate, standard_error and t are null; its p_value stands.");
         if (untestable > 0)
             caveats.Add(
                 $"{untestable} fitted rows have no positive containment df: a group-level coefficient with too few groups to test it. Their df and p_value are null; estimate, standard_error and t are reported.");
+        if (noRatio > 0)
+            caveats.Add(
+                $"{noRatio} rows of features with counted samples have no likelihood-ratio test (a design of one column, or mzLib's fit with the coefficient held at 0 failed), so their p_value is null.");
         int boundary = Enumerable.Range(0, fit.FeatureCount)
             .Count(f => fit.Status[f] == FeatureFitStatus.Fitted && fit.GroupVariance[f] == 0);
         if (boundary > 0)
