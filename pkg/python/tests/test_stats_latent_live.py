@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 from pathlib import Path
 
@@ -28,6 +29,15 @@ CROSS_PLATFORM_OPTIMISED = 1e-6
 #: FitLink's estimate is Nelder-Mead's stopping point, with no polishing step: its last digits follow
 #: the platform's math library further than a polished optimum's.
 CROSS_PLATFORM_SIMPLEX = 1e-4
+
+#: The variance search's floor: mzLib searches log tau from LogSdMin = -8, and reports a group variance
+#: of 0 when the search ends at it. Ending a few billionths above it (macOS did, from the same input)
+#: reports e^-16 instead. Both say "no group variance", so values at or below the floor compare as 0.
+VARIANCE_FLOOR = math.exp(2 * -8) * (1 + 1e-6)
+
+#: link_ml gives each feature a residual variance of 2e-7, which leaves the likelihood almost flat in
+#: tau: its group variances move 1.25e-6 between Windows and macOS (mzLib 1.0.597), past the usual 1e-6.
+FLAT_IN_TAU = 2e-6
 
 
 @pytest.fixture(autouse=True)
@@ -79,15 +89,20 @@ def simulated():
                                   counts=STATS / "lnmm_simulated_counts.tsv", threads=-1)
 
 
+def at_floor(value: object) -> object:
+    """A variance at or below the search's floor, as 0 (see VARIANCE_FLOOR)."""
+    return 0.0 if isinstance(value, float) and 0 < value <= VARIANCE_FLOOR else value
+
+
 @pytest.mark.parametrize(
-    "fixture, call",
+    "fixture, call, variances",
     [
-        ("stats_fit_latent_mixed_scatter.json", scatter),
-        ("stats_fit_latent_mixed_link_ml.json", link_ml),
-        ("stats_fit_latent_mixed_simulated.json", simulated),
+        ("stats_fit_latent_mixed_scatter.json", scatter, CROSS_PLATFORM_OPTIMISED),
+        ("stats_fit_latent_mixed_link_ml.json", link_ml, FLAT_IN_TAU),
+        ("stats_fit_latent_mixed_simulated.json", simulated, CROSS_PLATFORM_OPTIMISED),
     ],
 )
-def test_the_latent_mixed_recordings_are_what_the_bridge_returns_today(fixture, call):
+def test_the_latent_mixed_recordings_are_what_the_bridge_returns_today(fixture, call, variances):
     recorded = json.loads((FIXTURES / fixture).read_text(encoding="utf-8"))
     live = call()
     assert list(live.columns) == list(recorded["columns"])
@@ -95,8 +110,12 @@ def test_the_latent_mixed_recordings_are_what_the_bridge_returns_today(fixture, 
     scales = [max(abs(r or 0.0), abs(g or 0.0))
               for r, g in zip(columns["residual_variance"], columns["group_variance"])]
     for name, values in columns.items():
-        bad = [(i, a, b) for i, (a, b) in enumerate(zip(live.columns[name], values))
-               if not close(a, b, CROSS_PLATFORM_OPTIMISED, scales[i] if name in VARIANCES else None)]
+        if name in VARIANCES:
+            bad = [(i, a, b) for i, (a, b) in enumerate(zip(live.columns[name], values))
+                   if not close(at_floor(a), at_floor(b), variances, scales[i])]
+        else:
+            bad = [(i, a, b) for i, (a, b) in enumerate(zip(live.columns[name], values))
+                   if not close(a, b, CROSS_PLATFORM_OPTIMISED)]
         assert len(live.columns[name]) == len(values) and not bad, (name, bad[:3])
     assert live.caveats == recorded["caveats"]
     # Its keys are the bridge's reading of mzLib's code (mzLib#1487); a change must not slip past.
