@@ -57,6 +57,19 @@ public class VerbHandlerTests
             BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress),
         });
 
+    /// <summary>
+    /// A project whose manifest is <paramref name="filesJson"/>. Since mzLib 1.0.597 (#1518) a download
+    /// first fetches PRIDE's checksum list; this one has only its header, which is a project PRIDE holds
+    /// no checksums for, so each file downloads unchecked.
+    /// </summary>
+    private static void UseProjectStub(string filesJson) =>
+        UseStub(request => request.RequestUri!.AbsolutePath.Contains("/files/checksum/")
+            ? new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("File-Name\tFile-MD5Checksum\tFile-Size\n", Encoding.UTF8, "text/plain"),
+            }
+            : Json(filesJson));
+
     [TearDown]
     public void RestoreTheRealClient() =>
         Program.PrideClientFactory = () => new PrideArchiveClient();
@@ -880,7 +893,7 @@ public class VerbHandlerTests
         // The counterpart: omitting the options entirely is a legitimate "give me all of it".
         // Asserting only Throws.Nothing would keep passing if a regression narrowed the selection
         // to none, which is the exact failure this pair of tests exists to detect.
-        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")}]"));
+        UseProjectStub($"[{FileJson("a.raw")},{FileJson("b.raw")}]");
 
         JsonElement data = await InvokeAsync("pride", "download", "--accession", "PXD012345", "--dest", "out");
 
@@ -894,7 +907,7 @@ public class VerbHandlerTests
     [Test]
     public async Task NamesFromStdinSelectExactlyThoseFiles()
     {
-        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")},{FileJson("c.raw")}]"));
+        UseProjectStub($"[{FileJson("a.raw")},{FileJson("b.raw")},{FileJson("c.raw")}]");
         Console.SetIn(new StringReader("a.raw\nc.raw\n"));
 
         JsonElement data = await InvokeAsync(
@@ -908,7 +921,7 @@ public class VerbHandlerTests
     {
         // A BOM (Windows PowerShell 5.1 pipes one) must not turn "a.raw" into "﻿a.raw", which
         // matches nothing and fails as "not in project" after every other file has downloaded.
-        UseStub(_ => Json($"[{FileJson("a.raw")},{FileJson("b.raw")}]"));
+        UseProjectStub($"[{FileJson("a.raw")},{FileJson("b.raw")}]");
         Console.SetIn(new StringReader("﻿a.raw\nb.raw\n"));
 
         JsonElement data = await InvokeAsync(
@@ -922,7 +935,7 @@ public class VerbHandlerTests
     {
         // Silently downloading fewer files than asked for is the failure mode this whole change
         // set exists to remove: a typo would otherwise produce a short download and a success.
-        UseStub(_ => Json($"[{FileJson("a.raw")}]"));
+        UseProjectStub($"[{FileJson("a.raw")}]");
         Console.SetIn(new StringReader("a.raw\ntypo.raw\n"));
 
         var ex = Assert.ThrowsAsync<Program.UsageException>(async () => await InvokeAsync(
