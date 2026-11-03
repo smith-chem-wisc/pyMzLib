@@ -69,9 +69,9 @@ transport knowledge inside `_bridge.py`.
 
 ---
 
-## D7 · Python 3.9 and newer
+## D7 · Python 3.10 and newer
 
-**Decision.** `requires-python = ">=3.9"`, deliberately permissive.
+**Decision.** `requires-python = ">=3.10"`, deliberately permissive.
 
 **Why.** The prevailing advice is 3.11 or newer, and for most scientific packages that's correct
 — but the reason is compiled extensions, which must be rebuilt for every supported Python
@@ -82,10 +82,16 @@ What it buys is the audience this project is for: someone on a locked-down clust
 they can't change. Being the package that refuses to install would be an odd outcome for a
 project whose premise is removing friction.
 
-**Cost accepted.** Library code here must avoid post-3.9 syntax — no `match`, no `tomllib`, some
-typing features out of reach. That's a discipline on the authors, not the users. CI tests the
+**Cost accepted.** Library code here must avoid post-3.10 syntax — no `tomllib`, no `except*`,
+some typing features out of reach. That's a discipline on the authors, not the users. CI tests the
 floor and the ceiling; with no compiled extension, versions in between can't differ in ways these
 tests would catch.
+
+**Amended 2026-11-03: the floor moved from 3.9 to 3.10.** GitHub's `ubuntu-latest` became Ubuntu
+26.04, for which `actions/setup-python` has no Python 3.9 (its builds there start at 3.10), so the
+floor could no longer be tested on Linux. Python 3.9 had reached end of life in October 2025. The
+reasoning above is unchanged; the floor moved because CI could no longer test it (the maintainer's
+ruling).
 
 ---
 

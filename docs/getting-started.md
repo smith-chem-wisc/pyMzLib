@@ -54,7 +54,7 @@ Probably several, and that is the normal state of affairs. Python has no equival
 assembly cache: each installation carries its own separate set of packages, so "is X installed?"
 is only answerable relative to *which* Python you mean.
 
-pyMzLib is built so that this matters as little as possible. It works on Python 3.9 and newer,
+pyMzLib is built so that this matters as little as possible. It works on Python 3.10 and newer,
 declares no dependencies, and therefore cannot be the reason an install fails. Whichever Python
 you have, it will very likely just work.
 

@@ -25,6 +25,11 @@ envelope is not a breaking change unless Python callers can see it.
   modifications to Unimod (mzLib#1416, #1524).
 - **Match-between-runs transfers a few different peaks** (mzLib#1507).
 
+### Removed
+
+- **Python 3.9.** pyMzLib now needs Python 3.10 or newer. GitHub's Ubuntu 26.04 runners no longer
+  offer 3.9, so it could not be tested, and it reached end of life in October 2025 (D7, amended).
+
 ### Fixed
 
 - **A UniProt outage in `peptidoform.fragments()` raises `ServiceUnavailableError`**, not

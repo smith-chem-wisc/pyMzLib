@@ -28,8 +28,9 @@ readme = "README.md"
 # every Python version — real recurring cost per supported version. pyMzLib has no compiled Python
 # code, so a wheel serves every version equally and an old floor costs nothing to maintain. What it
 # buys is the person this package exists for: someone on a locked-down cluster with a Python they
-# cannot change. The only real cost is that library code here must avoid post-3.9 syntax.
-requires-python = ">=3.9"
+# cannot change. The only real cost is that library code here must avoid post-3.10 syntax.
+# 3.9 was the floor until 2026-11-03, when GitHub's Ubuntu 26.04 runners stopped offering it (D7).
+requires-python = ">=3.10"
 license = "LGPL-3.0-or-later"
 # Without this, hatchling ships NO licence text at all: its project root is pkg/python, so the
 # copies at the repository root are out of reach and the default glob silently matches nothing.
@@ -50,7 +51,6 @@ classifiers = [
     # No "License :: OSI Approved ::" classifier: PyPI rejects an upload that carries both a
     # License-Expression and a licence classifier, and the expression above is the modern form.
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -120,7 +120,7 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 # --------------------------------------------------------------------------------------------
 # Coverage. Read the testing section of CONTRIBUTING.md before changing a threshold — in a wrapper like
