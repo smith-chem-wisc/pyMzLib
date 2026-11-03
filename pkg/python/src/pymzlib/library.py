@@ -541,16 +541,17 @@ class RtCalibrationGroup:
         kind: ``"linear"`` or ``"lowess"``, the shape mzLib fitted (``IrtCalibrationModel.Kind``).
             ``None``: not fitted.
         anchor_count: Anchors this group was fitted from (anchors); the anchors you sent, if mzLib
-            refused them.
+            refused them. Since mzLib 1.0.597 (#1500) this can be fewer than you sent: anchors in a
+            near-empty stretch of the run are set aside before the fit.
         query_count: Times converted for this group (queries).
         residual_sd: How far the anchors that fit sit from the curve, in **iRT units**: mzLib's
             robust residual SD (``IrtCalibrationModel.ResidualSd``), wrong anchors set aside.
             Divide by the curve's slope (iRT per minute) to read it in minutes. ``None``: not
             fitted.
-        first_anchor_minutes: The earliest anchor's time, in **minutes**: the map is fitted from
-            here. ``None``: not fitted.
-        last_anchor_minutes: The latest anchor's time, in **minutes**: the map is fitted up to
-            here. ``None``: not fitted.
+        first_anchor_minutes: The earliest fitted anchor's time, in **minutes**: the map is fitted
+            from here. ``None``: not fitted.
+        last_anchor_minutes: The latest fitted anchor's time, in **minutes**: the map is fitted up
+            to here. ``None``: not fitted.
         error: Why mzLib refused this group's anchors, under ``on_error="skip"``; ``None`` when it
             was fitted.
     """

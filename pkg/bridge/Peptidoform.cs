@@ -282,10 +282,9 @@ internal static partial class Peptidoform
     /// a correctness failure.</item>
     /// </list>
     /// <para>
-    /// Until the pinned mzLib carries mzLib#1529, UniProt's other way of failing, a 200 with
-    /// "Error encountered when streaming data" where the entry should be, holds no entry either, so it
-    /// lands in the first case. From #1529 mzLib throws <see cref="HttpRequestException"/> for it, and
-    /// it crosses as an outage with no change here.
+    /// UniProt's other way of failing, a 200 with "Error encountered when streaming data" where the
+    /// entry should be, is an <see cref="HttpRequestException"/> since mzLib 1.0.597 (#1529), so it
+    /// lands in the third case. Before, it held no entry and read as the first.
     /// </para>
     /// <para>
     /// <paramref name="retrieve"/> is mzLib's call in production and a stub in tests, so every outcome

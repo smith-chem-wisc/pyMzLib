@@ -316,11 +316,18 @@ q-value of 0.01 or below are the anchors; the rest are what we ask about.
 >>> calibration = pymzlib.library.calibrate_rt(anchors, queries)
 >>> run = calibration.groups[0]
 >>> run.kind, run.anchor_count, run.query_count
-('lowess', 418, 228)
+('lowess', 415, 228)
 >>> round(run.first_anchor_minutes, 1), round(run.last_anchor_minutes, 1)
-(16.0, 40.9)
+(16.0, 39.6)
 
 ```
+
+`anchor_count` is the anchors the fit used: 415 of the 418 sent. mzLib sets aside anchors in a
+near-empty stretch of the run, where a few points would bend the curve on their own
+(`IrtCalibrationOptions.MinimumBinShare`, mzLib#1500). Here those are the last three, between 40.1
+and 40.9 minutes, so the fitted span ends at 39.6. They stay in the table, and since they now lie
+outside that span, their `fitted_irt` comes from the straight-line continuation and
+`is_extrapolated` is true.
 
 Each anchor is a tuple `(group, minutes, iRT)`. A query gives one time and `None` for the other,
 and the `None` is what the calibration fills in. With no options, mzLib fits its default, a robust
@@ -370,13 +377,13 @@ minutes, divide by how many iRT units the run covers per minute:
 >>> fitted = [r["fitted_irt"] for r in anchor_rows]
 >>> per_minute = (max(fitted) - min(fitted)) / (run.last_anchor_minutes - run.first_anchor_minutes)
 >>> round(run.residual_sd, 1), round(per_minute, 1), round(run.residual_sd / per_minute, 2)
-(5.0, 8.2, 0.61)
+(4.9, 8.7, 0.57)
 >>> sum(1 for r in anchor_rows if abs(r["irt"] - r["fitted_irt"]) > 3 * run.residual_sd)
 9
 
 ```
 
-About 0.6 minutes of spread in a run where the anchors span 25 minutes. Nine anchors sit more
+About 0.6 minutes of spread in a run where the anchors span 24 minutes. Nine anchors sit more
 than three robust SDs from the curve: those are the wrong identifications the robust fit set
 aside, and they did not pull the curve toward them.
 
@@ -385,9 +392,9 @@ a fit. `is_extrapolated` marks those rows, and a caveat counts them:
 
 ```pycon
 >>> sum(1 for r in rows if r["role"] != "anchor" and r["is_extrapolated"])
-5
+7
 >>> calibration.caveats[-1]
-"5 queries fall outside the anchors' span, where the map is extrapolated (is_extrapolated)."
+"7 queries fall outside the anchors' span, where the map is extrapolated (is_extrapolated)."
 
 ```
 
