@@ -13,6 +13,7 @@ import csv
 import json
 import math
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -94,6 +95,26 @@ def at_floor(value: object) -> object:
     return 0.0 if isinstance(value, float) and 0 < value <= VARIANCE_FLOOR else value
 
 
+BOUNDARY = re.compile(r"^(\d+)( of the fitted features have group_variance 0 )")
+
+
+def boundary_free(caveats: list[str]) -> list[str]:
+    """The caveats with the boundary caveat's count taken out.
+
+    The bridge counts the fitted features whose group variance is exactly 0, so a feature that ends at
+    e^-16 on one platform and 0 on another (VARIANCE_FLOOR) moves that count (8 on Windows, 7 on macOS
+    arm64, mzLib 1.0.597). The group variances themselves are compared above; boundary_count checks
+    the caveat's count against the fit's own column.
+    """
+    return [BOUNDARY.sub(r"N", c) for c in caveats]
+
+
+def boundary_count(result) -> int:
+    """The fitted features whose group variance is exactly 0, as the bridge counts them."""
+    c = result.columns
+    return len({f for f, s, g in zip(c["feature"], c["status"], c["group_variance"]) if s == "fitted" and g == 0})
+
+
 @pytest.mark.parametrize(
     "fixture, call, variances",
     [
@@ -117,7 +138,10 @@ def test_the_latent_mixed_recordings_are_what_the_bridge_returns_today(fixture, 
             bad = [(i, a, b) for i, (a, b) in enumerate(zip(live.columns[name], values))
                    if not close(a, b, CROSS_PLATFORM_OPTIMISED)]
         assert len(live.columns[name]) == len(values) and not bad, (name, bad[:3])
-    assert live.caveats == recorded["caveats"]
+    assert boundary_free(live.caveats) == boundary_free(recorded["caveats"])
+    for c in live.caveats:
+        if (m := BOUNDARY.match(c)):
+            assert int(m.group(1)) == boundary_count(live), c
     # Its keys are the bridge's reading of mzLib's code (mzLib#1487); a change must not slip past.
     assert live.status_counts == recorded["status_counts"]
     assert live.link == stats.DetectionLink._from_wire(recorded["link"])
