@@ -135,7 +135,7 @@ That one line identifies your platform, the bundled .NET runtime, and which mzLi
 
 **Python** — `snake_case`, Google-style docstrings (the API reference is generated from them),
 `ruff` for linting, `from __future__ import annotations` in every module so modern type syntax
-stays legal on Python 3.9.
+stays legal on Python 3.10.
 
 **C#** — match mzLib's conventions: XML doc comments on public members that document the failure
 contract, explicit argument validation, `ConfigureAwait(false)` on library awaits.

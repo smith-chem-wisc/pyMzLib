@@ -10,6 +10,10 @@
 # it parallelizes). Example fixtures recorded from the live bridge on that branch from two DIA-NN
 # reports in mzLib's test data, read by readers read-records and cut to six columns
 # (pkg/python/tests/fixtures/calibration/PROVENANCE.txt).
+# Revised 2026-11-03 for mzLib 1.0.597 (pin 4a183123, pyMzLib#108), which carries #1500: anchors in a
+# near-empty stretch of the run are set aside before the fit (IrtCalibrationOptions.MinimumBinShare,
+# default 0.05). The bridge does not expose the option yet, so mzLib's default applies; the HeLa
+# recording went from 418 to 415 fitted anchors.
 verb: library calibrate-rt
 module: library
 summary: >-
@@ -17,12 +21,12 @@ summary: >-
   you choose, and convert the times you send with them, in either direction.
 since: {protocol: 1, pymzlib: "0.7.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
-  - {symbol: "IrtCalibration.Fit", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
-  - {symbol: IrtCalibrationOptions, path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
+  - {symbol: "IrtCalibration.Fit", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: 4a183123}
+  - {symbol: IrtCalibrationOptions, path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: 4a183123}
   - {symbol: IrtCalibrationKind, path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
-  - {symbol: "IrtCalibrationModel.ToIrt", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
-  - {symbol: "IrtCalibrationModel.ToRtMinutes", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
-  - {symbol: "IrtCalibrationModel.IsExtrapolated", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: cc67b7a29}
+  - {symbol: "IrtCalibrationModel.ToIrt", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: 4a183123}
+  - {symbol: "IrtCalibrationModel.ToRtMinutes", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: 4a183123}
+  - {symbol: "IrtCalibrationModel.IsExtrapolated", path: mzLib/Chromatography/RetentionTimeCalibration/IrtCalibration.cs, pin: 4a183123}
   - {symbol: "Irt, RtMinutes", path: mzLib/MzLibUtil/RetentionTimeUnits.cs, pin: cc67b7a29}
 cite:
   - {doi: "10.1002/pmic.201100463", for: "the iRT concept: a normalized, run-independent retention time scale that a run is mapped onto by a calibration (Escher et al., Proteomics 12:1111, 2012)"}
@@ -121,7 +125,7 @@ result:
     - {wire: anchor_count, type: int, unit: anchors, nullable: false, null_means: null, doc: "Anchor lines, over every group."}
     - {wire: query_count, type: int, unit: queries, nullable: false, null_means: null, doc: "Query lines, over every group."}
     - {wire: row_count, type: int, unit: rows, nullable: false, null_means: null, doc: "Rows in columns: anchor_count + query_count."}
-    - {wire: groups, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per group in order of first appearance: {group; kind (linear or lowess, IrtCalibrationModel.Kind; null if not fitted); anchor_count (anchors, IrtCalibrationModel.AnchorCount, or the lines sent if not fitted); query_count (queries); residual_sd (iRT units: mzLib's robust residual SD of the anchors that fit, IrtCalibrationModel.ResidualSd; null if not fitted); first_anchor_minutes and last_anchor_minutes (min: the span the map is fitted over, FirstAnchor and LastAnchor; null if not fitted); error ({kind: usage, type: the mzLib exception name, message: mzLib's message} under on-error skip, else null)}."}
+    - {wire: groups, type: "object[]", unit: null, nullable: false, null_means: null, doc: "One per group in order of first appearance: {group; kind (linear or lowess, IrtCalibrationModel.Kind; null if not fitted); anchor_count (anchors the fit used, IrtCalibrationModel.AnchorCount, so since mzLib 1.0.597 (#1500) fewer than were sent when some lay in a near-empty stretch; the lines sent if not fitted); query_count (queries); residual_sd (iRT units: mzLib's robust residual SD of the anchors that fit, IrtCalibrationModel.ResidualSd; null if not fitted); first_anchor_minutes and last_anchor_minutes (min: the earliest and latest anchor the fit used, the span the map is fitted over, FirstAnchor and LastAnchor; null if not fitted); error ({kind: usage, type: the mzLib exception name, message: mzLib's message} under on-error skip, else null)}."}
     - {wire: column_names, type: "string[]", unit: null, nullable: false, null_means: null, doc: "The table's columns, in order."}
     - {wire: columns, type: table, unit: null, nullable: false, null_means: null, doc: "One row per stdin line, in input order: the anchors, then the queries."}
     - {wire: caveats, type: "string[]", unit: null, nullable: false, null_means: null, doc: "Five static caveats, plus one when any query falls outside its group's anchors (with the count), and one when any group was not fitted."}
@@ -146,6 +150,7 @@ caveats:
   - "The anchors are the caller's choice: mzLib asks for the observed apex retention time, in minutes, of confidently identified precursors paired with their library iRT (IrtCalibration.cs:29-31). The bridge applies no q-value cutoff and removes no duplicate. The fit is robust to some wrong anchors (binned medians, then Tukey bisquare reweighting), not to a wrong choice of them."
   - "residual_sd is mzLib's robust residual SD, in iRT units, of the anchors that fit: residuals beyond 3 robust SDs are set aside before it is computed (IrtCalibration.InlierSd). It understates the spread when many anchors are wrong, and a LOWESS fit to few anchors can pass through nearly all of them, so a residual_sd near 0 there means an overfit, not a perfect run. irt minus fitted_irt on the anchor rows shows every residual."
   - "Outside each group's first and last anchor the map continues as a straight line, not a fit (IrtCalibrationModel.IsExtrapolated). Read is_extrapolated before trusting a converted time there."
+  - "Since mzLib 1.0.597 (#1500), anchors in a near-empty stretch of the run are set aside before either kind of fit: mzLib cuts the anchors' time span into IrtCalibration.DensityBins (20) equal stretches and sets aside those in a stretch holding fewer than IrtCalibrationOptions.MinimumBinShare (0.05) of the busiest stretch's anchors, unless fewer than minimum_anchors would remain or those left would span no time. A few wrong identifications where little elutes would otherwise bend the curve. The set-aside anchors stay in the table, and when they lie past the fitted span their fitted_irt is extrapolated. The bridge does not yet take MinimumBinShare, so mzLib's default always applies and 0 (keep every anchor) cannot be asked for; group anchor_count shows how many were used."
   - "The fitted curve itself does not cross the wire: mzLib keeps its knots private and its constructor internal (IrtCalibrationModel), so a calibration cannot be returned and reused. Send the queries in the same call as their anchors; refitting the same anchors gives the same map, because mzLib sorts them first."
 
 bindings:
@@ -168,6 +173,7 @@ examples:
     r: "calibration <- library_calibrate_rt(anchors, queries, kind = 'linear', minimum_anchors = 10)"
 
 open_questions:
+  - "Project IrtCalibrationOptions.MinimumBinShare (mzLib 1.0.597, #1500) as an option, echoed in the envelope beside the other four, with mzLib's range check ([0, 1)) crossing as usage. Not in the 1.0.597 repin (pyMzLib#108), which takes mzLib's default."
   - "The fitted curve cannot be returned: IrtCalibrationModel's knots and end slopes are private fields and its constructor is internal (IrtCalibration.cs:273-278). A public read-only Knots (and the two end slopes) would let the envelope carry each group's curve, at most Knots points, for plotting and for reuse without refitting (PUSH-TO-MAINLAND)."
   - "IrtCalibration.Line, the two-point line a search uses before any anchors exist, is not projected: it is useful only inside a search engine. Revisit on demand."
   - "Calibrated minutes cannot be written back into a .msl: MslLibrary.WithCalibratedRetentionTimes takes a slope and intercept, and mzLib does not route it through IrtCalibrationModel (mzLib #1387 says that is a separate PR)."

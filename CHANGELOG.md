@@ -6,6 +6,39 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Built from mzLib 1.0.597** (tag commit `4a183123`). Its changes to what existing calls return
+  are listed in [Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md); the largest are below.
+- **`pride.download()` and `pride.download_files()` check what they download** (mzLib#1518): each
+  file's size against PRIDE's checksum list, and a scan for EBI's error page. A file that keeps
+  failing raises `BridgeError` instead of being returned. The MD5 is still yours to check.
+- **`stats.fit_latent_mixed()` tests features with counted samples by likelihood ratio**, and
+  reports a new status, `"unbounded"`, where the data bound an effect's sign but not its size
+  (mzLib#1522).
+- **`flashlfq.quantify()` and `flashlfq.median_polish()` quantify a protein whose peptides are
+  each seen in only one, different run**, where every run was `None` (mzLib#1486).
+- **`library.calibrate_rt()` sets aside anchors in near-empty stretches of the run** before it fits
+  (mzLib#1500).
+- **Modifications follow the current Unimod and UniProt lists** (mzLib#1415): 94 new Unimod records,
+  five deleted, one renamed, ten masses corrected. `peptidoform.convert()` links 106 more UniProt
+  modifications to Unimod (mzLib#1416, #1524).
+- **Match-between-runs transfers a few different peaks** (mzLib#1507).
+
+### Removed
+
+- **Python 3.9.** pyMzLib now needs Python 3.10 or newer. GitHub's Ubuntu 26.04 runners no longer
+  offer 3.9, so it could not be tested, and it reached end of life in October 2025 (D7, amended).
+
+### Fixed
+
+- **A UniProt outage in `peptidoform.fragments()` raises `ServiceUnavailableError`**, not
+  `UsageError` as if the accession did not exist (mzLib#1529).
+- **N,N,N-trimethylglycine's mass is corrected** like every other permanently charged modification
+  (mzLib#1415).
+- **An mzIdentML phosphorylation on a glutamate reads as `Phospho on E`**, not `Phospho on C`
+  (mzLib#1415, #1418).
+
 ### Documentation
 
 - `flashlfq.quantify()`'s `max_threads` no longer calls `1` the conservative choice. mzLib#1155 fixed

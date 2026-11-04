@@ -368,9 +368,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,  rid: linux-x64, python: '3.9' }
+          - { os: ubuntu-latest,  rid: linux-x64, python: '3.10' }
           - { os: ubuntu-latest,  rid: linux-x64, python: '3.14' }
-          - { os: windows-latest, rid: win-x64,   python: '3.9' }
+          - { os: windows-latest, rid: win-x64,   python: '3.10' }
           - { os: windows-latest, rid: win-x64,   python: '3.14' }
           - { os: macos-14,       rid: osx-arm64, python: '3.14' }   # Apple Silicon
           - { os: macos-15-intel, rid: osx-x64,   python: '3.14' }   # Intel
@@ -423,7 +423,7 @@ jobs:
     name: works with no .NET installed
     needs: build
     runs-on: ubuntu-latest
-    container: python:3.9-slim
+    container: python:3.10-slim
     steps:
       - uses: actions/download-artifact@v4
         with:

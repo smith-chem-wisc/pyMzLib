@@ -1,8 +1,8 @@
 {
- "responses_file": "F:\\ClaudeTestBuilds\\pymzlib-latent\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_responses.tsv",
- "counts_file": "F:\\ClaudeTestBuilds\\pymzlib-latent\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_counts.tsv",
- "design_file": "F:\\ClaudeTestBuilds\\pymzlib-latent\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_design.tsv",
- "groups_file": "F:\\ClaudeTestBuilds\\pymzlib-latent\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_groups.tsv",
+ "responses_file": "E:\\CodeReview\\_wt_pymzlib_597\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_responses.tsv",
+ "counts_file": "E:\\CodeReview\\_wt_pymzlib_597\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_counts.tsv",
+ "design_file": "E:\\CodeReview\\_wt_pymzlib_597\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_design.tsv",
+ "groups_file": "E:\\CodeReview\\_wt_pymzlib_597\\pkg\\python\\tests\\fixtures\\stats\\lnmm_simulated_groups.tsv",
  "depth_file": null,
  "residual_variance_file": null,
  "grouping": "animal",
@@ -118,7 +118,8 @@
   "rank_deficient": 0,
   "separated": 0,
   "not_converged": 0,
-  "too_few_groups": 0
+  "too_few_groups": 0,
+  "unbounded": 0
  },
  "row_count": 6,
  "column_names": [
@@ -164,20 +165,20 @@
    "fitted"
   ],
   "estimate": [
-   -0.6472006475551618,
-   -0.44406906861214107,
-   -0.6189297464849218,
-   1.6145118942729804,
-   0.7304018181874312,
-   1.2622480472266697
+   -0.6472006475553401,
+   -0.44406906861210704,
+   -0.6189297464779416,
+   1.614511894273075,
+   0.7304018181873115,
+   1.2622480472055988
   ],
   "standard_error": [
-   0.230475914338229,
-   0.18452841919691346,
-   0.19694811733798812,
-   0.3261855171484626,
-   0.26104444178691694,
-   0.2788597421792457
+   0.23047591433756173,
+   0.18452841919723068,
+   0.19694811729547487,
+   0.32618551714751637,
+   0.26104444178736574,
+   0.2788597421193057
   ],
   "df": [
    48,
@@ -188,28 +189,28 @@
    14
   ],
   "t": [
-   -2.808105347638969,
-   -2.406507737641579,
-   -3.1426030106333,
-   4.949673757397815,
-   2.797997969953473,
-   4.526462075028818
+   -2.8081053476478726,
+   -2.4065077376372574,
+   -3.1426030112762207,
+   4.949673757412464,
+   2.7979979699482045,
+   4.526462075926205
   ],
   "p_value": [
-   0.007184459856589689,
-   0.02000358187560557,
-   0.002868551120264262,
-   0.0002135772466021982,
-   0.014236306354242266,
-   0.0004745572094182133
+   0.010276686676004258,
+   0.022769783881925455,
+   0.0053437612974744355,
+   0.0012571756585507425,
+   0.018484024399386057,
+   0.0019864978896482906
   ],
   "residual_variance": [
-   0.21011347540734424,
-   0.20595320599182135,
-   0.30310261102734953,
-   0.21011347540734424,
-   0.20595320599182135,
-   0.30310261102734953
+   0.21011347540573194,
+   0.20595320599260852,
+   0.30310261110449993,
+   0.21011347540573194,
+   0.20595320599260852,
+   0.30310261110449993
   ],
   "residual_variance_given": [
    false,
@@ -220,20 +221,20 @@
    false
   ],
   "group_variance": [
-   0.32790016831883184,
-   0.17719338744175436,
-   0.17448601124731308,
-   0.32790016831883184,
-   0.17719338744175436,
-   0.17448601124731308
+   0.32790016831706464,
+   0.1771933874423509,
+   0.17448601108193895,
+   0.32790016831706464,
+   0.1771933874423509,
+   0.17448601108193895
   ],
   "log_likelihood": [
-   -80.37069453544997,
-   -79.45528726259323,
-   -84.82399327832057,
-   -80.37069453544997,
-   -79.45528726259323,
-   -84.82399327832057
+   -80.37069453544996,
+   -79.45528726259322,
+   -84.82399327832053,
+   -80.37069453544996,
+   -79.45528726259322,
+   -84.82399327832053
   ],
   "measured": [
    32,
@@ -264,7 +265,7 @@
   "Per feature, the latent is X beta + u_group + e, with u ~ N(0, group_variance) and e ~ N(0, residual_variance). A measured sample reads the latent. A counted sample has successes of trials succeed, each with chance g, where logit g = intercept + slope x latent + depth_slope x depth (the link), binomially, or beta-binomially with intra-cell correlation overdispersion. One random intercept per group: no random slopes, nested or crossed groupings.",
   "Responses, estimates and the link are on the latent scale, in natural log-odds when the latent is a logit (e.g. a site's occupancy): send logit values, not fractions or intensities. This fit read its counts through intercept 0.4, slope 0.6, depth_slope 0, overdispersion 0; the link and which cells are counted are the caller's choices, not the bridge's (stats fit-link fits a link).",
   "Counted samples are integrated by adaptive Gauss-Hermite quadrature, 40 nodes over the group intercept and 12 over each count's residual, as glmer's nAGQ; measured samples exactly. mzLib agrees with lme4's glmer (25-point quadrature, ML) to about 1e-6, with lmer when nothing is counted to about 1e-5, and with glmmTMB to its Laplace error.",
-  "Fixed effects are tested by Wald t on nlme's containment degrees of freedom, over the samples with a response of either kind. standard_error is sqrt of the diagonal of the inverse Hessian of the log-likelihood in beta at the estimated variances; it does not include the variances' own uncertainty.",
+  "Fixed effects are tested on nlme's containment degrees of freedom, over the samples with a response of either kind: by Wald t in a feature with nothing counted, and in a feature with counted samples by likelihood ratio, 2(l - l0) from maximum-likelihood fits whatever the estimator, read against F(1, df) (mzLib#1511). t is the Wald statistic either way, so there it is not what p_value tests. standard_error is sqrt of the diagonal of the inverse Hessian of the log-likelihood in beta at the estimated variances; it does not include the variances' own uncertainty.",
   "reml: the fixed effects are integrated out by a Laplace approximation, as glmmTMB's REML = TRUE does; it is exactly the restricted likelihood when nothing is counted. log_likelihood is that criterion: compare it only between models with the same fixed effects.",
   "separated means no estimate exists: a coefficient ran beyond +-30 on the latent scale (mzLib's SeparationLimit), the Hessian is not positive definite, or nothing was measured and every group's counts are one-sided (all 0, or all full). It is a status, never a p-value.",
   "p_value is not adjusted across features. Send one coefficient's p_value column to stats adjust for Benjamini-Hochberg."

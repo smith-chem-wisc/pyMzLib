@@ -173,7 +173,9 @@ _LATENT_SINCE = "0.7.0"
 
 #: Every value of :func:`fit_latent_mixed`'s ``status`` column: the outcomes mzLib's
 #: ``LogitNormalMixedModel.Fit`` can give a feature, read from its code (mzLib does not list them per
-#: model yet). It never reports ``variance_ratio_at_limit``. Only ``"fitted"`` rows carry statistics.
+#: model yet). It never reports ``variance_ratio_at_limit``. Only ``"fitted"`` and ``"unbounded"``
+#: rows carry statistics; an ``"unbounded"`` row's coefficient may have a ``p_value`` but no
+#: ``estimate``, ``standard_error`` or ``t``: the data bound the sign of its effect, not its size.
 LATENT_MIXED_STATUSES = (
     "fitted",
     "too_few_observations",
@@ -181,6 +183,7 @@ LATENT_MIXED_STATUSES = (
     "separated",
     "not_converged",
     "too_few_groups",
+    "unbounded",
 )
 
 _PathLike = Union[str, "os.PathLike[str]"]
@@ -1021,14 +1024,17 @@ class LatentMixedModelFit(_PerCoefficient):
     ``status``                   -                     one of :data:`LATENT_MIXED_STATUSES`
     ``estimate``                 latent units per      the fixed effect within groups, on the latent
                                  coefficient unit      scale: **natural log-odds** for a logit latent.
-                                                       ``None`` = not fitted
+                                                       ``None`` = not fitted, or this coefficient is
+                                                       the unbounded one
     ``standard_error``           latent units per      from the inverse Hessian at the estimated
                                  coefficient unit      variances
     ``df``                       degrees of freedom    nlme's containment df over the samples with a
                                                        response of either kind. ``None`` = not fitted,
                                                        or no positive df
     ``t``                        standard errors       Wald statistic, estimate / standard_error
-    ``p_value``                  fraction (0 to 1)     two-sided t test on ``df``; **not adjusted
+    ``p_value``                  fraction (0 to 1)     two-sided, against 0: the t test on ``df`` when
+                                                       nothing is counted, else a likelihood ratio on
+                                                       F(1, ``df``), so not ``t``'s; **not adjusted
                                                        across features**
     ``residual_variance``        squared latent units  sigma², run to run within a group: estimated,
                                                        or the one you gave
@@ -1070,7 +1076,8 @@ class LatentMixedModelFit(_PerCoefficient):
         column_names: The table's columns, in order.
         columns: Column name -> list of values - the shape ``pandas.DataFrame`` takes as is.
         caveats: What the model is and is not, the link it used, plus counts for this input:
-            unfitted features, rows with no df, features at the boundary, residual variances given.
+            unfitted features, unbounded features, rows with no df or no likelihood-ratio test,
+            features at the boundary, residual variances given.
     """
 
     responses_file: str | None

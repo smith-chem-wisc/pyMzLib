@@ -508,6 +508,7 @@ public partial class StatisticsTests
         Assert.That(statusCounts.Keys, Is.EqualTo(new[]
             {
                 "fitted", "too_few_observations", "rank_deficient", "separated", "not_converged", "too_few_groups",
+                "unbounded",
             }),
             "the outcomes LogitNormalMixedModel.Fit's body can return, in FeatureFitStatus order (stop-gap for mzLib#1487)");
         Assert.That(statusCounts.Values.Sum(), Is.EqualTo(5));
@@ -521,9 +522,62 @@ public partial class StatisticsTests
     {
         Assert.That(Statistics.LatentMixedFitStatuses, Is.Unique);
         Assert.That(Statistics.LatentMixedFitStatuses, Does.Contain(FeatureFitStatus.Separated));
+        Assert.That(Statistics.LatentMixedFitStatuses, Does.Contain(FeatureFitStatus.Unbounded), "mzLib#1522 (4a183123)");
         Assert.That(Statistics.LatentMixedFitStatuses, Does.Not.Contain(FeatureFitStatus.VarianceRatioAtLimit),
-            "LogitNormalMixedModel never returns it (cc67b7a2)");
+            "LogitNormalMixedModel never returns it (4a183123)");
         Assert.That(Statistics.LatentMixedFitStatuses.Select(Statistics.StatusName), Is.All.Not.Null);
+    }
+
+    /// <summary>
+    /// mzLib's ridge layouts D and E (ReferenceComparisonLogitNormalTests.TheRidgeCheckHoldsTheCoefficientAtTheEffectBound,
+    /// ReferenceData/lnmm_ridge_held.tsv at 4a183123): 8 animals of 3 runs, every run counted of 2 trials, the trait
+    /// 0 for the first four animals and 1 for the rest, sigma^2 given as 0.25, ML. Held at an effect of 10 logits, D's
+    /// likelihood is still inside the 95% region, so its trait is unbounded: no estimate, standard error or t, and the
+    /// likelihood-ratio p-value stands. E's is not, so E is fitted with an estimate. Through the wire, with the trait the
+    /// only coefficient reported, so the only one mzLib tests.
+    /// </summary>
+    [TestCase("100 000 000 000 222 000 122 001", "unbounded", -13.356256881885741, -15.090372631375084)]
+    [TestCase("001 000 000 100 221 112 212 000", "fitted", -17.455021224925833, -19.801893994497213)]
+    public void FitLatentMixed_ARidgeLayout_IsUnboundedOnlyWhereTheEffectSizeIsNot(string pattern, string status,
+        double logLikelihood, double nullLogLikelihood)
+    {
+        string[] animals = pattern.Split(' ');
+        var header = new StringBuilder("feature");
+        var row = new StringBuilder("site");
+        var designText = new StringBuilder("sample\tIntercept\ttrait\n");
+        var groupsText = new StringBuilder("sample\tanimal\n");
+        for (int g = 0; g < 8; g++)
+            for (int r = 0; r < 3; r++)
+            {
+                string sample = $"a{g}r{r}";
+                header.Append('\t').Append(sample);
+                row.Append('\t').Append(animals[g][r]).Append("/2");
+                designText.Append(sample).Append("\t1\t").Append(g < 4 ? 0 : 1).Append('\n');
+                groupsText.Append(sample).Append("\ta").Append(g).Append('\n');
+            }
+        string counts = WriteTemp("ridge_counts.tsv", header + "\n" + row + "\n");
+        string design = WriteTemp("ridge_design.tsv", designText.ToString());
+        string groups = WriteTemp("ridge_groups.tsv", groupsText.ToString());
+        string sigma = WriteTemp("ridge_sigma.tsv", "feature\tsigma2\nsite\t0.25\n");
+
+        JsonElement root = FitLatentMixed("trait\n", "--counts", counts, "--design", design, "--groups", groups,
+            "--link", "identity", "--residual-variance", sigma, "--estimator", "ml");
+
+        Assert.That(Strings(root, "status"), Is.EqualTo(new[] { status }));
+        JsonElement columns = root.GetProperty("columns");
+        Assert.That(columns.GetProperty("df")[0].GetDouble(), Is.EqualTo(6));
+        double lr = 2 * (logLikelihood - nullLogLikelihood);
+        double p = 2 * StudentT.CDF(0, 1, 6, -Math.Sqrt(lr));
+        Assert.That(columns.GetProperty("p_value")[0].GetDouble(), Is.EqualTo(p).Within(1e-5 * p),
+            "the likelihood-ratio p on F(1, 6), from mzLib's exact fits (make_lnmm_ridge_fixtures.R)");
+        bool isUnbounded = status == "unbounded";
+        foreach (string column in new[] { "estimate", "standard_error", "t" })
+            Assert.That(columns.GetProperty(column)[0].ValueKind == JsonValueKind.Null, Is.EqualTo(isUnbounded), column);
+        Assert.That(columns.GetProperty("log_likelihood")[0].GetDouble(), Is.EqualTo(logLikelihood).Within(1e-5));
+        var statusCounts = root.GetProperty("status_counts").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetInt32());
+        Assert.That(statusCounts[status], Is.EqualTo(1));
+        Assert.That(Caveats(root).Any(c => c.StartsWith("1 of 1 features are unbounded")), Is.EqualTo(isUnbounded));
+        Assert.That(Caveats(root), Has.None.Contains("were not fitted"), "an unbounded feature is fitted");
     }
 
     [Test]

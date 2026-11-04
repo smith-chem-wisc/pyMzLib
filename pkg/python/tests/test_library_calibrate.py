@@ -117,10 +117,12 @@ def test_parses_a_real_run(bridge):
     assert calibration.column_names == ["group", "role", "rt_minutes", "irt", "fitted_irt", "is_extrapolated"]
     run = calibration.group("Fig2HeLa-0-5h_MHRM_R01_T0")
     assert run is calibration.groups[0] and run.ok and run.error is None
-    assert run.kind == "lowess" and run.anchor_count == 418 and run.query_count == 228
-    assert run.residual_sd == pytest.approx(5.0035, abs=1e-4)
+    # The group counts the anchors it was fitted from: mzLib#1500 sets aside the three past 39.6 min,
+    # where the run's anchors thin out, so 415 of the 418 sent.
+    assert run.kind == "lowess" and run.anchor_count == 415 and run.query_count == 228
+    assert run.residual_sd == pytest.approx(4.9140, abs=1e-4)
     assert run.first_anchor_minutes == pytest.approx(15.988, abs=1e-3)
-    assert run.last_anchor_minutes == pytest.approx(40.903, abs=1e-3)
+    assert run.last_anchor_minutes == pytest.approx(39.555, abs=1e-3)
     rows = calibration.records
     assert len(rows) == 646
     assert {r["role"] for r in rows} == {"anchor", "to_minutes", "to_irt"}

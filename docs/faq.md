@@ -7,9 +7,9 @@ point: you should never have to know pyMzLib is C# underneath.
 
 ## Do I need a specific Python version?
 
-Python 3.9 or newer, and nothing more specific than that. pyMzLib has no compiled Python code, so
+Python 3.10 or newer, and nothing more specific than that. pyMzLib has no compiled Python code, so
 one wheel works on every Python version — unlike most scientific packages, which need a separate
-wheel per version. See [D7](design/decisions.md#d7-python-39-and-newer).
+wheel per version. See [D7](design/decisions.md#d7-python-310-and-newer).
 
 ## Will it conflict with my other packages?
 

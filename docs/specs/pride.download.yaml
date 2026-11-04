@@ -3,6 +3,8 @@
 # download_files), mzLib pin 23c2490e (PrideArchiveClient.DownloadProjectFilesAsync, DownloadFileAsync,
 # CopyUntilStalledAsync; PrideArchiveExtensions.WhereCategory, WhereExtension). No recorded fixture
 # exists for this verb (it writes files), so there is no example yet.
+# Revised 2026-11-03 for mzLib 1.0.597 (pin 4a183123, pyMzLib#108), which carries mzLib#1518 (#1517):
+# DownloadProjectFilesAsync now fetches PRIDE's checksum list once and checks each file that has a row.
 verb: pride download
 module: pride
 summary: >-
@@ -10,8 +12,9 @@ summary: >-
   paths written.
 since: {protocol: 1, pymzlib: "0.1.0", mzlibrust: "0.1.0", mzlibr: "0.1.0"}
 wraps:
-  - {symbol: PrideArchiveClient.DownloadProjectFilesAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
-  - {symbol: PrideArchiveClient.DownloadFileAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 23c2490e}
+  - {symbol: PrideArchiveClient.DownloadProjectFilesAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 4a183123}
+  - {symbol: PrideArchiveClient.DownloadFileAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 4a183123}
+  - {symbol: PrideArchiveClient.GetFileChecksumsAsync, path: mzLib/UsefulProteomicsDatabases/PrideArchiveClient.cs, pin: 4a183123}
   - {symbol: PrideArchiveExtensions.WhereCategory, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
   - {symbol: PrideArchiveExtensions.WhereExtension, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
   - {symbol: PrideArchiveExtensions.GetHttpsDownloadUrl, path: mzLib/UsefulProteomicsDatabases/PrideArchiveExtensions.cs, pin: 23c2490e}
@@ -64,7 +67,10 @@ params:
     default: false
     doc: >-
       Leave a file already present at the destination untouched and make no request for it: a
-      cheap resume. Absent, an existing file is replaced.
+      cheap resume. Absent, an existing file is replaced. Since mzLib 1.0.597 (#1518), a present
+      file that has a row in PRIDE's checksum list is kept only if its size matches the row; one
+      that does not (a truncated copy, say) is downloaded again and replaced. A file without a row
+      is kept as before.
   - name: names-from-stdin
     type: flag
     required: false
@@ -101,14 +107,15 @@ result:
 errors:
   - {kind: usage, when: "accession or dest missing or blank; category given but blank; ext given but naming no extension; names-from-stdin together with category or ext; names-from-stdin with no non-blank line on stdin"}
   - {kind: usage, when: "names-from-stdin naming a file the project's manifest does not contain (the message lists up to five). Raised AFTER the matching files have been downloaded: they are on disk when the error arrives."}
-  - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout, a socket or TLS failure, an HTTP 408, 429 or 5xx on the manifest or a file, a body that delivered nothing for mzLib's BodyStallTimeout (2 min), or a body cut off in transit"}
+  - {kind: service_unavailable, when: "the bridge's own classification (Program.ClassifyError; since mzLib 1.0.593 (#1350) PRIDE raises every transport failure as an HttpRequestException carrying the cause or the status, and messages name the file and host, never the URL): a timeout, a socket or TLS failure, an HTTP 408, 429 or 5xx on the manifest, the checksum list or a file, a body that delivered nothing for mzLib's BodyStallTimeout (2 min), or a body cut off in transit"}
   - {kind: correctness, when: "a selected file has no HTTPS location (NotSupportedException; Aspera-only); a manifest file name that is not a bare leaf name (ArgumentException: refusing to write outside dest); any other HTTP status; a local disk failure while writing (a bare IOException, e.g. a full disk, is deliberately NOT treated as an outage); a 403 from ftp.pride.ebi.ac.uk after mzLib's retries (mzLib retries it as EBI's rate limit, but the bridge classifies by status, so it crosses as correctness; PRIDE-B3 asks mzLib to mark such failures)"}
+  - {kind: correctness, when: "since mzLib 1.0.597 (#1518), as MzLibException: PRIDE's checksum list cannot be read (a header other than File-Name, File-MD5Checksum, File-Size; a malformed row; a file name listed twice), which is not retried; or a file that has a row came back at the wrong size, or holding EBI's error text, on every attempt (the message is the last attempt's and names the file and host, and no '.partial' is left behind). Whether the second is an outage waits on mzLib saying so (G-pride-transient-failures)."}
 
 caveats:
   - "Since mzLib 1.0.594 (#1412), PrideArchiveClient retries a transient failure, that request alone, after 5, 20 and 60 s (a 429 or 503 Retry-After of up to 60 s replaces the wait); transient means no HTTP status at all, 408, 429, any 5xx, or a 403 from ftp.pride.ebi.ac.uk, EBI's rate limit. Each attempt can take up to the client's 100 s timeout, so a service that hangs takes up to about 485 s per request before the failure is reported. A binding's own timeout shorter than that reports a hanging outage as a timeout, not as service_unavailable."
   - "Selects from PRIDE's REST manifest (pride files), which omits some files; a file listed only by pride ftp-files cannot be downloaded by this verb."
   - "Files are fetched one at a time, in manifest order. Each streams to '<name>.partial' and is moved into place only when complete, so an interrupted transfer never leaves a truncated file under its final name; files finished before a failure stay on disk. Since mzLib 1.0.594 (#1412), a transfer that fails after its retries leaves '<name>.partial' and '<name>.partial.validator' in dest on purpose: the next call resumes from them. dest can therefore hold these pairs after a failed call."
-  - "No size, MD5 or EBI error-page check reaches this verb. mzLib 1.0.595 verifies a download against PRIDE's checksums and the announced size, and scans a small body for EBI's error text (#1427, #1449: on 2026-10-07 and 08 about 23 of about 70 large transfers came back at the right size holding an error page), but only on the DownloadFileAsync overload that takes a PrideFileChecksum. DownloadProjectFilesAsync, which this verb calls, uses the overload without one, so such a file is reported as downloaded. Verify large files yourself, against the size and MD5 pride checksums lists, until the bridge can ask for the check."
+  - "Since mzLib 1.0.597 (#1518), each file that has a row in PRIDE's checksum list (pride checksums) is checked as it arrives: its size, and a scan for EBI's error text (any <Error><Code>), which a size check cannot see (#1427, #1449: on 2026-10-07 and 08 about 23 of about 70 large transfers came back at the right size holding an error page). A file that fails is deleted and downloaded again from its first byte, within the retry budget of a transient failure, and never reaches its final name. The MD5 is not checked: the bridge does not ask for it, so verify against pride checksums when that matters. A file without a row (PRIDE's own generated/ files, or any file of a project with no checksums) downloads unchecked. The list is fetched once per call, and not at all when nothing is selected."
   - "A filter that matches nothing, or an unknown accession, succeeds with downloaded_count 0 on the wire. The bindings raise a usage error when a category or ext filter matched nothing."
   - "Downloads can be very large (PXD000001's single .raw is about 220 MB); list first and filter or select."
 
@@ -123,5 +130,5 @@ examples: []
 
 open_questions:
   - "No recorded fixture, so no checked example: a replay needs a stub bridge that also fakes the written files. The envelope keys above are read from the object PrideDownloadAsync returns, not from a recording."
-  - "The unmatched-selection check runs after the download, so a typo in one name still downloads every other selected file before failing. Checking the manifest first would need the bridge to fetch it separately from DownloadProjectFilesAsync."
+  - "The unmatched-selection check runs after the download, so a typo in one name still downloads every other selected file before failing. mzLib 1.0.597 (#1518) has DownloadProjectFilesByNameAsync, which refuses an unknown name before any download, but it throws MzLibException for it, the type it also throws when a file fails its checks. The bridge could tell the caller's typo (usage) from mzLib's failure (correctness) only by reading the message, so it keeps its own check until mzLib gives the unknown name its own type (UPSTREAM.md U9, mzLib#1544)."
   - "A zero-match filter is a usage error in the bindings but a success on the wire; whether the wire should raise it (as it does for an unmatched names-from-stdin selection) is undecided."
