@@ -372,8 +372,13 @@ jobs:
           - { os: ubuntu-latest,  rid: linux-x64, python: '3.14' }
           - { os: windows-latest, rid: win-x64,   python: '3.10' }
           - { os: windows-latest, rid: win-x64,   python: '3.14' }
-          - { os: macos-14,       rid: osx-arm64, python: '3.14' }   # Apple Silicon
+          - { os: macos-15,       rid: osx-arm64, python: '3.14' }   # Apple Silicon
           - { os: macos-15-intel, rid: osx-x64,   python: '3.14' }   # Intel
+          #
+          # macos-14 stopped being offered by 2026-11-10: its job was cancelled within two seconds
+          # with "The configuration 'macos-14-arm64-us-default' is not supported", and the run
+          # still let the pull request merge, because this job is not a required check. A tag run
+          # would have skipped the release and PyPI jobs, which need every row here.
           #
           # macos-13 was retired on 4 December 2025, and a job naming a retired image queues
           # forever rather than failing — a miserable way to find out. macos-15-intel is the
