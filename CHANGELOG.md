@@ -6,6 +6,29 @@ envelope is not a breaking change unless Python callers can see it.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-09
+
+Built from mzLib 1.0.597 (tag commit `4a183123`), up from 1.0.596. This release adds no new calls.
+It brings what 1.0.597 fixed and the current modification lists, and it needs Python 3.10 or newer:
+- Unimod's current list (1,560 records, up from a 2017 copy's 1,471) and UniProt's 2026_03 list,
+  with 106 more UniProt modifications that `peptidoform.convert()` can turn into Unimod;
+- `pride.download()` checks each file's size and refuses EBI's error page;
+- `stats.fit_latent_mixed()` tests features with counted samples by likelihood ratio;
+- a UniProt outage in `peptidoform.fragments()` is reported as an outage.
+
+Several existing calls give a different answer, all because mzLib changed them:
+- `peptidoform.convert()` on Unimod records mzLib no longer ships, and on corrected masses;
+- mzIdentML phosphorylation on a glutamate, which read as a cysteine;
+- `flashlfq.quantify()`'s match-between-runs, and proteins whose peptides are each seen in one run;
+- `stats.fit_latent_mixed()`'s p-values near a ridge, and its new `"unbounded"` status;
+- `library.calibrate_rt()`, which sets aside anchors in near-empty stretches of the run;
+- `proteins.annotate_go()` for a sequence variant of an isoform.
+
+[Upgrading](https://github.com/smith-chem-wisc/pyMzLib/blob/main/docs/upgrading.md) lists each one.
+
+Still to come: the peptide-level nested mixed model. mzLib#1519 ships in 1.0.597; pyMzLib's call
+is not written yet.
+
 ### Changed
 
 - **Built from mzLib 1.0.597** (tag commit `4a183123`). Its changes to what existing calls return
@@ -896,7 +919,8 @@ The first release on PyPI: `pip install mzlib`.
   knob, PRIDE's decompressed-size / incomplete-manifest reporting, and the trypsin vs `trypsin|P`
   peptide-count figure.
 
-[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.7.0...main
+[Unreleased]: https://github.com/smith-chem-wisc/pyMzLib/compare/v0.8.0...main
+[0.8.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.8.0
 [0.7.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.7.0
 [0.6.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.6.0
 [0.5.0]: https://github.com/smith-chem-wisc/pyMzLib/releases/tag/v0.5.0
