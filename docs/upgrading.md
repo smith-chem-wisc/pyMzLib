@@ -9,7 +9,7 @@ Each entry names the mzLib pull request it comes from, so you can read the chang
 [changelog](https://github.com/smith-chem-wisc/pyMzLib/blob/main/CHANGELOG.md) has everything else.
 Which mzLib a bridge was built from is in `pymzlib.bridge_version()["mzlib"]`.
 
-## Unreleased (built from mzLib 1.0.597)
+## 0.8.0 (built from mzLib 1.0.597)
 
 This release moves mzLib from 1.0.596 to 1.0.597. It also refreshes the modification lists mzLib
 ships: Unimod moves from a 2017 copy to the current one (1,471 records to 1,560), and UniProt's
